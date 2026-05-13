@@ -17,6 +17,8 @@ from app.models import User, UserRole
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
+# Allow small time drift between client/browser and container clock.
+FIREBASE_CLOCK_SKEW_SECONDS = 10
 
 
 def _init_firebase(settings: Settings) -> None:
@@ -29,17 +31,39 @@ def _init_firebase(settings: Settings) -> None:
         pass
     cred_path = settings.firebase_credentials_path or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     json_blob = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if json_blob:
-        info = json.loads(json_blob)
-        cred = credentials.Certificate(info)
-    elif cred_path:
-        cred = credentials.Certificate(cred_path)
-    else:
-        cred = credentials.ApplicationDefault()
     opts: dict[str, str] = {}
     if settings.firebase_project_id:
         opts["projectId"] = settings.firebase_project_id
-    firebase_admin.initialize_app(cred, opts)
+
+    if json_blob:
+        info = json.loads(json_blob)
+        cred = credentials.Certificate(info)
+        firebase_admin.initialize_app(cred, opts)
+        return
+
+    if cred_path:
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred, opts)
+        return
+
+    # Local/dev fallback: ID token verification only needs project context.
+    # Try project-only init first to avoid forcing ADC when not required.
+    if settings.firebase_project_id:
+        try:
+            firebase_admin.initialize_app(options=opts)
+            return
+        except Exception:
+            # Fall through to ADC path if the runtime still requires credentials.
+            pass
+
+    try:
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, opts)
+    except Exception as exc:
+        raise RuntimeError(
+            "Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or "
+            "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local smoke tests."
+        ) from exc
 
 
 def verify_firebase_id_token_string(id_token: str | None, settings: Settings) -> dict:
@@ -48,9 +72,12 @@ def verify_firebase_id_token_string(id_token: str | None, settings: Settings) ->
         return {"uid": "dev-user", "email": "dev@example.com"}
     if not id_token or not id_token.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="id_token is required")
-    _init_firebase(settings)
     try:
-        return auth.verify_id_token(id_token.strip())
+        _init_firebase(settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    try:
+        return auth.verify_id_token(id_token.strip(), clock_skew_seconds=FIREBASE_CLOCK_SKEW_SECONDS)
     except Exception as exc:
         logger.info("Invalid Firebase id_token: %s", exc)
         raise HTTPException(
@@ -67,9 +94,14 @@ def verify_firebase_token(
         return {"uid": "dev-user", "email": "dev@example.com"}
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    _init_firebase(settings)
     try:
-        return auth.verify_id_token(creds.credentials)
+        _init_firebase(settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    try:
+        return auth.verify_id_token(
+            creds.credentials, clock_skew_seconds=FIREBASE_CLOCK_SKEW_SECONDS
+        )
     except Exception as exc:
         logger.info("Invalid Firebase token: %s", exc)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
