@@ -42,10 +42,27 @@ def _init_firebase(settings: Settings) -> None:
     firebase_admin.initialize_app(cred, opts)
 
 
+def verify_firebase_id_token_string(id_token: str | None, settings: Settings) -> dict:
+    """Verify a raw Firebase ID token string (e.g. from POST /auth/login)."""
+    if settings.firebase_auth_disabled:
+        return {"uid": "dev-user", "email": "dev@example.com"}
+    if not id_token or not id_token.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="id_token is required")
+    _init_firebase(settings)
+    try:
+        return auth.verify_id_token(id_token.strip())
+    except Exception as exc:
+        logger.info("Invalid Firebase id_token: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired id_token"
+        ) from exc
+
+
 def verify_firebase_token(
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict:
+    """Verify Authorization: Bearer <Firebase ID token>."""
     if settings.firebase_auth_disabled:
         return {"uid": "dev-user", "email": "dev@example.com"}
     if creds is None or creds.scheme.lower() != "bearer":
@@ -58,32 +75,56 @@ def verify_firebase_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
 
 
-def get_current_user(
-    token: Annotated[dict, Depends(verify_firebase_token)],
-    db: Annotated[Session, Depends(get_db)],
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> User:
+def ensure_user_for_firebase_claims(db: Session, settings: Settings, claims: dict) -> User:
+    """Create or update the portal user row for Firebase uid / email."""
     if settings.firebase_auth_disabled:
-        user = db.query(User).filter(User.firebase_uid == "dev-user").one_or_none()
+        uid = "dev-user"
+        email = "dev@example.com"
+        user = db.query(User).filter(User.firebase_uid == uid).one_or_none()
         if user is None:
-            user = User(firebase_uid="dev-user", email="dev@example.com", role=UserRole.ADMIN)
+            user = User(firebase_uid=uid, email=email, role=UserRole.ADMIN)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user
+        if user.email != email:
+            user.email = email
             db.add(user)
             db.commit()
             db.refresh(user)
         return user
 
-    uid = token.get("uid")
+    uid = claims.get("uid")
     if not uid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing uid")
+    email = claims.get("email")
+    if isinstance(email, str):
+        email = email.strip() or None
+    else:
+        email = None
 
     user = db.query(User).filter(User.firebase_uid == uid).one_or_none()
     if user is None:
-        email = token.get("email")
         user = User(firebase_uid=uid, email=email, role=UserRole.CLIENT)
         db.add(user)
         db.commit()
         db.refresh(user)
+        return user
+
+    if email and user.email != email:
+        user.email = email
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     return user
+
+
+def get_current_user(
+    token: Annotated[dict, Depends(verify_firebase_token)],
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> User:
+    return ensure_user_for_firebase_claims(db, settings, token)
 
 
 def require_roles(*allowed: UserRole):
