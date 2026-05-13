@@ -1,0 +1,83 @@
+# Orchestrates MariaDB, FastAPI, admin-frontend, and client-frontend.
+# Compose "extends" is deprecated; each service uses an explicit build context instead.
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: portal-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootsecret}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-portal}
+      MARIADB_USER: ${MARIADB_USER:-portal}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-portalsecret}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+      --innodb_buffer_pool_size=256M
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api-backend:
+    build:
+      context: ./api-backend
+      dockerfile: Dockerfile
+    container_name: portal-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://${MARIADB_USER:-portal}:${MARIADB_PASSWORD:-portalsecret}@mariadb:3306/${MARIADB_DATABASE:-portal}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
+      FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-true}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  admin-frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: portal-admin
+    restart: unless-stopped
+    depends_on:
+      - api-backend
+    ports:
+      - "${ADMIN_PORT:-3001}:3000"
+
+  client-frontend:
+    build:
+      context: ./client-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: portal-client
+    restart: unless-stopped
+    depends_on:
+      - api-backend
+    ports:
+      - "${CLIENT_PORT:-3000}:3000"
+
+volumes:
+  mariadb_data:

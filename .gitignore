@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+*.log
+.DS_Store
+
+# Firebase Admin SDK and similar secrets (do not commit)
+*firebase-adminsdk*.json
+*-firebase-adminsdk-*.json
+api-backend/firebase*.json
+api-backend/client-web-portal*.json

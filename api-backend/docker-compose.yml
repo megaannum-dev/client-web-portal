@@ -1,0 +1,47 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: portal-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootsecret}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-portal}
+      MARIADB_USER: ${MARIADB_USER:-portal}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-portalsecret}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+      --innodb_buffer_pool_size=256M
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portal-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://${MARIADB_USER:-portal}:${MARIADB_PASSWORD:-portalsecret}@mariadb:3306/${MARIADB_DATABASE:-portal}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
+      FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-true}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+volumes:
+  mariadb_data:
