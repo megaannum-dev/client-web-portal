@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -10,7 +11,7 @@ import { formatFirebaseAuthError } from "@/lib/firebase-auth-errors";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  const next = searchParams.get("next") || "/overview";
 
   const {
     user,
@@ -19,13 +20,18 @@ function LoginForm() {
     backendSyncing,
     backendSyncError,
     firebaseReady,
-    signInWithGoogle,
     signInWithEmailPassword,
+    signInWithGoogle,
   } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const busy = loading || backendSyncing || submitting;
 
   useEffect(() => {
     if (!loading && !backendSyncing && user && portalUser) {
@@ -33,21 +39,24 @@ function LoginForm() {
     }
   }, [loading, backendSyncing, user, portalUser, next, router]);
 
-  const onEmailSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     if (!email.trim() || !password) {
-      setFormError("Enter email and password.");
+      setFormError("Please enter your email and password.");
       return;
     }
+    setSubmitting(true);
     try {
       await signInWithEmailPassword(email, password);
     } catch (err) {
       setFormError(formatFirebaseAuthError(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const onGoogle = async () => {
+  const onGoogleLogin = async () => {
     setFormError(null);
     try {
       await signInWithGoogle();
@@ -57,81 +66,182 @@ function LoginForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-corporate">Sign in</h1>
-      <p className="mt-2 text-sm text-corporate">Use your portal credentials or Google.</p>
+    <div className="flex flex-col items-center w-full max-w-[480px]">
 
-      {!firebaseReady && (
-        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-          Set <code className="text-xs">NEXT_PUBLIC_FIREBASE_*</code> in{" "}
-          <code className="text-xs">.env.local</code> to enable authentication.
-        </p>
-      )}
+      {/* Logo */}
+      <div className="flex items-center gap-3 mb-8">
+        <Image src="/favicon.png" alt="Megaannum" width={52} height={52} />
+        <span className="text-[22px] font-extrabold tracking-[-0.033em] text-on-surface leading-[28px]">
+          Megaannum Client Portal
+        </span>
+      </div>
 
-      {(formError || (user && backendSyncError)) && (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{formError ?? backendSyncError}</p>
-      )}
-
-      <form className="mt-6 flex flex-col gap-4" onSubmit={onEmailSubmit}>
-        <label className="block text-sm font-medium text-corporate">
-          Email
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-            disabled={!firebaseReady || loading || backendSyncing}
-          />
-        </label>
-        <label className="block text-sm font-medium text-corporate">
-          Password
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-            disabled={!firebaseReady || loading || backendSyncing}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!firebaseReady || loading || backendSyncing}
-          className="rounded-lg bg-brand py-2.5 text-sm font-semibold text-brand-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {backendSyncing ? "Signing in…" : "Sign in with email"}
-        </button>
-      </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-corporate-muted" />
+      <div className="w-full bg-surface-lowest border border-[#e0e0e0] rounded-lg shadow-[0px_0px_10px_rgba(0,0,0,0.15)] px-8 py-6 sm:px-9 sm:py-7 flex flex-col gap-5">
+        {/* Heading */}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-headline-lg font-semibold text-on-surface tracking-tight text-center">
+            Welcome back
+          </h1>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-corporate">Or</span>
+
+        {/* Firebase not configured warning */}
+        {!firebaseReady && (
+          <p className="rounded bg-amber-50 border border-amber-200 px-4 py-3 text-body-sm text-amber-900">
+            Set <code className="text-xs">NEXT_PUBLIC_FIREBASE_*</code> in{" "}
+            <code className="text-xs">.env.local</code> to enable authentication.
+          </p>
+        )}
+
+        {/* Error */}
+        {(formError || (user && backendSyncError)) && (
+          <p className="rounded bg-error-container border border-error/20 px-4 py-3 text-body-sm text-error">
+            {formError ?? backendSyncError}
+          </p>
+        )}
+
+        {/* Form */}
+        <form className="flex flex-col gap-6" onSubmit={onSubmit} noValidate>
+
+          {/* Email */}
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="email"
+              className="text-label-md font-semibold tracking-[0.05em] uppercase text-on-surface"
+            >
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={!firebaseReady || busy}
+              className="w-full border border-[#e0e0e0] rounded px-4 py-2.5 text-body-md text-on-surface placeholder:text-secondary-fixed-dim bg-surface-lowest outline-none focus:border-outline transition-colors duration-150 disabled:opacity-50"
+            />
+          </div>
+
+          {/* Password */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="text-label-md font-semibold tracking-[0.05em] uppercase text-on-surface"
+              >
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-label-md font-bold text-primary hover:opacity-80 transition-opacity"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={!firebaseReady || busy}
+                className="w-full border border-[#e0e0e0] rounded px-4 py-2.5 pr-12 text-body-md text-on-surface placeholder:text-secondary-fixed-dim bg-surface-lowest outline-none focus:border-outline transition-colors duration-150 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary hover:text-on-surface transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 8C1 8 4.5 1 11 1C17.5 1 21 8 21 8C21 8 17.5 15 11 15C4.5 15 1 8 1 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                ) : (
+                  <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L21 15M9.16 3.35C9.75 3.13 10.37 3 11 3C17.5 3 21 10 21 10C20.44 11.01 19.78 11.95 19.03 12.8M5.24 5.24C3.27 6.55 1.96 8.35 1 10C1 10 4.5 17 11 17C12.9 17 14.6 16.46 16.06 15.56" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Remember me */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="size-4 rounded-sm border border-[#e0e0e0] accent-primary cursor-pointer shrink-0"
+            />
+            <span className="text-body-sm text-secondary">Keep me signed in for 30 days</span>
+          </label>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={!firebaseReady || busy}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold text-body-md rounded py-3 shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {busy ? "Signing in…" : (
+              <>
+                Sign In
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 7H13M13 7L7 1M13 7L7 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="relative flex items-center gap-4">
+          <div className="flex-1 h-px bg-[#e0e0e0]" />
+          <span className="text-label-md text-secondary-fixed-dim tracking-[0.05em] uppercase">or</span>
+          <div className="flex-1 h-px bg-[#e0e0e0]" />
+        </div>
+
+        {/* Google Login */}
+        <button
+          type="button"
+          onClick={onGoogleLogin}
+          disabled={!firebaseReady || busy}
+          className="w-full flex items-center justify-center gap-2.5 border border-[#e0e0e0] rounded py-2.5 text-body-md font-bold text-secondary hover:bg-surface-container transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19.6 10.23c0-.68-.06-1.36-.18-2H10v3.77h5.39a4.6 4.6 0 0 1-2 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.3Z" fill="#4285F4"/>
+            <path d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.23-2.51c-.9.6-2.04.96-3.39.96-2.6 0-4.8-1.76-5.59-4.12H1.07v2.6A10 10 0 0 0 10 20Z" fill="#34A853"/>
+            <path d="M4.41 11.91A6.02 6.02 0 0 1 4.09 10c0-.66.11-1.3.32-1.91V5.49H1.07A10.02 10.02 0 0 0 0 10c0 1.61.39 3.14 1.07 4.51l3.34-2.6Z" fill="#FBBC05"/>
+            <path d="M10 3.96c1.47 0 2.79.5 3.82 1.5L16.69 2.4A9.96 9.96 0 0 0 10 0 10 10 0 0 0 1.07 5.49l3.34 2.6C5.2 5.72 7.4 3.96 10 3.96Z" fill="#EA4335"/>
+          </svg>
+          Continue with Google account
+        </button>
+
+        {/* Footer */}
+        <div className="pt-3 flex flex-col items-center gap-3">
+          <p className="text-body-sm text-secondary text-center">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="font-bold text-primary hover:opacity-80 transition-opacity">
+              Contact Administrator
+            </Link>
+          </p>
+          <div className="flex items-center gap-6">
+            <Link href="/privacy" className="text-label-md font-semibold text-secondary tracking-[0.05em] hover:text-on-surface transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-label-md font-semibold text-secondary tracking-[0.05em] hover:text-on-surface transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onGoogle}
-        disabled={!firebaseReady || loading || backendSyncing}
-        className="w-full rounded-lg border border-corporate-muted py-2.5 text-sm font-semibold text-corporate transition hover:bg-corporate-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Continue with Google
-      </button>
-
-      <p className="mt-6 text-center text-sm text-corporate">
-        No account?{" "}
-        <Link href="/register" className="font-semibold text-brand hover:underline">
-          Create one
-        </Link>
-      </p>
-      <p className="mt-3 text-center text-sm">
-        <Link href="/" className="text-corporate hover:text-brand">
-          ← Back to home
-        </Link>
+      {/* Copyright */}
+      <p className="mt-6 text-label-md text-secondary-fixed-dim tracking-[0.05em] text-center">
+        © 2024 Megaannum Client Portal. Institutional Grade Data Management.
       </p>
     </div>
   );
@@ -139,11 +249,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-corporate-muted/40 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-surface px-6 py-8 sm:py-10">
       <Suspense
         fallback={
-          <div className="text-sm text-corporate" aria-live="polite">
-            Loading…
+          <div className="flex items-center justify-center">
+            <div className="size-6 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
           </div>
         }
       >
