@@ -1,4 +1,4 @@
-import { PlaceholderPage } from "@/components/dashboard/PlaceholderPage";
+import { PlaceholderPage } from "@/components/PlaceholderPage";
 
 export default function CommonQueryPage() {
   return (

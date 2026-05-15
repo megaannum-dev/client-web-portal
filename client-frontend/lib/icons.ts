@@ -12,6 +12,7 @@ export {
   LogOut,
   Menu,
   PanelLeftClose,
+  PanelLeftOpen,
   UserRound,
   // Sidebar nav
   Briefcase,
@@ -39,4 +40,20 @@ export {
   UserSearch,
   ClipboardCheck,
   Lock,
+  // Activity page
+  AlarmClock,
+  BarChart2,
+  // Settings page
+  SlidersHorizontal,
+  Camera,
+  // Profile page
+  Eye,
+  EyeOff,
+  Pencil,
+  Zap,
+  // Settings page (redesign)
+  ShieldCheck,
+  CreditCard,
+  KeyRound,
+  Trash2,
 } from "lucide-react";

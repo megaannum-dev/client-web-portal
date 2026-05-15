@@ -67,12 +67,19 @@ const config: Config = {
           "on-fixed": "#151c27",
           "on-fixed-variant": "#404753",
         },
-        // Semantic
+        // Semantic — system errors (unrecoverable, destructive)
         error: {
           DEFAULT: "#ba1a1a",
           foreground: "#ffffff",
           container: "#ffdad6",
           "on-container": "#93000a",
+        },
+        // Warning — urgency, approaching deadlines, compliance reminders
+        warning: {
+          DEFAULT: "#d32f2f",        // vivid red — clear urgency signal
+          foreground: "#ffffff",
+          container: "#ffebee",      // soft red tint for card backgrounds
+          "on-container": "#b71c1c", // dark red for text on the light container
         },
         // Legacy aliases kept for existing code
         brand: { DEFAULT: "#f27405", foreground: "#ffffff" },

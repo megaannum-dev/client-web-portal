@@ -5,18 +5,19 @@ import {
   LayoutDashboard,
   Briefcase,
   FileText,
-
   Activity,
-  LifeBuoy,
+  Settings,
+  UserRound,
 } from "@/lib/icons";
 import { NavItem } from "./NavItem";
 
 const NAV_ITEMS = [
-  { href: "/overview",   icon: LayoutDashboard, label: "Overview"  },
-  { href: "/portfolio",  icon: Briefcase,        label: "Portfolio" },
-  { href: "/reports",    icon: FileText,         label: "Reports"   },
-  { href: "/activity",   icon: Activity,         label: "Activity"  },
-  { href: "/support",    icon: LifeBuoy,         label: "Support"   },
+  { href: "/overview",   icon: LayoutDashboard, label: "Overview"   },
+  { href: "/portfolio",  icon: Briefcase,       label: "Portfolios" },
+  { href: "/reports",    icon: FileText,        label: "Reports"    },
+  { href: "/activity",   icon: Activity,        label: "Activity"   },
+  { href: "/profile",    icon: UserRound,       label: "Profile"    },
+  { href: "/settings",   icon: Settings,        label: "Settings"   },
 ] as const;
 
 export function SidebarNav() {

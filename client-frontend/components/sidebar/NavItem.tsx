@@ -15,7 +15,7 @@ export function NavItem({ href, icon: Icon, label, active = false }: NavItemProp
       className={[
         "flex items-center gap-3 py-3 pl-4 pr-5 w-full transition-colors duration-150",
         active
-          ? "border-r-4 border-primary rounded-br rounded-tr text-primary"
+          ? "bg-primary rounded text-white"
           : "rounded text-secondary hover:bg-surface-container hover:text-on-surface",
       ].join(" ")}
       aria-current={active ? "page" : undefined}
