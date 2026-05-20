@@ -3,8 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.deps.auth import ensure_user_for_firebase_claims, get_current_user, verify_firebase_id_token_string
-from app.models import User, UserRole
+from app.deps.auth import (
+    default_role_for_portal,
+    ensure_user_for_firebase_claims,
+    get_current_user,
+    verify_firebase_id_token_string,
+)
+from app.models import User
 from app.schemas.auth import FirebaseLoginBody
 from app.schemas.user import UserOut
 
@@ -31,7 +36,7 @@ def register_with_firebase(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Portal dev user already exists. Use POST /api/auth/login.",
             )
-        return ensure_user_for_firebase_claims(db, settings, claims)
+        return ensure_user_for_firebase_claims(db, settings, claims, portal=body.portal)
 
     uid = claims.get("uid")
     if not uid:
@@ -50,7 +55,7 @@ def register_with_firebase(
     else:
         email = None
 
-    user = User(firebase_uid=uid, email=email, role=UserRole.CLIENT)
+    user = User(firebase_uid=uid, email=email, role=default_role_for_portal(body.portal))
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -70,7 +75,7 @@ def login_with_firebase(
     (the client helper `syncPortalUserAfterFirebaseAuth` tries register, then login on 409).
     """
     claims = verify_firebase_id_token_string(body.id_token, settings)
-    return ensure_user_for_firebase_claims(db, settings, claims)
+    return ensure_user_for_firebase_claims(db, settings, claims, portal=body.portal)
 
 
 @router.get("/me", response_model=UserOut)

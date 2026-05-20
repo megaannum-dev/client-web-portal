@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { Building2, Eye, EyeClosed } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFirebaseAuthError } from "@/lib/firebase-auth-errors";
 
 function LoginForm() {
@@ -70,9 +71,12 @@ function LoginForm() {
 
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
-        <Image src="/favicon.png" alt="Megaannum" width={52} height={52} />
+        {/* <Image src="/favicon.png" alt="Megaannum" width={52} height={52} /> */}
+        <div className="bg-primary rounded p-1">
+          <Building2 size={25} strokeWidth={2} stroke="white"/>
+        </div>
         <span className="text-[22px] font-extrabold tracking-[-0.033em] text-on-surface leading-[28px]">
-          Megaannum Client Portal
+            AlphaTrade  {/* Dummy logo name*/}
         </span>
       </div>
 
@@ -156,14 +160,9 @@ function LoginForm() {
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
-                  <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 8C1 8 4.5 1 11 1C17.5 1 21 8 21 8C21 8 17.5 15 11 15C4.5 15 1 8 1 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="11" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/>
-                  </svg>
+                  <Eye width={22} height={16}/>
                 ) : (
-                  <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L21 15M9.16 3.35C9.75 3.13 10.37 3 11 3C17.5 3 21 10 21 10C20.44 11.01 19.78 11.95 19.03 12.8M5.24 5.24C3.27 6.55 1.96 8.35 1 10C1 10 4.5 17 11 17C12.9 17 14.6 16.46 16.06 15.56" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <EyeClosed width={22} height={16}/>
                 )}
               </button>
             </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { formatFirebaseAuthError, getFirebaseAuthErrorCode } from "@/lib/firebase-auth-errors";
 
 export default function RegisterPage() {

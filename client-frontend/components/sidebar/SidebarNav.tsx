@@ -14,8 +14,8 @@ import { NavItem } from "./NavItem";
 const NAV_ITEMS = [
   { href: "/overview",   icon: LayoutDashboard, label: "Overview"   },
   { href: "/portfolio",  icon: Briefcase,       label: "Portfolios" },
-  { href: "/reports",    icon: FileText,        label: "Reports"    },
-  { href: "/activity",   icon: Activity,        label: "Activity"   },
+  { href: "/documents",    icon: FileText,        label: "Documents"    },
+  { href: "/events",     icon: Activity,        label: "Events"     },
   { href: "/profile",    icon: UserRound,       label: "Profile"    },
   { href: "/settings",   icon: Settings,        label: "Settings"   },
 ] as const;

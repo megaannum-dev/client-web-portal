@@ -5,6 +5,7 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
@@ -66,6 +67,27 @@ const config: Config = {
           "fixed-dim": "#c0c7d6",
           "on-fixed": "#151c27",
           "on-fixed-variant": "#404753",
+        },
+        // Success — completed, verified, low-risk states
+        success: {
+          DEFAULT: "#16a34a",
+          foreground: "#ffffff",
+          container: "#f0fdf4",
+          "on-container": "#15803d",
+        },
+        // Caution — in-progress, pending, medium-risk states
+        caution: {
+          DEFAULT: "#ea580c",
+          foreground: "#ffffff",
+          container: "#fff7ed",
+          "on-container": "#c2410c",
+        },
+        // Info — confirmatory states, under-review status
+        info: {
+          DEFAULT: "#2e7d32",
+          foreground: "#ffffff",
+          container: "#f1f8f2",
+          "on-container": "#1b5e20",
         },
         // Semantic — system errors (unrecoverable, destructive)
         error: {

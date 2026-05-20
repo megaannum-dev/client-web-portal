@@ -13,7 +13,7 @@ import {
   Trash2,
   Plus,
 } from "@/lib/icons";
-import { useAuth } from "@/components/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { PageHeader }  from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 

@@ -15,6 +15,7 @@ export {
   PanelLeftOpen,
   UserRound,
   // Sidebar nav
+  Building2,
   Briefcase,
   FileText,
   Activity,
@@ -35,6 +36,7 @@ export {
   TrendingDown,
   CheckCircle2,
   Shield,
+  ChevronDown,
   ChevronLeft,
   // Reports page
   UserSearch,
@@ -51,7 +53,9 @@ export {
   EyeOff,
   Pencil,
   Zap,
-  // Settings page (redesign)
+  X,
+  CloudUpload,
+  // Settings page
   ShieldCheck,
   CreditCard,
   KeyRound,
