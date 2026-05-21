@@ -1,107 +1,117 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Link from "next/link";
 
 import { useAuth } from "@/components/AuthProvider";
-import type { PortalUser } from "@/types/portal";
-
-const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Home() {
-  const { user, loading, firebaseReady, signInWithGoogle, signOutUser, getIdToken } = useAuth();
-  const [profile, setProfile] = useState<PortalUser | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    user,
+    portalUser,
+    loading,
+    backendSyncing,
+    backendSyncError,
+    firebaseReady,
+    signOutUser,
+  } = useAuth();
 
-  const loadProfile = useCallback(async () => {
-    setError(null);
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    const token = await getIdToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    const res = await fetch(`${apiBase}/api/users/me`, { headers });
-    if (!res.ok) {
-      const text = await res.text();
-      setError(text || res.statusText);
-      setProfile(null);
-      return;
-    }
-    const data = (await res.json()) as PortalUser;
-    setProfile(data);
-  }, [getIdToken]);
+  const sessionReady = Boolean(user && portalUser);
+  const profile = portalUser;
 
   return (
     <main className="min-h-screen bg-corporate-muted/40">
       <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-16">
         <header className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand">Admin portal</p>
-          <h1 className="mt-2 text-3xl font-semibold text-corporate">Operations & compliance</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-corporate">Company Internal CRM</h1>
           <p className="mt-3 text-corporate">
-            Sign in with Firebase, then call the FastAPI backend with your ID token. Corporate theme
-            uses brand orange, neutral gray, and light surfaces.
+            {sessionReady
+              ? "You are signed in. Your profile and role are stored in the portal API."
+              : "Sign in to use the portal. Authentication uses Firebase; the API stores your role and profile."}
           </p>
         </header>
 
-        <section className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-corporate">Authentication</h2>
-          {!firebaseReady && (
-            <p className="mt-3 text-sm text-corporate">
-              Set{" "}
-              <code className="rounded bg-corporate-muted/60 px-1 py-0.5 text-xs">
-                NEXT_PUBLIC_FIREBASE_* 
-              </code>{" "}
-              variables before building the image or running locally.
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => signInWithGoogle()}
-              disabled={!firebaseReady || loading}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Sign in with Google
-            </button>
-            <button
-              type="button"
-              onClick={() => signOutUser()}
-              disabled={!user || loading}
-              className="rounded-lg border border-corporate-muted px-4 py-2 text-sm font-semibold text-corporate transition hover:bg-corporate-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Sign out
-            </button>
-          </div>
-          <p className="mt-3 text-sm text-corporate">
-            {loading && "Checking session…"}
-            {!loading && user && `Signed in as ${user.email ?? user.uid}`}
-            {!loading && !user && firebaseReady && "No active session."}
-          </p>
-        </section>
+        {!firebaseReady && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+            Add Firebase web config to <code className="text-xs">.env.local</code> (see{" "}
+            <code className="text-xs">.env.example</code>).
+          </section>
+        )}
 
-        <section className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-corporate">API profile</h2>
-          <p className="mt-2 text-sm text-corporate">
-            Calls <code className="rounded bg-corporate-muted/60 px-1 py-0.5 text-xs">GET /api/users/me</code>
-            . When the API runs with{" "}
-            <code className="rounded bg-corporate-muted/60 px-1 py-0.5 text-xs">FIREBASE_AUTH_DISABLED=true</code>
-            , a bearer token is optional for local smoke tests.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={loadProfile}
-              className="rounded-lg bg-corporate px-4 py-2 text-sm font-semibold text-white shadow transition hover:opacity-90"
-            >
-              Load profile from API
-            </button>
-          </div>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-          {profile && (
-            <pre className="mt-4 overflow-x-auto rounded-lg bg-corporate-muted/40 p-4 text-xs text-corporate">
-              {JSON.stringify(profile, null, 2)}
-            </pre>
-          )}
-        </section>
+        {(loading || backendSyncing) && firebaseReady && (
+          <section className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
+            <p className="text-sm text-corporate" aria-live="polite">
+              {backendSyncing ? "Connecting to the portal API…" : "Checking session…"}
+            </p>
+          </section>
+        )}
+
+        {!loading && !backendSyncing && user && !portalUser && backendSyncError && (
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-900">
+            <p className="font-semibold">Could not sync with the portal API</p>
+            <p className="mt-2">{backendSyncError}</p>
+            <p className="mt-3 text-corporate">
+              Make sure the API is running (e.g. <code className="text-xs">http://localhost:8000</code>) and{" "}
+              <code className="text-xs">NEXT_PUBLIC_API_BASE_URL</code> in <code className="text-xs">.env.local</code>{" "}
+              matches.
+            </p>
+            <Link href="/login" className="mt-4 inline-block font-semibold text-brand hover:underline">
+              Back to sign in
+            </Link>
+          </section>
+        )}
+
+        {!loading && !backendSyncing && sessionReady && (
+          <section className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-corporate">Your account</h2>
+            <p className="mt-2 text-sm text-corporate">
+              Signed in as <span className="font-medium">{user?.email ?? user?.uid ?? "Unknown user"}</span>
+            </p>
+            <dl className="mt-6 grid gap-3 rounded-xl bg-corporate-muted/30 p-4 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-corporate">Portal role</dt>
+                <dd className="font-medium text-corporate">{profile?.role ?? "UNKNOWN"}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-corporate">Firebase UID</dt>
+                <dd className="break-all font-mono text-xs text-corporate">{profile?.firebase_uid ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-corporate">Email on file</dt>
+                <dd className="font-medium text-corporate">{profile?.email ?? "—"}</dd>
+              </div>
+            </dl>
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => signOutUser()}
+                className="rounded-lg border border-corporate-muted px-4 py-2 text-sm font-semibold text-corporate transition hover:bg-corporate-muted/30"
+              >
+                Sign out
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!loading && !backendSyncing && !sessionReady && (
+          <section className="rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-corporate">Get started</h2>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/login"
+                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-brand-foreground shadow hover:opacity-90"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-lg border border-corporate-muted px-5 py-2.5 text-sm font-semibold text-corporate hover:bg-corporate-muted/30"
+              >
+                Create account
+              </Link>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );

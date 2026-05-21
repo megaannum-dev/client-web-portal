@@ -14,8 +14,15 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import User, UserRole
+from app.schemas.auth import PortalKind
 
 logger = logging.getLogger(__name__)
+
+
+def default_role_for_portal(portal: PortalKind) -> UserRole:
+    if portal == "admin":
+        return UserRole.ADMIN
+    return UserRole.CLIENT
 security = HTTPBearer(auto_error=False)
 # Allow small time drift between client/browser and container clock.
 FIREBASE_CLOCK_SKEW_SECONDS = 10
@@ -107,7 +114,13 @@ def verify_firebase_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
 
 
-def ensure_user_for_firebase_claims(db: Session, settings: Settings, claims: dict) -> User:
+def ensure_user_for_firebase_claims(
+    db: Session,
+    settings: Settings,
+    claims: dict,
+    *,
+    portal: PortalKind = "client",
+) -> User:
     """Create or update the portal user row for Firebase uid / email."""
     if settings.firebase_auth_disabled:
         uid = "dev-user"
@@ -137,7 +150,7 @@ def ensure_user_for_firebase_claims(db: Session, settings: Settings, claims: dic
 
     user = db.query(User).filter(User.firebase_uid == uid).one_or_none()
     if user is None:
-        user = User(firebase_uid=uid, email=email, role=UserRole.CLIENT)
+        user = User(firebase_uid=uid, email=email, role=default_role_for_portal(portal))
         db.add(user)
         db.commit()
         db.refresh(user)

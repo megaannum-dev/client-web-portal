@@ -18,3 +18,37 @@ body {
     text-wrap: balance;
   }
 }
+
+@layer components {
+  /* ── Action level — card container ───────────────────────────────────────── */
+  .level-card-urgent  { @apply bg-warning-container border-warning/20; }
+  .level-card-neutral { @apply bg-surface-lowest border-outline-variant; }
+
+  /* ── Action level — icon bubble ──────────────────────────────────────────── */
+  .level-icon-urgent  { @apply bg-warning/10 text-warning; }
+  .level-icon-caution { @apply bg-caution/10 text-caution; }
+  .level-icon-primary { @apply bg-primary/10 text-primary; }
+  .level-icon-info    { @apply bg-info/10 text-info; }
+  .level-icon-neutral { @apply bg-surface-container text-secondary; }
+
+  /* ── Action level — title text ───────────────────────────────────────────── */
+  .level-title-urgent  { @apply text-warning-on-container; }
+  .level-title-caution { @apply text-caution-on-container; }
+  .level-title-info    { @apply text-info-on-container; }
+  .level-title-neutral { @apply text-on-surface; }
+
+  /* ── Status / risk pill badges ───────────────────────────────────────────── */
+  /* Apply alongside structural classes: rounded-full px-2.5 py-1 text-[11px] font-bold border */
+  .badge-success  { @apply bg-success-container  text-success-on-container  border-success/25; }
+  .badge-caution  { @apply bg-caution-container  text-caution-on-container  border-caution/30; }
+  .badge-warning  { @apply bg-warning-container  text-warning-on-container  border-warning/25; }
+  .badge-info     { @apply bg-info-container     text-info-on-container     border-info/20; }
+  .badge-neutral  { @apply bg-surface-container  text-secondary             border-outline-variant; }
+
+  /* ── Dot badges (inline indicator + label) ───────────────────────────────── */
+  /* Apply to the pill wrapper; pair .dot-* with a child <span> for the dot */
+  .badge-dot-success { @apply bg-success-container text-success-on-container; }
+  .badge-dot-caution { @apply bg-caution-container text-caution-on-container; }
+  .dot-success       { @apply bg-success; }
+  .dot-caution       { @apply bg-caution; }
+}
