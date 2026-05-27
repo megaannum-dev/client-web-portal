@@ -30,12 +30,12 @@ async function parseApiError(res: Response, methodPath: string): Promise<string>
 }
 
 /** First-time portal row: returns 201, or 409 if already registered. */
-export async function postBackendRegister(idToken: string | null): Promise<PortalUser> {
+export async function postBackendRegister(idToken: string | null, role?: string): Promise<PortalUser> {
   const base = getApiBase();
   const res = await fetch(`${base}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "admin" }),
+    body: JSON.stringify({ id_token: idToken, portal: "admin", ...(role ? { role } : {}) }),
   });
   if (!res.ok) {
     throw new Error(await parseApiError(res, "POST /api/auth/register"));

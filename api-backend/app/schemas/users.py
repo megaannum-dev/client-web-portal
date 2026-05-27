@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
-from app.models import UserRole
+from app.models.users import UserRole
 
 
 class UserOut(BaseModel):

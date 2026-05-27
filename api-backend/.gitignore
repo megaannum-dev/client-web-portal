@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Distribution / build
+dist/
+build/
+*.egg-info/
+
+# Type checkers & linters
+.mypy_cache/
+.ruff_cache/
+
+# Test artefacts
+.pytest_cache/
+*.db
+*.sqlite
+
+# IDE
+.idea/
+.vscode/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Vibe Coding Documents
+docs/implementations
+docs/prompts
+# .docs/

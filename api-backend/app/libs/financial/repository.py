@@ -1,0 +1,2 @@
+class FinancialRepository:
+    pass

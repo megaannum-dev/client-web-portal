@@ -24,7 +24,7 @@ type AuthContextValue = {
   firebaseReady: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
-  signUpWithEmailPassword: (email: string, password: string) => Promise<void>;
+  signUpWithEmailPassword: (email: string, password: string, role?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   refreshPortalUser: () => Promise<void>;
@@ -110,12 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   }, [firebaseReady]);
 
-  const signUpWithEmailPassword = useCallback(async (email: string, password: string) => {
+  const signUpWithEmailPassword = useCallback(async (email: string, password: string, role?: string) => {
     if (!firebaseReady) return;
     const auth = getFirebaseAuth();
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     const token = await cred.user.getIdToken();
-    await postBackendRegister(token);
+    await postBackendRegister(token, role);
   }, [firebaseReady]);
 
   const signOutUser = useCallback(async () => {
