@@ -35,7 +35,7 @@ export async function postBackendRegister(idToken: string | null, role?: string)
   const res = await fetch(`${base}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "admin", ...(role ? { role } : {}) }),
+    body: JSON.stringify({ id_token: idToken, portal: "admin", role: role }),
   });
   if (!res.ok) {
     throw new Error(await parseApiError(res, "POST /api/auth/register"));

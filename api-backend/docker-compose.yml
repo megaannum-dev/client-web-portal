@@ -37,6 +37,7 @@ services:
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-/secrets/firebase.json}
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      DEV_MODE: ${DEV_MODE:-false}
     volumes:
       - ./firebase-client-web-portal.json:/secrets/firebase.json:ro
     depends_on:

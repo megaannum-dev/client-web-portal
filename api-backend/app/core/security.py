@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from typing import Annotated
@@ -15,6 +16,56 @@ logger = logging.getLogger(__name__)
 
 FIREBASE_CLOCK_SKEW_SECONDS = 10
 security = HTTPBearer(auto_error=False)
+
+
+def _decode_jwt_payload_unverified(token: str) -> dict[str, object]:
+    """Decode the payload of a JWT without verifying the signature.
+    Used only when FIREBASE_AUTH_DISABLED=true so multiple dev users
+    can be distinguished by their real Firebase uid."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return {}
+        padding = 4 - len(parts[1]) % 4
+        payload = parts[1] + ("=" * padding)
+        return json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return {}
+
+
+def _extract_dev_claims(token: str | None) -> dict:  # type: ignore[type-arg]
+    """Return synthetic claims when FIREBASE_AUTH_DISABLED=true.
+
+    Decodes the JWT payload without signature verification so distinct test
+    identities can be told apart by their real Firebase uid; falls back to a
+    shared ``dev-user`` sentinel when no decodable token is present.
+    """
+    if token and token.strip():
+        claims = _decode_jwt_payload_unverified(token.strip())
+        uid = claims.get("user_id") or claims.get("sub")
+        if uid:
+            return {"uid": str(uid), "email": claims.get("email")}
+    return {"uid": "dev-user", "email": "dev@example.com"}
+
+
+def extract_uid_email(claims: dict) -> tuple[str, str | None]:  # type: ignore[type-arg]
+    """Extract and validate ``uid`` and normalised ``email`` from verified Firebase claims.
+
+    Raises ``HTTP 401`` when ``uid`` is absent.  Strips and null-coerces the
+    email so callers never receive an empty string.
+    """
+    uid = claims.get("uid")
+    if not uid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing uid"
+        )
+    raw_email = claims.get("email")
+    email = (
+        raw_email.strip()
+        if isinstance(raw_email, str) and raw_email.strip()
+        else None
+    )
+    return str(uid), email
 
 
 def _init_firebase(settings: Settings) -> None:
@@ -62,7 +113,7 @@ def _init_firebase(settings: Settings) -> None:
 def verify_firebase_id_token_string(id_token: str | None, settings: Settings) -> dict:  # type: ignore[type-arg]
     """Verify a raw Firebase ID token string (e.g. from POST /auth/login)."""
     if settings.firebase_auth_disabled:
-        return {"uid": "dev-user", "email": "dev@example.com"}
+        return _extract_dev_claims(id_token)
     if not id_token or not id_token.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="id_token is required"
@@ -91,7 +142,7 @@ def verify_firebase_token(
 ) -> dict:  # type: ignore[type-arg]
     """Verify Authorization: Bearer <Firebase ID token>."""
     if settings.firebase_auth_disabled:
-        return {"uid": "dev-user", "email": "dev@example.com"}
+        return _extract_dev_claims(creds.credentials if creds is not None else None)
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token"

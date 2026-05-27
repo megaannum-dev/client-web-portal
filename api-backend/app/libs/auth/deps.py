@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
-from app.core.security import verify_firebase_token
+from app.core.security import extract_uid_email, verify_firebase_token
 from app.libs.auth.actions import Action, get_actions_for_role
 from app.libs.users.repository import UserRepository
 from app.models.users import User, UserRole
@@ -26,15 +26,7 @@ def get_current_user(
             user = repo.create("dev-user", "dev@example.com", UserRole.ADMIN)
         return user
 
-    uid = claims.get("uid")
-    if not uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing uid"
-        )
-    raw_email = claims.get("email")
-    email = (
-        raw_email.strip() if isinstance(raw_email, str) and raw_email.strip() else None
-    )
+    uid, email = extract_uid_email(claims)
 
     user = repo.get_by_firebase_uid(uid)
     if user is None:

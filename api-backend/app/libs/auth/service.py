@@ -1,15 +1,13 @@
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
-from app.core.security import verify_firebase_id_token_string
+from app.core.security import extract_uid_email, verify_firebase_id_token_string
 from app.libs.users.repository import UserRepository
 from app.models.users import User, UserRole
-from app.schemas.auth import PortalKind
 
 
 def login_or_register(
     id_token: str | None,
-    portal: PortalKind,
     repo: UserRepository,
     settings: Settings,
     *,
@@ -21,17 +19,7 @@ def login_or_register(
     if settings.firebase_auth_disabled:
         uid, email = "dev-user", "dev@example.com"
     else:
-        uid = claims.get("uid")
-        if not uid:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing uid"
-            )
-        raw_email = claims.get("email")
-        email = (
-            raw_email.strip()
-            if isinstance(raw_email, str) and raw_email.strip()
-            else None
-        )
+        uid, email = extract_uid_email(claims)
 
     existing = repo.get_by_firebase_uid(uid)
 
@@ -42,12 +30,7 @@ def login_or_register(
         )
 
     if existing is None:
-        assigned_role = (
-            requested_role
-            if requested_role is not None
-            else UserRole.CLIENT
-        )
-        return repo.create(uid, email, assigned_role)
+        return repo.create(uid, email, requested_role or UserRole.CLIENT)
 
     if email and existing.email != email:
         return repo.update_email(existing, email)

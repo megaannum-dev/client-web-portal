@@ -13,5 +13,7 @@ class FirebaseLoginBody(BaseModel):
         description="Firebase ID token. Optional when FIREBASE_AUTH_DISABLED is set.",
     )
     portal: PortalKind = Field(default="client")
-    # Only honoured by POST /api/auth/register when dev_mode=True and portal="admin".
-    role: UserRole | None = None
+    role: UserRole | None = Field(
+        default=None,
+        description="Requested role. Only honoured by POST /api/auth/register when dev_mode=True and portal='admin'.",
+    )

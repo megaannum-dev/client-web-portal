@@ -27,7 +27,7 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
 
 
 settings = get_settings()
-app: FastAPI = FastAPI(title="Client Web Portal API", lifespan=lifespan)
+app: FastAPI = FastAPI(title="CRM Web Portal API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
