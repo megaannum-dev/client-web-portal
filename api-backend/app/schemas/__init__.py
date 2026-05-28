@@ -4,7 +4,7 @@ from app.schemas.financial import (
     RedemptionRequest,
     RedemptionResponse,
 )
-from app.schemas.user import UserOut, UserSelfUpdate, UserUpsert
+from app.schemas.users import UserOut, UserSelfUpdate, UserUpsert
 
 __all__ = [
     "AllotmentRequest",
@@ -12,5 +12,6 @@ __all__ = [
     "RedemptionRequest",
     "RedemptionResponse",
     "UserOut",
+    "UserSelfUpdate",
     "UserUpsert",
 ]

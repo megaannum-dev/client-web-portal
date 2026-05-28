@@ -44,7 +44,9 @@ class RedemptionRequest(BaseModel):
     client_reference: str = Field(..., min_length=1, max_length=64)
     fund_code: str = Field(..., min_length=1, max_length=32)
     units: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=6)
-    cash_amount: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=4)
+    cash_amount: Decimal | None = Field(
+        default=None, gt=0, max_digits=18, decimal_places=4
+    )
     currency: str = Field(default="USD", min_length=3, max_length=3)
     settlement_preference: str | None = Field(default=None, max_length=64)
     notes: str | None = Field(default=None, max_length=2000)

@@ -7,6 +7,15 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { formatFirebaseAuthError, getFirebaseAuthErrorCode } from "@/lib/firebase-auth-errors";
 
+const ROLES = [
+  { value: "CLIENT", label: "Client" },
+  { value: "RM", label: "Relationship Manager" },
+  { value: "PM", label: "Portfolio Manager" },
+  { value: "PC", label: "Portfolio Controller" },
+  { value: "COMPLIANCE", label: "Compliance Officer" },
+  { value: "ADMIN", label: "Admin" },
+] as const;
+
 export default function RegisterPage() {
   const router = useRouter();
   const {
@@ -21,6 +30,7 @@ export default function RegisterPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<string>("CLIENT");
   const [formError, setFormError] = useState<string | null>(null);
   const [formErrorCode, setFormErrorCode] = useState<string | null>(null);
 
@@ -39,12 +49,14 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await signUpWithEmailPassword(email, password);
+      await signUpWithEmailPassword(email, password, role);
     } catch (err) {
       setFormErrorCode(getFirebaseAuthErrorCode(err));
       setFormError(formatFirebaseAuthError(err));
     }
   };
+
+  const disabled = !firebaseReady || loading || backendSyncing;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-corporate-muted/40 px-4 py-12">
@@ -80,7 +92,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-              disabled={!firebaseReady || loading || backendSyncing}
+              disabled={disabled}
             />
           </label>
           <label className="block text-sm font-medium text-corporate">
@@ -91,12 +103,27 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-              disabled={!firebaseReady || loading || backendSyncing}
+              disabled={disabled}
             />
+          </label>
+          <label className="block text-sm font-medium text-corporate">
+            Role
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-corporate-muted bg-white px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
+              disabled={disabled}
+            >
+              {ROLES.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="submit"
-            disabled={!firebaseReady || loading || backendSyncing}
+            disabled={disabled}
             className="rounded-lg bg-brand py-2.5 text-sm font-semibold text-brand-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {backendSyncing ? "Creating account…" : "Create account"}
