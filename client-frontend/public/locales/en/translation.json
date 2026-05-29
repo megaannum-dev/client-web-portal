@@ -1,0 +1,461 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "save_changes": "Save Changes",
+    "download": "Download",
+    "upload": "Upload",
+    "upload_document": "Upload Document",
+    "browse_files": "Browse Files",
+    "close": "Close",
+    "back": "Back",
+    "verified": "Verified",
+    "processing": "Processing",
+    "pending": "Pending",
+    "review": "Review",
+    "drag_drop_files": "Drag & drop files here",
+    "supported_formats": "Supported: JPG, PNG, PDF (Max 10MB)",
+    "select_document_error": "Please select a document before uploading.",
+    "reveal_values": "Reveal values",
+    "hide_values": "Hide values",
+    "vs_last_month": "vs Last Month",
+    "benchmark": "Benchmark"
+  },
+  "nav": {
+    "overview": "Overview",
+    "portfolios": "Portfolios",
+    "documents": "Documents",
+    "events": "Events",
+    "profile": "Profile",
+    "settings": "Settings",
+    "common_query": "Common Query",
+    "logout": "Logout",
+    "main_navigation": "Main navigation",
+    "open_sidebar": "Open sidebar",
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar"
+  },
+  "sidebar": {
+    "brand_name": "AlphaTrade",
+    "brand_subtitle": "Client Portal"
+  },
+  "header": {
+    "search_placeholder": "Search reports...",
+    "notifications": "Notifications",
+    "help": "Help",
+    "platinum_client": "Platinum Client",
+    "contact_rm": "Contact Your RM",
+    "email": "Email",
+    "whatsapp": "WhatsApp",
+    "occupation": "Occupation",
+    "occupation_value": "Investment Portfolio Manager",
+    "view_full_profile": "View Full Profile",
+    "empty": "—"
+  },
+  "fab": {
+    "quick_actions": "Quick actions",
+    "close_quick_actions": "Close quick actions",
+    "common_query_faq": "Common Query FAQ",
+    "download_latest_eom": "Download Latest EoM Report",
+    "raise_ticket": "Raise a Ticket"
+  },
+  "auth": {
+    "login": {
+      "brand_name": "AlphaTrade",
+      "welcome_back": "Welcome back",
+      "firebase_warning_prefix": "Set",
+      "firebase_warning_suffix": "to enable authentication.",
+      "email_label": "Email Address",
+      "email_placeholder": "name@company.com",
+      "password_label": "Password",
+      "password_placeholder": "********",
+      "forgot_password": "Forgot password?",
+      "show_password": "Show password",
+      "hide_password": "Hide password",
+      "keep_signed_in": "Keep me signed in for 30 days",
+      "sign_in": "Sign In",
+      "signing_in": "Signing in…",
+      "or": "or",
+      "continue_with_google": "Continue with Google account",
+      "no_account": "Don't have an account?",
+      "contact_administrator": "Contact Administrator",
+      "privacy_policy": "Privacy Policy",
+      "terms_of_service": "Terms of Service",
+      "copyright": "© 2024 Megaannum Client Portal. Institutional Grade Data Management.",
+      "error_credentials_required": "Please enter your email and password."
+    },
+    "register": {
+      "create_account": "Create account",
+      "subtitle": "Email and password are stored by Firebase.",
+      "firebase_warning_prefix": "Configure Firebase in",
+      "firebase_warning_suffix": "first.",
+      "email_label": "Email",
+      "password_label": "Password",
+      "creating_account": "Creating account…",
+      "go_to_sign_in": "Go to sign in →",
+      "already_have_account": "Already have an account?",
+      "sign_in": "Sign in",
+      "error_invalid_credentials": "Use a valid email and a password of at least 6 characters."
+    }
+  },
+  "overview": {
+    "title": "External Client Dashboard",
+    "subtitle": "Global Opportunities Fund • Portfolio ID: #AT-8842",
+    "account_summary": "Account Summary",
+    "total_portfolio_value": "Total Portfolio Value",
+    "ytd_returns": "YTD Returns",
+    "benchmark_label": "Benchmark: {{value}}",
+    "recent_request_status": "Recent Request Status",
+    "view_all_requests": "View All Requests",
+    "latest_events": "Latest Events",
+    "columns": {
+      "request_type": "Request Type",
+      "model_fund": "Model / Fund",
+      "submitted": "Submitted",
+      "status": "Status",
+      "amount": "Amount"
+    },
+    "slides": {
+      "wealth_management": { "title": "Elevate Your Wealth Management Experience", "cta": "Learn More" },
+      "precision_data": { "title": "Precision Data at Your Fingertips", "cta": "View Insights" },
+      "institutional_planning": { "title": "Strategic Institutional Planning", "cta": "Consult Expert" },
+      "expert_guidance": { "title": "Expert Guidance, Trusted Insights", "cta": "Meet Your Advisor" },
+      "sustainable_growth": { "title": "Sustainable Growth, Lasting Legacy", "cta": "Explore Models" }
+    }
+  },
+  "status": {
+    "sent": "Sent",
+    "received": "Received",
+    "processing": "Processing",
+    "fulfilled": "Fulfilled"
+  },
+  "request_type": {
+    "allotment": "Allotment",
+    "redemption": "Redemption",
+    "others": "Others"
+  },
+  "risk": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "portfolio": {
+    "title": "Portfolio Details",
+    "subtitle": "Global Opportunities Fund • Portfolio ID: #AT-8842",
+    "raise_ticket": "Raise a Ticket",
+    "portfolio_summary": "Portfolio Summary",
+    "total_value": "Total Value",
+    "cash_balance": "Cash Balance",
+    "ytd_returns": "YTD Returns",
+    "portfolio_health": "Portfolio Health",
+    "optimal": "Optimal",
+    "vs_last_month": "vs last month",
+    "unallocated": "unallocated",
+    "outperforming": "Outperforming",
+    "benchmark": "Benchmark",
+    "risk_profile_stable": "Risk Profile Stable",
+    "portfolio_insights": "Portfolio Insights",
+    "return_loss_performance": "Return & Loss Performance",
+    "performance_vs_benchmarks": "Performance vs Internal Benchmarks",
+    "benchmark_legend": "Benchmark",
+    "historical_track": "Historical Track (6M)",
+    "asset_distribution": "Asset Distribution",
+    "allocated": "Allocated",
+    "ytd_avg": "YTD Avg",
+    "return_tooltip": "Return",
+    "cash": "Cash",
+    "subscribed_models": "Subscribed Models",
+    "recommended_models": "Recommended Models",
+    "ticket_history": "Ticket History",
+    "search_placeholder": "Search by ID, model, type…",
+    "no_tickets_match": "No tickets match your search.",
+    "no_results": "No results",
+    "showing_tickets": "Showing {{from}}–{{to}} of {{total}} tickets",
+    "previous_page": "Previous page",
+    "next_page": "Next page",
+    "subscribed_columns": {
+      "model_name": "Model Name",
+      "symbol": "Symbol",
+      "country": "Country",
+      "sector": "Sector",
+      "model_limit": "Model Limit",
+      "amount": "Amount ($)",
+      "multiplier": "Multiplier",
+      "ib_account": "IB Account"
+    },
+    "recommended_columns": {
+      "model_name": "Model Name",
+      "symbol": "Symbol",
+      "country": "Country",
+      "sector": "Sector",
+      "model_limit": "Model Limit",
+      "min_investment": "Min. Investment ($)",
+      "risk_level": "Risk Level",
+      "market_material": "Market Material"
+    },
+    "ticket_columns": {
+      "ticket_id": "Ticket ID",
+      "type": "Type",
+      "model_subject": "Model / Subject",
+      "amount": "Amount",
+      "date": "Date",
+      "status": "Status"
+    }
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "Access your monthly financial reports and reference documents for professional investors.",
+    "historical_eom_reports": "Historical EOM Reports",
+    "reference_documents": "Reference Documents",
+    "reference_subtitle": "Legal agreements, fund documents, and compliance references for professional investors.",
+    "columns": {
+      "report_name": "Report Name",
+      "reporting_period": "Reporting Period",
+      "generated_date": "Generated Date",
+      "actions": "Actions"
+    },
+    "download_aria": "Download {{name}}",
+    "categories": {
+      "fund_documents": "Fund Documents",
+      "legal_agreements": "Legal Agreements",
+      "compliance": "Compliance"
+    }
+  },
+  "events": {
+    "title": "Events",
+    "subtitle": "Stay updated with the latest market news and account reminders.",
+    "filters": {
+      "all_types": "All Types",
+      "market_news": "Market News",
+      "account_notification": "Account Notification",
+      "requests_status": "Requests Status",
+      "others": "Others"
+    }
+  },
+  "profile": {
+    "title": "User Profile",
+    "subtitle": "Manage your personal information and document compliance status.",
+    "personal_information": "Personal Information",
+    "edit_personal_information": "Edit personal information",
+    "change_photo": "Change Photo",
+    "full_name": "Full Name",
+    "phone_number": "Phone Number",
+    "email": "Email",
+    "company": "Company",
+    "occupation": "Occupation",
+    "residential_address": "Residential Address",
+    "location_of_residence": "Location of Residence",
+    "edit_in_settings": "Edit in Settings",
+    "account_balance": "Account Balance",
+    "total_portfolio_value": "Total Portfolio Value",
+    "total_cash_value": "Total Cash Value",
+    "document_verification": "Document Verification",
+    "kyc_status": "KYC Document Status",
+    "kyc_verified_badge": "Verified",
+    "kyc_processing_badge": "Processing",
+    "kyc_due_badge": "Due in 10 days",
+    "kyc_verified_desc": "Your KYC document has been successfully verified and is up to date.",
+    "kyc_processing_desc": "Your KYC document is currently under review. This process typically takes 1–3 business days.",
+    "kyc_due_desc": "Your annual Know Your Customer (KYC) renewal is required. Please upload a valid government ID.",
+    "next_renewal_due": "Next Renewal Due: ",
+    "submitted": "Submitted: {{date}}",
+    "annual_update_due": "Annual Update Due: ",
+    "view_document": "View Document",
+    "view_kyc_document": "View KYC Document",
+    "upload_kyc": "Upload KYC",
+    "aml_status": "AML Document Status",
+    "aml_desc": "Anti-Money Laundering (AML) declaration is current. Next reporting cycle begins Oct 2024.",
+    "aml_update_due": "Annual Update Due: 13th Sept 2023",
+    "view_aml_document": "View AML Document",
+    "supporting_documents": "Supporting Documents",
+    "no_documents_uploaded": "No documents uploaded yet",
+    "supporting_empty_hint": "Upload questionnaires or documents requested by your RM.",
+    "kyc_modal": {
+      "title": "KYC Document Upload",
+      "subtitle": "Please provide clear scans of the required verification documents.",
+      "document_type": "Document Type",
+      "passport": "Passport",
+      "national_id": "National ID",
+      "drivers_license": "Driver's License",
+      "expiry_date": "Expiry Date",
+      "document_file": "Document File",
+      "guidance": "Ensure all text and photos are clearly visible. Reflections or obscured details may lead to verification delays."
+    },
+    "supporting_modal": {
+      "title": "Upload Supporting Document",
+      "subtitle": "Select the document category and upload your file.",
+      "document_category": "Document Category"
+    },
+    "categories": {
+      "questionnaire": "Questionnaire",
+      "others": "Others"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account security, notifications, and preferences.",
+    "navigation": "Settings navigation",
+    "tabs": {
+      "account": "Account and Safety",
+      "notifications": "Notifications",
+      "preferences": "Preferences"
+    },
+    "account_information": "Account Information",
+    "email_address": "Email Address",
+    "change_email": "Change Email",
+    "phone_number": "Phone Number",
+    "change_phone_number": "Change Phone Number",
+    "safety": "Safety",
+    "two_factor_auth": "Two-Factor Authentication",
+    "two_factor_desc": "Add an extra layer of security to your account.",
+    "change_password": "Change Password",
+    "notifications_title": "Notifications",
+    "notification_items": {
+      "email_label": "Email Alerts",
+      "email_desc": "Receive important account updates by email.",
+      "push_label": "Push Notifications",
+      "push_desc": "Get real-time alerts on your device.",
+      "sms_label": "SMS Updates",
+      "sms_desc": "Receive text messages for critical notifications."
+    },
+    "system_preferences": "System Preferences",
+    "language": "Language",
+    "theme": "Theme",
+    "theme_light": "light",
+    "theme_dark": "dark",
+    "theme_system": "system",
+    "theme_hint": "Changes apply immediately and stay in sync with the header toggle."
+  },
+  "support": {
+    "title": "Support"
+  },
+  "ticket": {
+    "raise_ticket": "Raise a Ticket",
+    "allotment_ticket": "Allotment Ticket",
+    "redemption_ticket": "Redemption Ticket",
+    "others_ticket": "Others Ticket",
+    "select_type_prompt": "Select the type of ticket you want to raise:",
+    "types": {
+      "allotment_label": "Allotment",
+      "allotment_desc": "Request allocation to an available investment model.",
+      "redemption_label": "Redemption",
+      "redemption_desc": "Redeem part or all of an existing model position.",
+      "others_label": "Others",
+      "others_desc": "General enquiries, questionnaires, or other requests."
+    },
+    "select_model": "Select Model",
+    "select_model_placeholder": "— Select a model —",
+    "select_subscribed_model": "Select Subscribed Model",
+    "select_subscribed_placeholder": "— Choose a subscribed model —",
+    "amount": "Amount ($)",
+    "multiplier": "Multiplier (x)",
+    "funding_source": "Funding Source",
+    "cash_balance": "Cash Balance: {{amount}}",
+    "external_transfer": "External Transfer",
+    "minimum_allotment": "Minimum Allotment: {{amount}}",
+    "selected_model": "Selected Model",
+    "redemption_type": "Redemption Type",
+    "partial_redemption": "Partial Redemption",
+    "redeem_all": "Redeem All",
+    "redemption_amount": "Redemption Amount ($)",
+    "returning_to": "Returning To",
+    "redemption_processing_note": "Redemption processing typically takes 2–3 business days.",
+    "category": "Category",
+    "subject": "Subject",
+    "subject_placeholder": "Brief description of your request",
+    "description": "Description",
+    "description_placeholder": "Provide details about your request...",
+    "confirm_rm_allotment": "I confirm that I have consulted my RM regarding this request.",
+    "confirm_rm_redemption": "I confirm that I have consulted my RM regarding this redemption request.",
+    "confirm_others": "I confirm the above details are accurate and wish to submit this ticket to my RM.",
+    "submit_allotment": "Submit Allotment",
+    "submit_redemption": "Submit Redemption",
+    "submit_ticket": "Submit Ticket",
+    "risk_high": "HIGH RISK",
+    "risk_medium": "MEDIUM RISK",
+    "risk_low": "LOW RISK",
+    "general_inquiry": "General Inquiry",
+    "errors": {
+      "select_model": "Please select a model.",
+      "valid_amount": "Please enter a valid amount.",
+      "minimum_allotment": "Minimum allotment is {{amount}}.",
+      "valid_multiplier": "Please enter a valid multiplier.",
+      "confirm_rm": "Please confirm you have consulted your RM.",
+      "valid_redemption_amount": "Please enter a valid redemption amount.",
+      "enter_subject": "Please enter a subject.",
+      "describe_request": "Please describe your request.",
+      "confirm_reviewed": "Please confirm you have reviewed your request."
+    }
+  },
+  "mock": {
+    "latest_events": {
+      "signature-required": {
+        "title": "Signature Required",
+        "description": "Redemption request #RR-429 requires authorization by EOD."
+      },
+      "compliance-review": {
+        "title": "Compliance Review",
+        "description": "Quarterly KYC update has been received and is under review."
+      },
+      "kyc-verified": {
+        "title": "KYC Verified",
+        "description": "Your identity documents have been successfully verified."
+      },
+      "kyc-review": {
+        "title": "KYC Document Under Review",
+        "description": "Your submitted KYC document is being reviewed. This typically takes 1–3 business days."
+      }
+    },
+    "event_items": {
+      "event-fed-rate": {
+        "title": "Fed Interest Rate Decision Released",
+        "time": "2 hours ago",
+        "description": "The Federal Reserve has announced its latest interest rate decision, impacting market volatility and portfolio yields. Historical news and reminders relevant to the client are now updated in your dashboard.",
+        "primary": "Read Full Report",
+        "secondary": "Mark as Read"
+      },
+      "event-kyc-reminder": {
+        "title": "KYC Upload Reminder",
+        "time": "5 hours ago",
+        "description": "Your annual renewal for KYC document is due in next 10 days. Please ensure recent compliance documents are uploaded to avoid processing delays.",
+        "primary": "Go Upload",
+        "secondary": "Mark as Read"
+      },
+      "event-compliance-policy": {
+        "title": "New Compliance Policy Update",
+        "time": "Yesterday",
+        "description": "We have updated our institutional AML declaration protocols to align with new regional regulations. Review the changes to ensure your account remains compliant.",
+        "primary": "Review Policy",
+        "secondary": "Dismiss"
+      },
+      "event-tech-rebound": {
+        "title": "Market Insight: Tech Sector Rebound",
+        "time": "Oct 18, 2023",
+        "description": "Our analysts have released a new brief on the projected growth of the technology sector following the latest earnings reports from major providers.",
+        "primary": "View Insight",
+        "secondary": "Mark as Read"
+      },
+      "event-security-alert": {
+        "title": "Security Alert: New Login Detected",
+        "time": "Oct 17, 2023",
+        "description": "A new login was detected from a Chrome browser on macOS. If this was not you, please secure your account immediately by changing your password.",
+        "primary": "Manage Devices",
+        "secondary": "I recognize this"
+      },
+      "event-annual-review": {
+        "title": "Annual Portfolio Review Scheduled",
+        "time": "Oct 10, 2023",
+        "description": "Your annual portfolio review has been scheduled with your Relationship Manager for next month. A calendar invitation will be sent to your registered email address.",
+        "primary": "Acknowledge",
+        "secondary": "Mark as Read"
+      },
+      "event-kyc-upload": {
+        "title": "KYC Document Submitted for Review",
+        "time": "Just now",
+        "description": "Your KYC document has been uploaded and is now under review. This typically takes 1~3 business days.",
+        "primary": "View Details",
+        "secondary": "Mark as Read"
+      }
+    }
+  }
+}

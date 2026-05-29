@@ -5,11 +5,13 @@ import { Building2, Eye, EyeClosed } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFirebaseAuthError } from "@/lib/firebase-auth-errors";
 
 function LoginForm() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/overview";
@@ -44,7 +46,7 @@ function LoginForm() {
     e.preventDefault();
     setFormError(null);
     if (!email.trim() || !password) {
-      setFormError("Please enter your email and password.");
+      setFormError(t("auth.login.error_credentials_required"));
       return;
     }
     setSubmitting(true);
@@ -76,7 +78,7 @@ function LoginForm() {
           <Building2 size={25} strokeWidth={2} stroke="white"/>
         </div>
         <span className="text-[22px] font-extrabold tracking-[-0.033em] text-on-surface leading-[28px]">
-            AlphaTrade  {/* Dummy logo name*/}
+            {t("auth.login.brand_name")}  {/* Dummy logo name*/}
         </span>
       </div>
 
@@ -84,15 +86,15 @@ function LoginForm() {
         {/* Heading */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-headline-lg font-semibold text-on-surface tracking-tight text-center">
-            Welcome back
+            {t("auth.login.welcome_back")}
           </h1>
         </div>
 
         {/* Firebase not configured warning */}
         {!firebaseReady && (
           <p className="rounded bg-amber-50 border border-amber-200 px-4 py-3 text-body-sm text-amber-900">
-            Set <code className="text-xs">NEXT_PUBLIC_FIREBASE_*</code> in{" "}
-            <code className="text-xs">.env.local</code> to enable authentication.
+            {t("auth.login.firebase_warning_prefix")} <code className="text-xs">NEXT_PUBLIC_FIREBASE_*</code> in{" "}
+            <code className="text-xs">.env.local</code> {t("auth.login.firebase_warning_suffix")}
           </p>
         )}
 
@@ -112,13 +114,13 @@ function LoginForm() {
               htmlFor="email"
               className="text-label-md font-semibold tracking-[0.05em] uppercase text-on-surface"
             >
-              Email Address
+              {t("auth.login.email_label")}
             </label>
             <input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="name@company.com"
+              placeholder={t("auth.login.email_placeholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={!firebaseReady || busy}
@@ -133,13 +135,13 @@ function LoginForm() {
                 htmlFor="password"
                 className="text-label-md font-semibold tracking-[0.05em] uppercase text-on-surface"
               >
-                Password
+                {t("auth.login.password_label")}
               </label>
               <Link
                 href="/forgot-password"
                 className="text-label-md font-bold text-primary hover:opacity-80 transition-opacity"
               >
-                Forgot password?
+                {t("auth.login.forgot_password")}
               </Link>
             </div>
             <div className="relative">
@@ -147,7 +149,7 @@ function LoginForm() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                placeholder="********"
+                placeholder={t("auth.login.password_placeholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={!firebaseReady || busy}
@@ -157,7 +159,7 @@ function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary hover:text-on-surface transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("auth.login.hide_password") : t("auth.login.show_password")}
               >
                 {showPassword ? (
                   <Eye width={22} height={16}/>
@@ -176,7 +178,7 @@ function LoginForm() {
               onChange={(e) => setRememberMe(e.target.checked)}
               className="size-4 rounded-sm border border-[#e0e0e0] accent-primary cursor-pointer shrink-0"
             />
-            <span className="text-body-sm text-secondary">Keep me signed in for 30 days</span>
+            <span className="text-body-sm text-secondary">{t("auth.login.keep_signed_in")}</span>
           </label>
 
           {/* Submit */}
@@ -185,9 +187,9 @@ function LoginForm() {
             disabled={!firebaseReady || busy}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold text-body-md rounded py-3 shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {busy ? "Signing in…" : (
+            {busy ? t("auth.login.signing_in") : (
               <>
-                Sign In
+                {t("auth.login.sign_in")}
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M1 7H13M13 7L7 1M13 7L7 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -199,7 +201,7 @@ function LoginForm() {
         {/* Divider */}
         <div className="relative flex items-center gap-4">
           <div className="flex-1 h-px bg-[#e0e0e0]" />
-          <span className="text-label-md text-secondary-fixed-dim tracking-[0.05em] uppercase">or</span>
+          <span className="text-label-md text-secondary-fixed-dim tracking-[0.05em] uppercase">{t("auth.login.or")}</span>
           <div className="flex-1 h-px bg-[#e0e0e0]" />
         </div>
 
@@ -216,23 +218,23 @@ function LoginForm() {
             <path d="M4.41 11.91A6.02 6.02 0 0 1 4.09 10c0-.66.11-1.3.32-1.91V5.49H1.07A10.02 10.02 0 0 0 0 10c0 1.61.39 3.14 1.07 4.51l3.34-2.6Z" fill="#FBBC05"/>
             <path d="M10 3.96c1.47 0 2.79.5 3.82 1.5L16.69 2.4A9.96 9.96 0 0 0 10 0 10 10 0 0 0 1.07 5.49l3.34 2.6C5.2 5.72 7.4 3.96 10 3.96Z" fill="#EA4335"/>
           </svg>
-          Continue with Google account
+          {t("auth.login.continue_with_google")}
         </button>
 
         {/* Footer */}
         <div className="pt-3 flex flex-col items-center gap-3">
           <p className="text-body-sm text-secondary text-center">
-            Don&apos;t have an account?{" "}
+            {t("auth.login.no_account")}{" "}
             <Link href="/register" className="font-bold text-primary hover:opacity-80 transition-opacity">
-              Contact Administrator
+              {t("auth.login.contact_administrator")}
             </Link>
           </p>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="text-label-md font-semibold text-secondary tracking-[0.05em] hover:text-on-surface transition-colors">
-              Privacy Policy
+              {t("auth.login.privacy_policy")}
             </Link>
             <Link href="/terms" className="text-label-md font-semibold text-secondary tracking-[0.05em] hover:text-on-surface transition-colors">
-              Terms of Service
+              {t("auth.login.terms_of_service")}
             </Link>
           </div>
         </div>
@@ -240,7 +242,7 @@ function LoginForm() {
 
       {/* Copyright */}
       <p className="mt-6 text-label-md text-secondary-fixed-dim tracking-[0.05em] text-center">
-        © 2024 Megaannum Client Portal. Institutional Grade Data Management.
+        {t("auth.login.copyright")}
       </p>
     </div>
   );

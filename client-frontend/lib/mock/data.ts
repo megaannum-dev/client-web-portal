@@ -13,7 +13,7 @@
 export type KycStatus   = "due" | "processing" | "verified";
 export type ActionLevel = "urgent" | "caution" | "primary" | "info" | "neutral";
 export type ActionVariant = "filled" | "outline";
-export type EventCategory = "Market News" | "Account Reminders" | "Requests";
+export type EventCategory = "Market News" | "Account Notification" | "Requests Status" | "Others";
 
 export interface LatestEvent {
   id: string;
@@ -25,11 +25,12 @@ export interface LatestEvent {
 
 export interface AllotmentRequest {
   id: string;
-  type: "Allotment" | "Redemption";
-  model: string;
-  amount: string;
+  type: "Allotment" | "Redemption" | "Others";
+  model: string;   // subject line for "Others" tickets
+  amount: string;  // "—" for "Others" tickets
   date: string;
-  status: "Processing" | "Completed";
+  status: "Sent" | "Received" | "Processing" | "Fulfilled";
+  subject?: string; // free-text subject, "Others" tickets only
 }
 
 // Serialisable event entry — icon resolved at render time via ICON_MAP
@@ -54,20 +55,25 @@ export const MOCK_KYC_STATUS: KycStatus = "due";
 
 export const MOCK_LATEST_EVENTS: LatestEvent[] = [
   {
-    id: "request-review",
-    level: "caution",
-    title: "Request Review",
-    description: "Redemption request #RR-429 is under review",
+    id: "signature-required",
+    level: "urgent",
+    title: "Signature Required",
+    description: "Redemption request #RR-429 requires authorization by EOD.",
+    href: "/portfolio",
   },
   {
-    id: "kyc-renewal",
-    level: "urgent",
-    title: "[Urgent] Compliance Required",
-    description: "KYC / AML renewal is approaching in 10 days, upload as soon as possible!",
-    href: "/profile#document-verification",
+    id: "compliance-review",
+    level: "caution",
+    title: "Compliance Review",
+    description: "Quarterly KYC update has been received and is under review.",
+  },
+  {
+    id: "kyc-verified",
+    level: "info",
+    title: "KYC Verified",
+    description: "Your identity documents have been successfully verified.",
   },
 ];
-
 // ── Portfolio stats ───────────────────────────────────────────────────────────
 
 export interface PortfolioStats {
@@ -108,29 +114,35 @@ export const MOCK_EOM_REPORTS: EomReport[] = [
 
 export const MOCK_ALLOTMENT_REQUESTS: AllotmentRequest[] = [
   { id: "#RR-429", type: "Redemption", model: "ESG Impact Growth",       amount: "$12,000.00", date: "Nov 01, 2023", status: "Processing" },
-  { id: "#AT-771", type: "Allotment",  model: "Alpha Core 60/40",        amount: "$50,000.00", date: "Oct 12, 2023", status: "Completed"  },
-  { id: "#RR-765", type: "Redemption", model: "ESG Impact Growth",       amount: "$12,000.00", date: "Oct 08, 2023", status: "Completed"  },
-  { id: "#AT-760", type: "Allotment",  model: "Alpha Core 60/40",        amount: "$25,000.00", date: "Oct 24, 2023", status: "Processing" },
-  { id: "#AT-754", type: "Allotment",  model: "Institutional Bond Core", amount: "$15,000.00", date: "Sep 28, 2023", status: "Completed"  },
-  { id: "#RR-749", type: "Redemption", model: "Global Tech Growth",      amount: "$8,500.00",  date: "Sep 15, 2023", status: "Completed"  },
-  { id: "#AT-742", type: "Allotment",  model: "Diversified Real Estate", amount: "$10,000.00", date: "Sep 02, 2023", status: "Completed"  },
+  { id: "#AT-771", type: "Allotment",  model: "Alpha Core 60/40",        amount: "$50,000.00", date: "Oct 12, 2023", status: "Fulfilled"  },
+  { id: "#RR-765", type: "Redemption", model: "ESG Impact Growth",       amount: "$12,000.00", date: "Oct 08, 2023", status: "Fulfilled"  },
+  { id: "#OT-044", type: "Others",     model: "General Inquiry",          amount: "—",          date: "Oct 24, 2023", status: "Fulfilled",  subject: "Account Rebalancing Query" },
+  { id: "#AT-760", type: "Allotment",  model: "Alpha Core 60/40",        amount: "$25,000.00", date: "Oct 24, 2023", status: "Received"   },
+  { id: "#AT-754", type: "Allotment",  model: "Institutional Bond Core", amount: "$15,000.00", date: "Sep 28, 2023", status: "Fulfilled"  },
+  { id: "#RR-749", type: "Redemption", model: "Global Tech Growth",      amount: "$8,500.00",  date: "Sep 15, 2023", status: "Fulfilled"  },
+  { id: "#AT-742", type: "Allotment",  model: "Diversified Real Estate", amount: "$10,000.00", date: "Sep 02, 2023", status: "Fulfilled"  },
+  { id: "#OT-038", type: "Others",     model: "Document Request",         amount: "—",          date: "Aug 28, 2023", status: "Fulfilled",  subject: "Request for Q2 Performance Report" },
+  { id: "#RR-731", type: "Redemption", model: "Fixed Income Plus",       amount: "$5,000.00",  date: "Aug 14, 2023", status: "Fulfilled"  },
+  { id: "#AT-728", type: "Allotment",  model: "Emerging Markets Alpha",  amount: "$20,000.00", date: "Jul 30, 2023", status: "Fulfilled"  },
+  { id: "#OT-021", type: "Others",     model: "General Inquiry",          amount: "—",          date: "Jul 10, 2023", status: "Fulfilled",  subject: "Questionnaire — Risk Appetite Update" },
 ];
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
 
 export type RiskLevel = "High" | "Medium" | "Low";
 
-export interface AllottedModel {
+export interface SubscribedModel {
   name: string;
   symbol: string;
   country: string;
   sector: string;
   amount: string;
-  weight: string;
   multiplier: string;
+  modelLimit: string;   // e.g. "$2,000,000"
+  ibAccount: string;    // Interactive Brokers account number
 }
 
-export interface AvailableModel {
+export interface RecommendedModel {
   name: string;
   assetClass: string;
   symbol: string;
@@ -141,14 +153,14 @@ export interface AvailableModel {
   minInvestment: string;
 }
 
-export const MOCK_ALLOTTED_MODELS: AllottedModel[] = [
-  { name: "Model A", symbol: "AC60", country: "USA",    sector: "Medical Healthcare",   amount: "$774,072.00", weight: "62.4%", multiplier: "1.0x" },
-  { name: "Model B", symbol: "ESGI", country: "Global", sector: "Sustainable Tech",      amount: "$466,428.00", weight: "37.6%", multiplier: "1.0x" },
-  { name: "Model C", symbol: "GLIN", country: "Global", sector: "Global Infrastructure", amount: "$120,000.00", weight: "9.7%",  multiplier: "1.0x" },
-  { name: "Model D", symbol: "TDIS", country: "USA/CN", sector: "Tech Disruptors",       amount: "$95,000.00",  weight: "7.6%",  multiplier: "1.2x" },
+export const MOCK_SUBSCRIBED_MODELS: SubscribedModel[] = [
+  { name: "Model A", symbol: "AC60", country: "USA",    sector: "Medical Healthcare",   amount: "$774,072.00", multiplier: "1.0x", modelLimit: "$2,000,000", ibAccount: "U4829301" },
+  { name: "Model B", symbol: "ESGI", country: "Global", sector: "Sustainable Tech",      amount: "$466,428.00", multiplier: "1.0x", modelLimit: "$1,500,000", ibAccount: "U4829302" },
+  { name: "Model C", symbol: "GLIN", country: "Global", sector: "Global Infrastructure", amount: "$120,000.00", multiplier: "1.0x", modelLimit: "$1,000,000", ibAccount: "U4829303" },
+  { name: "Model D", symbol: "TDIS", country: "USA/CN", sector: "Tech Disruptors",       amount: "$95,000.00",  multiplier: "1.2x", modelLimit: "$750,000",   ibAccount: "U4829304" },
 ];
 
-export const MOCK_AVAILABLE_MODELS: AvailableModel[] = [
+export const MOCK_RECOMMENDED_MODELS: RecommendedModel[] = [
   { name: "Global Tech Growth",      assetClass: "Equity",       symbol: "GTGR", country: "Global", sector: "Technology",   modelLimit: "$500,000",   risk: "High",   minInvestment: "$10,000"  },
   { name: "Institutional Bond Core", assetClass: "Fixed Income", symbol: "IBCO", country: "USA",    sector: "Fixed Income", modelLimit: "$2,000,000", risk: "Low",    minInvestment: "$50,000"  },
   { name: "Diversified Real Estate", assetClass: "Real Assets",  symbol: "DVRE", country: "USA",    sector: "Real Estate",  modelLimit: "$1,000,000", risk: "Medium", minInvestment: "$25,000"  },
@@ -178,7 +190,7 @@ export const MOCK_EVENT_ITEMS: EventEntry[] = [
     title:          "KYC Upload Reminder",
     time:           "5 hours ago",
     description:    "Your annual renewal for KYC document is due in next 10 days. Please ensure recent compliance documents are uploaded to avoid processing delays.",
-    category:       "Account Reminders",
+    category:       "Account Notification",
     primaryLabel:   "Go Upload",
     primaryVariant: "filled",
     secondaryLabel: "Mark as Read",
@@ -190,7 +202,7 @@ export const MOCK_EVENT_ITEMS: EventEntry[] = [
     title:          "New Compliance Policy Update",
     time:           "Yesterday",
     description:    "We have updated our institutional AML declaration protocols to align with new regional regulations. Review the changes to ensure your account remains compliant.",
-    category:       "Account Reminders",
+    category:       "Account Notification",
     primaryLabel:   "Review Policy",
     primaryVariant: "outline",
     secondaryLabel: "Dismiss",
@@ -214,11 +226,92 @@ export const MOCK_EVENT_ITEMS: EventEntry[] = [
     title:          "Security Alert: New Login Detected",
     time:           "Oct 17, 2023",
     description:    "A new login was detected from a Chrome browser on macOS. If this was not you, please secure your account immediately by changing your password.",
-    category:       "Account Reminders",
+    category:       "Account Notification",
     primaryLabel:   "Manage Devices",
     primaryVariant: "outline",
     secondaryLabel: "I recognize this",
   },
+  {
+    id:             "event-annual-review",
+    iconType:       "file-text",
+    level:          "info",
+    title:          "Annual Portfolio Review Scheduled",
+    time:           "Oct 10, 2023",
+    description:    "Your annual portfolio review has been scheduled with your Relationship Manager for next month. A calendar invitation will be sent to your registered email address.",
+    category:       "Others",
+    primaryLabel:   "Acknowledge",
+    primaryVariant: "outline",
+    secondaryLabel: "Mark as Read",
+  },
+];
+
+// ── RM contact ────────────────────────────────────────────────────────────────
+
+export interface RmContact {
+  name: string;
+  email: string;
+  whatsappNumber: string; // formatted display, e.g. "+1 (555) 982-4610"
+}
+
+export const MOCK_RM_CONTACT: RmContact = {
+  name:            "Sarah Mitchell",
+  email:           "sarah.mitchell@megaanuum.com",
+  whatsappNumber:  "+1 (555) 982-4610",
+};
+
+// ── Profile info ───────────────────────────────────────────────────────────────
+
+export interface ProfileInfo {
+  fullName:            string;
+  company:             string;
+  occupation:          string;
+  residentialAddress:  string;
+  locationOfResidence: string;
+}
+
+export const DEFAULT_PROFILE_INFO: ProfileInfo = {
+  fullName:            "Alex Thompson",
+  company:             "Thompson Global Holdings",
+  occupation:          "Chief Executive Officer",
+  residentialAddress:  "123 Maple Avenue, Suite 400",
+  locationOfResidence: "New York, NY, USA",
+};
+
+// ── Supporting documents ───────────────────────────────────────────────────────
+
+export type SupportingDocStatus = "not_uploaded" | "processing" | "verified";
+
+export interface SupportingDoc {
+  id: string;
+  category: string;   // "Questionnaire" | "Others" | future categories
+  filename: string;
+  status: SupportingDocStatus;
+  submittedDate: string;
+}
+
+// Categories available in the upload modal dropdown.
+// Keep as a plain array so new entries can be added without touching the modal.
+export const SUPPORTING_DOC_CATEGORIES = ["Questionnaire", "Others"] as const;
+export type SupportingDocCategory = (typeof SUPPORTING_DOC_CATEGORIES)[number];
+
+// ── Legal / reference documents ────────────────────────────────────────────────
+
+export interface LegalDocument {
+  name:        string;
+  description: string;
+  filename:    string;
+  category:    string;
+}
+
+export const MOCK_LEGAL_DOCUMENTS: LegalDocument[] = [
+  { name: "Fund Prospectus",                 description: "Full disclosure document for the Global Opportunities Fund.",              filename: "Fund_Prospectus.pdf",                category: "Fund Documents"   },
+  { name: "Risk Disclosure Statement",       description: "Key risks associated with investment strategies managed by Megaanuum.",     filename: "Risk_Disclosure.pdf",                category: "Fund Documents"   },
+  { name: "Investment Management Agreement", description: "Governing agreement between client and Megaanuum Asset Management.",       filename: "IMA.pdf",                            category: "Legal Agreements" },
+  { name: "Terms of Service",               description: "Terms governing access to and use of the client portal.",                   filename: "Terms_of_Service.pdf",               category: "Legal Agreements" },
+  { name: "Privacy Policy",                 description: "How we collect, use, and protect your personal data.",                     filename: "Privacy_Policy.pdf",                 category: "Legal Agreements" },
+  { name: "Anti-Money Laundering Policy",   description: "AML compliance framework, client obligations, and reporting procedures.",  filename: "AML_Policy.pdf",                     category: "Compliance"       },
+  { name: "Suitability Assessment Guide",   description: "Framework used to assess investor suitability and risk tolerance.",        filename: "Suitability_Assessment.pdf",         category: "Compliance"       },
+  { name: "Fee Schedule",                   description: "Management, performance, and administrative fee structure.",               filename: "Fee_Schedule.pdf",                   category: "Fund Documents"   },
 ];
 
 // ── localStorage key registry ─────────────────────────────────────────────────
@@ -231,4 +324,7 @@ export const STORE_KEYS = {
   eventItems:          "event_items",
   requestCounter:      "request_counter",
   redemptionCounter:   "redemption_counter",
+  otherCounter:        "other_counter",
+  profileInfo:         "profile_info",
+  supportingDocs:      "supporting_docs",
 } as const;

@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { PanelLeftOpen } from "@/lib/icons";
 import { useResizable } from "@/lib/hooks/useResizable";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Header } from "./header/Header";
+import { FloatingActionButton } from "./ui/FloatingActionButton";
 
 const DEFAULT_WIDTH    = 256;
 const MIN_WIDTH        = 180;
@@ -16,6 +18,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     MIN_WIDTH,
     MAX_WIDTH,
   );
+  const { t } = useTranslation();
 
   return (
     <>
@@ -30,7 +33,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Orange expand tab — shown only when sidebar is hidden */}
       <button
         type="button"
-        aria-label="Open sidebar"
+        aria-label={t("nav.open_sidebar")}
         onClick={() => setOpen(true)}
         className={[
           "fixed left-0 top-5 z-40",
@@ -57,6 +60,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <Header />
         <main className="flex-1 p-8">{children}</main>
       </div>
+      <FloatingActionButton />
     </>
   );
 }

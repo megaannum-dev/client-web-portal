@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -12,102 +13,108 @@ const config: Config = {
       colors: {
         // Primary brand — Vibrant Orange
         primary: {
-          DEFAULT: "#f27405",
-          foreground: "#ffffff",
-          container: "#f27405",
-          "on-container": "#522300",
-          fixed: "#ffdbc8",
-          "fixed-dim": "#ffb68b",
-          "on-fixed": "#321200",
-          "on-fixed-variant": "#753400",
-          inverse: "#ffb68b",
+          DEFAULT: "rgb(var(--color-primary) / <alpha-value>)",
+          foreground: "rgb(var(--color-primary-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-primary-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-primary-on-container) / <alpha-value>)",
+          fixed: "rgb(var(--color-primary-fixed) / <alpha-value>)",
+          "fixed-dim": "rgb(var(--color-primary-fixed-dim) / <alpha-value>)",
+          "on-fixed": "rgb(var(--color-primary-on-fixed) / <alpha-value>)",
+          "on-fixed-variant": "rgb(var(--color-primary-on-fixed-variant) / <alpha-value>)",
+          inverse: "rgb(var(--color-primary-inverse) / <alpha-value>)",
         },
         // Surface scale — light neutral backgrounds
         surface: {
-          DEFAULT: "#f8f9fa",
-          dim: "#d9dadb",
-          bright: "#f8f9fa",
-          lowest: "#ffffff",
-          low: "#f3f4f5",
-          container: "#edeeef",
-          high: "#e7e8e9",
-          highest: "#e1e3e4",
-          variant: "#e1e3e4",
-          tint: "#994700",
+          DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
+          dim: "rgb(var(--color-surface-dim) / <alpha-value>)",
+          bright: "rgb(var(--color-surface-bright) / <alpha-value>)",
+          lowest: "rgb(var(--color-surface-lowest) / <alpha-value>)",
+          low: "rgb(var(--color-surface-low) / <alpha-value>)",
+          container: "rgb(var(--color-surface-container) / <alpha-value>)",
+          high: "rgb(var(--color-surface-high) / <alpha-value>)",
+          highest: "rgb(var(--color-surface-highest) / <alpha-value>)",
+          variant: "rgb(var(--color-surface-variant) / <alpha-value>)",
+          tint: "rgb(var(--color-surface-tint) / <alpha-value>)",
         },
         // On-surface text roles
         "on-surface": {
-          DEFAULT: "#191c1d",
-          variant: "#584236",
-          inverse: "#f0f1f2",
+          DEFAULT: "rgb(var(--color-on-surface) / <alpha-value>)",
+          variant: "rgb(var(--color-on-surface-variant) / <alpha-value>)",
+          inverse: "rgb(var(--color-on-surface-inverse) / <alpha-value>)",
         },
         // Borders / outlines
         outline: {
-          DEFAULT: "#8b7264",
-          variant: "#dfc0b0",
+          DEFAULT: "rgb(var(--color-outline) / <alpha-value>)",
+          variant: "rgb(var(--color-outline-variant) / <alpha-value>)",
         },
         // Secondary — muted charcoal
         secondary: {
-          DEFAULT: "#5f5e5e",
-          foreground: "#ffffff",
-          container: "#e2dfdf",
-          "on-container": "#636262",
-          fixed: "#e5e2e1",
-          "fixed-dim": "#c8c6c6",
-          "on-fixed": "#1c1b1c",
-          "on-fixed-variant": "#474647",
+          DEFAULT: "rgb(var(--color-secondary) / <alpha-value>)",
+          foreground: "rgb(var(--color-secondary-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-secondary-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-secondary-on-container) / <alpha-value>)",
+          fixed: "rgb(var(--color-secondary-fixed) / <alpha-value>)",
+          "fixed-dim": "rgb(var(--color-secondary-fixed-dim) / <alpha-value>)",
+          "on-fixed": "rgb(var(--color-secondary-on-fixed) / <alpha-value>)",
+          "on-fixed-variant": "rgb(var(--color-secondary-on-fixed-variant) / <alpha-value>)",
         },
         // Tertiary
         tertiary: {
-          DEFAULT: "#585f6c",
-          foreground: "#ffffff",
-          container: "#9198a6",
-          "on-container": "#29303c",
-          fixed: "#dce3f2",
-          "fixed-dim": "#c0c7d6",
-          "on-fixed": "#151c27",
-          "on-fixed-variant": "#404753",
+          DEFAULT: "rgb(var(--color-tertiary) / <alpha-value>)",
+          foreground: "rgb(var(--color-tertiary-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-tertiary-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-tertiary-on-container) / <alpha-value>)",
+          fixed: "rgb(var(--color-tertiary-fixed) / <alpha-value>)",
+          "fixed-dim": "rgb(var(--color-tertiary-fixed-dim) / <alpha-value>)",
+          "on-fixed": "rgb(var(--color-tertiary-on-fixed) / <alpha-value>)",
+          "on-fixed-variant": "rgb(var(--color-tertiary-on-fixed-variant) / <alpha-value>)",
         },
         // Success — completed, verified, low-risk states
         success: {
-          DEFAULT: "#16a34a",
-          foreground: "#ffffff",
-          container: "#f0fdf4",
-          "on-container": "#15803d",
+          DEFAULT: "rgb(var(--color-success) / <alpha-value>)",
+          foreground: "rgb(var(--color-success-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-success-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-success-on-container) / <alpha-value>)",
         },
         // Caution — in-progress, pending, medium-risk states
         caution: {
-          DEFAULT: "#ea580c",
-          foreground: "#ffffff",
-          container: "#fff7ed",
-          "on-container": "#c2410c",
+          DEFAULT: "rgb(var(--color-caution) / <alpha-value>)",
+          foreground: "rgb(var(--color-caution-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-caution-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-caution-on-container) / <alpha-value>)",
         },
         // Info — confirmatory states, under-review status
         info: {
-          DEFAULT: "#2e7d32",
-          foreground: "#ffffff",
-          container: "#f1f8f2",
-          "on-container": "#1b5e20",
+          DEFAULT: "rgb(var(--color-info) / <alpha-value>)",
+          foreground: "rgb(var(--color-info-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-info-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-info-on-container) / <alpha-value>)",
         },
         // Semantic — system errors (unrecoverable, destructive)
         error: {
-          DEFAULT: "#ba1a1a",
-          foreground: "#ffffff",
-          container: "#ffdad6",
-          "on-container": "#93000a",
+          DEFAULT: "rgb(var(--color-error) / <alpha-value>)",
+          foreground: "rgb(var(--color-error-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-error-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-error-on-container) / <alpha-value>)",
         },
         // Warning — urgency, approaching deadlines, compliance reminders
         warning: {
-          DEFAULT: "#d32f2f",        // vivid red — clear urgency signal
-          foreground: "#ffffff",
-          container: "#ffebee",      // soft red tint for card backgrounds
-          "on-container": "#b71c1c", // dark red for text on the light container
+          DEFAULT: "rgb(var(--color-warning) / <alpha-value>)",
+          foreground: "rgb(var(--color-warning-foreground) / <alpha-value>)",
+          container: "rgb(var(--color-warning-container) / <alpha-value>)",
+          "on-container": "rgb(var(--color-warning-on-container) / <alpha-value>)",
         },
         // Legacy aliases kept for existing code
-        brand: { DEFAULT: "#f27405", foreground: "#ffffff" },
-        corporate: { DEFAULT: "#5f5e5e", muted: "#e2dfdf" },
-        background: "#f8f9fa",
-        foreground: "#191c1d",
+        brand: {
+          DEFAULT: "rgb(var(--color-primary) / <alpha-value>)",
+          foreground: "rgb(var(--color-primary-foreground) / <alpha-value>)",
+        },
+        corporate: {
+          DEFAULT: "rgb(var(--color-secondary) / <alpha-value>)",
+          muted: "rgb(var(--color-secondary-container) / <alpha-value>)",
+        },
+        background: "rgb(var(--color-background) / <alpha-value>)",
+        foreground: "rgb(var(--color-foreground) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-hanken)", "system-ui", "sans-serif"],

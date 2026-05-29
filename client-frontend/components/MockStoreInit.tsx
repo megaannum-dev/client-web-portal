@@ -5,6 +5,7 @@ import {
   MOCK_KYC_STATUS,
   MOCK_LATEST_EVENTS,
   STORE_KEYS,
+  type LatestEvent,
 } from "@/lib/mock/data";
 
 export function MockStoreInit() {
@@ -12,19 +13,16 @@ export function MockStoreInit() {
     if (!localStorage.getItem(STORE_KEYS.kycStatus)) {
       localStorage.setItem(STORE_KEYS.kycStatus, MOCK_KYC_STATUS);
     }
-    if (!localStorage.getItem(STORE_KEYS.latestEvents)) {
-      localStorage.setItem(STORE_KEYS.latestEvents, JSON.stringify(MOCK_LATEST_EVENTS));
-    } else {
-      // Patch href onto existing events that are missing it (schema migration)
-      const hrefMap: Record<string, string> = Object.fromEntries(
-        MOCK_LATEST_EVENTS.filter((e) => e.href).map((e) => [e.id, e.href!]),
-      );
-      const stored = JSON.parse(localStorage.getItem(STORE_KEYS.latestEvents)!);
-      const patched = stored.map((e: { id: string; href?: string }) =>
-        hrefMap[e.id] && !e.href ? { ...e, href: hrefMap[e.id] } : e,
-      );
-      localStorage.setItem(STORE_KEYS.latestEvents, JSON.stringify(patched));
-    }
+    // Always keep base seed events in sync; preserve user-added dynamic events on top.
+    const baseIds = new Set(MOCK_LATEST_EVENTS.map((e) => e.id));
+    const existing: LatestEvent[] = JSON.parse(
+      localStorage.getItem(STORE_KEYS.latestEvents) ?? "[]",
+    );
+    const userAdded = existing.filter((e) => !baseIds.has(e.id));
+    localStorage.setItem(
+      STORE_KEYS.latestEvents,
+      JSON.stringify([...userAdded, ...MOCK_LATEST_EVENTS]),
+    );
     if (!localStorage.getItem(STORE_KEYS.allotmentRequests)) {
       localStorage.setItem(STORE_KEYS.allotmentRequests, JSON.stringify([]));
     }

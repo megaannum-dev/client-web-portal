@@ -61,7 +61,7 @@ export default function PortfolioLoading() {
         </div>
       </section>
 
-      {/* Allotted Models table */}
+      {/* Subscribed Models table */}
       <section>
         <Skeleton className="h-7 w-40 mb-4" />
         <div className="border border-outline-variant rounded-lg overflow-hidden">
@@ -85,7 +85,7 @@ export default function PortfolioLoading() {
         </div>
       </section>
 
-      {/* Available Models table */}
+      {/* Recommended Models table */}
       <section>
         <Skeleton className="h-7 w-44 mb-4" />
         <div className="border border-outline-variant rounded-lg overflow-hidden">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import clsx from "clsx";
+import { useTranslation } from "react-i18next";
 import {
   TrendingUp,
   AlarmClock,
@@ -25,7 +26,16 @@ import {
 
 type FilterCategory = "All Types" | EventCategory;
 
-const FILTERS: FilterCategory[] = ["All Types", "Market News", "Account Reminders", "Requests"];
+const FILTERS: FilterCategory[] = ["All Types", "Market News", "Account Notification", "Requests Status", "Others"];
+
+// Maps each filter/category value to its translation key.
+const FILTER_KEYS: Record<FilterCategory, string> = {
+  "All Types":            "events.filters.all_types",
+  "Market News":          "events.filters.market_news",
+  "Account Notification": "events.filters.account_notification",
+  "Requests Status":      "events.filters.requests_status",
+  "Others":               "events.filters.others",
+};
 
 const ICON_MAP: Record<EventIconType, LucideIcon> = {
   "trending-up": TrendingUp,
@@ -39,6 +49,7 @@ const ICON_MAP: Record<EventIconType, LucideIcon> = {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("All Types");
   const dynamicItems = useEventItems();
 
@@ -46,13 +57,13 @@ export default function EventsPage() {
     id:             d.id,
     icon:           ICON_MAP[d.iconType] ?? Briefcase,
     iconCls:        (LEVEL_CONFIG[d.level] ?? LEVEL_CONFIG.neutral).icon,
-    title:          d.title,
-    time:           d.time,
-    description:    d.description,
+    title:          t(`mock.event_items.${d.id}.title`,       { defaultValue: d.title }),
+    time:           t(`mock.event_items.${d.id}.time`,        { defaultValue: d.time }),
+    description:    t(`mock.event_items.${d.id}.description`, { defaultValue: d.description }),
     category:       d.category as EventCategory,
-    primaryLabel:   d.primaryLabel,
+    primaryLabel:   t(`mock.event_items.${d.id}.primary`,     { defaultValue: d.primaryLabel }),
     primaryVariant: d.primaryVariant as ActionVariant,
-    secondaryLabel: d.secondaryLabel,
+    secondaryLabel: t(`mock.event_items.${d.id}.secondary`,   { defaultValue: d.secondaryLabel }),
   }));
 
   const items =
@@ -64,8 +75,8 @@ export default function EventsPage() {
     <div className="flex flex-col gap-8 pb-8">
 
       <PageHeader
-        title="Events"
-        subtitle="Stay updated with the latest market news and account reminders."
+        title={t("events.title")}
+        subtitle={t("events.subtitle")}
       />
 
       {/* Filter pills */}
@@ -82,7 +93,7 @@ export default function EventsPage() {
                 : "bg-surface-container text-secondary hover:bg-surface-high",
             )}
           >
-            {f}
+            {t(FILTER_KEYS[f])}
           </button>
         ))}
       </div>
