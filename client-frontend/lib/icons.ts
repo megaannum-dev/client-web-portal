@@ -71,4 +71,7 @@ export {
   Check,
   // Documents — reference section
   BookOpen,
+  // Documents — split nav
+  CalendarDays,
+  Scale,
 } from "lucide-react";

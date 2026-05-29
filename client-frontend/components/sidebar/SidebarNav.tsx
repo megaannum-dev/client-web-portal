@@ -5,20 +5,22 @@ import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Briefcase,
-  FileText,
+  CalendarDays,
+  Scale,
   Activity,
-  Settings,
   UserRound,
 } from "@/lib/icons";
 import { NavItem }        from "./NavItem";
 import { useSidebarOpen } from "./SidebarContext";
 
 const NAV_ITEMS = [
-  { href: "/overview",   icon: LayoutDashboard, labelKey: "nav.overview"   },
-  { href: "/portfolio",  icon: Briefcase,       labelKey: "nav.portfolios" },
-  { href: "/documents",  icon: FileText,        labelKey: "nav.documents"  },
-  { href: "/events",     icon: Activity,        labelKey: "nav.events"     },
-  { href: "/profile",    icon: UserRound,       labelKey: "nav.profile"    },
+  { href: "/overview",                    icon: LayoutDashboard, labelKey: "nav.overview"         },
+  { href: "/portfolio",                   icon: Briefcase,       labelKey: "nav.portfolios"       },
+  { href: "/profile",                     icon: UserRound,       labelKey: "nav.profile"          },
+  { href: "/documents/monthly-reports",   icon: CalendarDays,    labelKey: "nav.monthly_reports"  },
+  { href: "/documents/legal-reports",     icon: Scale,           labelKey: "nav.legal_reports"    },
+  { href: "/events",                      icon: Activity,        labelKey: "nav.events"           },
+  
 ] as const;
 
 export function SidebarNav() {

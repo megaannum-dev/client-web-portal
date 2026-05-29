@@ -30,7 +30,7 @@ export function SidebarLogo({ onToggle }: SidebarLogoProps) {
           <div className="flex flex-col min-w-0">
             <span className="text-headline-md font-bold text-on-surface whitespace-nowrap leading-tight">
               {/* {t("sidebar.brand_name")} */}
-              MegaCRM
+              MegaPortal
             </span>
             <span className="text-body-sm text-secondary whitespace-nowrap leading-tight">
               {t("sidebar.brand_subtitle")}

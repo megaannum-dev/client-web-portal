@@ -25,6 +25,8 @@
     "overview": "總覽",
     "portfolios": "投資組合",
     "documents": "文件",
+    "monthly_reports": "月結報告",
+    "legal_reports": "法律文件",
     "events": "動態",
     "profile": "個人檔案",
     "settings": "設定",
@@ -220,6 +222,19 @@
       "legal_agreements": "法律協議",
       "compliance": "合規文件"
     }
+  },
+  "monthly_reports": {
+    "title": "月結報告",
+    "subtitle": "查閱您的歷史月底財務報告。",
+    "section_title": "歷史月結報告",
+    "showing": "顯示第 {{from}}–{{to}} 筆，共 {{total}} 份報告",
+    "previous_page": "上一頁",
+    "next_page": "下一頁"
+  },
+  "legal_reports": {
+    "title": "法律文件",
+    "subtitle": "供專業投資人參考的法律協議、基金文件及合規文件。",
+    "section_title": "參考文件"
   },
   "events": {
     "title": "動態",

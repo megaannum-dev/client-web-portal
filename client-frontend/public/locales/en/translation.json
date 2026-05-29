@@ -25,6 +25,8 @@
     "overview": "Overview",
     "portfolios": "Portfolios",
     "documents": "Documents",
+    "monthly_reports": "Monthly Reports",
+    "legal_reports": "Legal Reports",
     "events": "Events",
     "profile": "Profile",
     "settings": "Settings",
@@ -220,6 +222,19 @@
       "legal_agreements": "Legal Agreements",
       "compliance": "Compliance"
     }
+  },
+  "monthly_reports": {
+    "title": "Monthly Reports",
+    "subtitle": "Access your historical end-of-month financial reports.",
+    "section_title": "Historical EOM Reports",
+    "showing": "Showing {{from}}–{{to}} of {{total}} reports",
+    "previous_page": "Previous page",
+    "next_page": "Next page"
+  },
+  "legal_reports": {
+    "title": "Legal Reports",
+    "subtitle": "Legal agreements, fund documents, and compliance references for professional investors.",
+    "section_title": "Reference Documents"
   },
   "events": {
     "title": "Events",
