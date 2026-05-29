@@ -6,10 +6,13 @@
  */
 
 import {
+  DEFAULT_PROFILE_INFO,
   STORE_KEYS,
   type AllotmentRequest,
   type EventEntry,
   type LatestEvent,
+  type ProfileInfo,
+  type SupportingDoc,
 } from "./data";
 
 // ── ID generation ──────────────────────────────────────────────────────────────
@@ -24,6 +27,12 @@ export function generateRedemptionId(): string {
   const n = parseInt(localStorage.getItem(STORE_KEYS.redemptionCounter) ?? "429", 10) + 1;
   localStorage.setItem(STORE_KEYS.redemptionCounter, String(n));
   return `#RR-${n}`;
+}
+
+export function generateOtherTicketId(): string {
+  const n = parseInt(localStorage.getItem(STORE_KEYS.otherCounter) ?? "44", 10) + 1;
+  localStorage.setItem(STORE_KEYS.otherCounter, String(n));
+  return `#OT-${n}`;
 }
 
 // ── Individual appenders ───────────────────────────────────────────────────────
@@ -65,7 +74,7 @@ export function submitAllotmentRequest(params: {
     model:  params.model,
     amount: params.amount,
     date,
-    status: "Processing",
+    status: "Sent",
   });
 
   appendLatestEvent({
@@ -82,7 +91,7 @@ export function submitAllotmentRequest(params: {
     title:          `Allotment Request — ${params.model}`,
     time:           "Just now",
     description:    `Your allotment request (${id}) for ${params.amount} has been submitted and is now pending advisor review.`,
-    category:       "Requests",
+    category:       "Requests Status",
     primaryLabel:   "View Details",
     primaryVariant: "outline",
     secondaryLabel: "Mark as Read",
@@ -108,7 +117,7 @@ export function submitRedemptionRequest(params: {
     model:  params.model,
     amount: params.amount,
     date,
-    status: "Processing",
+    status: "Sent",
   });
 
   appendLatestEvent({
@@ -124,12 +133,80 @@ export function submitRedemptionRequest(params: {
     level:          "caution",
     title:          `Redemption Request — ${params.model}`,
     time:           "Just now",
-    description:    `Your redemption request (${id}) for ${params.amount} has been submitted and is now pending advisor review.`,
-    category:       "Requests",
+    description:    `Your redemption request (${id}) for ${params.amount} has been submitted and is now pending RM review.`,
+    category:       "Requests Status",
     primaryLabel:   "View Details",
     primaryVariant: "outline",
     secondaryLabel: "Mark as Read",
   });
 
   return id;
+}
+
+// ── Composite: submit an "Others" ticket ──────────────────────────────────────
+// TODO: replace with POST /api/client/tickets
+
+export function submitOtherTicket(params: {
+  subject: string;
+  category: string;
+  description: string;
+}) {
+  const id   = generateOtherTicketId();
+  const date = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+
+  appendAllotmentRequest({
+    id,
+    type:    "Others",
+    model:   params.subject || "General Inquiry",
+    amount:  "—",
+    date,
+    status:  "Sent",
+    subject: params.subject,
+  });
+
+  appendLatestEvent({
+    id:          `pending-${id}`,
+    level:       "info",
+    title:       "Ticket Submitted",
+    description: `Your ticket (${id}) — "${params.subject}" has been sent to your RM.`,
+  });
+
+  appendEventItem({
+    id:             `event-${id}`,
+    iconType:       "file-text",
+    level:          "info",
+    title:          `Ticket — ${params.subject}`,
+    time:           "Just now",
+    description:    `Your ticket (${id}) has been submitted under category "${params.category}" and is now pending RM review.`,
+    category:       "Requests Status",
+    primaryLabel:   "View Details",
+    primaryVariant: "outline",
+    secondaryLabel: "Mark as Read",
+  });
+
+  return id;
+}
+
+// ── Profile info ───────────────────────────────────────────────────────────────
+
+export function getProfileInfo(): ProfileInfo {
+  if (typeof window === "undefined") return DEFAULT_PROFILE_INFO;
+  const stored = localStorage.getItem(STORE_KEYS.profileInfo);
+  return stored ? (JSON.parse(stored) as ProfileInfo) : DEFAULT_PROFILE_INFO;
+}
+
+export function saveProfileInfo(info: ProfileInfo): void {
+  localStorage.setItem(STORE_KEYS.profileInfo, JSON.stringify(info));
+}
+
+// ── Supporting documents ───────────────────────────────────────────────────────
+
+export function getSupportingDocs(): SupportingDoc[] {
+  if (typeof window === "undefined") return [];
+  return JSON.parse(localStorage.getItem(STORE_KEYS.supportingDocs) ?? "[]");
+}
+
+export function appendSupportingDoc(doc: SupportingDoc): void {
+  const existing = getSupportingDocs();
+  localStorage.setItem(STORE_KEYS.supportingDocs, JSON.stringify([doc, ...existing]));
 }

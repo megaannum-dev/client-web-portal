@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { I18nProvider } from "@/components/I18nProvider";
 
 import "./globals.css";
 
@@ -23,9 +25,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${hankenGrotesk.variable} font-sans antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <I18nProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
 import {
   ShieldCheck,
   Bell,
   SlidersHorizontal,
-  CreditCard,
   Lock,
   Shield,
   Pencil,
   KeyRound,
-  Trash2,
-  Plus,
 } from "@/lib/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { setLanguage } from "@/lib/i18n/client";
+import { LANGUAGES, LANGUAGE_LABELS, type Language } from "@/lib/i18n/settings";
 import { PageHeader }  from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 
@@ -23,17 +24,16 @@ type Tab = "account" | "notifications" | "preferences" | "cards";
 
 interface TabDef {
   id: Tab;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const TABS: TabDef[] = [
-  { id: "account",       label: "Account and Safety", icon: ShieldCheck      },
-  { id: "notifications", label: "Notifications",      icon: Bell             },
-  { id: "preferences",   label: "Preferences",        icon: SlidersHorizontal },
-  { id: "cards",         label: "Bank Cards",          icon: CreditCard       },
+  { id: "account",       labelKey: "settings.tabs.account",       icon: ShieldCheck      },
+  { id: "notifications", labelKey: "settings.tabs.notifications", icon: Bell             },
+  { id: "preferences",   labelKey: "settings.tabs.preferences",   icon: SlidersHorizontal },
 ];
 
 const DUMMY_CARDS = [
@@ -82,66 +82,117 @@ function AccountAndSafetyPanel({
 }: {
   user: { displayName?: string | null; email?: string | null } | null;
 }) {
-  const email = user?.email ?? "alex.thompson@example.com";
+  const { t } = useTranslation();
+  const initialEmail = user?.email ?? "alex.thompson@example.com";
   const [twoFa, setTwoFa] = useState(false);
+
+  const [email, setEmail]             = useState(initialEmail);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft]   = useState(initialEmail);
+
+  const [phone, setPhone]             = useState("+1 (555) 0123-4567");
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft]   = useState("+1 (555) 0123-4567");
 
   return (
     <SectionCard>
       {/* ── Account Information ── */}
-      <SubHeader icon={Lock} title="Account Information" />
+      <SubHeader icon={Lock} title={t("settings.account_information")} />
 
       <div className="flex flex-col divide-y divide-outline-variant ">
         {/* Email row */}
-        <div className="flex items-center justify-between py-4">
-          <div className="flex flex-col gap-0.5">
+        <div className="flex items-start justify-between py-4 gap-4">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <span className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">
-              Email Address
+              {t("settings.email_address")}
             </span>
-            <span className="text-body-sm text-on-surface">{email}</span>
+            {editingEmail ? (
+              <input
+                type="email"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                className="w-full border border-outline-variant rounded-lg px-3 py-2 text-body-sm text-on-surface bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                autoFocus
+              />
+            ) : (
+              <span className="text-body-sm text-on-surface">{email}</span>
+            )}
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:opacity-75 transition-opacity shrink-0"
-          >
-            <Pencil size={13} strokeWidth={2} />
-            Change Email
-          </button>
+          {editingEmail ? (
+            <div className="flex items-center gap-2 shrink-0 pt-6">
+              <button type="button" onClick={() => setEditingEmail(false)}
+                className="px-3 py-1.5 text-body-sm font-semibold text-secondary rounded-lg border border-outline-variant hover:bg-surface-container transition-colors">
+                {t("common.cancel")}
+              </button>
+              <button type="button" onClick={() => { setEmail(emailDraft); setEditingEmail(false); }}
+                className="px-3 py-1.5 text-body-sm font-bold bg-primary text-white rounded-lg hover:opacity-90 transition-opacity">
+                {t("common.save")}
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => { setEmailDraft(email); setEditingEmail(true); }}
+              className="flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:opacity-75 transition-opacity shrink-0 mt-1">
+              <Pencil size={13} strokeWidth={2} />
+              {t("settings.change_email")}
+            </button>
+          )}
         </div>
 
         {/* Phone row */}
-        <div className="flex items-center justify-between py-4">
-          <div className="flex flex-col gap-0.5">
+        <div className="flex items-start justify-between py-4 gap-4">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <span className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">
-              Phone Number
+              {t("settings.phone_number")}
             </span>
-            <span className="text-body-sm text-on-surface">+1 (555) 0123-4567</span>
+            {editingPhone ? (
+              <input
+                type="tel"
+                value={phoneDraft}
+                onChange={(e) => setPhoneDraft(e.target.value)}
+                className="w-full border border-outline-variant rounded-lg px-3 py-2 text-body-sm text-on-surface bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                autoFocus
+              />
+            ) : (
+              <span className="text-body-sm text-on-surface">{phone}</span>
+            )}
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:opacity-75 transition-opacity shrink-0"
-          >
-            <Pencil size={13} strokeWidth={2} />
-            Change Phone Number
-          </button>
+          {editingPhone ? (
+            <div className="flex items-center gap-2 shrink-0 pt-6">
+              <button type="button" onClick={() => setEditingPhone(false)}
+                className="px-3 py-1.5 text-body-sm font-semibold text-secondary rounded-lg border border-outline-variant hover:bg-surface-container transition-colors">
+                {t("common.cancel")}
+              </button>
+              <button type="button" onClick={() => { setPhone(phoneDraft); setEditingPhone(false); }}
+                className="px-3 py-1.5 text-body-sm font-bold bg-primary text-white rounded-lg hover:opacity-90 transition-opacity">
+                {t("common.save")}
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => { setPhoneDraft(phone); setEditingPhone(true); }}
+              className="flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:opacity-75 transition-opacity shrink-0 mt-1">
+              <Pencil size={13} strokeWidth={2} />
+              {t("settings.change_phone_number")}
+            </button>
+          )}
         </div>
       </div>
 
       <hr className="border-outline-variant mb-8" />
 
       {/* ── Safety ── */}
-      <SubHeader icon={Shield} title="Safety" />
+      {/* <SubHeader icon={Shield} title={t("settings.safety")} /> */}
 
       <div className="flex flex-col gap-5">
         {/* 2FA toggle */}
-        <div className="flex items-center justify-between p-4 bg-surface-container rounded-lg">
+        {/* <div className="flex items-center justify-between p-4 bg-surface-container rounded-lg">
           <div>
-            <p className="text-body-sm font-bold text-on-surface">Two-Factor Authentication</p>
+            <p className="text-body-sm font-bold text-on-surface">{t("settings.two_factor_auth")}</p>
             <p className="text-label-md text-secondary mt-0.5">
-              Add an extra layer of security to your account.
+              {t("settings.two_factor_desc")}
             </p>
           </div>
           <Toggle on={twoFa} onToggle={() => setTwoFa((v) => !v)} />
-        </div>
+        </div> */}
 
         {/* Change password */}
         <button
@@ -149,7 +200,7 @@ function AccountAndSafetyPanel({
           className="flex items-center gap-2 text-body-sm font-bold text-primary hover:opacity-75 transition-opacity w-fit"
         >
           <KeyRound size={15} strokeWidth={2} />
-          Change Password
+          {t("settings.change_password")}
         </button>
 
         {/* Save */}
@@ -158,7 +209,7 @@ function AccountAndSafetyPanel({
             type="button"
             className="bg-primary text-white font-bold text-body-sm px-8 py-3 rounded hover:opacity-90 transition-opacity"
           >
-            Save Changes
+            {t("common.save_changes")}
           </button>
         </div>
       </div>
@@ -167,17 +218,18 @@ function AccountAndSafetyPanel({
 }
 
 function NotificationsPanel() {
+  const { t } = useTranslation();
   const [checked, setChecked] = useState({ email: true, push: true, sms: false });
 
   const items: { key: keyof typeof checked; label: string; desc: string }[] = [
-    { key: "email", label: "Email Alerts",        desc: "Receive important account updates by email."       },
-    { key: "push",  label: "Push Notifications",  desc: "Get real-time alerts on your device."              },
-    { key: "sms",   label: "SMS Updates",         desc: "Receive text messages for critical notifications." },
+    { key: "email", label: t("settings.notification_items.email_label"), desc: t("settings.notification_items.email_desc") },
+    { key: "push",  label: t("settings.notification_items.push_label"),  desc: t("settings.notification_items.push_desc")  },
+    { key: "sms",   label: t("settings.notification_items.sms_label"),   desc: t("settings.notification_items.sms_desc")   },
   ];
 
   return (
     <SectionCard>
-      <SubHeader icon={Bell} title="Notifications" />
+      <SubHeader icon={Bell} title={t("settings.notifications_title")} />
       <div className="flex flex-col divide-y divide-outline-variant">
         {items.map(({ key, label, desc }) => (
           <div key={key} className="flex items-center justify-between py-4">
@@ -198,7 +250,7 @@ function NotificationsPanel() {
           type="button"
           className="bg-primary text-white font-bold text-body-sm px-8 py-3 rounded hover:opacity-90 transition-opacity"
         >
-          Save Changes
+          {t("common.save_changes")}
         </button>
       </div>
     </SectionCard>
@@ -206,121 +258,62 @@ function NotificationsPanel() {
 }
 
 function PreferencesPanel() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const { theme, setTheme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const activeTheme = mounted ? (theme ?? "system") : "system";
+  const activeLang = mounted ? i18n.resolvedLanguage : undefined;
 
   return (
     <SectionCard>
-      <SubHeader icon={SlidersHorizontal} title="System Preferences" />
+      <SubHeader icon={SlidersHorizontal} title={t("settings.system_preferences")} />
       <div className="flex flex-col gap-6">
 
         {/* Language */}
         <div className="flex flex-col gap-2">
           <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">
-            Language
+            {t("settings.language")}
           </label>
-          <select className="h-11 px-4 rounded border border-outline-variant bg-surface-container text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-shadow w-64">
-            <option>English (US)</option>
-            <option>Spanish</option>
-            <option>French</option>
+          <select
+            value={activeLang ?? ""}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            className="h-11 px-4 rounded border border-outline-variant bg-surface-container text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-shadow w-64"
+          >
+            {LANGUAGES.map((lng) => (
+              <option key={lng} value={lng}>{LANGUAGE_LABELS[lng]}</option>
+            ))}
           </select>
         </div>
 
-        {/* Theme */}
+        {/* Theme — synced with the header toggle via next-themes */}
         <div className="flex flex-col gap-2">
           <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">
-            Theme
+            {t("settings.theme")}
           </label>
           <div className="flex gap-1 p-1 bg-surface-container rounded-lg w-fit">
-            {(["light", "dark"] as const).map((t) => (
+            {(["light", "dark", "system"] as const).map((mode) => (
               <button
-                key={t}
+                key={mode}
                 type="button"
-                onClick={() => setTheme(t)}
+                onClick={() => setTheme(mode)}
                 className={[
-                  "px-6 py-2 text-body-sm font-bold rounded capitalize transition-all duration-150",
-                  theme === t
+                  "px-5 py-2 text-body-sm font-bold rounded transition-all duration-150",
+                  activeTheme === mode
                     ? "bg-surface-lowest text-on-surface shadow-card"
                     : "text-secondary hover:text-on-surface",
                 ].join(" ")}
               >
-                {t}
+                {t(`settings.theme_${mode}`)}
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            className="bg-primary text-white font-bold text-body-sm px-8 py-3 rounded hover:opacity-90 transition-opacity"
-          >
-            Save Changes
-          </button>
+          <p className="text-label-md text-secondary mt-0.5">
+            {t("settings.theme_hint")}
+          </p>
         </div>
       </div>
-    </SectionCard>
-  );
-}
-
-function BankCardsPanel() {
-  const [cards, setCards] = useState(DUMMY_CARDS);
-
-  const removeCard = (id: number) =>
-    setCards((prev) => prev.filter((c) => c.id !== id));
-
-  return (
-    <SectionCard>
-      <SubHeader icon={CreditCard} title="Bank Cards" />
-
-      <div className="flex flex-col gap-3 mb-6">
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            className="flex items-center justify-between p-4 bg-surface-container rounded-lg border border-outline-variant"
-          >
-            <div className="flex items-center gap-4">
-              {/* Brand badge */}
-              <div className="w-12 h-8 rounded flex items-center justify-center bg-surface-lowest border border-outline-variant shrink-0">
-                <span className="text-[10px] font-black tracking-tight text-on-surface uppercase">
-                  {card.brand === "Mastercard" ? "MC" : card.brand}
-                </span>
-              </div>
-
-              {/* Card details */}
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-body-sm font-bold text-on-surface">
-                    {card.brand} **** {card.last4}
-                  </span>
-                  {card.primary && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                      Primary
-                    </span>
-                  )}
-                </div>
-                <span className="text-label-md text-secondary">Expires {card.expiry}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => removeCard(card.id)}
-              aria-label={`Remove ${card.brand} card ending ${card.last4}`}
-              className="p-2 rounded text-secondary hover:text-error hover:bg-error-container/20 transition-colors duration-150 shrink-0"
-            >
-              <Trash2 size={16} strokeWidth={1.75} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        className="flex items-center gap-2 w-full justify-center border border-dashed border-outline-variant rounded-lg py-3 text-body-sm font-semibold text-secondary hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors duration-150"
-      >
-        <Plus size={16} strokeWidth={2} />
-        Add New Card
-      </button>
     </SectionCard>
   );
 }
@@ -330,20 +323,21 @@ function BankCardsPanel() {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("account");
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="flex flex-col gap-8 pb-8">
 
       <PageHeader
-        title="Settings"
-        subtitle="Manage your account security, notifications, and preferences."
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
       />
 
       <div className="flex gap-8 items-start">
 
         {/* Left tab nav */}
-        <nav className="w-56 flex flex-col gap-1 shrink-0" aria-label="Settings navigation">
-          {TABS.map(({ id, label, icon: Icon }) => (
+        <nav className="w-56 flex flex-col gap-1 shrink-0" aria-label={t("settings.navigation")}>
+          {TABS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -356,7 +350,7 @@ export default function SettingsPage() {
               ].join(" ")}
             >
               <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </nav>
@@ -366,7 +360,6 @@ export default function SettingsPage() {
           {activeTab === "account"       && <AccountAndSafetyPanel user={user} />}
           {activeTab === "notifications" && <NotificationsPanel />}
           {activeTab === "preferences"   && <PreferencesPanel />}
-          {activeTab === "cards"         && <BankCardsPanel />}
         </div>
       </div>
     </div>

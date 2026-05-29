@@ -25,6 +25,8 @@ export {
   Search,
   Bell,
   Settings,
+  Sun,
+  Moon,
   // Actions
   Upload,
   Download,
@@ -60,4 +62,16 @@ export {
   CreditCard,
   KeyRound,
   Trash2,
+  // Header — RM contact
+  Mail,
+  MessageCircle,
+  // Portfolio — ticket flow
+  Ticket,
+  // Profile — edit actions
+  Check,
+  // Documents — reference section
+  BookOpen,
+  // Documents — split nav
+  CalendarDays,
+  Scale,
 } from "lucide-react";

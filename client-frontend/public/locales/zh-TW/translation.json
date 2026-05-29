@@ -1,0 +1,476 @@
+{
+  "common": {
+    "cancel": "取消",
+    "save": "儲存",
+    "save_changes": "儲存變更",
+    "download": "下載",
+    "upload": "上傳",
+    "upload_document": "上傳文件",
+    "browse_files": "瀏覽檔案",
+    "close": "關閉",
+    "back": "返回",
+    "verified": "已驗證",
+    "processing": "處理中",
+    "pending": "待處理",
+    "review": "審核中",
+    "drag_drop_files": "將檔案拖曳至此",
+    "supported_formats": "支援格式：JPG、PNG、PDF（上限 10MB）",
+    "select_document_error": "請先選擇要上傳的文件。",
+    "reveal_values": "顯示數值",
+    "hide_values": "隱藏數值",
+    "vs_last_month": "較上月",
+    "benchmark": "基準"
+  },
+  "nav": {
+    "overview": "總覽",
+    "portfolios": "投資組合",
+    "documents": "文件",
+    "monthly_reports": "月結報告",
+    "legal_reports": "法律文件",
+    "events": "動態",
+    "profile": "個人檔案",
+    "settings": "設定",
+    "common_query": "常見問題",
+    "logout": "登出",
+    "main_navigation": "主要導覽",
+    "open_sidebar": "開啟側邊欄",
+    "collapse_sidebar": "收合側邊欄",
+    "expand_sidebar": "展開側邊欄"
+  },
+  "sidebar": {
+    "brand_name": "AlphaTrade",
+    "brand_subtitle": "客戶入口網站"
+  },
+  "header": {
+    "search_placeholder": "搜尋報告⋯",
+    "notifications": "通知",
+    "help": "說明",
+    "platinum_client": "白金客戶",
+    "contact_rm": "聯絡您的客戶經理",
+    "email": "電子郵件",
+    "whatsapp": "WhatsApp",
+    "occupation": "職業",
+    "occupation_value": "投資組合經理",
+    "view_full_profile": "查看完整檔案",
+    "empty": "—"
+  },
+  "fab": {
+    "quick_actions": "快速操作",
+    "close_quick_actions": "關閉快速操作",
+    "common_query_faq": "常見問題集",
+    "download_latest_eom": "下載最新月結報告",
+    "raise_ticket": "提出申請"
+  },
+  "auth": {
+    "login": {
+      "brand_name": "AlphaTrade",
+      "welcome_back": "歡迎回來",
+      "firebase_warning_prefix": "請設定",
+      "firebase_warning_suffix": "以啟用驗證功能。",
+      "email_label": "電子郵件地址",
+      "email_placeholder": "name@company.com",
+      "password_label": "密碼",
+      "password_placeholder": "********",
+      "forgot_password": "忘記密碼？",
+      "show_password": "顯示密碼",
+      "hide_password": "隱藏密碼",
+      "keep_signed_in": "在 30 天內保持登入狀態",
+      "sign_in": "登入",
+      "signing_in": "登入中⋯",
+      "or": "或",
+      "continue_with_google": "使用 Google 帳戶繼續",
+      "no_account": "還沒有帳戶嗎？",
+      "contact_administrator": "聯絡管理員",
+      "privacy_policy": "隱私權政策",
+      "terms_of_service": "服務條款",
+      "copyright": "© 2024 Megaannum 客戶入口網站。機構級資料管理。",
+      "error_credentials_required": "請輸入您的電子郵件與密碼。"
+    },
+    "register": {
+      "create_account": "建立帳戶",
+      "subtitle": "電子郵件與密碼將由 Firebase 儲存。",
+      "firebase_warning_prefix": "請先在",
+      "firebase_warning_suffix": "中設定 Firebase。",
+      "email_label": "電子郵件",
+      "password_label": "密碼",
+      "creating_account": "建立帳戶中⋯",
+      "go_to_sign_in": "前往登入 →",
+      "already_have_account": "已經有帳戶了嗎？",
+      "sign_in": "登入",
+      "error_invalid_credentials": "請使用有效的電子郵件及至少 6 個字元的密碼。"
+    }
+  },
+  "overview": {
+    "title": "客戶儀表板",
+    "subtitle": "全球機會基金 • 投資組合編號：#AT-8842",
+    "account_summary": "帳戶摘要",
+    "total_portfolio_value": "投資組合總值",
+    "ytd_returns": "年初至今報酬",
+    "benchmark_label": "基準：{{value}}",
+    "recent_request_status": "近期申請狀態",
+    "view_all_requests": "檢視所有申請",
+    "latest_events": "最新動態",
+    "columns": {
+      "request_type": "申請類型",
+      "model_fund": "模型 / 基金",
+      "submitted": "提交時間",
+      "status": "狀態",
+      "amount": "金額"
+    },
+    "slides": {
+      "wealth_management": { "title": "提升您的財富管理體驗", "cta": "了解更多" },
+      "precision_data": { "title": "精準數據，盡在指尖", "cta": "檢視洞察" },
+      "institutional_planning": { "title": "策略性機構規劃", "cta": "諮詢專家" },
+      "expert_guidance": { "title": "專家指引，值得信賴的洞察", "cta": "認識您的顧問" },
+      "sustainable_growth": { "title": "永續成長，傳承價值", "cta": "探索模型" }
+    }
+  },
+  "status": {
+    "sent": "已送出",
+    "received": "已收到",
+    "processing": "處理中",
+    "fulfilled": "已完成"
+  },
+  "request_type": {
+    "allotment": "申購",
+    "redemption": "贖回",
+    "others": "其他"
+  },
+  "risk": {
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+  "portfolio": {
+    "title": "投資組合詳情",
+    "subtitle": "全球機會基金 • 投資組合編號：#AT-8842",
+    "raise_ticket": "提出申請",
+    "portfolio_summary": "投資組合摘要",
+    "total_value": "總價值",
+    "cash_balance": "現金餘額",
+    "ytd_returns": "年初至今報酬",
+    "portfolio_health": "投資組合健康度",
+    "optimal": "最佳",
+    "vs_last_month": "較上月",
+    "unallocated": "未配置",
+    "outperforming": "表現優於",
+    "benchmark": "基準",
+    "risk_profile_stable": "風險狀況穩定",
+    "portfolio_insights": "投資組合洞察",
+    "return_loss_performance": "報酬與虧損表現",
+    "performance_vs_benchmarks": "相對內部基準的表現",
+    "benchmark_legend": "基準",
+    "historical_track": "歷史走勢（6 個月）",
+    "asset_distribution": "資產分布",
+    "allocated": "已配置",
+    "ytd_avg": "年初至今平均",
+    "return_tooltip": "報酬",
+    "cash": "現金",
+    "subscribed_models": "已申購模型",
+    "recommended_models": "推薦模型",
+    "ticket_history": "申請紀錄",
+    "search_placeholder": "依編號、模型、類型搜尋⋯",
+    "no_tickets_match": "沒有符合搜尋條件的申請。",
+    "no_results": "無結果",
+    "showing_tickets": "顯示第 {{from}}–{{to}} 筆，共 {{total}} 筆申請",
+    "previous_page": "上一頁",
+    "next_page": "下一頁",
+    "subscribed_columns": {
+      "model_name": "模型名稱",
+      "symbol": "代號",
+      "country": "國家",
+      "sector": "產業",
+      "model_limit": "模型上限",
+      "amount": "金額（$）",
+      "multiplier": "倍數",
+      "ib_account": "IB 帳戶"
+    },
+    "recommended_columns": {
+      "model_name": "模型名稱",
+      "symbol": "代號",
+      "country": "國家",
+      "sector": "產業",
+      "model_limit": "模型上限",
+      "min_investment": "最低投資額（$）",
+      "risk_level": "風險等級",
+      "market_material": "市場資料"
+    },
+    "ticket_columns": {
+      "ticket_id": "申請編號",
+      "type": "類型",
+      "model_subject": "模型 / 主旨",
+      "amount": "金額",
+      "date": "日期",
+      "status": "狀態"
+    }
+  },
+  "documents": {
+    "title": "文件",
+    "subtitle": "存取您的每月財務報告及專業投資人參考文件。",
+    "historical_eom_reports": "歷史月結報告",
+    "reference_documents": "參考文件",
+    "reference_subtitle": "供專業投資人參考的法律協議、基金文件及合規文件。",
+    "columns": {
+      "report_name": "報告名稱",
+      "reporting_period": "報告期間",
+      "generated_date": "產生日期",
+      "actions": "操作"
+    },
+    "download_aria": "下載 {{name}}",
+    "categories": {
+      "fund_documents": "基金文件",
+      "legal_agreements": "法律協議",
+      "compliance": "合規文件"
+    }
+  },
+  "monthly_reports": {
+    "title": "月結報告",
+    "subtitle": "查閱您的歷史月底財務報告。",
+    "section_title": "歷史月結報告",
+    "showing": "顯示第 {{from}}–{{to}} 筆，共 {{total}} 份報告",
+    "previous_page": "上一頁",
+    "next_page": "下一頁"
+  },
+  "legal_reports": {
+    "title": "法律文件",
+    "subtitle": "供專業投資人參考的法律協議、基金文件及合規文件。",
+    "section_title": "參考文件"
+  },
+  "events": {
+    "title": "動態",
+    "subtitle": "掌握最新市場消息與帳戶提醒。",
+    "filters": {
+      "all_types": "所有類型",
+      "market_news": "市場消息",
+      "account_notification": "帳戶通知",
+      "requests_status": "申請狀態",
+      "others": "其他"
+    }
+  },
+  "profile": {
+    "title": "使用者檔案",
+    "subtitle": "管理您的個人資訊及文件合規狀態。",
+    "personal_information": "個人資訊",
+    "edit_personal_information": "編輯個人資訊",
+    "change_photo": "變更相片",
+    "full_name": "全名",
+    "phone_number": "電話號碼",
+    "email": "電子郵件",
+    "company": "公司",
+    "occupation": "職業",
+    "residential_address": "居住地址",
+    "location_of_residence": "居住地點",
+    "edit_in_settings": "在設定中編輯",
+    "account_balance": "帳戶餘額",
+    "total_portfolio_value": "投資組合總值",
+    "total_cash_value": "現金總值",
+    "document_verification": "文件驗證",
+    "kyc_status": "KYC 文件狀態",
+    "kyc_verified_badge": "已驗證",
+    "kyc_processing_badge": "處理中",
+    "kyc_due_badge": "10 天內到期",
+    "kyc_verified_desc": "您的 KYC 文件已成功驗證且為最新狀態。",
+    "kyc_processing_desc": "您的 KYC 文件正在審核中，此程序通常需要 1–3 個工作天。",
+    "kyc_due_desc": "您的年度認識客戶（KYC）續期作業已到期。請上傳有效的政府核發身分證件。",
+    "next_renewal_due": "下次續期到期日：",
+    "submitted": "提交時間：{{date}}",
+    "annual_update_due": "年度更新到期日：",
+    "view_document": "檢視文件",
+    "view_kyc_document": "檢視 KYC 文件",
+    "upload_kyc": "上傳 KYC",
+    "aml_status": "AML 文件狀態",
+    "aml_desc": "反洗錢（AML）聲明目前為有效狀態。下個申報週期將於 2024 年 10 月開始。",
+    "aml_update_due": "年度更新到期日：2023 年 9 月 13 日",
+    "view_aml_document": "檢視 AML 文件",
+    "supporting_documents": "佐證文件",
+    "no_documents_uploaded": "尚未上傳任何文件",
+    "supporting_empty_hint": "上傳您的客戶經理所要求的問卷或文件。",
+    "kyc_modal": {
+      "title": "上傳 KYC 文件",
+      "subtitle": "請提供所需驗證文件的清晰掃描檔。",
+      "document_type": "文件類型",
+      "passport": "護照",
+      "national_id": "國民身分證",
+      "drivers_license": "駕駛執照",
+      "expiry_date": "到期日",
+      "document_file": "文件檔案",
+      "guidance": "請確保所有文字與相片清晰可見。反光或細節遮蔽可能導致驗證延誤。"
+    },
+    "supporting_modal": {
+      "title": "上傳佐證文件",
+      "subtitle": "選擇文件類別並上傳您的檔案。",
+      "document_category": "文件類別"
+    },
+    "categories": {
+      "questionnaire": "問卷",
+      "others": "其他"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "subtitle": "管理您的帳戶安全、通知與偏好設定。",
+    "navigation": "設定導覽",
+    "tabs": {
+      "account": "帳戶與安全",
+      "notifications": "通知",
+      "preferences": "偏好設定"
+    },
+    "account_information": "帳戶資訊",
+    "email_address": "電子郵件地址",
+    "change_email": "變更電子郵件",
+    "phone_number": "電話號碼",
+    "change_phone_number": "變更電話號碼",
+    "safety": "安全",
+    "two_factor_auth": "雙重驗證",
+    "two_factor_desc": "為您的帳戶增添一層額外的安全防護。",
+    "change_password": "變更密碼",
+    "notifications_title": "通知",
+    "notification_items": {
+      "email_label": "電子郵件提醒",
+      "email_desc": "透過電子郵件接收重要的帳戶更新。",
+      "push_label": "推播通知",
+      "push_desc": "在您的裝置上即時接收提醒。",
+      "sms_label": "簡訊更新",
+      "sms_desc": "透過簡訊接收重要通知。"
+    },
+    "system_preferences": "系統偏好設定",
+    "language": "語言",
+    "theme": "主題",
+    "theme_light": "淺色",
+    "theme_dark": "深色",
+    "theme_system": "系統",
+    "theme_hint": "變更會立即套用，並與標題列的切換按鈕保持同步。"
+  },
+  "support": {
+    "title": "支援"
+  },
+  "ticket": {
+    "raise_ticket": "提出申請",
+    "allotment_ticket": "申購申請",
+    "redemption_ticket": "贖回申請",
+    "others_ticket": "其他申請",
+    "select_type_prompt": "請選擇您要提出的申請類型：",
+    "types": {
+      "allotment_label": "申購",
+      "allotment_desc": "向可申購的投資模型申請配置。",
+      "redemption_label": "贖回",
+      "redemption_desc": "贖回現有模型部位的部分或全部。",
+      "others_label": "其他",
+      "others_desc": "一般詢問、問卷或其他申請。"
+    },
+    "select_model": "選擇模型",
+    "select_model_placeholder": "— 選擇模型 —",
+    "select_subscribed_model": "選擇已申購模型",
+    "select_subscribed_placeholder": "— 選擇一個已申購模型 —",
+    "amount": "金額（$）",
+    "multiplier": "倍數（x）",
+    "funding_source": "資金來源",
+    "cash_balance": "現金餘額：{{amount}}",
+    "external_transfer": "外部轉帳",
+    "minimum_allotment": "最低申購額：{{amount}}",
+    "selected_model": "已選擇模型",
+    "redemption_type": "贖回類型",
+    "partial_redemption": "部分贖回",
+    "redeem_all": "全部贖回",
+    "redemption_amount": "贖回金額（$）",
+    "returning_to": "返還至",
+    "redemption_processing_note": "贖回作業通常需要 2–3 個工作天。",
+    "category": "類別",
+    "subject": "主旨",
+    "subject_placeholder": "簡述您的申請",
+    "description": "說明",
+    "description_placeholder": "請提供有關您申請的詳細資訊⋯",
+    "confirm_rm_allotment": "我確認已就此申請諮詢我的客戶經理。",
+    "confirm_rm_redemption": "我確認已就此贖回申請諮詢我的客戶經理。",
+    "confirm_others": "我確認以上資訊正確無誤，並希望向我的客戶經理提交此申請。",
+    "submit_allotment": "提交申購",
+    "submit_redemption": "提交贖回",
+    "submit_ticket": "提交申請",
+    "risk_high": "高風險",
+    "risk_medium": "中風險",
+    "risk_low": "低風險",
+    "general_inquiry": "一般詢問",
+    "errors": {
+      "select_model": "請選擇一個模型。",
+      "valid_amount": "請輸入有效的金額。",
+      "minimum_allotment": "最低申購額為 {{amount}}。",
+      "valid_multiplier": "請輸入有效的倍數。",
+      "confirm_rm": "請確認您已諮詢您的客戶經理。",
+      "valid_redemption_amount": "請輸入有效的贖回金額。",
+      "enter_subject": "請輸入主旨。",
+      "describe_request": "請描述您的申請。",
+      "confirm_reviewed": "請確認您已檢視您的申請。"
+    }
+  },
+  "mock": {
+    "latest_events": {
+      "signature-required": {
+        "title": "需要簽署",
+        "description": "贖回申請 #RR-429 需於今日營業時間結束前完成授權。"
+      },
+      "compliance-review": {
+        "title": "合規審查",
+        "description": "本季 KYC 更新已收到，目前正在審核中。"
+      },
+      "kyc-verified": {
+        "title": "KYC 已驗證",
+        "description": "您的身分文件已成功驗證。"
+      },
+      "kyc-review": {
+        "title": "KYC 文件審核中",
+        "description": "您提交的 KYC 文件正在審核中，通常需要 1–3 個工作天。"
+      }
+    },
+    "event_items": {
+      "event-fed-rate": {
+        "title": "聯準會利率決策公布",
+        "time": "2 小時前",
+        "description": "聯邦準備理事會已公布最新利率決策，影響市場波動與投資組合收益。與您相關的歷史消息與提醒現已更新至您的儀表板。",
+        "primary": "閱讀完整報告",
+        "secondary": "標示為已讀"
+      },
+      "event-kyc-reminder": {
+        "title": "KYC 上傳提醒",
+        "time": "5 小時前",
+        "description": "您的 KYC 文件年度續期將於 10 天內到期。請確保近期合規文件已上傳，以免造成處理延誤。",
+        "primary": "前往上傳",
+        "secondary": "標示為已讀"
+      },
+      "event-compliance-policy": {
+        "title": "新合規政策更新",
+        "time": "昨天",
+        "description": "我們已更新機構 AML 聲明程序以符合最新的區域法規。請檢視變更內容，確保您的帳戶維持合規。",
+        "primary": "檢視政策",
+        "secondary": "忽略"
+      },
+      "event-tech-rebound": {
+        "title": "市場洞察：科技類股反彈",
+        "time": "2023 年 10 月 18 日",
+        "description": "我們的分析師已發布一份新簡報，探討主要供應商最新財報後科技產業的預期成長。",
+        "primary": "檢視洞察",
+        "secondary": "標示為已讀"
+      },
+      "event-security-alert": {
+        "title": "安全警示：偵測到新登入",
+        "time": "2023 年 10 月 17 日",
+        "description": "偵測到在 macOS 上使用 Chrome 瀏覽器的新登入。如果這並非您本人，請立即透過變更密碼來保護您的帳戶。",
+        "primary": "管理裝置",
+        "secondary": "我認得此登入"
+      },
+      "event-annual-review": {
+        "title": "已安排年度投資組合審查",
+        "time": "2023 年 10 月 10 日",
+        "description": "您的年度投資組合審查已與您的客戶經理安排於下個月進行。行事曆邀請將寄送至您註冊的電子郵件地址。",
+        "primary": "確認",
+        "secondary": "標示為已讀"
+      },
+      "event-kyc-upload": {
+        "title": "KYC 文件已提交審核",
+        "time": "剛剛",
+        "description": "您的 KYC 文件已上傳，目前正在審核中。此程序通常需要 1~3 個工作天。",
+        "primary": "檢視詳情",
+        "secondary": "標示為已讀"
+      }
+    }
+  }
+}

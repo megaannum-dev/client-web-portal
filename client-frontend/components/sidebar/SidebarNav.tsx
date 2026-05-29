@@ -1,36 +1,44 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Briefcase,
-  FileText,
+  CalendarDays,
+  Scale,
   Activity,
-  Settings,
   UserRound,
 } from "@/lib/icons";
-import { NavItem } from "./NavItem";
+import { NavItem }        from "./NavItem";
+import { useSidebarOpen } from "./SidebarContext";
 
 const NAV_ITEMS = [
-  { href: "/overview",   icon: LayoutDashboard, label: "Overview"   },
-  { href: "/portfolio",  icon: Briefcase,       label: "Portfolios" },
-  { href: "/documents",    icon: FileText,        label: "Documents"    },
-  { href: "/events",     icon: Activity,        label: "Events"     },
-  { href: "/profile",    icon: UserRound,       label: "Profile"    },
-  { href: "/settings",   icon: Settings,        label: "Settings"   },
+  { href: "/overview",                    icon: LayoutDashboard, labelKey: "nav.overview"         },
+  { href: "/portfolio",                   icon: Briefcase,       labelKey: "nav.portfolios"       },
+  { href: "/profile",                     icon: UserRound,       labelKey: "nav.profile"          },
+  { href: "/documents/monthly-reports",   icon: CalendarDays,    labelKey: "nav.monthly_reports"  },
+  { href: "/documents/legal-reports",     icon: Scale,           labelKey: "nav.legal_reports"    },
+  { href: "/events",                      icon: Activity,        labelKey: "nav.events"           },
+  
 ] as const;
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const isOpen   = useSidebarOpen();
+  const { t }    = useTranslation();
 
   return (
-    <nav className="flex-1 flex flex-col gap-2 px-4" aria-label="Main navigation">
+    <nav
+      className={["flex-1 flex flex-col gap-2", isOpen ? "px-4" : "px-2"].join(" ")}
+      aria-label={t("nav.main_navigation")}
+    >
       {NAV_ITEMS.map((item) => (
         <NavItem
           key={item.href}
           href={item.href}
           icon={item.icon}
-          label={item.label}
+          label={t(item.labelKey)}
           active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
         />
       ))}

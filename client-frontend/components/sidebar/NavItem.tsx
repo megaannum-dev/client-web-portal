@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
+import { useSidebarOpen } from "./SidebarContext";
 
 interface NavItemProps {
   href: string;
@@ -9,21 +12,27 @@ interface NavItemProps {
 }
 
 export function NavItem({ href, icon: Icon, label, active = false }: NavItemProps) {
+  const isOpen = useSidebarOpen();
+
   return (
     <Link
       href={href}
+      title={!isOpen ? label : undefined}
       className={[
-        "flex items-center gap-3 py-3 pl-4 pr-5 w-full transition-colors duration-150",
+        "flex items-center transition-colors duration-150 rounded",
+        isOpen ? "gap-3 py-3 pl-4 pr-5 w-full" : "justify-center py-3 w-full",
         active
-          ? "bg-primary rounded text-white"
-          : "rounded text-secondary hover:bg-surface-container hover:text-on-surface",
+          ? "bg-primary text-white"
+          : "text-secondary hover:bg-surface-container hover:text-on-surface",
       ].join(" ")}
       aria-current={active ? "page" : undefined}
     >
       <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-      <span className="text-label-md font-semibold tracking-[0.05em] uppercase">
-        {label}
-      </span>
+      {isOpen && (
+        <span className="text-label-md font-semibold tracking-[0.05em] uppercase">
+          {label}
+        </span>
+      )}
     </Link>
   );
 }
