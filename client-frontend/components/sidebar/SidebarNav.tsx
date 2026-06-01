@@ -10,8 +10,7 @@ import {
   Activity,
   UserRound,
 } from "@/lib/icons";
-import { NavItem }        from "./NavItem";
-import { useSidebarOpen } from "./SidebarContext";
+import { NavItem } from "./NavItem";
 
 const NAV_ITEMS = [
   { href: "/overview",                    icon: LayoutDashboard, labelKey: "nav.overview"         },
@@ -20,12 +19,14 @@ const NAV_ITEMS = [
   { href: "/documents/monthly-reports",   icon: CalendarDays,    labelKey: "nav.monthly_reports"  },
   { href: "/documents/legal-reports",     icon: Scale,           labelKey: "nav.legal_reports"    },
   { href: "/events",                      icon: Activity,        labelKey: "nav.events"           },
-  
 ] as const;
 
-export function SidebarNav() {
+interface SidebarNavProps {
+  isOpen: boolean;
+}
+
+export function SidebarNav({ isOpen }: SidebarNavProps) {
   const pathname = usePathname();
-  const isOpen   = useSidebarOpen();
   const { t }    = useTranslation();
 
   return (
@@ -40,6 +41,7 @@ export function SidebarNav() {
           icon={item.icon}
           label={t(item.labelKey)}
           active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+          isOpen={isOpen}
         />
       ))}
     </nav>
