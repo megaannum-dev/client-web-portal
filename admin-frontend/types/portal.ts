@@ -2,5 +2,5 @@ export type PortalUser = {
   id: number;
   firebase_uid: string;
   email: string | null;
-  role: string;
+  role: "CLIENT" | "RM" | "PM" | "PC" | "COMPLIANCE" | "ADMIN";
 };
