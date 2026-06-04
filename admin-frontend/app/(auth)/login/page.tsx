@@ -1,151 +1,165 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { formatFirebaseAuthError } from "@/lib/firebase-auth-errors";
+import type { PortalUser } from "@/types/portal";
 
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+type DemoRole = Extract<PortalUser["role"], "RM" | "MOBO" | "ADMIN">;
 
-  const {
-    user,
-    portalUser,
-    loading,
-    backendSyncing,
-    backendSyncError,
-    firebaseReady,
-    signInWithGoogle,
-    signInWithEmailPassword,
-  } = useAuth();
-
-  const [email,     setEmail    ] = useState("");
-  const [password,  setPassword ] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading && !backendSyncing && user && portalUser) {
-      router.replace(next);
-    }
-  }, [loading, backendSyncing, user, portalUser, next, router]);
-
-  const onEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    if (!email.trim() || !password) {
-      setFormError("Enter email and password.");
-      return;
-    }
-    try {
-      await signInWithEmailPassword(email, password);
-    } catch (err) {
-      setFormError(formatFirebaseAuthError(err));
-    }
-  };
-
-  const onGoogle = async () => {
-    setFormError(null);
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      setFormError(formatFirebaseAuthError(err));
-    }
-  };
-
-  return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-corporate-muted bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-corporate">Sign in</h1>
-      <p className="mt-2 text-sm text-corporate">Use your portal credentials or Google.</p>
-
-      {!firebaseReady && (
-        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-          Set <code className="text-xs">NEXT_PUBLIC_FIREBASE_*</code> in{" "}
-          <code className="text-xs">.env.local</code> to enable authentication.
-        </p>
-      )}
-
-      {(formError || (user && backendSyncError)) && (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-          {formError ?? backendSyncError}
-        </p>
-      )}
-
-      <form className="mt-6 flex flex-col gap-4" onSubmit={onEmailSubmit}>
-        <label className="block text-sm font-medium text-corporate">
-          Email
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-            disabled={!firebaseReady || loading || backendSyncing}
-          />
-        </label>
-        <label className="block text-sm font-medium text-corporate">
-          Password
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-corporate-muted px-3 py-2 text-corporate outline-none ring-brand focus:ring-2"
-            disabled={!firebaseReady || loading || backendSyncing}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!firebaseReady || loading || backendSyncing}
-          className="rounded-lg bg-brand py-2.5 text-sm font-semibold text-brand-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {backendSyncing ? "Signing in…" : "Sign in with email"}
-        </button>
-      </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-corporate-muted" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-corporate">Or</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onGoogle}
-        disabled={!firebaseReady || loading || backendSyncing}
-        className="w-full rounded-lg border border-corporate-muted py-2.5 text-sm font-semibold text-corporate transition hover:bg-corporate-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Continue with Google
-      </button>
-
-      <p className="mt-6 text-center text-sm text-corporate">
-        No account?{" "}
-        <Link href="/register" className="font-semibold text-brand hover:underline">
-          Create one
-        </Link>
-      </p>
-    </div>
-  );
-}
+const ROLES: {
+  role: DemoRole;
+  num: number;
+  name: string;
+  desc: string;
+  route: string;
+}[] = [
+  {
+    role: "RM",
+    num: 1,
+    name: "Relationship Manager",
+    desc: "Onboarding & renewal, subscriptions, reports",
+    route: "/rm/dashboard",
+  },
+  {
+    role: "MOBO",
+    num: 2,
+    name: "Middle / Back Office",
+    desc: "Reconciliation, exceptions, monthly reports",
+    route: "/mobo/dashboard",
+  },
+  {
+    role: "ADMIN",
+    num: 3,
+    name: "Admin",
+    desc: "Full access — inherits the MOBO workspace",
+    route: "/rm/dashboard",
+  },
+];
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { signInDemo } = useAuth();
+
+  const [name, setName] = useState("Joe Doe");
+  const [selectedRole, setSelectedRole] = useState<DemoRole>("RM");
+  const [submitting, setSubmitting] = useState(false);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = ROLES.find((r) => r.role === selectedRole)!;
+    setSubmitting(true);
+    signInDemo(name.trim() || "Joe Doe", selectedRole);
+    router.push(target.route);
+  };
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-corporate-muted/40 px-4 py-12">
-      <Suspense
-        fallback={
-          <div className="text-sm text-corporate" aria-live="polite">
-            Loading…
+    <main className="flex min-h-screen items-center justify-center bg-surface-dim px-4 py-12">
+      <div className="flex w-full max-w-[440px] flex-col items-center">
+        {/* Brand lockup */}
+        <div className="mb-6 flex items-center gap-3">
+          <Image
+            src="/favicon.png"
+            alt="Megaannum"
+            width={44}
+            height={44}
+            className="block size-11"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-[22px] font-bold text-on-surface">CRM</span>
+            <span className="text-[13px] text-secondary">Internal Admins Portal</span>
           </div>
-        }
-      >
-        <LoginForm />
-      </Suspense>
+        </div>
+
+        {/* Card */}
+        <div className="w-full rounded-2xl border border-outline-variant bg-surface-lowest p-8 shadow-card">
+          <h1 className="m-0 text-2xl font-semibold tracking-[-0.01em] text-on-surface">
+            Sign in
+          </h1>
+          <p className="mt-2 text-sm text-secondary">
+            Demo access — Enter your name and select your role.
+          </p>
+
+          <form className="mt-6 flex flex-col gap-5" autoComplete="off" onSubmit={onSubmit}>
+            {/* Name */}
+            <div className="flex flex-col gap-[7px]">
+              <label
+                htmlFor="name"
+                className="text-xs font-bold uppercase tracking-[0.05em] text-secondary"
+              >
+                Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                placeholder="e.g. Joe Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-lg border border-outline-variant bg-surface-lowest px-3.5 py-[11px] text-[15px] text-on-surface outline-none transition placeholder:text-[#a7a3a0] focus:border-primary focus:shadow-[0_0_0_3px_rgba(242,116,5,0.30)]"
+              />
+            </div>
+
+            {/* Role */}
+            <div className="flex flex-col gap-[7px]">
+              <span className="text-xs font-bold uppercase tracking-[0.05em] text-secondary">
+                Role
+              </span>
+              <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Select role">
+                {ROLES.map((r) => {
+                  const active = r.role === selectedRole;
+                  return (
+                    <button
+                      key={r.role}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setSelectedRole(r.role)}
+                      className={`flex w-full items-center gap-3.5 rounded-[10px] border px-3.5 py-3 text-left transition ${
+                        active
+                          ? "border-primary bg-primary-fixed shadow-[0_0_0_1px_#f27405]"
+                          : "border-outline-variant bg-surface-lowest hover:bg-surface-low"
+                      }`}
+                    >
+                      <span
+                        className={`grid size-[34px] flex-none place-items-center rounded-lg text-base font-bold transition ${
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-surface-container text-secondary"
+                        }`}
+                      >
+                        {r.num}
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-[15px] font-semibold text-on-surface">{r.name}</span>
+                        <span className="text-[12.5px] text-secondary">{r.desc}</span>
+                      </span>
+                      <span
+                        className={`ml-auto flex-none rounded-full border px-[9px] py-[3px] text-[11px] font-bold tracking-[0.05em] ${
+                          active
+                            ? "border-primary-fixed-dim text-primary-on-container"
+                            : "border-outline-variant text-secondary"
+                        }`}
+                      >
+                        {r.role}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mt-1 w-full rounded-lg bg-primary px-4 py-3 text-[15px] font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Signing in…" : "Login"}
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }
