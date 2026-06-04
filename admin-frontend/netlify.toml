@@ -1,0 +1,9 @@
+# Next.js App Router on Netlify requires the Next.js runtime plugin.
+# Do not set publish to `public` or `out` unless you use `output: "export"`.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
