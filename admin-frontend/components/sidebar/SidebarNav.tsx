@@ -2,57 +2,85 @@
 
 import { usePathname } from "next/navigation";
 import {
+  Briefcase,
+  Building2,
   Users,
-  FileText,
-  CalendarDays,
   Layers,
   ArrowLeftRight,
-  ShieldCheck,
-  Grid3x3,
   ShieldAlert,
+  CalendarDays,
 } from "@/lib/icons";
 import { NavItem } from "./NavItem";
-import { LucideIcon } from "lucide-react";
+import { RoleGroup, type RoleGroupConfig } from "./RoleGroup";
+import { useAuth } from "@/components/auth/AuthProvider";
 
-type NavEntry = {
-  label: string;
-  href: string;
-  icon: LucideIcon;
+/* Workspace group = the role's own pages (collapsible parent → dashboard + children).
+   Shared pages sit outside the group and are visible to every role. */
+const ROLE_GROUP: Record<string, RoleGroupConfig> = {
+  RM: {
+    label: "Relationship Manager",
+    icon: Briefcase,
+    home: "/rm/dashboard",
+    pages: [
+      { label: "Onboarding & Renewal", href: "/rm/onboarding-renewal", icon: Users  },
+      { label: "Model Subscription",   href: "/rm/model-subscription", icon: Layers },
+    ],
+  },
+  MOBO: {
+    label: "Middle / Back Office",
+    icon: Building2,
+    home: "/mobo/dashboard",
+    pages: [
+      { label: "Trade Reconciliation", href: "/mobo/trade-reconciliation",   icon: ArrowLeftRight },
+      { label: "Daily Exceptions",     href: "/mobo/daily-exception-report", icon: ShieldAlert    },
+    ],
+  },
 };
-
-const NAV_ITEMS: NavEntry[] = [
-  { label: "Clients",          href: "/dashboard/clients",          icon: Users          },
-  { label: "Daily Reports",    href: "/dashboard/daily-reports",    icon: FileText       },
-  { label: "Monthly Reports",  href: "/dashboard/monthly-reports",  icon: CalendarDays   },
-  { label: "Models",           href: "/dashboard/models",           icon: Layers         },
-  { label: "Transactions",     href: "/dashboard/transactions",     icon: ArrowLeftRight },
-  { label: "Compliance",       href: "/dashboard/compliance",       icon: ShieldCheck    },
-  { label: "Trade Allocation", href: "/dashboard/trade-allocation", icon: Grid3x3        },
-  { label: "Risk Management",  href: "/dashboard/risk",             icon: ShieldAlert    },
-];
 
 interface SidebarNavProps {
   isOpen: boolean;
 }
 
 export function SidebarNav({ isOpen }: SidebarNavProps) {
-  const pathname = usePathname();
+  const pathname       = usePathname();
+  const { portalUser } = useAuth();
+  const role           = portalUser?.role ?? "";
+  const group          = ROLE_GROUP[role];
+
+  const reportsActive  =
+    pathname === "/monthly-reports" || pathname.startsWith("/monthly-reports/");
 
   return (
     <nav
-      className={["flex-1 flex flex-col gap-2", isOpen ? "px-4" : "px-2"].join(" ")}
+      className={["flex-1 flex flex-col gap-1.5", isOpen ? "px-4" : "px-2"].join(" ")}
       aria-label="Main navigation"
     >
-      {NAV_ITEMS.map((item) => (
-        <NavItem
-          key={item.href}
-          href={item.href}
-          icon={item.icon}
-          label={item.label}
-          active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-          isOpen={isOpen}
-        />
-      ))}
+      {isOpen && (
+        <span className="px-3.5 pb-0.5 pt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-secondary">
+          Workspace
+        </span>
+      )}
+      {role === "ADMIN" ? (
+        <>
+          <RoleGroup group={ROLE_GROUP.RM}   isOpen={isOpen} />
+          <RoleGroup group={ROLE_GROUP.MOBO} isOpen={isOpen} />
+        </>
+      ) : (
+        group && <RoleGroup group={group} isOpen={isOpen} />
+      )}
+
+      {isOpen && (
+        <span className="px-3.5 pb-0.5 pt-3.5 text-[10px] font-bold uppercase tracking-[0.06em] text-secondary">
+          Shared
+        </span>
+      )}
+      <NavItem
+        href="/monthly-reports"
+        icon={CalendarDays}
+        label="Monthly Reports"
+        active={reportsActive}
+        isOpen={isOpen}
+      />
     </nav>
   );
 }

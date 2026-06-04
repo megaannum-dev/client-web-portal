@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, HelpCircle, Mail } from "@/lib/icons";
+import { Bell, HelpCircle } from "@/lib/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 export function HeaderActions() {
@@ -61,7 +61,7 @@ export function HeaderActions() {
               <div className="size-14 rounded-full overflow-hidden shrink-0 shadow-card">
                 <div className="size-full bg-gradient-to-br from-yellow-200 via-green-300 to-teal-600 flex items-center justify-center">
                   <span className="text-[20px] font-bold text-white/80 select-none uppercase">
-                    {displayName[0] ?? "?"}
+                    {displayName[0] ?? "Unknown"}
                   </span>
                 </div>
               </div>
