@@ -199,7 +199,7 @@ export function SummaryCard({
 // Exactly one card is open at a time; the open card flexes to fill
 // the rail's height so it always matches the client book.
 
-interface RailCard extends Omit<SummaryCardProps, "open" | "onToggle"> {}
+type RailCard = Omit<SummaryCardProps, "open" | "onToggle">;
 
 interface RailAccordionProps {
   cards: RailCard[];
