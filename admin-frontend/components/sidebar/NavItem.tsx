@@ -17,8 +17,8 @@ export function NavItem({ href, icon: Icon, label, active = false, isOpen }: Nav
       href={href}
       title={label}
       className={[
-        "flex items-center transition-colors duration-150 rounded",
-        "gap-3 py-3 pl-4 pr-5 w-full",
+        "flex items-center transition-colors duration-150 rounded w-full",
+        isOpen ? "gap-3 py-3 pl-4 pr-5" : "justify-center py-3",
         active
           ? "bg-primary text-white"
           : "text-secondary hover:bg-surface-container hover:text-on-surface",
@@ -26,11 +26,11 @@ export function NavItem({ href, icon: Icon, label, active = false, isOpen }: Nav
       aria-current={active ? "page" : undefined}
     >
       <Icon size={18} strokeWidth={1.75} className="shrink-0" />
-      {
+      {isOpen && (
         <span className="text-label-md font-semibold tracking-[0.05em] uppercase">
           {label}
         </span>
-      }
+      )}
     </Link>
   );
 }

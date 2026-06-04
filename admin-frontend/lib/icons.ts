@@ -78,4 +78,23 @@ export {
   // Documents — split nav
   CalendarDays,
   Scale,
+  // CRM — RM workspace
+  CalendarClock,
+  UserRoundPlus,
+  UserRoundCheck,
+  Wallet,
+  FileCheck,
+  ArrowDownToLine,
+  Clock,
+  ArrowLeft,
+  ChevronUp,
+  // CRM — onboarding doc states
+  TriangleAlert,
+  // CRM — MOBO workspace
+  Inbox,
+  Link2,
+  Unlink,
+  ArrowRight,
+  ArrowUpRight,
+  MessageSquare,
 } from "lucide-react";

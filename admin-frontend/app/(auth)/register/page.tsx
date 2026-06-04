@@ -8,12 +8,12 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFirebaseAuthError, getFirebaseAuthErrorCode } from "@/lib/firebase-auth-errors";
 
 const ROLES = [
-  { value: "CLIENT", label: "Client" },
-  { value: "RM", label: "Relationship Manager" },
-  { value: "PM", label: "Portfolio Manager" },
-  { value: "PC", label: "Portfolio Controller" },
-  { value: "COMPLIANCE", label: "Compliance Officer" },
-  { value: "ADMIN", label: "Admin" },
+  { value: "ADMIN",      label: "Admin"                },
+  { value: "MOBO",       label: "MOBO"                 },
+  { value: "RM",         label: "Relationship Manager" },
+  { value: "PM",         label: "Portfolio Manager"    },
+  { value: "PC",         label: "Portfolio Controller" },
+  { value: "COMPLIANCE", label: "Compliance Officer"   },
 ] as const;
 
 export default function RegisterPage() {
@@ -28,10 +28,10 @@ export default function RegisterPage() {
     signUpWithEmailPassword,
   } = useAuth();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<string>("CLIENT");
-  const [formError, setFormError] = useState<string | null>(null);
+  const [email,         setEmail        ] = useState("");
+  const [password,      setPassword     ] = useState("");
+  const [role,          setRole         ] = useState<string>("MOBO");
+  const [formError,     setFormError    ] = useState<string | null>(null);
   const [formErrorCode, setFormErrorCode] = useState<string | null>(null);
 
   useEffect(() => {

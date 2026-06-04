@@ -23,8 +23,8 @@ function LoginForm() {
     signInWithEmailPassword,
   } = useAuth();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email,     setEmail    ] = useState("");
+  const [password,  setPassword ] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +69,9 @@ function LoginForm() {
       )}
 
       {(formError || (user && backendSyncError)) && (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{formError ?? backendSyncError}</p>
+        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+          {formError ?? backendSyncError}
+        </p>
       )}
 
       <form className="mt-6 flex flex-col gap-4" onSubmit={onEmailSubmit}>
@@ -126,11 +128,6 @@ function LoginForm() {
         No account?{" "}
         <Link href="/register" className="font-semibold text-brand hover:underline">
           Create one
-        </Link>
-      </p>
-      <p className="mt-3 text-center text-sm">
-        <Link href="/" className="text-corporate hover:text-brand">
-          ← Back to home
         </Link>
       </p>
     </div>
