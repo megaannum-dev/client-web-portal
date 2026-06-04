@@ -9,15 +9,17 @@ import {
   UserRoundPlus,
   CalendarClock,
   ChevronRight,
+  Inbox,
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { SummaryCard } from "@/components/rm/SummaryCard";
+import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
   RM_CLIENTS,
   RENEWALS_DUE,
   ONBOARDING_QUEUE,
+  REQUEST_TICKETS,
   KNOWN_CLIENT_IDS,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
@@ -39,7 +41,7 @@ export default function RmDashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
-      <div className="mb-7">
+      <div className="mb-4">
         <PageHeader
           title="Dashboard"
           subtitle={`Hello, ${RM_NAME} — here's your client book today.`}
@@ -47,7 +49,7 @@ export default function RmDashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
         {/* Client book */}
         <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
           <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
@@ -137,30 +139,42 @@ export default function RmDashboardPage() {
           <Pagination from={filtered.length ? 1 : 0} to={filtered.length} total={filter === "All" ? 142 : filtered.length} />
         </section>
 
-        {/* Right rail */}
-        <div className="flex flex-col gap-6">
-          <SummaryCard
-            icon={CalendarClock}
-            label="Renewals Due"
-            value="9"
-            sub="3 overdue"
-            subTone="down"
-            items={RENEWALS_DUE}
-            onItem={goSummary}
-            footerLabel="View all renewals"
-            onFooter={() => router.push("/rm/onboarding-renewal")}
-          />
-          <SummaryCard
-            icon={UserRoundPlus}
-            label="Onboarding"
-            value="6"
-            sub="2 awaiting KYC"
-            items={ONBOARDING_QUEUE}
-            onItem={goSummary}
-            footerLabel="Go to onboarding"
-            onFooter={() => router.push("/rm/onboarding-renewal")}
-          />
-        </div>
+        {/* Right rail — accordion, one card open at a time, fills book height */}
+        <RailAccordion
+          cards={[
+            {
+              icon: Inbox,
+              label: "Requests Tickets",
+              value: "7",
+              sub: "across 3 types",
+              mode: "count",
+              items: REQUEST_TICKETS,
+              footerLabel: "Review requests",
+              onFooter: () => {},
+            },
+            {
+              icon: CalendarClock,
+              label: "Renewals Due",
+              value: "9",
+              sub: "3 overdue",
+              subTone: "down",
+              items: RENEWALS_DUE,
+              onItem: goSummary,
+              footerLabel: "View all renewals",
+              onFooter: () => router.push("/rm/onboarding-renewal"),
+            },
+            {
+              icon: UserRoundPlus,
+              label: "Onboarding",
+              value: "6",
+              sub: "2 awaiting KYC",
+              items: ONBOARDING_QUEUE,
+              onItem: goSummary,
+              footerLabel: "Go to onboarding",
+              onFooter: () => router.push("/rm/onboarding-renewal"),
+            },
+          ]}
+        />
       </div>
     </div>
   );

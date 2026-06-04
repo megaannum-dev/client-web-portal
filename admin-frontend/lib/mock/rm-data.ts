@@ -50,6 +50,15 @@ export const RM_CLIENTS: RmClient[] = [
 
 export type SummaryItem = { id: string; c: string; d?: string; s?: string; t: ChipTone };
 
+/** Count-only row for the Open Requests card (dot + label + number, no navigation). */
+export type CountItem = { id: string; c: string; n: number; t: "primary" | "muted" };
+
+export const REQUEST_TICKETS: CountItem[] = [
+  { id: "allotment",  c: "Allotment",  n: 3, t: "primary" },
+  { id: "redemption", c: "Redemption", n: 2, t: "primary" },
+  { id: "others",     c: "Others",     n: 2, t: "muted"   },
+];
+
 export const RENEWALS_DUE: SummaryItem[] = [
   { id: "coalfield", c: "Coalfield & Co.", d: "Overdue", t: "overdue" },
   { id: "ardent",    c: "Ardent Capital", d: "Jun 14",  t: "warm" },
