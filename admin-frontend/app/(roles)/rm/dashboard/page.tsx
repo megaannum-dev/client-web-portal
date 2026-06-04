@@ -40,7 +40,7 @@ export default function RmDashboardPage() {
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto max-w-[90%]">
       <div className="mb-4">
         <PageHeader
           title="Dashboard"
