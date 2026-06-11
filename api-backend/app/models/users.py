@@ -1,7 +1,8 @@
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -24,7 +25,9 @@ class AdminRole(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
     firebase_uid: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     portal: Mapped[Portal] = mapped_column(
@@ -84,8 +87,8 @@ class ClientProfile(Base):
     __tablename__ = "client_profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), unique=True, index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("users.id"), unique=True, index=True
     )
 
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -113,8 +116,8 @@ class AdminProfile(Base):
     __tablename__ = "admin_profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), unique=True, index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("users.id"), unique=True, index=True
     )
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[AdminRole] = mapped_column(

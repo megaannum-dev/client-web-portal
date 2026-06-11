@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 
 from app.core.config import Settings
 from app.core.security import (
+    extract_uid_email,
     portal_from_claims,
     set_portal_claims,
     verify_firebase_id_token_string,
@@ -9,25 +10,6 @@ from app.core.security import (
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AdminRole, User
 from app.schemas.auth import PortalKind
-
-
-def _uid_email(claims: dict, settings: Settings) -> tuple[str, str | None]:  # type: ignore[type-arg]
-    """Extract (uid, email) from verified claims.
-
-    Mirrors the inline extraction in ``deps._resolve_user``: dev bypass returns
-    a fixed identity; otherwise read ``uid`` (401 if absent) and a normalised
-    email that is null-coerced from blank strings.
-    """
-    if settings.firebase_auth_disabled:
-        return "dev-user", "dev@example.com"
-    uid = claims.get("uid")
-    if not uid:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token missing uid")
-    raw_email = claims.get("email")
-    email = (
-        raw_email.strip() if isinstance(raw_email, str) and raw_email.strip() else None
-    )
-    return str(uid), email
 
 
 def login_or_register(
@@ -40,7 +22,7 @@ def login_or_register(
     requested_role: str | AdminRole | None = None,
 ) -> User:
     claims = verify_firebase_id_token_string(id_token, settings)
-    uid, email = _uid_email(claims, settings)
+    uid, email = extract_uid_email(claims, settings)
 
     existing = repo.get_by_firebase_uid(uid)
 

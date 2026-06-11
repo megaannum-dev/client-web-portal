@@ -4,7 +4,8 @@ from app.models.users import AdminRole
 
 
 class UserOut(BaseModel):
-    id: int
+    # D-A (005): the internal UUID PK is never serialised; firebase_uid is the
+    # public identifier. Frontends key on firebase_uid, not id.
     firebase_uid: str
     email: str | None
     role: str

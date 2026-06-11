@@ -48,12 +48,16 @@ def _extract_dev_claims(token: str | None) -> dict:  # type: ignore[type-arg]
     return {"uid": "dev-user", "email": "dev@example.com"}
 
 
-def extract_uid_email(claims: dict) -> tuple[str, str | None]:  # type: ignore[type-arg]
+def extract_uid_email(claims: dict, settings: Settings) -> tuple[str, str | None]:  # type: ignore[type-arg]
     """Extract and validate ``uid`` and normalised ``email`` from verified Firebase claims.
 
-    Raises ``HTTP 401`` when ``uid`` is absent.  Strips and null-coerces the
-    email so callers never receive an empty string.
+    Canonical identity extraction shared by ``auth.deps._resolve_user`` and
+    ``auth.service.login_or_register``. Under ``FIREBASE_AUTH_DISABLED`` returns
+    the fixed dev identity. Otherwise raises ``HTTP 401`` when ``uid`` is absent
+    and strips/null-coerces the email so callers never receive an empty string.
     """
+    if settings.firebase_auth_disabled:
+        return "dev-user", "dev@example.com"
     uid = claims.get("uid")
     if not uid:
         raise HTTPException(

@@ -7,13 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import Base, engine
 from app.libs.auth.router import router as auth_router
-from app.libs.documents.router import router as documents_router
-from app.libs.financial.router import router as financial_router
 from app.libs.users.router import router as users_router
 
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
-import app.models.financial as _models_financial  # noqa: F401
-import app.models.documents as _models_documents  # noqa: F401
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,8 +35,6 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
-app.include_router(financial_router, prefix="/api")
-app.include_router(documents_router, prefix="/api")
 
 
 @app.get("/health")

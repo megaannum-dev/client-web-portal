@@ -37,3 +37,4 @@ next-env.d.ts
 
 # claude
 /.claude/
+FRONTEND_FOLLOWUP_005.md

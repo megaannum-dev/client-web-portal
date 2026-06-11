@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import Depends
@@ -14,7 +15,7 @@ class UserRepository:
     def get_by_firebase_uid(self, uid: str) -> User | None:
         return self.db.query(User).filter(User.firebase_uid == uid).one_or_none()
 
-    def get_by_id(self, user_id: int) -> User | None:
+    def get_by_id(self, user_id: uuid.UUID) -> User | None:
         return self.db.query(User).filter(User.id == user_id).one_or_none()
 
     def update_email(self, user: User, email: str) -> User:
@@ -50,14 +51,14 @@ class AdminProfileRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get_by_user_id(self, user_id: int) -> AdminProfile | None:
+    def get_by_user_id(self, user_id: uuid.UUID) -> AdminProfile | None:
         return (
             self.db.query(AdminProfile)
             .filter(AdminProfile.user_id == user_id)
             .one_or_none()
         )
 
-    def upsert_role(self, user_id: int, role: str | AdminRole) -> AdminProfile:
+    def upsert_role(self, user_id: uuid.UUID, role: str | AdminRole) -> AdminProfile:
         coerced_role = AdminRole(role)  # E-2 coercion
         row = self.get_by_user_id(user_id)
         if row is None:
@@ -70,29 +71,5 @@ class AdminProfileRepository:
         return row
 
 
-class ClientProfileRepository:
-    def __init__(self, db: Session) -> None:
-        self.db = db
-
-    def get_by_user_id(self, user_id: int) -> ClientProfile | None:
-        return (
-            self.db.query(ClientProfile)
-            .filter(ClientProfile.user_id == user_id)
-            .one_or_none()
-        )
-
-
 def get_user_repo(db: Annotated[Session, Depends(get_db)]) -> UserRepository:
     return UserRepository(db)
-
-
-def get_admin_profile_repo(
-    db: Annotated[Session, Depends(get_db)],
-) -> AdminProfileRepository:
-    return AdminProfileRepository(db)
-
-
-def get_client_profile_repo(
-    db: Annotated[Session, Depends(get_db)],
-) -> ClientProfileRepository:
-    return ClientProfileRepository(db)
