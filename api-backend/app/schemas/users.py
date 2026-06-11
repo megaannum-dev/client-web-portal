@@ -1,13 +1,13 @@
 from pydantic import BaseModel, EmailStr
 
-from app.models.users import UserRole
+from app.models.users import AdminRole
 
 
 class UserOut(BaseModel):
     id: int
     firebase_uid: str
     email: str | None
-    role: UserRole
+    role: str
 
     model_config = {"from_attributes": True}
 
@@ -18,4 +18,4 @@ class UserSelfUpdate(BaseModel):
 
 class UserUpsert(BaseModel):
     email: EmailStr | None = None
-    role: UserRole = UserRole.CLIENT
+    role: AdminRole = AdminRole.RM

@@ -61,9 +61,7 @@ def extract_uid_email(claims: dict) -> tuple[str, str | None]:  # type: ignore[t
         )
     raw_email = claims.get("email")
     email = (
-        raw_email.strip()
-        if isinstance(raw_email, str) and raw_email.strip()
-        else None
+        raw_email.strip() if isinstance(raw_email, str) and raw_email.strip() else None
     )
     return str(uid), email
 
@@ -162,3 +160,26 @@ def verify_firebase_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         ) from exc
+
+
+def set_portal_claims(
+    uid: str, portal: str, role: str | None, settings: Settings
+) -> None:
+    """Stamp portal (and role for admins) onto the user's Firebase token.
+
+    No-op under FIREBASE_AUTH_DISABLED — dev tokens are decoded unverified and
+    carry no server-set claims, so portal is sourced from DB/body in dev (Q5).
+    """
+    if settings.firebase_auth_disabled:
+        return
+    _init_firebase(settings)
+    claims = {"portal": portal}
+    if role is not None:
+        claims["role"] = role
+    auth.set_custom_user_claims(uid, claims)
+
+
+def portal_from_claims(claims: dict) -> str | None:  # type: ignore[type-arg]
+    """Read the server-set portal claim from a verified token, if present."""
+    value = claims.get("portal")
+    return value if value in ("client", "admin") else None
