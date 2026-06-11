@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
-from app.core.security import verify_firebase_token
+from app.core.security import extract_uid_email, verify_firebase_token
 from app.libs.auth.actions import Action, get_actions_for_role
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AdminRole, Portal, User
@@ -30,13 +30,7 @@ def _resolve_user(
             user = repo.create_admin("dev-user", "dev@example.com", role="ADMIN")
         return user
 
-    uid = claims.get("uid")
-    if not uid:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token missing uid")
-    raw_email = claims.get("email")
-    email = (
-        raw_email.strip() if isinstance(raw_email, str) and raw_email.strip() else None
-    )
+    uid, email = extract_uid_email(claims, settings)
 
     user = repo.get_by_firebase_uid(uid)
     if user is None:

@@ -70,29 +70,5 @@ class AdminProfileRepository:
         return row
 
 
-class ClientProfileRepository:
-    def __init__(self, db: Session) -> None:
-        self.db = db
-
-    def get_by_user_id(self, user_id: int) -> ClientProfile | None:
-        return (
-            self.db.query(ClientProfile)
-            .filter(ClientProfile.user_id == user_id)
-            .one_or_none()
-        )
-
-
 def get_user_repo(db: Annotated[Session, Depends(get_db)]) -> UserRepository:
     return UserRepository(db)
-
-
-def get_admin_profile_repo(
-    db: Annotated[Session, Depends(get_db)],
-) -> AdminProfileRepository:
-    return AdminProfileRepository(db)
-
-
-def get_client_profile_repo(
-    db: Annotated[Session, Depends(get_db)],
-) -> ClientProfileRepository:
-    return ClientProfileRepository(db)
