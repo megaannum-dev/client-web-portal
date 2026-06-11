@@ -1,2 +1,8 @@
-from app.models.users import User, UserRole  # noqa: F401
+from app.models.users import (  # noqa: F401
+    AdminProfile,
+    AdminRole,
+    ClientProfile,
+    Portal,
+    User,
+)
 from app.core.database import Base  # noqa: F401

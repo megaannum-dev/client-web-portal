@@ -30,8 +30,3 @@ build/
 .env
 .env.*
 !.env.example
-
-# Vibe Coding Documents
-docs/implementations
-docs/prompts
-# .docs/

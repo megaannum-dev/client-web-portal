@@ -29,6 +29,7 @@ def register_with_firebase(
     requested_role = body.role if settings.dev_mode and body.portal == "admin" else None
     return login_or_register(
         body.id_token,
+        body.portal,
         repo,
         settings,
         must_be_new=True,
@@ -43,7 +44,7 @@ def login_with_firebase(
     repo: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> User:
     return login_or_register(
-        body.id_token, repo, settings, must_be_new=False
+        body.id_token, body.portal, repo, settings, must_be_new=False
     )
 
 
