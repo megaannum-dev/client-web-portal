@@ -1,8 +1,8 @@
 # 005 — Database Foundation Cleanup: UUID Keys, Column Order, and Test-Data Reclassification
 
 **Date:** 2026-06-11
-**Branch:** TBD (`db/foundation-005`)
-**Status:** Draft
+**Branch:** `db/foundation-005`
+**Status:** Decisions locked (D-A…D-E resolved 2026-06-11) — ready for execution prompt
 **Author:** QinQipeng
 **Builds on:** [002 — Separating Client and Admin Handling](002-2026-06-10-client-admin-separation.md)
 **Related:** [003 — Refactor Basis](003-2026-06-11-refactor-cleanup-placeholders.md) · [004 — Authentication Flow Rework](004-2026-06-11-auth-flow-rework.md)
@@ -44,7 +44,7 @@ Before real business logic lands, the data foundation from 002 needs three corre
 
 - **`client_profiles.user_id`** and **`admin_profiles.user_id`** are FKs → `users.id`; both change type to UUID.
 - **`assigned_rm_uid`** → `users.firebase_uid` is **unaffected** (it references the firebase UID string, not `id`).
-- **`UserOut.id`** is currently `int` and **is exposed on the wire** (`app/schemas/users.py`). UUID makes it a string → **this changes the frozen `UserOut` contract** from 002 §Goal 4. See decision **D-A**.
+- **`UserOut.id`** is currently `int` and exposed on the wire (`app/schemas/users.py`). Per **D-A (resolved)** the field is **dropped** from `UserOut` — the internal UUID PK is never serialised; `firebase_uid` is the public identifier. Requires frontend coordination.
 
 ### 4.2 Proposed model
 
@@ -104,11 +104,15 @@ With only ~15 live rows, a fuzzy regex risks misclassifying a real admin. **Use 
 RECLASSIFY_TO_CLIENT = [
     "yQ3VRonrzzX6siIYmwUa8FnT3BT2",  # testingclient@126.com  (explicit client marker)
     "CzBBDnyAyIRHmqDcqQF2NkySqQ33",  # 131232@123.com         (no internal indication)
-    # "svXeuI03c8UIeEmhMV0VKCL9k8o1",  # adwadaw@asdawd.com (PM) — BORDERLINE, see D-B
+    "svXeuI03c8UIeEmhMV0VKCL9k8o1",  # adwadaw@asdawd.com      (gibberish; D-B → client)
 ]
 ```
 
+> **D-B resolved:** `adwadaw@asdawd.com` (id 14) is reclassified to client. Its current `PM` `admin_profiles` row is deleted as part of the move (step 6.3.2), so the PM role assignment is discarded — intended, since it was test noise.
+
 **Kept as admin** (clear internal indication): `dev-user`, `testing123@admin.com`, `rm@example.com`, `rm2@example.com`, `compliance@example.com`, `compliance2@example.com`, `compliance3@example.com`, `teddy@compliance.com`, `john@rm.example.com`, `joe@mobo.example.com`. Already client: `test.client@example.com`, `waibibabo@developer.com`.
+
+**Net result:** 15 users → **5 client** (`test.client`, `waibibabo`, `testingclient`, `131232`, `adwadaw`) + **10 admin**.
 
 ### 6.3 Per-row procedure (idempotent)
 
@@ -117,29 +121,30 @@ For each listed user:
 2. Delete the `admin_profiles` row.
 3. Set `users.portal = 'client'`.
 4. Insert a `client_profiles` row; fill nullable fields with **dummy data** (`name`, `primary_phone`, `address`, `country_of_residence`, `authorized_person`, `initiate_method`) using a bounds-safe generator (the approach the removed 002 seed used).
-5. Update the Firebase custom claim to `{portal: "client"}` (or leave to lazy refresh on next login per 002 §7.4) — see **D-C**.
+5. Update the Firebase custom claim to `{portal: "client"}` proactively (D-C), so the reclassified user's token is correct immediately rather than waiting for lazy refresh. No-op under `FIREBASE_AUTH_DISABLED`.
 
 ## 7. Dev-data change D — assign an RM to every client (dev-only script)
 
-After §6, every `client_profiles` row gets `assigned_rm_uid` set:
+After §6:
 
-- Build the RM pool: `users` where `portal=admin` and `admin_profiles.role = 'RM'`.
-- For each client, pick an RM (random); **one RM may own many clients** (no uniqueness constraint).
-- Set `assigned_rm_uid` = that RM's `firebase_uid`.
+1. **Promote to RM (D-D):** set `admin_profiles.role = 'RM'` for `rm@example.com` and `rm2@example.com` (currently `ADMIN`), and re-stamp their `{portal:"admin", role:"RM"}` claim. Pool becomes 3 RMs incl. `john@rm.example.com`.
+2. Build the RM pool: `users` where `portal=admin` and `admin_profiles.role = 'RM'` (now 3).
+3. For each `client_profiles` row, pick an RM (random); **one RM may own many clients** (no uniqueness constraint).
+4. Set `assigned_rm_uid` = that RM's `firebase_uid`.
 
-> ⚠️ **Pool size:** the live dev DB currently has **one** RM. With a single-element pool, "random" assigns everyone to that RM. If you want fan-out for realistic test data, promote/seed additional RMs first (decision **D-D**). The script validates the pool is non-empty and logs the distribution.
+> The script asserts the pool is non-empty and logs the resulting distribution. With 5 clients over 3 RMs, fan-out is realistic.
 
 This runs **after** §4–§5 (so the new UUID keys exist) and as part of the same dev-only script as §6, guarded against production.
 
 ---
 
-## 8. Decisions
+## 8. Decisions — ALL RESOLVED (2026-06-11)
 
-- **D-A — `UserOut.id` contract.** UUID exposes `id` as a string, breaking the frozen `UserOut` shape. Options: **(a)** accept the wire change and coordinate both frontends; **(b)** stop exposing the internal `id` and use `firebase_uid` as the public identifier (arguably cleaner — `id` becomes internal-only); **(c)** expose both. **Recommend (b)** — the internal PK shouldn't be a public contract anyway.
-- **D-B — the reclassification allowlist. (Extracted 2026-06-11; see §6.2.)** Two entries confirmed: `testingclient@126.com`, `131232@123.com`. **Open:** the borderline row `adwadaw@asdawd.com` (id 14) has a gibberish email but a real **PM** role — reclassify to client, or keep as a test admin? Awaiting sign-off before adding it to the list.
-- **D-C — claim refresh on reclassification.** Proactively `set_custom_user_claims({portal:client})` during the script, or rely on 002's lazy refresh at next login. **Recommend proactive** for the reclassified rows so their tokens are correct immediately.
-- **D-D — RM pool.** The only `role=RM` row is `john@rm.example.com`; with a single RM, every client maps to it. `rm@example.com` / `rm2@example.com` exist but are `role=ADMIN`. **Recommend promoting those two to RM** (→ 3-RM pool) for realistic fan-out before running §7.
-- **D-E — sequencing vs 004.** Land 005 before 004 (004's onboarding writes `assigned_rm_uid` and assumes the key shape), or merge their branches. **Recommend 005 before 004.**
+- **D-A — `UserOut.id` contract. ✅ RESOLVED (b): stop exposing the internal `id`.** `UserOut` becomes `{firebase_uid, email, role}`; `firebase_uid` is the public identifier. The internal UUID PK is never serialised. ⚠ **Frontend coordination required** — any client/admin frontend keying on `UserOut.id` must switch to `firebase_uid`. (Lower-disruption fallback if a frontend can't change in time: keep `id` exposed as the UUID string — but the target is to drop it.)
+- **D-B — reclassification allowlist. ✅ RESOLVED:** all three reclassify to client — `testingclient@126.com`, `131232@123.com`, **and `adwadaw@asdawd.com`** (gibberish email; its PM role is discarded with the move). See §6.2.
+- **D-C — claim refresh. ✅ RESOLVED: proactive.** The script calls `set_custom_user_claims({portal:"client"})` for each reclassified UID so tokens are correct immediately (no wait for lazy refresh).
+- **D-D — RM pool. ✅ RESOLVED: promote `rm@example.com` + `rm2@example.com` to `role=RM`** (→ 3-RM pool incl. `john@rm.example.com`) before assignment, for realistic fan-out. This promotion is part of the dev-only script (§7).
+- **D-E — sequencing. ✅ RESOLVED: 005 before 004.** 004's onboarding writes `assigned_rm_uid` and assumes the UUID key shape, so the foundation lands first.
 
 ## 9. Verification
 

@@ -9,9 +9,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 
 # Import every model module so its tables register on Base.metadata:
-import app.models.users      # noqa: F401
-import app.models.financial  # noqa: F401
-import app.models.documents  # noqa: F401
+import app.models.users  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
