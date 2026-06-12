@@ -19,6 +19,7 @@
     "react-i18next": "^17.0.8"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.9.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

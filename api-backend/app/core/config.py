@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     firebase_project_id: str | None = None
     firebase_credentials_path: str | None = None
     firebase_service_account_json: str | None = None
-    cors_origins: str = "http://localhost:3000,http://localhost:3001"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,https://kilt-backlight-crummiest.ngrok-free.dev"
     firebase_auth_disabled: bool = False
 
     # True (dev): register endpoint accepts `role` field for internal users.

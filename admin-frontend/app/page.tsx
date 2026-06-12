@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
  * land on this page and see the "no access" state below.
  */
 const ROLE_BASE_ROUTES: Record<string, string> = {
-  ADMIN: "/mobo/dashboard",
+  ADMIN: "/rm/dashboard",
   MOBO:  "/mobo/dashboard",
   RM:    "/rm/dashboard",
 };
