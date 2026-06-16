@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings
+from app.core.config import assert_secure_config, get_settings
 from app.core.database import Base, engine
 from app.libs.auth.router import router as auth_router
 from app.libs.users.router import router as users_router
@@ -23,6 +23,11 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
 
 
 settings = get_settings()
+
+# Fail-closed at import/app-construction time: a production marker with any
+# dev bypass enabled hard-aborts here, so the app object never comes up.
+assert_secure_config(settings)
+
 app: FastAPI = FastAPI(title="CRM Web Portal API", lifespan=lifespan)
 
 app.add_middleware(
