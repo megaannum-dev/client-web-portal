@@ -9,12 +9,13 @@ from app.core.database import Base
 
 
 class _ActivityRow:
-    """Shared abstract schema for the IB Flex "Activity" staging tables.
+    """Shared abstract schema for the IB Flex **Activity** (type="AF") staging table.
 
-    Both `orders` (levelOfDetail=ORDER) and `trades` (levelOfDetail=EXECUTION)
-    come from the same 89-column IB export header, so the column set is defined
-    once here and the concrete models add nothing but `__tablename__`/index.
-    This makes schema drift between the two tables structurally impossible.
+    A single `ib_activity` table holds both the `ORDER` and the `EXECUTION`
+    levelOfDetail rows from the `<Trades>` section of an Activity export; the
+    existing `levelOfDetail` column distinguishes them. (Originally split into
+    `orders` / `trades`; merged in migration 0006.) The 89-column set is defined
+    once here so the model and the migrations cannot drift.
 
     Conventions match migration 0003 / app.models.users: UUID PK via
     `Uuid(native_uuid=False)`, `server_default=func.now()`. Python attribute
@@ -148,18 +149,164 @@ class _ActivityRow:
     )
 
 
-class Order(Base, _ActivityRow):
-    __tablename__ = "orders"
+class IBActivity(Base, _ActivityRow):
+    """IB Flex **Activity** (type="AF") rows — both ORDER and EXECUTION levels.
 
-    # ibOrderID is the reconciliation join key (trades.ibOrderID = orders.ibOrderID),
-    # so it must be indexed. It is stored as a string — IB sometimes emits dotted
-    # tokens, sometimes numeric — never assume integer.
-    __table_args__ = (Index("ix_orders_ibOrderID", "ibOrderID"),)
+    Filter on `levelOfDetail` to recover the old `orders` / `trades` split.
+    """
+
+    __tablename__ = "ib_activity"
+
+    # ibOrderID is the reconciliation join key (an EXECUTION row carries the
+    # ibOrderID of its parent ORDER), so it must be indexed. Stored as a string —
+    # IB sometimes emits dotted tokens, sometimes numeric — never assume integer.
+    __table_args__ = (Index("ix_ib_activity_ibOrderID", "ibOrderID"),)
 
 
-class Trade(Base, _ActivityRow):
-    __tablename__ = "trades"
+class _TradeConfirmRow:
+    """Shared abstract schema for the IB Flex **Trade Confirmation** (type="TCF")
+    staging table `ib_trades`.
 
-    # Same schema as `orders` (shared _ActivityRow). Each execution carries the
-    # ibOrderID of its parent order; index it for the reconciliation join.
-    __table_args__ = (Index("ix_trades_ibOrderID", "ibOrderID"),)
+    The TCF `<TradeConfirms>` section uses a different, overlapping-but-distinct
+    attribute set from the Activity export (e.g. `orderID`/`execID`/`price`/
+    `amount`/`commission` instead of `ibOrderID`/`ibExecID`/`tradePrice`/
+    `tradeMoney`/`ibCommission`, plus a full broker/third-party commission and
+    tax breakdown). Same conventions as `_ActivityRow`: UUID PK, camelCase
+    attribute names == DB column names, "" -> NULL at ingest, all source columns
+    nullable.
+    """
+
+    __abstract__ = True
+
+    # --- Infrastructure columns (added, not from source) ------------------
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+
+    # --- DECIMAL -> Numeric(28, 10), nullable (24 columns) ----------------
+    accruedInt: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    brokerClearingCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    brokerExecutionCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    commission: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    fineness: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    multiplier: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    netCash: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    netCashWithBillable: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    origTradePrice: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    otherCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    otherTax: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    price: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    principalAdjustFactor: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    proceeds: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    salesTax: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    strike: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    tax: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    thirdPartyClearingCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    thirdPartyExecutionCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    thirdPartyRegulatoryCommission: Mapped[Decimal | None] = mapped_column(
+        Numeric(28, 10), nullable=True
+    )
+    tradeCharge: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+
+    # --- Date YYYYMMDD -> String(8), nullable (7 columns) -----------------
+    fromDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    toDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    expiry: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    origTradeDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    reportDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    settleDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    tradeDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+    # --- Datetime YYYYMMDD;HHMMSS -> String(20), nullable (3 columns) ------
+    whenGenerated: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    dateTime: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    orderTime: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # --- Free text -> Text, nullable (2 columns) --------------------------
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    issuer: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Everything else -> String(255), nullable (46 columns) ------------
+    accountId: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    acctAlias: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    allocatedTo: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    assetCategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    blockID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    brokerageOrderID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    buySell: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    clearingFirmID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    code: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commissionCurrency: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commodityType: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    conid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cusip: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    deliveryType: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    execID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    exchange: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    extExecID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    figi: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    isAPIOrder: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    isin: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    issuerCountryCode: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    levelOfDetail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    listingExchange: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    orderID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    orderReference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    orderType: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    origTradeID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    period: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    positionActionID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    putCall: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rfqID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    securityID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    securityIDType: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    serialNumber: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subCategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    symbol: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tradeID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    traderID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    transactionType: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    underlyingConid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    underlyingListingExchange: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    underlyingSecurityID: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    underlyingSymbol: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    volatilityOrderLink: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # --- Ingestion metadata (added, not from source) ----------------------
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class IBTrade(Base, _TradeConfirmRow):
+    """IB Flex **Trade Confirmation** (type="TCF") rows — both ORDER and
+    EXECUTION (`TradeConfirm`) levels; filter on `levelOfDetail` to separate."""
+
+    __tablename__ = "ib_trades"
+
+    # orderID is the join key back to ib_activity.ibOrderID (same concept, TCF
+    # naming). Stored as a string for the same reason as ibOrderID.
+    __table_args__ = (Index("ix_ib_trades_orderID", "orderID"),)

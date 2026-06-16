@@ -5,5 +5,10 @@ from app.models.users import (  # noqa: F401
     Portal,
     User,
 )
-from app.models.reconciliation import Order, Trade, _ActivityRow  # noqa: F401
+from app.models.reconciliation import (  # noqa: F401
+    IBActivity,
+    IBTrade,
+    _ActivityRow,
+    _TradeConfirmRow,
+)
 from app.core.database import Base  # noqa: F401
