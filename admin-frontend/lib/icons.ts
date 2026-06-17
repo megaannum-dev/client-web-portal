@@ -97,4 +97,7 @@ export {
   ArrowRight,
   ArrowUpRight,
   MessageSquare,
+  // CRM — MOBO triage (execution + integrity)
+  RefreshCw,
+  Database,
 } from "lucide-react";
