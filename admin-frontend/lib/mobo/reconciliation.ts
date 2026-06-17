@@ -43,6 +43,19 @@ import type {
   ReconView,
 } from "./types";
 
+/* ---- The ONE-AND-ONLY mock import site ----------------------
+   Every screen binds to `loadReconciliation()` below; the mock
+   is reached ONLY here. Swapping to the real API replaces the
+   body of `loadReconciliation` (fetch → deserialize into Order /
+   Execution) and deletes this import — no component changes. */
+import {
+  EOD as MOCK_EOD,
+  EXCEPTIONS as MOCK_EXCEPTIONS,
+  FEEDS as MOCK_FEEDS,
+  SETTLE_DAY as MOCK_SETTLE_DAY,
+  STORED_TRADES as MOCK_STORED_TRADES,
+} from "../mock/mobo-data";
+
 /* ---- "awaiting source" sentinel ----------------------------
    In today's data reality the trader and fetched-IB columns have
    no feed. Their comparison cells render empty rather than as
@@ -368,27 +381,6 @@ export function deriveEodByType(trades: ReconTrade[]): EODByType[] {
    PROVIDER — the seam itself
    ============================================================ */
 
-/** A typed empty bundle — the C1 stub before C2 wires the mock. */
-function emptyReconView(): ReconView {
-  return {
-    settleDay: "",
-    trades: [],
-    counters: { reconciled: 0, matched: 0, breaks: 0, unmatched: 0, autoMatchedPct: "0.0%" },
-    exceptions: [],
-    feeds: [],
-    eod: {
-      generated: "",
-      tradesReconciled: 0,
-      breaksRaised: 0,
-      resolved: 0,
-      carried: 0,
-      dayOf: 0,
-      daysInMonth: 0,
-      byType: [],
-    },
-  };
-}
-
 /**
  * THE SINGLE DATA PROVIDER. Every MOBO screen calls this.
  *
@@ -399,5 +391,23 @@ function emptyReconView(): ReconView {
  *     `Execution`, and maps the same way. No component changes either time.
  */
 export function loadReconciliation(): ReconView {
-  return emptyReconView();
+  // Map each stored AF/TCF order pair into a ReconTrade view model.
+  // The mapper derives `book` as a placeholder (symbol) until provided
+  // upstream; the mock carries the real account name, so overlay it here.
+  const trades: ReconTrade[] = MOCK_STORED_TRADES.map((t) => ({
+    ...mapOrdersToReconTrade({ af: t.af, tcf: t.tcf }),
+    book: t.book,
+  }));
+
+  const counters = deriveCounters(trades);
+  const byType = deriveEodByType(trades);
+
+  return {
+    settleDay: MOCK_SETTLE_DAY,
+    trades,
+    counters,
+    exceptions: MOCK_EXCEPTIONS,
+    feeds: MOCK_FEEDS,
+    eod: { ...MOCK_EOD, byType },
+  };
 }
