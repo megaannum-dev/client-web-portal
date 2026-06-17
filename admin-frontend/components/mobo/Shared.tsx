@@ -9,23 +9,24 @@
 import { useState, type ReactNode } from "react";
 import {
   X, Clock, Check, UserRound, MessageSquare, ArrowUpRight, ShieldAlert,
-  ChevronRight, Unlink, RefreshCw, Database, Layers,
+  ChevronRight, Unlink, RefreshCw, Database, TriangleAlert, Workflow, Flag, Trash2,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+/* C1 view-layer contract — the EXACT shapes the triage primitives bind to.
+   SEV_LABEL/SEV_TONE + CompareField/Exception now live in the type layer
+   (the mock no longer re-exports them; ReconLine is removed entirely). */
 import {
   SEV_LABEL, SEV_TONE,
-  type CompareField, type Exception, type ReconLine,
-} from "@/lib/mock/mobo-data";
-/* C1 view-layer contract — the EXACT shapes the new triage primitives bind to. */
-import type {
-  ExecRow as ExecRowData,
-  ExecSide,
-  IntegrityState,
-  MatchState,
-  ReconLeg,
-  ReconTrade,
+  type CompareField,
+  type Exception,
+  type ExecRow as ExecRowData,
+  type ExecSide,
+  type IntegrityState,
+  type MatchState,
+  type ReconLeg,
+  type ReconTrade,
 } from "@/lib/mobo/types";
 
 /* ---- Metric stat tile -------------------------------------- */
@@ -191,8 +192,8 @@ const TI_TERMS: ExecTerms = {
   countOk: "Counts match", countBad: "Count break", missCell: "awaiting source",
 };
 const IC_TERMS: ExecTerms = {
-  ok: "In both", brk: "Differs", miss: "One side only",
-  countOk: "Counts match", countBad: "Count mismatch", missCell: "awaiting source",
+  ok: "In sync", brk: "Drifted", miss: "Missing",
+  countOk: "Counts match", countBad: "Count mismatch", missCell: "not in store",
 };
 
 const EX_ST_TONE: Record<MatchState, ChipTone> = { ok: "active", brk: "warm", miss: "failed" };
@@ -221,6 +222,10 @@ export function ExecCompare({
   const tN = execs.filter((e) => e.trader).length;
   const iN = execs.filter((e) => e.ib).length;
   const countMatch = tN === iN;
+  // one side has no fills (awaiting source) — not a count break
+  const leftAbsent = tN === 0 && iN > 0;
+  const rightAbsent = iN === 0 && tN > 0;
+  const oneSided = leftAbsent || rightAbsent;
   const fill = (v: ExecSide | null, right: boolean) => (
     <div className={`min-w-0 px-3 py-[7px] ${right ? "text-right" : "text-left"}`}>
       {v ? (
@@ -237,10 +242,21 @@ export function ExecCompare({
     <div className={className}>
       <div className="mb-2 flex flex-wrap items-center gap-[9px]">
         <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Executions</span>
-        <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: countMatch ? "#2f7a47" : "#93000a" }}>
-          {leftLabel} {tN} ↔ {rightLabel} {iN}
-        </span>
-        <Chip tone={countMatch ? "active" : "failed"} dot={false}>{countMatch ? terms.countOk : terms.countBad}</Chip>
+        {oneSided ? (
+          <>
+            <span className="text-[12.5px] font-semibold tabular-nums text-secondary">
+              {rightAbsent ? `${leftLabel} ${tN} · ${rightLabel} awaiting` : `${leftLabel} awaiting · ${rightLabel} ${iN}`}
+            </span>
+            <Chip tone="review" dot={false}>Awaiting source</Chip>
+          </>
+        ) : (
+          <>
+            <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: countMatch ? "#2f7a47" : "#93000a" }}>
+              {leftLabel} {tN} ↔ {rightLabel} {iN}
+            </span>
+            <Chip tone={countMatch ? "active" : "failed"} dot={false}>{countMatch ? terms.countOk : terms.countBad}</Chip>
+          </>
+        )}
       </div>
       <div className="overflow-hidden rounded-[10px] border border-outline-variant">
         <div className="grid grid-cols-[1fr_36px_1fr] border-b border-outline-variant bg-surface-low">
@@ -313,10 +329,12 @@ export function ExecRow({
   const g = EX_GLYPH[e.state] ?? EX_GLYPH.ok;
   const GIcon = g.icon;
   const summ = (v: ExecSide | null) => (v ? `${v.qty} @ ${v.px}` : terms.missCell);
+  const counterpartAwaiting = !e.trader && !!e.ib; // trader side awaiting source — not a break
   const fields: CompareField[] = [
-    { k: "Quantity", iv: e.trader ? e.trader.qty : "—", cv: e.ib ? e.ib.qty : "—", d: !e.ib || !!(e.trader && e.ib && e.trader.qty !== e.ib.qty) },
-    { k: "Price",    iv: e.trader ? e.trader.px : "—",  cv: e.ib ? e.ib.px : "—",  d: !e.ib || !!(e.trader && e.ib && e.trader.px !== e.ib.px) },
-    { k: "Time",     iv: e.trader ? e.trader.time : "—", cv: e.ib ? e.ib.time : "—", d: !e.ib },
+    { k: "Quantity", iv: e.trader ? e.trader.qty : "—", cv: e.ib ? e.ib.qty : "—", d: !counterpartAwaiting && (!e.ib || !!(e.trader && e.ib && e.trader.qty !== e.ib.qty)) },
+    { k: "Price",    iv: e.trader ? e.trader.px : "—",  cv: e.ib ? e.ib.px : "—",  d: !counterpartAwaiting && (!e.ib || !!(e.trader && e.ib && e.trader.px !== e.ib.px)) },
+    { k: "Time",     iv: e.trader ? e.trader.time : "—", cv: e.ib ? e.ib.time : "—", d: !counterpartAwaiting && !e.ib },
+    { k: "Trade ID", iv: e.trader?.tradeID ?? "—", cv: e.ib?.tradeID ?? "—", d: false },
   ];
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant">
@@ -382,7 +400,7 @@ export function ExecRow({
    (awaiting source); the stored-IB side is populated. */
 export function OrderExecBreakdown({
   execs, leftLabel = "Trader", rightLabel = "IB", terms = TI_TERMS,
-  leftTag = "expected", rightTag = "actual",
+  leftTag = "expected", rightTag = "actual", attrFields = [],
 }: {
   execs: ExecRowData[];
   leftLabel?: string;
@@ -390,15 +408,27 @@ export function OrderExecBreakdown({
   terms?: ExecTerms;
   leftTag?: string;
   rightTag?: string;
+  /** Added order-level attribute fields appended to the derived rollup. */
+  attrFields?: CompareField[];
 }) {
   const T = aggSide(execs, "trader");
   const I = aggSide(execs, "ib");
   const countMatch = T.count === I.count;
+  // one side has no fills (awaiting source) — show "—", never a false diff
+  const leftAbsent = T.count === 0 && I.count > 0;
+  const rightAbsent = I.count === 0 && T.count > 0;
+  const oneSided = leftAbsent || rightAbsent;
+  // a derived field row that honours an absent (awaiting) side
+  const mk = (k: string, tv: string, iv: string, diff: boolean): CompareField =>
+    leftAbsent ? { k, iv: "—", cv: iv, d: false }
+      : rightAbsent ? { k, iv: tv, cv: "—", d: false }
+        : { k, iv: tv, cv: iv, d: diff };
   const orderFields: CompareField[] = [
-    { k: "Executions", iv: String(T.count), cv: String(I.count), d: T.count !== I.count },
-    { k: "Average price (VWAP)", iv: fmtPxAgg(T.vwap), cv: fmtPxAgg(I.vwap), d: Math.abs(T.vwap - I.vwap) >= 0.00005 },
-    { k: "Total quantity", iv: fmtQtyAgg(T.sumQty), cv: fmtQtyAgg(I.sumQty), d: T.sumQty !== I.sumQty },
-    { k: "Trade amount", iv: fmtAmtAgg(T.notional), cv: fmtAmtAgg(I.notional), d: Math.round(T.notional) !== Math.round(I.notional) },
+    mk("Executions", String(T.count), String(I.count), T.count !== I.count),
+    mk("Average price (VWAP)", fmtPxAgg(T.vwap), fmtPxAgg(I.vwap), Math.abs(T.vwap - I.vwap) >= 0.00005),
+    mk("Total quantity", fmtQtyAgg(T.sumQty), fmtQtyAgg(I.sumQty), T.sumQty !== I.sumQty),
+    mk("Trade amount", fmtAmtAgg(T.notional), fmtAmtAgg(I.notional), Math.round(T.notional) !== Math.round(I.notional)),
+    ...attrFields,
   ];
   return (
     <>
@@ -410,10 +440,21 @@ export function OrderExecBreakdown({
 
       <div className="mb-2.5 flex flex-wrap items-center gap-[9px]">
         <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Executions</span>
-        <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: countMatch ? "#2f7a47" : "#93000a" }}>
-          {leftLabel} {T.count} ↔ {rightLabel} {I.count}
-        </span>
-        <Chip tone={countMatch ? "active" : "failed"} dot={false}>{countMatch ? terms.countOk : terms.countBad}</Chip>
+        {oneSided ? (
+          <>
+            <span className="text-[12.5px] font-semibold tabular-nums text-secondary">
+              {rightAbsent ? `${leftLabel} ${T.count} · ${rightLabel} awaiting` : `${leftLabel} awaiting · ${rightLabel} ${I.count}`}
+            </span>
+            <Chip tone="review" dot={false}>Awaiting source</Chip>
+          </>
+        ) : (
+          <>
+            <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: countMatch ? "#2f7a47" : "#93000a" }}>
+              {leftLabel} {T.count} ↔ {rightLabel} {I.count}
+            </span>
+            <Chip tone={countMatch ? "active" : "failed"} dot={false}>{countMatch ? terms.countOk : terms.countBad}</Chip>
+          </>
+        )}
       </div>
       <div className="mb-[18px] flex flex-col gap-2.5">
         {execs.map((e, i) => (
@@ -427,42 +468,49 @@ export function OrderExecBreakdown({
 /* ============================================================
    INTEGRITY TRIAGE (IB ↔ CRM · the `ic` leg)
 
-   IB↔CRM is NOT a trade match. It is a SET-MEMBERSHIP check over
-   the two stored IB Flex exports: Activity (AF) and Trade Confirms
-   (TCF). The C1 reframe (001 §6) replaces the old live-sync model
-   (synced/stale/drift) with plain set membership:
-     both             — present in BOTH Activity & Trade Confirms
-     activityOnly     — in Activity only
-     tradeConfirmOnly — in Trade Confirms only
-   There is NO invented live-fetch timeline.
+   IB↔CRM is NOT a trade match. It validates the stored CRM copy
+   against the live IB record — IB is the source of truth. This is
+   the ORIGINAL Claude-Design model; the storage shape
+   (ib_activity / ib_trades) is a DB concern and is NOT surfaced.
+   States: synced · stale · drift · missingDb · orphaned.
    ============================================================ */
 
-/* INTEG — IntegrityState → label / tone / icon / explanatory copy.
-   Keyed on the C1 IntegrityState set-membership values. */
+/* INTEG — IntegrityState → label / tone / icon / explanatory copy. */
 export const INTEG: Record<IntegrityState, {
   label: string; tone: ChipTone; icon: LucideIcon; bg: string; fg: string;
   head: string; msg: string;
 }> = {
-  both: {
-    label: "In both", tone: "active", icon: Check, bg: "#e3f1e7", fg: "#2f7a47",
-    head: "In Activity & Trade Confirms",
-    msg: "This record appears in both IB Flex exports — the Activity (AF) feed and the Trade Confirmations (TCF) feed.",
+  synced: {
+    label: "In sync", tone: "active", icon: Check, bg: "#e3f1e7", fg: "#2f7a47",
+    head: "In sync",
+    msg: "The stored copy matches the live IB record field-for-field.",
   },
-  activityOnly: {
-    label: "Activity only", tone: "warm", icon: Layers, bg: "#fdeccd", fg: "#b9741f",
-    head: "In Activity only",
-    msg: "This record appears in the Activity (AF) export but has no counterpart in the Trade Confirmations (TCF) export.",
+  stale: {
+    label: "Stale", tone: "review", icon: Clock, bg: "#eef0f2", fg: "#6b6a6a",
+    head: "Stale copy",
+    msg: "Values still match, but the stored copy is older than the freshness window.",
   },
-  tradeConfirmOnly: {
-    label: "Trade Confirms only", tone: "warm", icon: Database, bg: "#fdeccd", fg: "#b9741f",
-    head: "In Trade Confirms only",
-    msg: "This record appears in the Trade Confirmations (TCF) export but has no counterpart in the Activity (AF) export.",
+  drift: {
+    label: "Drifted", tone: "warm", icon: TriangleAlert, bg: "#fdeccd", fg: "#b9741f",
+    head: "Stored value drifted",
+    msg: "A stored field no longer matches the live IB value — the copy is stale or was corrupted on ingest.",
+  },
+  missingDb: {
+    label: "Missing in DB", tone: "failed", icon: Database, bg: "#f7ddd6", fg: "#b1402f",
+    head: "Missing in store",
+    msg: "Live IB returns this record, but the ingest pipeline never stored it. The store has a gap.",
+  },
+  orphaned: {
+    label: "Orphaned", tone: "failed", icon: Unlink, bg: "#f7ddd6", fg: "#b1402f",
+    head: "Orphaned in store",
+    msg: "The stored record has no live IB counterpart — it was likely cancelled or amended upstream after ingest.",
   },
 };
 
 /* ---- IntegrityCompare — field grid for the integrity leg ----
-   Activity (AF) vs Trade Confirms (TCF). Only the right (TCF) cell
-   is flagged when a field differs; AF is shown as the left source. */
+   Live IB (source of truth) vs the stored CRM copy. Only the right
+   (stored) cell is flagged when a field differs; live IB is the
+   left source of truth. */
 export function IntegrityCompare({ fields }: { fields: CompareField[] }) {
   const Head = ({ children, l, tag }: { children: ReactNode; l?: boolean; tag: string }) => (
     <div className={`flex items-center justify-between gap-2 bg-surface-low px-3.5 py-[9px] ${l ? "border-r border-outline-variant" : ""}`}>
@@ -473,8 +521,8 @@ export function IntegrityCompare({ fields }: { fields: CompareField[] }) {
   return (
     <div className="mb-[18px] overflow-hidden rounded-xl border border-outline-variant">
       <div className="grid grid-cols-2 border-b border-outline-variant">
-        <Head l tag="Activity feed">IB · Activity</Head>
-        <Head tag="Trade Confirms feed">IB · Trade Confirms</Head>
+        <Head l tag="source of truth">IB API · live</Head>
+        <Head tag="the copy">CRM · stored</Head>
       </div>
       {fields.map((f, i) => {
         const borderTop = i ? "border-t border-outline-variant" : "";
@@ -503,13 +551,10 @@ export function IntegrityCompare({ fields }: { fields: CompareField[] }) {
   );
 }
 
-/* ---- SyncMeta — set-membership metadata strip --------------
-   Carries the integrity metadata faithfully to the design layout,
-   but reframed to set membership — NO invented live-fetch timeline.
-   Reports which export sets the record is present in. */
-export function SyncMeta({ integrity }: { integrity: IntegrityState }) {
-  const inActivity = integrity === "both" || integrity === "activityOnly";
-  const inTradeConfirms = integrity === "both" || integrity === "tradeConfirmOnly";
+/* ---- SyncMeta — live-vs-stored sync timeline ---------------
+   When the live IB record was last fetched, and when the stored
+   copy was last synced. A stale copy surfaces its age. */
+export function SyncMeta({ leg }: { leg: ReconLeg }) {
   const row = (label: string, val: string) => (
     <div className="flex items-baseline justify-between gap-3 py-[7px]">
       <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-secondary">{label}</span>
@@ -518,17 +563,36 @@ export function SyncMeta({ integrity }: { integrity: IntegrityState }) {
   );
   return (
     <div className="mb-4 rounded-xl border border-outline-variant px-3.5 py-1">
-      {row("Activity (AF) export", inActivity ? "present" : "not present")}
+      {row("Live IB fetched", leg.fetchAt || "—")}
       <div className="h-px bg-outline-variant" />
-      {row("Trade Confirms (TCF) export", inTradeConfirms ? "present" : "not present")}
+      {row("Stored copy synced", leg.syncAt || "never — not in store")}
+      {leg.stale && (
+        <>
+          <div className="h-px bg-outline-variant" />
+          <div className="flex items-center justify-between gap-3 py-[7px]">
+            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-secondary">Freshness</span>
+            <Chip tone="review" dot={false}>Stale · {leg.staleAge ?? "past window"}</Chip>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
+/* per-integrity-state action buttons (original Claude-Design). */
+const INTEG_ACTIONS: Record<IntegrityState, { label: string; icon: LucideIcon; primary?: boolean }[]> = {
+  synced:    [{ label: "Re-fetch from IB", icon: RefreshCw }],
+  stale:     [{ label: "Re-sync from IB", icon: RefreshCw, primary: true }, { label: "View pipeline run", icon: Workflow }],
+  drift:     [{ label: "Re-sync from IB", icon: RefreshCw, primary: true }, { label: "View pipeline run", icon: Workflow }, { label: "Raise exception", icon: ShieldAlert }],
+  missingDb: [{ label: "Backfill into store", icon: Database, primary: true }, { label: "View pipeline run", icon: Workflow }],
+  orphaned:  [{ label: "Flag for review", icon: Flag, primary: true }, { label: "Remove from store", icon: Trash2 }],
+};
+
 /* ---- IntegrityDetail — the `ic` leg triage view ------------
-   Renders the set-membership verdict, an explanatory banner, the
-   SyncMeta presence strip, and either the per-execution breakdown
-   (set-membership terms) or the field comparison grid. */
+   Validates the stored CRM copy against the live IB record (IB is
+   the source of truth). Renders the verdict, an explanatory banner,
+   the sync timeline, and the SAME order-level comparison table as
+   the Trader-vs-IB leg (OrderExecBreakdown), then per-state actions. */
 export function IntegrityDetail({
   leg, trade, onClose,
 }: {
@@ -536,11 +600,14 @@ export function IntegrityDetail({
   trade: Pick<ReconTrade, "inst" | "ib" | "crm">;
   onClose: () => void;
 }) {
-  const integrity: IntegrityState = leg.integrity ?? "both";
-  const cfg = INTEG[integrity] ?? INTEG.both;
-  const ok = integrity === "both";
+  const integrity: IntegrityState = leg.integrity ?? "synced";
+  const cfg = INTEG[integrity] ?? INTEG.synced;
+  const ok = integrity === "synced";
   const title = leg.integrityType || cfg.head;
   const CfgIcon = cfg.icon;
+  const liveRef = integrity === "orphaned" ? null : trade.ib;
+  const storedRef = integrity === "missingDb" ? null : trade.crm;
+  const actions = INTEG_ACTIONS[integrity] ?? [];
   return (
     <div className="flex h-full flex-col">
       {/* header */}
@@ -548,8 +615,8 @@ export function IntegrityDetail({
         <div className="min-w-0">
           <div className="text-[16px] font-bold leading-[1.3] text-on-surface">{title} · {trade.inst}</div>
           <div className="mt-1 text-[12.5px] text-secondary">
-            Data-integrity check · {trade.ib || "no Activity record"}{" "}
-            <span style={{ color: "var(--primary)" }}>→</span> {trade.crm || "no Trade-Confirm record"}
+            Data-integrity check · {liveRef || "no live record"}{" "}
+            <span style={{ color: "var(--primary)" }}>→</span> {storedRef || "not in store"}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -577,16 +644,17 @@ export function IntegrityDetail({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Eyebrow>Set membership</Eyebrow>
-        <SyncMeta integrity={integrity} />
+        <Eyebrow>Sync timeline</Eyebrow>
+        <SyncMeta leg={leg} />
         {leg.execs && leg.execs.length > 0 ? (
           <OrderExecBreakdown
             execs={leg.execs}
-            leftLabel="IB · Activity"
-            rightLabel="IB · Trade Confirms"
+            leftLabel="IB · live"
+            rightLabel="CRM · stored"
             terms={IC_TERMS}
-            leftTag="Activity feed"
-            rightTag="Trade Confirms feed"
+            leftTag="source of truth"
+            rightTag="stored copy"
+            attrFields={leg.fields}
           />
         ) : (
           <>
@@ -601,16 +669,22 @@ export function IntegrityDetail({
         {ok ? (
           <div className="flex items-center justify-between gap-2.5">
             <span className="flex items-center gap-2 text-[13px] text-secondary">
-              <Check size={15} strokeWidth={2} color="#16a34a" /> Present in both Activity &amp; Trade Confirms.
+              <Check size={15} strokeWidth={2} color="#16a34a" /> Stored copy verified against live IB.
             </span>
-            <Button variant="secondary" icon={RefreshCw} className="px-3 py-[9px]">Re-check</Button>
+            <Button variant="secondary" icon={RefreshCw} className="px-3 py-[9px]">Re-fetch</Button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2.5">
-            <Button variant="secondary" icon={UserRound} className="min-w-0 flex-1 px-2.5 py-[9px]">Assign</Button>
-            <Button variant="secondary" icon={MessageSquare} className="min-w-0 flex-1 px-2.5 py-[9px]">Comment</Button>
-            <Button variant="secondary" icon={ArrowUpRight} className="min-w-0 flex-1 px-2.5 py-[9px]">Escalate</Button>
-            <Button icon={ShieldAlert} className="min-w-0 flex-1 px-2.5 py-[9px]">Raise</Button>
+            {actions.map((a, i) => (
+              <Button
+                key={i}
+                variant={a.primary ? undefined : "secondary"}
+                icon={a.icon}
+                className="min-w-0 flex-1 px-2.5 py-[9px]"
+              >
+                {a.label}
+              </Button>
+            ))}
           </div>
         )}
       </div>
@@ -619,10 +693,9 @@ export function IntegrityDetail({
 }
 
 /* ---- Triage detail (reused: recon line OR exception) -------
-   Carried-over path: a legacy ReconLine OR an Exception.
    C1 path: pass `leg` + `trade` to route an integrity (ic) leg to
-   IntegrityDetail, or render the order-level CompareGrid PLUS the
-   OrderExecBreakdown for a trade (ti) leg. */
+   IntegrityDetail, or render a SINGLE order-level comparison table
+   (OrderExecBreakdown) for a trade (ti) leg. */
 export function ReconLegTriage({
   leg, trade, onClose,
 }: {
@@ -630,7 +703,7 @@ export function ReconLegTriage({
   trade: Pick<ReconTrade, "inst" | "ib" | "trader" | "crm">;
   onClose: () => void;
 }) {
-  // integrity (ic) leg → set-membership view
+  // integrity (ic) leg → live-vs-stored data-integrity view
   if (leg.integrity != null) {
     return <IntegrityDetail leg={leg} trade={trade} onClose={onClose} />;
   }
@@ -664,15 +737,20 @@ export function ReconLegTriage({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        {/* order-level CompareGrid PLUS the per-execution breakdown */}
-        <Eyebrow>Order-level comparison</Eyebrow>
-        <CompareGrid fields={leg.fields} leftLabel="Trader blotter" rightLabel="Interactive Brokers (IB)" />
-        {hasExecs && (
+        {/* ONE order-level comparison: derived rollup + the added attribute
+            fields, then the per-execution breakdown. No duplicate grid. */}
+        {hasExecs ? (
           <OrderExecBreakdown
             execs={leg.execs as ExecRowData[]}
             leftLabel="Trader"
             rightLabel="IB"
+            attrFields={leg.fields}
           />
+        ) : (
+          <>
+            <Eyebrow>Order-level comparison</Eyebrow>
+            <CompareGrid fields={leg.fields} leftLabel="Trader" rightLabel="IB" />
+          </>
         )}
         {!matched && <Eyebrow className="mt-1">Raise exception</Eyebrow>}
       </div>
@@ -696,11 +774,14 @@ export function ReconLegTriage({
   );
 }
 
-/* ---- Triage detail (reused: recon line OR exception) ------- */
-/* Legacy carried-over props (ReconLine / Exception). */
+/* ---- Triage detail (reused: ReconLeg OR daily Exception) ----
+   The C1 recon path binds to a ReconLeg + its parent ReconTrade
+   (the OLD `kind="recon"` / ReconLine branch is fully superseded by
+   it and removed). The legacy carried-over path remains only for the
+   daily Exception register. */
 type TriageLegacyProps = {
-  item: ReconLine | Exception;
-  kind: "recon" | "exception";
+  item: Exception;
+  kind: "exception";
   onClose: () => void;
   leg?: undefined;
   trade?: undefined;
@@ -721,28 +802,15 @@ export function TriageDetail(props: TriageLegacyProps | TriageLegProps) {
   if (props.leg) {
     return <ReconLegTriage leg={props.leg} trade={props.trade} onClose={props.onClose} />;
   }
-  const { item, kind, onClose } = props;
-  const isRecon = kind === "recon";
-  const reconItem = item as ReconLine;
-  const excItem = item as Exception;
-  const matched = isRecon && reconItem.state === "ok";
+  const { item, onClose } = props;
+  const excItem: Exception = item;
+  const matched = false; // exceptions are never "matched"
 
-  let title: string;
-  let sub: string;
-  let chip: ReactNode;
-  if (isRecon) {
-    title = matched ? "Matched" : reconItem.breakType ?? "Break";
-    sub = `${reconItem.intRef || "no internal record"} · ${reconItem.cusRef || "no custodian record"}`;
-    const tone = reconItem.state === "ok" ? "active" : reconItem.state === "brk" ? "warm" : "failed";
-    const label = reconItem.state === "ok" ? "Matched" : reconItem.state === "brk" ? "Break" : "Unmatched";
-    chip = <Chip tone={tone} dot={false}>{label}</Chip>;
-  } else {
-    title = excItem.type;
-    sub = `Raised ${excItem.raised} · ${excItem.srcRef} · from Trade Reconciliation`;
-    chip = <Chip tone={SEV_TONE[excItem.sev]} dot={false}>{SEV_LABEL[excItem.sev]}</Chip>;
-  }
+  const title = excItem.type;
+  const sub = `Raised ${excItem.raised} · ${excItem.srcRef} · from Trade Reconciliation`;
+  const chip: ReactNode = <Chip tone={SEV_TONE[excItem.sev]} dot={false}>{SEV_LABEL[excItem.sev]}</Chip>;
 
-  const carried = !isRecon && excItem.carried;
+  const carried = excItem.carried;
 
   return (
     <div className="flex h-full flex-col">
@@ -784,7 +852,7 @@ export function TriageDetail(props: TriageLegacyProps | TriageLegProps) {
         <CompareGrid fields={item.fields} />
 
         {/* audit trail (exceptions only) */}
-        {!isRecon && excItem.trail && (
+        {excItem.trail && (
           <div className="mb-1">
             <Eyebrow>Audit trail</Eyebrow>
             <div className="relative pl-[18px]">
@@ -806,7 +874,6 @@ export function TriageDetail(props: TriageLegacyProps | TriageLegProps) {
           </div>
         )}
 
-        {isRecon && !matched && <Eyebrow className="mt-1">Raise exception</Eyebrow>}
       </div>
 
       {/* actions */}
@@ -820,9 +887,7 @@ export function TriageDetail(props: TriageLegacyProps | TriageLegProps) {
             <Button variant="secondary" icon={UserRound} className="min-w-0 flex-1 px-2.5 py-[9px]">Assign</Button>
             <Button variant="secondary" icon={MessageSquare} className="min-w-0 flex-1 px-2.5 py-[9px]">Comment</Button>
             <Button variant="secondary" icon={ArrowUpRight} className="min-w-0 flex-1 px-2.5 py-[9px]">Escalate</Button>
-            <Button icon={isRecon ? ShieldAlert : Check} className="min-w-0 flex-1 px-2.5 py-[9px]">
-              {isRecon ? "Raise" : "Resolve"}
-            </Button>
+            <Button icon={Check} className="min-w-0 flex-1 px-2.5 py-[9px]">Resolve</Button>
           </div>
         )}
       </div>

@@ -100,4 +100,6 @@ export {
   // CRM — MOBO triage (execution + integrity)
   RefreshCw,
   Database,
+  Workflow,
+  Flag,
 } from "lucide-react";

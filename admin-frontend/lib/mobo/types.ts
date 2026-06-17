@@ -26,9 +26,12 @@
      - The verdict is order-to-order, spanning order + execution
        fields; an execution break propagates up to the order.
      - There is NO FX-rate break in the vocabulary.
-     - The IB↔store relationship is reframed from a live-sync
-       model (synced/stale/drift) to plain SET MEMBERSHIP
-       (in Activity only / in Trade Confirms only / in both).
+     - The IB↔CRM leg follows the original Claude-Design model:
+       live IB (source of truth) vs the stored CRM copy, with a
+       sync verdict (synced / stale / drift / missingDb / orphaned).
+       The underlying storage shape (ib_activity / ib_trades) is a
+       DB-level concern and is deliberately NOT surfaced here — the
+       database will be reworked, so the UI stays decoupled from it.
    ============================================================ */
 
 /* ============================================================
@@ -186,14 +189,15 @@ export type BreakType =
   | "Missing — one side only";
 
 /**
- * Set-membership reframe of the old live-sync (`synced/stale/drift`)
- * model. The IB↔store relationship is no longer "is the stored copy fresh"
- * but "which source set does this record appear in":
- *   both              — present in both Activity (AF) and Trade Confirms (TCF)
- *   activityOnly      — in Activity only
- *   tradeConfirmOnly  — in Trade Confirms only
+ * IB↔CRM data-integrity verdict (original Claude-Design model). Validates the
+ * stored CRM copy against the live IB record — IB is the source of truth:
+ *   synced    — stored copy matches live IB field-for-field
+ *   stale     — values still match but the stored copy is past its freshness window
+ *   drift     — a stored field no longer matches the live IB value
+ *   missingDb — live IB returns the record but it was never stored
+ *   orphaned  — the stored record has no live IB counterpart
  */
-export type IntegrityState = "both" | "activityOnly" | "tradeConfirmOnly";
+export type IntegrityState = "synced" | "stale" | "drift" | "missingDb" | "orphaned";
 
 /**
  * One field in a side-by-side comparison.
@@ -235,7 +239,7 @@ export interface ExecRow {
  * One reconciliation leg of a trade. Both legs share this shape so a
  * single set of components renders them:
  *   ti — Trader vs IB     (trader blotter ↔ stored IB)
- *   ic — IB vs CRM        (set-membership / store presence)
+ *   ic — IB vs CRM        (live IB ↔ stored CRM copy · data integrity)
  */
 export interface ReconLeg {
   /** Order-to-order verdict (execution breaks propagate up). */
@@ -250,10 +254,20 @@ export interface ReconLeg {
   fields: CompareField[];
   /** Per-execution breakdown, when the order fills across executions. */
   execs?: ExecRow[] | null;
-  /** ic leg only: set-membership reframe of the old live-sync model. */
+  /** ic leg only: live-vs-stored data-integrity verdict (original design). */
   integrity?: IntegrityState;
-  /** ic leg only: human label for the integrity/set-membership verdict. */
+  /** ic leg only: human label for the integrity verdict. */
   integrityType?: string;
+  /** ic leg only: when the live IB record was last fetched (raw display). */
+  fetchAt?: string | null;
+  /** ic leg only: when the stored copy was last synced (raw display). */
+  syncAt?: string | null;
+  /** ic leg only: the stored copy is past its freshness window. */
+  stale?: boolean;
+  /** ic leg only: human age of a stale copy (e.g. "4h 43m ago"). */
+  staleAge?: string | null;
+  /** ic leg only: the order-level field that drifted, when integrity = drift. */
+  driftField?: string;
 }
 
 /**
@@ -280,7 +294,7 @@ export interface ReconTrade {
   crm: string | null;
   /** Trader ↔ IB leg. */
   ti: ReconLeg;
-  /** IB ↔ CRM leg (set-membership). */
+  /** IB ↔ CRM leg (live IB vs stored copy · data integrity). */
   ic: ReconLeg;
 }
 

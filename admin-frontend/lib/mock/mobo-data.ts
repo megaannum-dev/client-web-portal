@@ -21,16 +21,16 @@
      - Numeric columns are DecimalStrings (strings, raw precision);
        dates are raw IB tokens (`YYYYMMDD` / `YYYYMMDD;HHMMSS`).
      - `fxRateToBase` is AF-only. There is NO FX-rate break.
-     - The IB↔CRM "break" surfaces NATURALLY as set membership:
-         · AF + TCF present  → in both                 (ic = ok)
-         · AF only           → in Activity only        (ic = brk)
-         · TCF only          → in Trade Confirms only   (ic = brk)
-       i.e. a missing Trade-Confirm counterpart is the data-reality
-       reframe of the old "missing record" break — not a fabricated
-       trader mismatch.
+     - The IB↔CRM leg follows the ORIGINAL Claude-Design model:
+       live IB (source of truth) vs the stored CRM copy, with a
+       sync verdict (synced / stale / drift / missingDb / orphaned).
+       That verdict is carried as an explicit per-trade overlay
+       (`STORED_INTEGRITY`) so the UI stays DECOUPLED from the
+       storage shape (ib_activity / ib_trades) — the DB will be
+       reworked and must not leak into the screen.
    ============================================================ */
 
-import type { EOD as EODView, Exception, Feed, Order } from "@/lib/mobo/types";
+import type { EOD as EODView, Exception, Feed, IntegrityState, Order } from "@/lib/mobo/types";
 
 /* ---- Settlement day label --------------------------------- */
 export const SETTLE_DAY = "Tue 03 Jun 2026";
@@ -453,6 +453,57 @@ export const STORED_TRADES: StoredTrade[] = [
     },
   },
 ];
+
+/* ============================================================
+   IB ↔ CRM INTEGRITY OVERLAY (original Claude-Design model)
+   Keyed by the order join key (ibOrderID / orderID). Carries the
+   live-vs-stored verdict + sync timeline as an EXPLICIT per-trade
+   overlay so the recon screen stays decoupled from the storage
+   shape (ib_activity / ib_trades). The mapper reads this to build
+   the `ic` leg; trades absent from the map default to `synced`.
+     drift     → `driftField` names the order-level field; `driftValue`
+                 is the stored copy's (drifted) display value.
+     missingDb → live IB has it, the store does not (stored side "—").
+     orphaned  → the store has it, live IB does not (live side "—").
+   ============================================================ */
+export interface StoredIntegrity {
+  integrity: IntegrityState;
+  integrityType?: string;
+  /** When the live IB record was last fetched (raw display token). */
+  fetchAt?: string | null;
+  /** When the stored copy was last synced (raw display token). */
+  syncAt?: string | null;
+  /** Stored copy is past its freshness window. */
+  stale?: boolean;
+  /** Human age of a stale copy. */
+  staleAge?: string | null;
+  /** Order-level field label that drifted (drift only). */
+  driftField?: string;
+  /** Stored-copy display value for the drifted field (drift only). */
+  driftValue?: string;
+}
+
+export const STORED_INTEGRITY: Record<string, StoredIntegrity> = {
+  "401180022": { integrity: "synced", fetchAt: "14:31:08", syncAt: "14:02 · run #4471" }, // AAPL
+  "401260047": { integrity: "synced", fetchAt: "14:31:08", syncAt: "14:06 · run #4471" }, // MSFT
+  "401390013": { integrity: "drift", integrityType: "Price drifted in store",
+    driftField: "Average price (VWAP)", driftValue: "$121.10",
+    fetchAt: "14:31:09", syncAt: "02:14 · run #4470" }, // NVDA
+  "401700031": { integrity: "orphaned", integrityType: "Orphaned — no live IB record",
+    fetchAt: "14:31:10", syncAt: "02:14 · run #4470" }, // TSLA
+  "401500066": { integrity: "missingDb", integrityType: "Missing — never stored from live IB",
+    fetchAt: "14:31:10", syncAt: null }, // META
+  "401610019": { integrity: "synced", fetchAt: "14:31:10", syncAt: "14:09 · run #4471" }, // GOOGL
+  "401700099": { integrity: "drift", integrityType: "Settlement drifted in store",
+    driftField: "Settlement date", driftValue: "06 Jun 2026",
+    fetchAt: "14:31:11", syncAt: "02:14 · run #4470" }, // HSBA
+  "401810052": { integrity: "stale", integrityType: "Stale copy", stale: true,
+    staleAge: "4h 43m ago", fetchAt: "14:31:11", syncAt: "09:48 · run #4468" }, // JPM
+  "401920028": { integrity: "synced", fetchAt: "14:31:12", syncAt: "14:11 · run #4471" }, // AMZN
+  "402050017": { integrity: "synced", fetchAt: "14:31:12", syncAt: "14:12 · run #4471" }, // EUR.USD
+  "402170044": { integrity: "synced", fetchAt: "14:31:13", syncAt: "14:13 · run #4471" }, // V
+  "402280071": { integrity: "synced", fetchAt: "14:31:13", syncAt: "14:15 · run #4471" }, // BRK.B
+};
 
 /* ============================================================
    DAILY EXCEPTION REGISTER (C1 view type `Exception[]`)

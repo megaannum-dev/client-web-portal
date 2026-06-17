@@ -23,7 +23,10 @@
        an execution break propagates up to the order
      - added fields: Settlement date, Currency, Asset class,
        Trade date (order-level); Trade ID (execution-level)
-     - NO FX-rate break; integrity is set-membership, not live-sync
+     - NO FX-rate break; the IB↔CRM leg follows the original
+       live-vs-stored integrity model (synced/stale/drift/
+       missingDb/orphaned) via an explicit per-trade overlay,
+       so the screen stays decoupled from the storage shape
      - counters are re-based to single-source counts
    ============================================================ */
 
@@ -53,6 +56,7 @@ import {
   EXCEPTIONS as MOCK_EXCEPTIONS,
   FEEDS as MOCK_FEEDS,
   SETTLE_DAY as MOCK_SETTLE_DAY,
+  STORED_INTEGRITY as MOCK_STORED_INTEGRITY,
   STORED_TRADES as MOCK_STORED_TRADES,
 } from "../mock/mobo-data";
 
@@ -169,9 +173,9 @@ function execSide(e: Execution): ExecSide {
 }
 
 /**
- * Map an order's executions to per-execution comparison rows. The stored-IB
- * side (`ib`) is populated; the trader side is left `null` = "awaiting
- * source" (no trader feed in today's data reality).
+ * Trader-vs-IB per-execution rows. The IB side (`ib`) is the populated stored
+ * data; the trader side (`trader`) is left `null` = "awaiting source" (no
+ * trader feed today). In the breakdown the IB column is the right side.
  */
 function buildExecRows(order: Order): ExecRow[] | null {
   const execs = order.executions ?? [];
@@ -179,31 +183,103 @@ function buildExecRows(order: Order): ExecRow[] | null {
   return execs.map((e, i) => ({
     id: coalesceExec.execId(e) ?? `${coalesce.joinKey(order) ?? order.id}-x${i + 1}`,
     state: "ok" as MatchState, // single-source: nothing to disagree with yet
-    trader: null,              // awaiting source
-    ib: execSide(e),           // stored IB
+    trader: null,              // awaiting source (left)
+    ib: execSide(e),           // stored IB (right)
   }));
 }
 
 /**
- * Order-level comparison fields. The IB/stored value (`iv`) is populated;
- * the comparison value (`cv`) is "awaiting source". `d` (differs) stays
- * false because an empty counterpart is NOT a break (data reality).
- * Includes the added order-level fields: Settlement date, Currency,
- * Asset class, Trade date.
+ * The per-trade IB↔CRM integrity overlay the mapper consumes. Structurally
+ * matches `STORED_INTEGRITY` in the mock, but declared here so the mapper
+ * stays decoupled from the mock module (the seam injects it).
  */
-function buildOrderFields(order: Order): CompareField[] {
-  const f = (k: string, iv: string): CompareField => ({ k, iv, cv: AWAITING_SOURCE, d: false });
+interface IntegrityOverlay {
+  integrity: IntegrityState;
+  integrityType?: string;
+  fetchAt?: string | null;
+  syncAt?: string | null;
+  stale?: boolean;
+  staleAge?: string | null;
+  driftField?: string;
+  driftValue?: string;
+}
+
+/**
+ * IB↔CRM per-execution rows: live IB (`trader` = left) vs the stored copy
+ * (`ib` = right). Both sides are populated. A price drift overrides the
+ * stored side's price so the difference shows at both order- and exec-level.
+ */
+function buildIcExecRows(order: Order, ov: IntegrityOverlay): ExecRow[] | null {
+  const execs = order.executions ?? [];
+  if (execs.length === 0) return null;
+  const priceDrift = ov.integrity === "drift" && ov.driftField === "Average price (VWAP)";
+  return execs.map((e, i) => {
+    const live = execSide(e);
+    const stored: ExecSide =
+      priceDrift && ov.driftValue ? { ...live, px: ov.driftValue } : { ...live };
+    return {
+      id: coalesceExec.execId(e) ?? `${coalesce.joinKey(order) ?? order.id}-x${i + 1}`,
+      state: (priceDrift ? "brk" : "ok") as MatchState,
+      trader: live,   // live IB (left)
+      ib: stored,     // stored CRM copy (right)
+    };
+  });
+}
+
+/**
+ * The four added order-level attribute fields (Settlement date, Currency,
+ * Asset class, Trade date), appended to the derived rollup. The `iv`/`cv`
+ * convention follows the leg's columns.
+ */
+function buildTiAttrFields(order: Order): CompareField[] {
+  // ti columns: left = Trader (awaiting), right = IB (data). iv=left, cv=right.
+  const f = (k: string, ib: string): CompareField => ({ k, iv: AWAITING_SOURCE, cv: ib, d: false });
   return [
-    f("Side", order.buySell ?? AWAITING_SOURCE),
-    f("Quantity", fmtQty(order.quantity)),
-    f("Price", fmtPrice(coalesce.price(order), order.currency)),
-    f("Net amount", fmtAmt(coalesce.netAmount(order), order.currency)),
     f("Settlement date", fmtDate(coalesce.settleDate(order))),
     f("Currency", order.currency ?? AWAITING_SOURCE),
     f("Asset class", order.assetCategory ?? AWAITING_SOURCE),
     f("Trade date", fmtDate(order.tradeDate)),
-    f("Commission", fmtAmt(coalesce.commission(order), order.currency)),
   ];
+}
+
+function buildIcAttrFields(order: Order, ov: IntegrityOverlay): CompareField[] {
+  // ic columns: left = IB live, right = CRM stored. iv=live, cv=stored.
+  const liveSettle = fmtDate(coalesce.settleDate(order));
+  const settleCv =
+    ov.integrity === "drift" && ov.driftField === "Settlement date" && ov.driftValue
+      ? ov.driftValue
+      : liveSettle;
+  const cur = order.currency ?? AWAITING_SOURCE;
+  const ac = order.assetCategory ?? AWAITING_SOURCE;
+  const td = fmtDate(order.tradeDate);
+  return [
+    { k: "Settlement date", iv: liveSettle, cv: settleCv, d: settleCv !== liveSettle },
+    { k: "Currency", iv: cur, cv: cur, d: false },
+    { k: "Asset class", iv: ac, cv: ac, d: false },
+    { k: "Trade date", iv: td, cv: td, d: false },
+  ];
+}
+
+/**
+ * IB↔CRM order-level field grid for the no-execution path (missingDb /
+ * orphaned). One side renders the awaiting-source sentinel: orphaned = live
+ * absent (left), missingDb = stored absent (right).
+ */
+function buildIcSingleSidedFields(order: Order, integrity: IntegrityState): CompareField[] {
+  const vals: [string, string][] = [
+    ["Side", order.buySell ?? AWAITING_SOURCE],
+    ["Quantity", fmtQty(order.quantity)],
+    ["Price", fmtPrice(coalesce.price(order), order.currency)],
+    ["Settlement date", fmtDate(coalesce.settleDate(order))],
+    ["Net amount", fmtAmt(coalesce.netAmount(order), order.currency)],
+  ];
+  const orphaned = integrity === "orphaned"; // live absent, stored present
+  return vals.map(([k, v]) => ({
+    k,
+    iv: orphaned ? AWAITING_SOURCE : v, // live (left)
+    cv: orphaned ? v : AWAITING_SOURCE, // stored (right)
+    d: true,
+  }));
 }
 
 /** Compact stored-IB summary sub-line for a leg's right/IB side. */
@@ -228,36 +304,26 @@ function rollUpState(orderState: MatchState, execs: ExecRow[] | null): MatchStat
 }
 
 /**
- * Derive the IB↔CRM set-membership state. Reframes the old live-sync
- * (synced/stale/drift) model: a record is in `both` sets when an AF (Activity)
- * order has a TCF (Trade-Confirm) counterpart, else in one set only.
+ * Map the IB↔CRM integrity verdict to a leg match state:
+ *   synced / stale → ok   (values match the live record)
+ *   drift          → brk  (a stored field drifted)
+ *   missingDb / orphaned → miss (present on one side only)
  */
-function deriveIntegrity(af: Order | null, tcf: Order | null): {
-  state: IntegrityState;
-  label: string;
-} {
-  if (af && tcf) return { state: "both", label: "In Activity & Trade Confirms" };
-  if (af && !tcf) return { state: "activityOnly", label: "In Activity only" };
-  return { state: "tradeConfirmOnly", label: "In Trade Confirms only" };
+function deriveIcState(integrity: IntegrityState): MatchState {
+  if (integrity === "synced" || integrity === "stale") return "ok";
+  if (integrity === "drift") return "brk";
+  return "miss";
 }
 
-/**
- * Derive the match state of a leg from its compared fields + executions.
- * A field difference or a present-on-one-side-only condition is a break.
- */
-function deriveState(fields: CompareField[], present: boolean, counterpartPresent: boolean): MatchState {
-  if (!present || !counterpartPresent) return "miss";
-  return fields.some((f) => f.d) ? "brk" : "ok";
-}
-
-/** Pick the break type implied by which order fields differ (no FX break). */
-function pickBreakType(fields: CompareField[]): BreakType | undefined {
-  const diff = (k: string) => fields.some((f) => f.k === k && f.d);
-  if (diff("Quantity")) return "Quantity break";
-  if (diff("Price")) return "Price break";
-  if (diff("Settlement date")) return "Settlement mismatch";
-  if (diff("Commission")) return "Commission break";
-  if (diff("Net amount")) return "Net-amount break";
+/** The break-type label an integrity verdict raises (for the EOD by-type roll). */
+function deriveIcBreakType(ov: IntegrityOverlay): BreakType | undefined {
+  if (ov.integrity === "drift") {
+    if (ov.driftField === "Settlement date") return "Settlement mismatch";
+    return "Price break";
+  }
+  if (ov.integrity === "missingDb" || ov.integrity === "orphaned") {
+    return "Missing — one side only";
+  }
   return undefined;
 }
 
@@ -273,6 +339,7 @@ function pickBreakType(fields: CompareField[]): BreakType | undefined {
 export function mapOrdersToReconTrade(input: {
   af?: Order | null;
   tcf?: Order | null;
+  ic?: IntegrityOverlay | null;
 }): ReconTrade {
   const af = input.af ?? null;
   const tcf = input.tcf ?? null;
@@ -284,50 +351,52 @@ export function mapOrdersToReconTrade(input: {
 
   const joinKey = coalesce.joinKey(stored);
   const inst = stored.symbol ?? AWAITING_SOURCE;
-  const execs = buildExecRows(stored);
-  const orderFields = buildOrderFields(stored);
   const summary = buildSummary(stored);
 
   // --- Trader ↔ IB leg ---
-  // Stored IB populated; trader side awaiting source (no feed). Field diffs
-  // are false today (empty counterpart is not a break), so the leg is `ok`,
-  // but execution-break propagation is wired for when the trader feed lands.
-  const tiBaseState: MatchState = deriveState(orderFields, true, false) === "miss"
-    // counterpart absent today → would be "miss"; data reality says NOT a
-    // break/miss when the source is merely awaited, so treat as ok.
-    ? "ok"
-    : deriveState(orderFields, true, true);
-  const tiState = rollUpState(tiBaseState, execs);
+  // IB is the populated side (right column); the trader side is awaiting source
+  // (left column, no feed). An empty counterpart is NOT a break, so the leg is
+  // `ok` today — execution-break propagation is wired for when a trader feed lands.
+  const tiExecs = buildExecRows(stored);
+  const tiState = rollUpState("ok", tiExecs);
   const ti: ReconLeg = {
     state: tiState,
-    breakType: tiState === "ok" ? undefined : pickBreakType(orderFields),
-    ls: summary,          // stored IB (left/populated)
-    rs: null,             // trader awaiting source
-    fields: orderFields,
-    execs,
+    breakType: undefined,
+    ls: null,             // trader awaiting source (left)
+    rs: summary,          // stored IB (right/populated)
+    fields: buildTiAttrFields(stored),
+    execs: tiExecs,
   };
 
-  // --- IB ↔ CRM leg (set membership) ---
-  const integrity = deriveIntegrity(af, tcf);
-  const icState: MatchState = integrity.state === "both" ? "ok" : "brk";
+  // --- IB ↔ CRM leg (live IB vs stored copy · data integrity) ---
+  const ov: IntegrityOverlay = input.ic ?? { integrity: "synced" };
+  const icState = deriveIcState(ov.integrity);
+  // synced/stale/drift compare live vs stored field-for-field (with executions);
+  // missingDb/orphaned have no counterpart to break down → single-sided grid.
+  const hasIcExecs = ov.integrity === "synced" || ov.integrity === "stale" || ov.integrity === "drift";
   const ic: ReconLeg = {
     state: icState,
-    breakType: undefined,
-    ls: summary,
-    rs: null,
-    fields: orderFields,
-    execs,
-    integrity: integrity.state,
-    integrityType: integrity.label,
+    breakType: deriveIcBreakType(ov),
+    ls: ov.integrity === "orphaned" ? null : summary, // live (left) absent when orphaned
+    rs: ov.integrity === "missingDb" ? null : summary, // stored (right) absent when missingDb
+    fields: hasIcExecs ? buildIcAttrFields(stored, ov) : buildIcSingleSidedFields(stored, ov.integrity),
+    execs: hasIcExecs ? buildIcExecRows(stored, ov) : null,
+    integrity: ov.integrity,
+    integrityType: ov.integrityType,
+    fetchAt: ov.fetchAt ?? null,
+    syncAt: ov.syncAt ?? null,
+    stale: ov.stale ?? false,
+    staleAge: ov.staleAge ?? null,
+    driftField: ov.driftField,
   };
 
   return {
     id: joinKey ?? stored.id,
     inst,
-    book: stored.symbol ? (stored.symbol ?? AWAITING_SOURCE) : AWAITING_SOURCE, // book derived upstream; placeholder until provided
-    ib: joinKey,          // real ibOrderID / orderID
-    trader: null,         // awaiting source
-    crm: tcf ? coalesce.joinKey(tcf) : null,
+    book: AWAITING_SOURCE, // overlaid with the real account name by the seam
+    ib: joinKey,           // real ibOrderID / orderID
+    trader: null,          // awaiting source
+    crm: ov.integrity === "missingDb" ? null : joinKey, // stored copy keyed by the IB id
     ti,
     ic,
   };
@@ -394,10 +463,13 @@ export function loadReconciliation(): ReconView {
   // Map each stored AF/TCF order pair into a ReconTrade view model.
   // The mapper derives `book` as a placeholder (symbol) until provided
   // upstream; the mock carries the real account name, so overlay it here.
-  const trades: ReconTrade[] = MOCK_STORED_TRADES.map((t) => ({
-    ...mapOrdersToReconTrade({ af: t.af, tcf: t.tcf }),
-    book: t.book,
-  }));
+  const trades: ReconTrade[] = MOCK_STORED_TRADES.map((t) => {
+    const key = t.af?.ibOrderID ?? t.tcf?.orderID ?? "";
+    return {
+      ...mapOrdersToReconTrade({ af: t.af, tcf: t.tcf, ic: MOCK_STORED_INTEGRITY[key] }),
+      book: t.book,
+    };
+  });
 
   const counters = deriveCounters(trades);
   const byType = deriveEodByType(trades);
