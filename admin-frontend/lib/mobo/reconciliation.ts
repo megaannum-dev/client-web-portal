@@ -298,8 +298,11 @@ function buildSummary(order: Order): string {
  */
 function rollUpState(orderState: MatchState, execs: ExecRow[] | null): MatchState {
   if (!execs || execs.length === 0) return orderState;
-  if (execs.some((e) => e.state === "miss")) return orderState === "ok" ? "brk" : orderState;
-  if (execs.some((e) => e.state === "brk")) return orderState === "ok" ? "brk" : orderState;
+  // Any execution discrepancy — a value break OR a missing/extra fill — makes
+  // the order a break: the order is present on both sides but doesn't fully
+  // reconcile. `miss` is reserved for a fully one-sided order (the ic
+  // missingDb/orphaned case), NOT a partial-fill gap.
+  if (execs.some((e) => e.state !== "ok")) return orderState === "ok" ? "brk" : orderState;
   return orderState;
 }
 
