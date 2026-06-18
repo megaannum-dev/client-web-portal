@@ -548,7 +548,7 @@ export default function TradeReconciliationPage() {
     : [];
 
   return (
-    <div className="mx-auto max-w-container">
+    <div className="w-full">
       <div className="mb-7">
         <PageHeader
           title="Trade Reconciliation"

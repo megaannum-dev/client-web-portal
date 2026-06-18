@@ -55,7 +55,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         style={{ paddingLeft: open ? width : COLLAPSED_GUTTER }}
       >
         <Header />
-        <main className="flex-1 p-8 h-{100%}">{children}</main>
+        <main className="flex-1 p-8 px-16 h-{100%}">{children}</main>
       </div>
       {/* <FloatingActionButton /> */}
     </>

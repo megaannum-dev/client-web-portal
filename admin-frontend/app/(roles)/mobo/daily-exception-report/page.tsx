@@ -330,7 +330,7 @@ export default function DailyExceptionReportPage() {
     : `${open} ${open === 1 ? "exception" : "exceptions"} to raise · ${ti.length} Trader↔IB · ${ic.length} IB↔CRM · settlement day ${settleLabel}`;
 
   return (
-    <div className="mx-auto max-w-container">
+    <div className="w-full">
       <div className="mb-7">
         <PageHeader
           title="Daily Exception Report"

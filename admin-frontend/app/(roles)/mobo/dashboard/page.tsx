@@ -96,7 +96,7 @@ export default function MoboDashboardPage() {
   const goExceptions = () => router.push("/mobo/daily-exception-report");
 
   return (
-    <div className="mx-auto max-w-container">
+    <div className="w-full">
       <div className="mb-7">
         <PageHeader
           title="Dashboard"
