@@ -268,6 +268,14 @@ export interface ReconLeg {
   staleAge?: string | null;
   /** ic leg only: the order-level field that drifted, when integrity = drift. */
   driftField?: string;
+  /**
+   * The single field that broke, ready to render (k, before→after), when
+   * `state === "brk"`. Set by the mapper so flat consumers (e.g. the daily
+   * exception report) don't have to re-derive it — and so a break carried in
+   * the execution rollup (e.g. a VWAP price drift) still surfaces a value
+   * rather than scanning `fields` and finding none flagged.
+   */
+  breakField?: CompareField;
 }
 
 /**

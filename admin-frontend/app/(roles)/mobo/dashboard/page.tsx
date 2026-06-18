@@ -86,11 +86,14 @@ export default function MoboDashboardPage() {
   const okFeeds = feeds.filter((f) => f.state === "ok").length;
 
   // Today's-reconciliation bar segments, derived from the single-source counts
-  // (matched / breaks / unmatched) so the bar matches the legend below it.
+  // (matched / breaks / unmatched) so the bar matches the legend below it. Each
+  // segment is its own proportion (same method as the recon screen), so the
+  // Breaks segment width tracks the Breaks count instead of absorbing rounding.
   const segTotal = counters.reconciled || 1;
-  const segOk = Math.round((counters.matched / segTotal) * 100);
-  const segBad = Math.round((counters.unmatched / segTotal) * 100);
-  const segWarn = Math.max(0, 100 - segOk - segBad);
+  const pct = (n: number) => Math.round((n / segTotal) * 100);
+  const segOk = pct(counters.matched);
+  const segWarn = pct(counters.breaks);
+  const segBad = pct(counters.unmatched);
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
   const goExceptions = () => router.push("/mobo/daily-exception-report");
