@@ -97,4 +97,12 @@ export {
   ArrowRight,
   ArrowUpRight,
   MessageSquare,
+  // CRM — MOBO triage (execution + integrity)
+  RefreshCw,
+  Database,
+  Workflow,
+  Flag,
+  // CRM — MOBO daily exception report (design-faithful glyphs)
+  Banknote,
+  CircleSlash,
 } from "lucide-react";

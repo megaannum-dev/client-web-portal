@@ -80,6 +80,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
         label="Monthly Reports"
         active={reportsActive}
         isOpen={isOpen}
+        compact
       />
     </nav>
   );

@@ -14,10 +14,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { MetricStat, SegBar } from "@/components/mobo/Shared";
+import { loadReconciliation } from "@/lib/mobo/reconciliation";
 import {
-  RECON_SUMMARY, EXCEPTIONS, FEEDS, SETTLE_DAY, SEV_LABEL, SEV_TONE,
+  SEV_LABEL, SEV_TONE,
   type Feed, type Exception,
-} from "@/lib/mock/mobo-data";
+} from "@/lib/mobo/types";
 
 const FEED_DOT: Record<string, string> = { ok: "#16a34a", brk: "#ea580c", miss: "#ba1a1a" };
 
@@ -74,20 +75,32 @@ const CARD = "rounded-2xl border border-outline-variant bg-surface-lowest shadow
 
 export default function MoboDashboardPage() {
   const router = useRouter();
-  const R = RECON_SUMMARY;
-  const openBreaks = R.breaks + R.unmatched;
-  const top = EXCEPTIONS.slice(0, 5);
-  const okFeeds = FEEDS.filter((f) => f.state === "ok").length;
+
+  // SINGLE SOURCE: every figure on this page is read from the same bundle the
+  // recon screen consumes, so the dashboard and recon never disagree.
+  const { settleDay, counters, exceptions, feeds } = loadReconciliation();
+
+  const openBreaks = counters.breaks + counters.unmatched;
+  const carriedExceptions = exceptions.filter((e) => e.carried).length;
+  const top = exceptions.slice(0, 5);
+  const okFeeds = feeds.filter((f) => f.state === "ok").length;
+
+  // Today's-reconciliation bar segments, derived from the single-source counts
+  // (matched / breaks / unmatched) so the bar matches the legend below it.
+  const segTotal = counters.reconciled || 1;
+  const segOk = Math.round((counters.matched / segTotal) * 100);
+  const segBad = Math.round((counters.unmatched / segTotal) * 100);
+  const segWarn = Math.max(0, 100 - segOk - segBad);
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
   const goExceptions = () => router.push("/mobo/daily-exception-report");
 
   return (
-    <div className="mx-auto max-w-[1240px]">
+    <div className="w-full">
       <div className="mb-7">
         <PageHeader
           title="Dashboard"
-          subtitle={`Middle & back office · Settlement day ${SETTLE_DAY}`}
+          subtitle={`Middle & back office · Settlement day ${settleDay}`}
           actions={
             <>
               <Button variant="secondary" icon={CalendarDays}>03 Jun 2026</Button>
@@ -99,10 +112,10 @@ export default function MoboDashboardPage() {
 
       {/* four counters */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricStat label="Trades to reconcile" value="1,284" icon={Inbox} />
-        <MetricStat label="Auto-matched" value="96.4%" sub="1,261" tone="ok" icon={Link2} />
-        <MetricStat label="Open breaks" value={openBreaks} sub="12 field · 11 unmatched" tone="warn" icon={Unlink} onClick={goRecon} />
-        <MetricStat label="Open exceptions" value="7" sub="2 carried fwd" tone="bad" icon={ShieldAlert} onClick={goExceptions} />
+        <MetricStat label="Trades to reconcile" value={counters.reconciled.toLocaleString("en-US")} icon={Inbox} />
+        <MetricStat label="Auto-matched" value={counters.autoMatchedPct} sub={counters.matched.toLocaleString("en-US")} tone="ok" icon={Link2} />
+        <MetricStat label="Open breaks" value={openBreaks} sub={`${counters.breaks} field · ${counters.unmatched} unmatched`} tone="warn" icon={Unlink} onClick={goRecon} />
+        <MetricStat label="Open exceptions" value={exceptions.length} sub={`${carriedExceptions} carried fwd`} tone="bad" icon={ShieldAlert} onClick={goExceptions} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
@@ -114,11 +127,11 @@ export default function MoboDashboardPage() {
               <h3 className="text-[17px] font-semibold text-on-surface">Today&apos;s reconciliation</h3>
               <Chip tone="warm" dot={false}>In progress</Chip>
             </div>
-            <SegBar ok={82} warn={11} bad={7} />
+            <SegBar ok={segOk} warn={segWarn} bad={segBad} />
             <div className="mt-3.5 flex flex-wrap items-center gap-[18px]">
-              <Legend color="#3f9d63" label="Matched" value="1,261" />
-              <Legend color="#e0922f" label="Breaks" value="12" />
-              <Legend color="#d3654f" label="Unmatched" value="11" />
+              <Legend color="#3f9d63" label="Matched" value={counters.matched.toLocaleString("en-US")} />
+              <Legend color="#e0922f" label="Breaks" value={String(counters.breaks)} />
+              <Legend color="#d3654f" label="Unmatched" value={String(counters.unmatched)} />
               <button
                 type="button"
                 onClick={goRecon}
@@ -169,10 +182,10 @@ export default function MoboDashboardPage() {
           <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
             <div className="mb-[15px] flex items-center justify-between">
               <h3 className="text-[17px] font-semibold text-on-surface">Feeds &amp; cutoffs</h3>
-              <span className="text-[12.5px] font-bold text-secondary">{okFeeds} / {FEEDS.length}</span>
+              <span className="text-[12.5px] font-bold text-secondary">{okFeeds} / {feeds.length}</span>
             </div>
             <div className="flex flex-col gap-[13px]">
-              {FEEDS.map((f, i) => <FeedRow key={i} f={f} />)}
+              {feeds.map((f, i) => <FeedRow key={i} f={f} />)}
               <div className="mt-0.5 flex items-center justify-between border-t border-outline-variant pt-[13px]">
                 <span className="text-[12.5px] text-secondary">Settlement cutoff</span>
                 <span className="text-[13.5px] font-bold text-on-surface">18:00 GMT</span>
@@ -188,7 +201,7 @@ export default function MoboDashboardPage() {
             </div>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[13.5px] text-secondary">Breaks outstanding</span>
-              <span className="text-[18px] font-bold text-on-surface">7</span>
+              <span className="text-[18px] font-bold text-on-surface">{openBreaks}</span>
             </div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-[13.5px] text-secondary">Yesterday</span>
