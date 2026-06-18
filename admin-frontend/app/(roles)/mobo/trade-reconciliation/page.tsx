@@ -18,7 +18,7 @@
    Ported faithfully from the design handoff (MoboRecon.jsx).
    ============================================================ */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   SlidersHorizontal, Link2, Unlink, X, ChevronRight, Check,
 } from "@/lib/icons";
@@ -234,7 +234,7 @@ function ColumnFrame({
   const legendInside = LEGEND_MODE !== "outside";
   return (
     <div
-      className={["box-border flex min-w-0 flex-col", anim].filter(Boolean).join(" ")}
+      className={["box-border flex flex-1 flex-col", anim].filter(Boolean).join(" ")}
       style={{ height: RC_PANEL_H }}
     >
       {!headerInside && (
@@ -485,23 +485,6 @@ export default function TradeReconciliationPage() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [W, setW] = useState(0);
-  const [ready, setReady] = useState(false);
-
-  useLayoutEffect(() => {
-    const measure = () => { if (wrapRef.current) setW(wrapRef.current.clientWidth); };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
-
-  useEffect(() => {
-    if (W > 0 && !ready) {
-      const id = requestAnimationFrame(() => setReady(true));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [W, ready]);
 
   /* leg slices + filtered views */
   const tiLegs = useMemo(() => legs.filter((l) => l.kind === "ti"), [legs]);
@@ -530,13 +513,24 @@ export default function TradeReconciliationPage() {
     : { clearLabel: "All in sync", resolveLabel: "to re-sync" };
   const qColLegs = focusTi ? byFilter(tiLegs) : byFilter(icLegs);
 
-  /* two-column stage geometry: resting = equal halves; focused = one column
-     compressed to the queue width (QW), the other holds the triage detail */
-  const rest = Math.max(0, W - GAP - QW);
-  let cols: string;
-  if (!isFocused) { const half = Math.max(0, (W - GAP) / 2); cols = `${half}px ${half}px`; }
-  else if (queueOnLeft) cols = `${QW}px ${rest}px`;
-  else cols = `${rest}px ${QW}px`;
+  /* two-column stage geometry (flex, fluid): the cells fill the row — equal
+     halves when resting; on focus the clicked column fixes to the queue width
+     (QW) and the other grows to fill the rest. Widths are calc()-based off the
+     container so it tracks the full available width with no JS measurement,
+     and animate via `width` (reliable, unlike flex-basis transitions). */
+  const cellWidth = (isQueueCell: boolean): string =>
+    !isFocused
+      ? `calc((100% - ${GAP}px) / 2)`
+      : isQueueCell
+        ? `${QW}px`
+        : `calc(100% - ${QW}px - ${GAP}px)`;
+  const cellStyle = (isQueueCell: boolean) => ({
+    flex: "0 0 auto",
+    width: cellWidth(isQueueCell),
+    transition: `width ${SLIDE_MS}ms cubic-bezier(.4,0,.2,1)`,
+  });
+  const cell1Style = cellStyle(isFocused && queueOnLeft);   // CELL 1 holds the queue when it compresses left
+  const cell2Style = cellStyle(isFocused && !queueOnLeft);  // CELL 2 holds the queue when it compresses right
 
   /* triage queue: only the focused column's legs, honoring the active
      filter, breaks + unmatched first then matched */
@@ -582,17 +576,9 @@ export default function TradeReconciliationPage() {
           never change between states. The clicked column compresses in place
           into a queue while the triage detail expands into the opposite cell
           (Direction: swapped). */}
-      <div
-        ref={wrapRef}
-        className="grid items-start"
-        style={{
-          gridTemplateColumns: cols,
-          columnGap: GAP,
-          transition: ready ? `grid-template-columns ${SLIDE_MS}ms cubic-bezier(.4,0,.2,1)` : "none",
-        }}
-      >
+      <div className="flex items-start" style={{ columnGap: GAP }}>
         {/* CELL 1 (left) */}
-        <div className="min-w-0 overflow-hidden">
+        <div className="min-w-0 overflow-hidden" style={cell1Style}>
           {!isFocused ? (
             <ReconPanel
               title="Trader vs IB"
@@ -618,7 +604,7 @@ export default function TradeReconciliationPage() {
         </div>
 
         {/* CELL 2 (right) */}
-        <div className="min-w-0 overflow-hidden">
+        <div className="min-w-0 overflow-hidden" style={cell2Style}>
           {!isFocused ? (
             <ReconPanel
               title="IB vs CRM"
