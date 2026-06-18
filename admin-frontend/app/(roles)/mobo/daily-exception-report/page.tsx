@@ -21,8 +21,8 @@
 
 import type { ReactNode } from "react";
 import {
-  Download, Lock, Check, ShieldAlert, ShieldCheck, Layers, Wallet,
-  ArrowLeftRight, ArrowRight, Unlink, CalendarDays,
+  Download, Lock, Check, ShieldAlert, ShieldCheck, Layers, Banknote,
+  ArrowLeftRight, ArrowRight, CircleSlash, Database, CalendarDays,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -112,7 +112,7 @@ function VolumeTile({
 function MonthProgress({ dayOf, daysInMonth }: { dayOf: number; daysInMonth: number }) {
   const pct = daysInMonth > 0 ? Math.round((dayOf / daysInMonth) * 100) : 0;
   return (
-    <div className="mt-1 rounded-xl border border-outline-variant bg-surface-low px-[18px] py-[15px]">
+    <div className="mt-1 rounded-md border border-outline-variant bg-surface-low px-[18px] py-[15px]">
       <div className="mb-[11px] flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-[9px] text-[13px] text-secondary">
           <span className="flex text-secondary"><CalendarDays size={16} strokeWidth={1.75} /></span>
@@ -142,7 +142,7 @@ function Mismatch({ b }: { b: LegBreak }) {
       : (b.leg === "ti" ? "No IB confirmation" : "Not booked in CRM");
     return (
       <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: "#b1402f" }}>
-        <Unlink size={13} strokeWidth={2} /> {text}
+        <CircleSlash size={13} strokeWidth={2} /> {text}
       </span>
     );
   }
@@ -166,7 +166,7 @@ function BreakTable({ leg, rows }: { leg: LegKey; rows: LegBreak[] }) {
   const desc = isTI
     ? "Trader blotter reconciled against the executing broker (Interactive Brokers)."
     : "Stored MegaCRM book validated against the live IB record — IB is the source of truth.";
-  const LegIcon = isTI ? ArrowLeftRight : Layers;
+  const LegIcon = isTI ? ArrowLeftRight : Database;
   const th = (t: string, align: "left" | "right" = "left") => (
     <th
       className="bg-surface-low px-4 py-[10px] text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap"
@@ -180,7 +180,7 @@ function BreakTable({ leg, rows }: { leg: LegKey; rows: LegBreak[] }) {
       <div className="mb-[11px] flex flex-wrap items-center gap-[11px]">
         <span className="inline-flex items-center gap-2 text-[15px] font-bold text-on-surface">
           <span
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg"
+            className="flex h-[26px] w-[26px] items-center justify-center rounded"
             style={{
               background: isTI ? "rgba(242,116,5,0.1)" : "rgba(186,26,26,0.08)",
               color: isTI ? "var(--primary)" : "#b1402f",
@@ -195,7 +195,7 @@ function BreakTable({ leg, rows }: { leg: LegKey; rows: LegBreak[] }) {
         </Chip>
         <span className="text-[12.5px] text-secondary">{desc}</span>
       </div>
-      <div className="overflow-hidden rounded-xl border border-outline-variant">
+      <div className="overflow-hidden rounded-md border border-outline-variant">
         <table className="w-full border-collapse text-[13.5px]">
           <thead>
             <tr>{th("Record")}{th("References")}{th("Break type")}{th("Mismatch")}{th("Status", "right")}</tr>
@@ -247,7 +247,7 @@ function BreakRow({ b, first, isTI }: { b: LegBreak; first: boolean; isTI: boole
 /* ---- all-clear verdict ------------------------------------- */
 function AllClear({ tradesReconciled }: { tradesReconciled: number }) {
   const ConfirmLine = ({ icon: Icon, title, sub }: { icon: LucideIcon; title: string; sub: string }) => (
-    <div className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-lowest px-4 py-[14px]">
+    <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-lowest px-4 py-[14px]">
       <span
         className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px]"
         style={{ background: "rgba(22,163,74,0.1)", color: "#15803d" }}
@@ -285,7 +285,7 @@ function AllClear({ tradesReconciled }: { tradesReconciled: number }) {
           title="Trader ↔ IB"
           sub={`${tradesReconciled.toLocaleString("en-US")} orders matched against the broker`}
         />
-        <ConfirmLine icon={Layers} title="IB ↔ CRM" sub="Stored book in sync with the live IB record" />
+        <ConfirmLine icon={Database} title="IB ↔ CRM" sub="Stored book in sync with the live IB record" />
       </div>
     </div>
   );
@@ -330,7 +330,7 @@ export default function DailyExceptionReportPage() {
     : `${open} ${open === 1 ? "exception" : "exceptions"} to raise · ${ti.length} Trader↔IB · ${ic.length} IB↔CRM · settlement day ${settleLabel}`;
 
   return (
-    <div className="mx-auto max-w-[1240px]">
+    <div className="mx-auto max-w-container">
       <div className="mb-7">
         <PageHeader
           title="Daily Exception Report"
@@ -370,7 +370,7 @@ export default function DailyExceptionReportPage() {
               value={executions.toLocaleString("en-US")}
               sub={`avg ${avgFills} per order`}
             />
-            <VolumeTile icon={Wallet} label="Notional traded" value={notional} sub="USD equivalent" />
+            <VolumeTile icon={Banknote} label="Notional traded" value={notional} sub="USD equivalent" />
           </div>
 
           {/* VERDICT */}

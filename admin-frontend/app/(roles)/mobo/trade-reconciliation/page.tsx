@@ -18,7 +18,7 @@
    Ported faithfully from the design handoff (MoboRecon.jsx).
    ============================================================ */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   SlidersHorizontal, Link2, Unlink, X, ChevronRight, Check,
 } from "@/lib/icons";
@@ -47,6 +47,18 @@ const ROW_TINT: Record<MatchState, string> = {
 };
 const RC_PANEL_H = 560;
 const QW = 290;
+const GAP = 18;
+
+/* Layout/animation tweaks (handoff "Tweaks" panel — baked to the approved
+   values; the design's panel is a design-time control, not shipped):
+     Direction   : swapped     → Trader↔IB compresses RIGHT (detail slides
+                                 from the left) · IB↔CRM compresses LEFT.
+     Panel header: encapsulated → the title sits INSIDE the card.
+     Legend      : external     → the legend sits BELOW the card. */
+const SLIDE_MS = 340;
+const SLIDE_SWAP = true;
+const HEADER_MODE: "inside" | "outside" = "inside";
+const LEGEND_MODE: "inside" | "outside" = "outside";
 
 const STATE_TONE: Record<MatchState, ChipTone> = { ok: "active", brk: "warm", miss: "failed" };
 const STATE_LABEL: Record<MatchState, string> = { ok: "Matched", brk: "Break", miss: "Unmatched" };
@@ -131,7 +143,7 @@ function MatchRow({
   );
 
   return (
-    <div style={{ borderTop: first ? "none" : "1px solid var(--outline-variant)" }}>
+    <div className={first ? "" : "border-t border-outline-variant"}>
       <div
         onClick={onClick}
         title="Click to open the triage panel"
@@ -174,40 +186,160 @@ function MatchRow({
   );
 }
 
-/* ---- one comparison panel (drives BOTH columns) ----------- */
+/* ---- column shell + title ----------------------------------
+   Every column (resting book, compressed queue, triage detail) is
+   ONE full-height card (RC_PANEL_H) so the layout never changes
+   height between states and reads as the same object resizing.
+   The title is an in-card fixed header; the body below it scrolls.
+   The header / legend can each be encapsulated INSIDE the card or
+   pulled OUTSIDE it (header above, legend below) per the tweaks. */
+type PanelTerms = { clearLabel: string; resolveLabel: string };
+
+function PanelHeader({
+  title, breaks, terms, variant = "card",
+}: {
+  title: string;
+  breaks: number;
+  terms: PanelTerms;
+  variant?: "card" | "bare";
+}) {
+  const inCard = variant !== "bare";
+  return (
+    <div
+      className={[
+        "box-border flex h-10 flex-none items-center gap-2.5",
+        inCard ? "border-b border-outline-variant bg-surface-low px-4" : "px-0.5",
+      ].join(" ")}
+    >
+      <h3 className="text-[14px] font-bold text-on-surface">{title}</h3>
+      <Chip tone={breaks ? "warm" : "active"}>
+        {breaks ? `${breaks} ${terms.resolveLabel}` : terms.clearLabel}
+      </Chip>
+    </div>
+  );
+}
+
+function ColumnFrame({
+  title, breaks, terms, legend, anim, bodyPad = 0, children,
+}: {
+  title: string;
+  breaks: number;
+  terms: PanelTerms;
+  legend?: [MatchState, string][];
+  anim?: string;
+  bodyPad?: number;
+  children: ReactNode;
+}) {
+  const headerInside = HEADER_MODE !== "outside";
+  const legendInside = LEGEND_MODE !== "outside";
+  return (
+    <div
+      className={["box-border flex min-w-0 flex-col", anim].filter(Boolean).join(" ")}
+      style={{ height: RC_PANEL_H }}
+    >
+      {!headerInside && (
+        <div className="mb-2.5 flex-none">
+          <PanelHeader title={title} breaks={breaks} terms={terms} variant="bare" />
+        </div>
+      )}
+      <div className="box-border flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest shadow-card">
+        {headerInside && <PanelHeader title={title} breaks={breaks} terms={terms} variant="card" />}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={{ padding: bodyPad }}>
+          {children}
+        </div>
+        {legend && legendInside && (
+          <div className="flex-none border-t border-outline-variant px-3.5 pb-3">
+            <ReconLegend items={legend} />
+          </div>
+        )}
+      </div>
+      {legend && !legendInside && (
+        <div className="flex-none px-0.5">
+          <ReconLegend items={legend} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- one comparison panel (resting book column) ----------- */
 function ReconPanel({
-  title, legs, onPick, expanded, terms,
+  title, legs, onPick, expanded, terms, legend,
 }: {
   title: string;
   legs: FlatLeg[];
   onPick: (key: string) => void;
   expanded?: string[];
-  terms?: { clearLabel: string; resolveLabel: string };
+  terms: PanelTerms;
+  legend: [MatchState, string][];
 }) {
-  const t = terms ?? { clearLabel: "All matched", resolveLabel: "to resolve" };
   const breaks = legs.filter((l) => l.leg.state !== "ok").length;
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="mb-1 flex items-center gap-2.5">
-        <h3 className="text-[15px] font-bold text-on-surface">{title}</h3>
-        <Chip tone={breaks ? "warm" : "active"} dot={false}>
-          {breaks ? `${breaks} ${t.resolveLabel}` : t.clearLabel}
-        </Chip>
-      </div>
-      <div className="mt-2.5 overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest shadow-card">
-        {legs.map((l, i) => (
-          <MatchRow
-            key={l.key}
-            leg={l}
-            first={i === 0}
-            onClick={() => onPick(l.key)}
-            defaultExpanded={expanded?.includes(l.lineId)}
-          />
+    <ColumnFrame title={title} breaks={breaks} terms={terms} legend={legend}>
+      {legs.map((l, i) => (
+        <MatchRow
+          key={l.key}
+          leg={l}
+          first={i === 0}
+          onClick={() => onPick(l.key)}
+          defaultExpanded={expanded?.includes(l.lineId)}
+        />
+      ))}
+      {legs.length === 0 && (
+        <div className="p-6 text-center text-[14px] text-secondary">No lines in this view.</div>
+      )}
+    </ColumnFrame>
+  );
+}
+
+/* ---- compressed column (the clicked book shrunk to a queue) -
+   Same card shell + title as the resting panel, so entering triage
+   reads as that column being compressed in place. */
+function QueueColumn({
+  title, terms, colLegs, queue, focusedKey, setFocusedKey, anim,
+}: {
+  title: string;
+  terms: PanelTerms;
+  colLegs: FlatLeg[];
+  queue: FlatLeg[];
+  focusedKey: string | null;
+  setFocusedKey: (k: string) => void;
+  anim?: string;
+}) {
+  const breaks = colLegs.filter((l) => l.leg.state !== "ok").length;
+  return (
+    <ColumnFrame title={title} breaks={breaks} terms={terms} anim={anim} bodyPad={8}>
+      <div className="flex flex-col gap-0.5">
+        {queue.map((l) => (
+          <QueueRow key={l.key} leg={l} selected={l.key === focusedKey} onClick={() => setFocusedKey(l.key)} />
         ))}
-        {legs.length === 0 && (
+        {queue.length === 0 && (
           <div className="p-6 text-center text-[14px] text-secondary">No lines in this view.</div>
         )}
       </div>
+    </ColumnFrame>
+  );
+}
+
+/* ---- triage detail (the expanded panel) -------------------
+   Anchored to the side opposite the compressed column and slides
+   in from that edge (rc-detail-left / rc-detail-right). */
+function DetailCell({
+  focused, onClose, side,
+}: {
+  focused: FlatLeg;
+  onClose: () => void;
+  side: "left" | "right";
+}) {
+  return (
+    <div
+      className={[
+        "box-border flex min-w-0 flex-col overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest px-5 py-[18px] shadow-card",
+        side === "right" ? "rc-detail-right" : "rc-detail-left",
+      ].join(" ")}
+      style={{ height: RC_PANEL_H }}
+    >
+      <TriageDetail leg={focused.leg} trade={focused.trade} onClose={onClose} />
     </div>
   );
 }
@@ -331,8 +463,8 @@ function FilterMenu({
                 <span
                   className="rounded-full px-[7px] py-px text-[12px] font-bold tabular-nums"
                   style={{
-                    background: on ? "rgba(242,116,5,0.16)" : "var(--surface-container)",
-                    color: on ? "var(--primary)" : "var(--secondary)",
+                    background: on ? "rgba(242,116,5,0.16)" : "#edeeef",
+                    color: on ? "#f27405" : "#5f5e5e",
                   }}
                 >
                   {counts[f]}
@@ -383,7 +515,28 @@ export default function TradeReconciliationPage() {
 
   const focused = focusedKey ? legs.find((l) => l.key === focusedKey) ?? null : null;
   const isFocused = !!focused;
-  const cols = isFocused ? `${QW}px ${Math.max(0, W - QW)}px` : `${W || 0}px 0px`;
+  const focusTi = focused?.kind === "ti";
+
+  /* Which side the clicked column compresses to (Direction: swapped) —
+     Trader↔IB compresses RIGHT (detail slides from the left) · IB↔CRM
+     compresses LEFT (detail slides from the right). */
+  const queueOnLeft = focusTi ? !SLIDE_SWAP : SLIDE_SWAP;
+  const detailSide: "left" | "right" = queueOnLeft ? "right" : "left";
+
+  /* the focused column's identity follows the leg, not the side it lands on */
+  const qTitle = focusTi ? "Trader vs IB" : "IB vs CRM";
+  const qTerms: PanelTerms = focusTi
+    ? { clearLabel: "All matched", resolveLabel: "to resolve" }
+    : { clearLabel: "All in sync", resolveLabel: "to re-sync" };
+  const qColLegs = focusTi ? byFilter(tiLegs) : byFilter(icLegs);
+
+  /* two-column stage geometry: resting = equal halves; focused = one column
+     compressed to the queue width (QW), the other holds the triage detail */
+  const rest = Math.max(0, W - GAP - QW);
+  let cols: string;
+  if (!isFocused) { const half = Math.max(0, (W - GAP) / 2); cols = `${half}px ${half}px`; }
+  else if (queueOnLeft) cols = `${QW}px ${rest}px`;
+  else cols = `${rest}px ${QW}px`;
 
   /* triage queue: only the focused column's legs, honoring the active
      filter, breaks + unmatched first then matched */
@@ -395,7 +548,7 @@ export default function TradeReconciliationPage() {
     : [];
 
   return (
-    <div className="mx-auto max-w-[1240px]">
+    <div className="mx-auto max-w-container">
       <div className="mb-7">
         <PageHeader
           title="Trade Reconciliation"
@@ -425,79 +578,69 @@ export default function TradeReconciliationPage() {
         <SegBar ok={pct(counters.matched)} warn={pct(counters.breaks)} bad={pct(counters.unmatched)} height={10} />
       </div>
 
-      <div className="mb-[13px] flex items-center gap-3">
-        {!isFocused && <span className="text-[16px] font-bold text-on-surface">Full book</span>}
-        <span className="ml-auto text-[12.5px] text-secondary">
-          {isFocused ? "Click another row to inspect · ✕ returns to the book" : "Click any row to open the field-by-field triage panel"}
-        </span>
-      </div>
-
-      {/* two-pane wrap (book ⇄ queue + triage) */}
+      {/* two-column stage — each cell holds ONE full-height card so heights
+          never change between states. The clicked column compresses in place
+          into a queue while the triage detail expands into the opposite cell
+          (Direction: swapped). */}
       <div
         ref={wrapRef}
         className="grid items-start"
         style={{
           gridTemplateColumns: cols,
-          transition: ready ? "grid-template-columns .34s cubic-bezier(.4,0,.2,1)" : "none",
+          columnGap: GAP,
+          transition: ready ? `grid-template-columns ${SLIDE_MS}ms cubic-bezier(.4,0,.2,1)` : "none",
         }}
       >
-        {/* LEFT — full book (two panels) OR triage queue */}
+        {/* CELL 1 (left) */}
         <div className="min-w-0 overflow-hidden">
-          {isFocused ? (
-            <div
-              className="overflow-y-auto rounded-[14px] border border-outline-variant bg-surface-lowest p-2 shadow-card"
-              style={{ height: RC_PANEL_H, boxSizing: "border-box" }}
-            >
-              <div className="flex flex-col gap-0.5">
-                {queue.map((l) => (
-                  <QueueRow key={l.key} leg={l} selected={l.key === focusedKey} onClick={() => setFocusedKey(l.key)} />
-                ))}
-              </div>
-            </div>
+          {!isFocused ? (
+            <ReconPanel
+              title="Trader vs IB"
+              legs={byFilter(tiLegs)}
+              onPick={setFocusedKey}
+              expanded={[]}
+              terms={{ clearLabel: "All matched", resolveLabel: "to resolve" }}
+              legend={[["ok", "Matched"], ["brk", "Field break"], ["miss", "Missing fill"]]}
+            />
+          ) : queueOnLeft ? (
+            <QueueColumn
+              anim="rc-queue-in"
+              title={qTitle}
+              terms={qTerms}
+              colLegs={qColLegs}
+              queue={queue}
+              focusedKey={focusedKey}
+              setFocusedKey={setFocusedKey}
+            />
           ) : (
-            <>
-              <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-2">
-                <div className="min-w-0">
-                  <ReconPanel
-                    title="Trader vs IB"
-                    legs={byFilter(tiLegs)}
-                    onPick={setFocusedKey}
-                    terms={{ clearLabel: "All matched", resolveLabel: "to resolve" }}
-                  />
-                  <ReconLegend items={[["ok", "Matched"], ["brk", "Field break"], ["miss", "Missing fill"]]} />
-                </div>
-                <div className="min-w-0">
-                  <ReconPanel
-                    title="IB vs CRM"
-                    legs={byFilter(icLegs)}
-                    onPick={setFocusedKey}
-                    terms={{ clearLabel: "All in sync", resolveLabel: "to re-sync" }}
-                  />
-                  <ReconLegend items={[["ok", "In sync"], ["brk", "Drifted"], ["miss", "Missing"]]} />
-                </div>
-              </div>
-            </>
+            <DetailCell side={detailSide} focused={focused!} onClose={() => setFocusedKey(null)} />
           )}
         </div>
 
-        {/* RIGHT — triage panel */}
-        <div className={`min-w-0 overflow-hidden ${isFocused ? "pl-[18px]" : ""}`}>
-          <div
-            className="overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest px-5 py-[18px] shadow-card"
-            style={{
-              height: isFocused ? RC_PANEL_H : "auto",
-              minHeight: isFocused ? undefined : 460,
-              boxSizing: "border-box",
-            }}
-          >
-            {focused && (
-              <TriageDetail
-                leg={focused.leg}
-                trade={focused.trade}
-                onClose={() => setFocusedKey(null)}
-              />
-            )}
-          </div>
+        {/* CELL 2 (right) */}
+        <div className="min-w-0 overflow-hidden">
+          {!isFocused ? (
+            <ReconPanel
+              title="IB vs CRM"
+              legs={byFilter(icLegs)}
+              onPick={setFocusedKey}
+              expanded={[]}
+              terms={{ clearLabel: "All in sync", resolveLabel: "to re-sync" }}
+              legend={[["ok", "In sync"], ["brk", "Drifted"], ["miss", "Missing / orphaned"]]}
+            />
+          ) : !queueOnLeft ? (
+            <QueueColumn
+              anim="rc-queue-in"
+              title={qTitle}
+              terms={qTerms}
+              colLegs={qColLegs}
+              queue={queue}
+              focusedKey={focusedKey}
+              setFocusedKey={setFocusedKey}
+            />
+          ) : (
+            <DetailCell side={detailSide} focused={focused!} onClose={() => setFocusedKey(null)} />
+          )}
         </div>
       </div>
     </div>

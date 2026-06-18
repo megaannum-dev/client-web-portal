@@ -133,7 +133,7 @@ export function CompareGrid({
   rightLabel?: string;
 }) {
   return (
-    <div className="mb-[18px] overflow-hidden rounded-xl border border-outline-variant">
+    <div className="mb-[18px] overflow-hidden rounded-md border border-outline-variant">
       <div className="grid grid-cols-2 border-b border-outline-variant">
         <div className="border-r border-outline-variant bg-surface-low px-3.5 py-[9px] text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
           {leftLabel}
@@ -337,7 +337,7 @@ export function ExecRow({
     { k: "Trade ID", iv: e.trader?.tradeID ?? "—", cv: e.ib?.tradeID ?? "—", d: false },
   ];
   return (
-    <div className="overflow-hidden rounded-xl border border-outline-variant">
+    <div className="overflow-hidden rounded-md border border-outline-variant">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -519,7 +519,7 @@ export function IntegrityCompare({ fields }: { fields: CompareField[] }) {
     </div>
   );
   return (
-    <div className="mb-[18px] overflow-hidden rounded-xl border border-outline-variant">
+    <div className="mb-[18px] overflow-hidden rounded-md border border-outline-variant">
       <div className="grid grid-cols-2 border-b border-outline-variant">
         <Head l tag="source of truth">IB API · live</Head>
         <Head tag="the copy">CRM · stored</Head>
@@ -562,7 +562,7 @@ export function SyncMeta({ leg }: { leg: ReconLeg }) {
     </div>
   );
   return (
-    <div className="mb-4 rounded-xl border border-outline-variant px-3.5 py-1">
+    <div className="mb-4 rounded-md border border-outline-variant px-3.5 py-1">
       {row("Live IB fetched", leg.fetchAt || "—")}
       <div className="h-px bg-outline-variant" />
       {row("Stored copy synced", leg.syncAt || "never — not in store")}

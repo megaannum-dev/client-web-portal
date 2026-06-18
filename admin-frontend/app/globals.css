@@ -90,6 +90,29 @@
   --color-foreground:              25 28 29;
 }
 
+/* ---------------------------------------------------------------------------
+   Design-system token aliases (Claude-Design handoff style).
+   The handoff components reference unprefixed CSS vars inline (e.g.
+   var(--surface-low), var(--primary)). The app's Tailwind classes are backed
+   by the --color-* triplets above; these aliases bind the same values to the
+   plain token names so inline styles ported from the handoff resolve correctly.
+   --------------------------------------------------------------------------- */
+:root {
+  --primary:            rgb(var(--color-primary));
+  --primary-fixed:      rgb(var(--color-primary-fixed));
+  --secondary:          rgb(var(--color-secondary));
+  --on-surface:         rgb(var(--color-on-surface));
+  --on-surface-variant: rgb(var(--color-on-surface-variant));
+  --surface:            rgb(var(--color-surface));
+  --surface-low:        rgb(var(--color-surface-low));
+  --surface-lowest:     rgb(var(--color-surface-lowest));
+  --surface-container:  rgb(var(--color-surface-container));
+  --surface-high:       rgb(var(--color-surface-high));
+  --surface-highest:    rgb(var(--color-surface-highest));
+  --outline:            rgb(var(--color-outline));
+  --outline-variant:    rgb(var(--color-outline-variant));
+}
+
 body {
   color: rgb(var(--color-foreground));
   background: rgb(var(--color-background));
@@ -100,4 +123,31 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   MOBO Trade Reconciliation — triage entrance animations.
+   The clicked column compresses in place into a queue while the field-by-field
+   triage detail expands from the edge anchored to that queue. Distance is
+   driven per-instance via the --rc-slide-dist custom property.
+   --------------------------------------------------------------------------- */
+@keyframes rcDetailFromRight {
+  from { opacity: 0; transform: translateX(var(--rc-slide-dist, 22px)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes rcDetailFromLeft {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--rc-slide-dist, 22px))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes rcQueueIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.rc-detail-right { animation: rcDetailFromRight 0.34s cubic-bezier(0.4, 0, 0.2, 1) both; transform-origin: right center; }
+.rc-detail-left  { animation: rcDetailFromLeft 0.34s cubic-bezier(0.4, 0, 0.2, 1) both; transform-origin: left center; }
+.rc-queue-in     { animation: rcQueueIn 0.3s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .rc-detail-right,
+  .rc-detail-left,
+  .rc-queue-in { animation: none; }
 }

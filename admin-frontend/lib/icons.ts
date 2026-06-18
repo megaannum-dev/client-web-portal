@@ -102,4 +102,7 @@ export {
   Database,
   Workflow,
   Flag,
+  // CRM — MOBO daily exception report (design-faithful glyphs)
+  Banknote,
+  CircleSlash,
 } from "lucide-react";
