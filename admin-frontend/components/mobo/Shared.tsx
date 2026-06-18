@@ -333,7 +333,7 @@ export function ExecRow({
   const fields: CompareField[] = [
     { k: "Quantity", iv: e.trader ? e.trader.qty : "—", cv: e.ib ? e.ib.qty : "—", d: !counterpartAwaiting && (!e.ib || !!(e.trader && e.ib && e.trader.qty !== e.ib.qty)) },
     { k: "Price",    iv: e.trader ? e.trader.px : "—",  cv: e.ib ? e.ib.px : "—",  d: !counterpartAwaiting && (!e.ib || !!(e.trader && e.ib && e.trader.px !== e.ib.px)) },
-    { k: "Time",     iv: e.trader ? e.trader.time : "—", cv: e.ib ? e.ib.time : "—", d: !counterpartAwaiting && !e.ib },
+    { k: "Time",     iv: e.trader ? e.trader.time : "—", cv: e.ib ? e.ib.time : "—", d: !counterpartAwaiting && (!e.ib || !!(e.trader && e.ib && e.trader.time !== e.ib.time)) },
     { k: "Trade ID", iv: e.trader?.tradeID ?? "—", cv: e.ib?.tradeID ?? "—", d: false },
   ];
   return (

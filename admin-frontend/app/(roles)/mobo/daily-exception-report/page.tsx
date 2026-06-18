@@ -55,16 +55,22 @@ interface LegBreak {
 function legBreak(t: ReconTrade, leg: LegKey): LegBreak {
   const L: ReconLeg = t[leg];
   const isTI = leg === "ti";
+  // A side's reference is shown only when that side has a record. For the ic
+  // leg the join key is populated on both sides, so presence comes from the
+  // leg's own ls/rs (live IB absent → orphaned; stored CRM absent → missingDb)
+  // — using t.ib/t.crm directly would mislabel an orphaned trade.
   return {
     id: `${t.id}-${leg}`,
     leg,
     inst: t.inst,
     book: t.book,
-    leftRef: isTI ? t.trader : t.ib,
-    rightRef: isTI ? t.ib : t.crm,
+    leftRef: isTI ? t.trader : (L.ls ? t.ib : null),
+    rightRef: isTI ? t.ib : (L.rs ? t.ib : null),
     state: L.state,
     breakType: L.breakType || L.integrityType || "Break",
-    diff: (L.fields || []).find((f) => f.d) || null,
+    // Prefer the mapper's ready-to-render break field (covers drifts carried in
+    // the execution rollup, e.g. VWAP), then fall back to a flagged attr field.
+    diff: L.breakField || (L.fields || []).find((f) => f.d) || null,
   };
 }
 

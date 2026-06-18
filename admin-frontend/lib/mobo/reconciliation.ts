@@ -328,6 +328,25 @@ function deriveIcBreakType(ov: IntegrityOverlay): BreakType | undefined {
 }
 
 /**
+ * The single drifted field, ready to render (k, live→stored). A settlement
+ * drift also lives in `buildIcAttrFields`, but a VWAP price drift lives only in
+ * the execution rollup — so flat consumers (the daily exception report) that
+ * pick "the field that broke" need it surfaced explicitly here. Returns
+ * undefined for non-drift verdicts (missing-one-side legs carry their own copy).
+ */
+function buildIcBreakField(order: Order, ov: IntegrityOverlay): CompareField | undefined {
+  if (ov.integrity !== "drift" || !ov.driftField) return undefined;
+  const cv = ov.driftValue ?? AWAITING_SOURCE;
+  if (ov.driftField === "Settlement date") {
+    return { k: "Settlement date", iv: fmtDate(coalesce.settleDate(order)), cv, d: true };
+  }
+  if (ov.driftField === "Average price (VWAP)") {
+    return { k: "Average price (VWAP)", iv: fmtPrice(coalesce.price(order), order.currency), cv, d: true };
+  }
+  return { k: ov.driftField, iv: AWAITING_SOURCE, cv, d: true };
+}
+
+/**
  * The core domain→view mapper. Takes the stored order pair for a single trade
  * (AF Activity row and/or its TCF Trade-Confirm counterpart) and produces the
  * `ReconTrade` view model the screens render.
@@ -381,6 +400,7 @@ export function mapOrdersToReconTrade(input: {
     rs: ov.integrity === "missingDb" ? null : summary, // stored (right) absent when missingDb
     fields: hasIcExecs ? buildIcAttrFields(stored, ov) : buildIcSingleSidedFields(stored, ov.integrity),
     execs: hasIcExecs ? buildIcExecRows(stored, ov) : null,
+    breakField: buildIcBreakField(stored, ov),
     integrity: ov.integrity,
     integrityType: ov.integrityType,
     fetchAt: ov.fetchAt ?? null,
