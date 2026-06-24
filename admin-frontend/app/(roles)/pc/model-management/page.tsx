@@ -439,8 +439,13 @@ export default function ModelManagementPage() {
   ];
 
   return (
-    <div className="relative min-h-full box-border">
-      <div className="mx-auto max-w-[1180px] p-8">
+    // Full-bleed work surface: negative margins cancel <main>'s p-8 px-16 so
+    // the relative root (and every absolute inset-0 backdrop + the docked
+    // detail panel) covers the entire content area, padding included. The
+    // inner wrapper re-applies that padding so content stays put. min-h fills
+    // the shell content area (viewport − 64px header).
+    <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
+      <div className="px-16 py-8">
         <div className="mb-[26px] flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Model Management</h1>
