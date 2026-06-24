@@ -6,13 +6,14 @@ import { useAuth } from "@/components/auth/AuthProvider";
 
 /**
  * Maps each active role to its landing page.
- * Roles not listed here (PM, PC, COMPLIANCE) have no pages yet — they
+ * Roles not listed here (PM, COMPLIANCE) have no pages yet — they
  * land on this page and see the "no access" state below.
  */
 const ROLE_BASE_ROUTES: Record<string, string> = {
   ADMIN: "/mobo/dashboard",
   MOBO:  "/mobo/dashboard",
   RM:    "/rm/dashboard",
+  PC:    "/pc/model-management",
 };
 
 export default function RootPage() {
