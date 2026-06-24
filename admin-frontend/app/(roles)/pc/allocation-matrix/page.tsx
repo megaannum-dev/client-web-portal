@@ -373,15 +373,6 @@ function DetailPanel({
               <Lock size={11} strokeWidth={2} className="mr-[3px]" />per model
             </Chip>
           </div>
-
-          <div className="mt-[18px] flex gap-2">
-            {!readOnly && (
-              <Button variant="secondary" icon={Pencil} onClick={() => onEdit(cid, mid)}>
-                Edit allocation
-              </Button>
-            )}
-            <Button variant="secondary" icon={UserRound}>View client</Button>
-          </div>
         </div>
       </div>
     </>
