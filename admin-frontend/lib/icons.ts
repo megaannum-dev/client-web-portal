@@ -105,4 +105,13 @@ export {
   // CRM — MOBO daily exception report (design-faithful glyphs)
   Banknote,
   CircleSlash,
+  // CRM — PC workspace
+  Calculator,
+  Copy,
+  History,
+  File,
+  LayoutGrid,
+  List,
+  Minus,
+  Link,
 } from "lucide-react";
