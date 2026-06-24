@@ -6,6 +6,7 @@ import {
   Building2,
   Users,
   Layers,
+  Grid3x3,
   ArrowLeftRight,
   ShieldAlert,
   CalendarDays,
@@ -33,6 +34,15 @@ const ROLE_GROUP: Record<string, RoleGroupConfig> = {
     pages: [
       { label: "Trade Reconciliation", href: "/mobo/trade-reconciliation",   icon: ArrowLeftRight },
       { label: "Daily Exceptions",     href: "/mobo/daily-exception-report", icon: ShieldAlert    },
+    ],
+  },
+  PC: {
+    label: "Portfolio Commander",
+    icon: Layers,
+    home: "/pc/model-management",
+    pages: [
+      { label: "Model Management",  href: "/pc/model-management",  icon: Layers  },
+      { label: "Allocation Matrix", href: "/pc/allocation-matrix", icon: Grid3x3 },
     ],
   },
 };
@@ -64,6 +74,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
         <>
           <RoleGroup group={ROLE_GROUP.RM}   isOpen={isOpen} />
           <RoleGroup group={ROLE_GROUP.MOBO} isOpen={isOpen} />
+          <RoleGroup group={ROLE_GROUP.PC}   isOpen={isOpen} />
         </>
       ) : (
         group && <RoleGroup group={group} isOpen={isOpen} />
