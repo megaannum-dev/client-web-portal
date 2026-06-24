@@ -30,3 +30,4 @@ build/
 .env
 .env.*
 !.env.example
+firebase-client-web-portal.json
