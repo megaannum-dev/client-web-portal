@@ -25,12 +25,44 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
   signUpWithEmailPassword: (email: string, password: string, role?: string) => Promise<void>;
+  /** Demo bypass: sets a fake session (no Firebase) so the workspaces load. */
+  signInDemo: (name: string, role: PortalUser["role"]) => void;
   signOutUser: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   refreshPortalUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/** localStorage key for the demo (auth-bypass) session. */
+const DEMO_KEY = "megacrm_demo_user";
+
+type DemoSession = { name: string; role: PortalUser["role"] };
+
+function readDemoSession(): DemoSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DEMO_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DemoSession>;
+    if (parsed && typeof parsed.role === "string") {
+      return { name: parsed.name ?? "Demo User", role: parsed.role as PortalUser["role"] };
+    }
+  } catch {
+    /* ignore malformed session */
+  }
+  return null;
+}
+
+/** A minimal Firebase-User-shaped object good enough for the guards in demo mode. */
+function makeDemoUser(name: string): User {
+  return {
+    uid: "demo",
+    displayName: name,
+    email: null,
+    getIdToken: async () => "demo-token",
+  } as unknown as User;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -40,8 +72,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [backendSyncError, setBackendSyncError] = useState<string | null>(null);
   const firebaseReady = isFirebaseConfigured();
   const isRegistering = useRef(false);
+  // True while a demo (auth-bypass) session is active. Logout must clear React
+  // state directly for these, since no onAuthStateChanged listener is attached.
+  const isDemo = useRef(false);
 
   useEffect(() => {
+    // Demo bypass takes precedence: if a demo session exists, run on it and
+    // skip Firebase entirely. Survives page refreshes.
+    const demo = readDemoSession();
+    if (demo) {
+      isDemo.current = true;
+      setUser(makeDemoUser(demo.name));
+      setPortalUser({ id: 0, firebase_uid: "demo", email: null, role: demo.role });
+      setLoading(false);
+      return;
+    }
+
     if (!firebaseReady) {
       setLoading(false);
       setUser(null);
@@ -141,8 +187,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseReady]);
 
+  const signInDemo = useCallback((name: string, role: PortalUser["role"]) => {
+    const cleanName = name.trim() || "Demo User";
+    try {
+      window.localStorage.setItem(DEMO_KEY, JSON.stringify({ name: cleanName, role }));
+    } catch {
+      /* ignore storage failures — session still set in memory */
+    }
+    isDemo.current = true;
+    setUser(makeDemoUser(cleanName));
+    setPortalUser({ id: 0, firebase_uid: "demo", email: null, role });
+    setBackendSyncError(null);
+    setLoading(false);
+  }, []);
+
   const signOutUser = useCallback(async () => {
-    if (!firebaseReady) return;
+    // Always clear any demo session first.
+    try {
+      window.localStorage.removeItem(DEMO_KEY);
+    } catch {
+      /* noop */
+    }
+    // Demo sessions have no Firebase listener, so reset React state directly
+    // (and skip Firebase) regardless of whether Firebase is configured.
+    if (isDemo.current || !firebaseReady) {
+      isDemo.current = false;
+      setUser(null);
+      setPortalUser(null);
+      return;
+    }
     try {
       await postBackendLogout();
     } catch {
@@ -196,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle,
       signInWithEmailPassword,
       signUpWithEmailPassword,
+      signInDemo,
       signOutUser,
       getIdToken,
       refreshPortalUser,
@@ -210,6 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle,
       signInWithEmailPassword,
       signUpWithEmailPassword,
+      signInDemo,
       signOutUser,
       getIdToken,
       refreshPortalUser,
