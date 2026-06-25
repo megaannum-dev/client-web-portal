@@ -49,14 +49,14 @@ export function fmtMoneyShort(v: number): string {
  * Compute management + incentive fees for a model given a performance
  * figure and hurdle (both whole-number percentages). Exact formula from
  * PCData.jsx:
- *   mgmtFee = (mgmt/100) × notional
+ *   mgmtFee = (mgmt/100) × size
  *   excess  = max(perf − hurdle, 0)
- *   incFee  = (incentive/100) × (excess/100) × notional
+ *   incFee  = (incentive/100) × (excess/100) × size
  *   total   = mgmtFee + incFee
  */
 export function computeFees(m: Model, perf: number, hurdle: number): FeeBreakdown {
-  const mgmtFee = (m.mgmt / 100) * m.notional;
+  const mgmtFee = (m.mgmt / 100) * m.size;
   const excess = Math.max(perf - hurdle, 0);
-  const incFee = (m.incentive / 100) * (excess / 100) * m.notional;
+  const incFee = (m.incentive / 100) * (excess / 100) * m.size;
   return { mgmtFee, incFee, total: mgmtFee + incFee, excess };
 }

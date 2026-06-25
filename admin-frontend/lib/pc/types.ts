@@ -35,14 +35,15 @@ export interface ChangeEntry {
 export type ModelStatus = "live" | "draft";
 
 /**
- * A trading model in the model book. `notional` is the model's total
- * notional; `mgmt` / `incentive` are fee percentages (whole numbers,
- * e.g. 1.0 = 1%, 20 = 20%).
+ * A trading model in the model book. `size` is the model size (the
+ * total figure shown in the book; the allocation matrix carries a
+ * per-unit size); `mgmt` / `incentive` are fee percentages (whole
+ * numbers, e.g. 1.0 = 1%, 20 = 20%).
  */
 export interface Model {
   id: string;
   name: string;
-  notional: number;
+  size: number;
   manager: string;
   intro: string;
   symbols: string[];
@@ -65,20 +66,23 @@ export interface FeeBreakdown {
 /* ---- Allocation matrix ------------------------------------- */
 
 /**
- * A model as it appears in the allocation matrix. `notional` here is
- * the PER-UNIT notional (account fund = units × notional). One IB
- * account per model, identical across its clients, shown in the
- * column header. `acct` is null for non-live models.
+ * A model as it appears in the allocation matrix. `size` here is the
+ * PER-UNIT model size (account fund = units × size). Models do NOT
+ * carry an IB account — the IB account is a property of the client
+ * (see `AllocationClient.acct`), and every allocation a client holds
+ * trades through that single account.
  */
 export interface AllocationModel {
   id: string;
   name: string;
-  notional: number;
-  acct: string | null;
+  size: number;
   live: boolean;
 }
 
-/** A client (row) in the allocation matrix. */
+/**
+ * A client (row) in the allocation matrix. `acct` is the client's one
+ * IB account — ALL of this client's model allocations trade through it.
+ */
 export interface AllocationClient {
   id: string;
   name: string;

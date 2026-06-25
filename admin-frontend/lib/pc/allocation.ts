@@ -11,7 +11,7 @@
    backend and assembles the same view. No component changes either way.
 
    Derived-math semantics match PCData.jsx exactly:
-     - account fund = units × the model's PER-UNIT notional
+     - account fund = units × the model's PER-UNIT size
      - column totals sum over clients
      - total fund sums colFund over LIVE models only
      - count = # of (client, live-model) pairs that have a cell
@@ -40,7 +40,7 @@ export interface AllocationView {
   modelById(id: string): AllocationModel | undefined;
   clientById(id: string): AllocationClient | undefined;
   cell(cid: string, mid: string): AllocationCell | undefined;
-  /** units × model notional (0 if no cell or unknown model). */
+  /** units × model size (0 if no cell or unknown model). */
   cellFund(cid: string, mid: string): number;
   colUnits(mid: string): number;
   colFund(mid: string): number;
@@ -73,7 +73,7 @@ export function loadAllocation(): AllocationView {
   const cellFund = (cid: string, mid: string): number => {
     const c = cell(cid, mid);
     const m = modelById(mid);
-    return c && m ? c.units * m.notional : 0;
+    return c && m ? c.units * m.size : 0;
   };
   const colUnits = (mid: string): number =>
     clients.reduce((n, c) => n + (cell(c.id, mid)?.units ?? 0), 0);

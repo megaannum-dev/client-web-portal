@@ -48,7 +48,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
         <StatusChip status={m.status} />
       </div>
       <div className="text-[24px] font-bold tracking-[-0.02em] tabular-nums text-on-surface">
-        {fmtMoney(m.notional)}
+        {fmtMoney(m.size)}
       </div>
       <div className="flex gap-2">
         <Chip tone="warm" dot={false}>Mgmt {m.mgmt}%</Chip>
@@ -90,7 +90,7 @@ function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => vo
         <div className="font-bold">{m.name}</div>
         <div className="mt-1"><StatusChip status={m.status} /></div>
       </td>
-      <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.notional)}</td>
+      <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.size)}</td>
       <td className={`${td} text-secondary`}>{m.manager}</td>
       <td className={`${td} whitespace-nowrap text-secondary`}>{m.intro}</td>
       <td className={td}><Ticks symbols={m.symbols} /></td>
@@ -120,7 +120,7 @@ function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => vo
 }
 
 function ModelTable({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
-  const headers = ["Model", "Notional", "Manager", "Intro", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
+  const headers = ["Model", "Model size", "Manager", "Intro", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
   return (
     <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
       <div className="overflow-x-auto">
@@ -150,12 +150,12 @@ function FactGrid({ m, onEdit }: { m: Model; onEdit: (id: string) => void }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-[11px]">
-        <Fact label="Notional (AUM)" value={fmtMoney(m.notional)} />
+        <Fact label="Model size" value={fmtMoney(m.size)} />
         <Fact label="Manager" value={m.manager} />
         <Fact label="Mgmt fee" value={`${m.mgmt}%`} />
         <Fact label="Incentive fee" value={`${m.incentive}%`} />
         <div className="rounded-[10px] bg-surface-low px-[13px] py-[11px]" style={{ gridColumn: "1 / -1" }}>
-          <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Symbol universe</div>
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</div>
           <div className="mt-2"><Ticks symbols={m.symbols} /></div>
         </div>
         <Fact label="Introduced" value={m.intro} span />
@@ -287,7 +287,7 @@ function ModelDetailPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[20px] font-bold tracking-[-0.01em]">{m.name}</div>
-              <div className="mt-1 text-[13px] text-secondary">{m.manager} · {fmtMoney(m.notional)}</div>
+              <div className="mt-1 text-[13px] text-secondary">{m.manager} · {fmtMoney(m.size)}</div>
             </div>
             <div className="flex flex-none items-center gap-2.5">
               <StatusChip status={m.status} />
@@ -390,10 +390,10 @@ function ModelFormModal({ model, onClose }: { model?: Model; onClose: () => void
           <CreateField label="Model name" value={editing ? model!.name : undefined} placeholder="e.g. Model E — Global Macro" />
         </div>
         <CreateField label="Manager" value={editing ? model!.manager : "Wilson Capital"} select />
-        <CreateField label="Notional size (AUM)" value={editing ? fmtMoney(model!.notional) : "$40,000,000"} />
+        <CreateField label="Model size" value={editing ? fmtMoney(model!.size) : "$40,000,000"} />
         <div style={{ gridColumn: "1 / -1" }}>
           <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Symbol universe</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</span>
             <div className="flex min-h-10 flex-wrap items-center gap-2 rounded border border-outline-variant bg-white px-3 py-1.5">
               <Ticks symbols={symbols} />
               <span className="text-[13.5px] text-secondary">+ add symbol</span>

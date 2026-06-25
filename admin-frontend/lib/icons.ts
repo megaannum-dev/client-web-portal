@@ -114,4 +114,7 @@ export {
   List,
   Minus,
   Link,
+  Info,
+  Rows3,
+  Columns3,
 } from "lucide-react";

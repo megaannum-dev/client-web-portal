@@ -29,7 +29,7 @@ export const PC_MODELS: Model[] = [
   {
     id: "mA",
     name: "Model A",
-    notional: 100000000,
+    size: 100000000,
     manager: "Wilson Capital",
     intro: "01 Jan 2020",
     symbols: ["AAPL", "MSFT", "NVDA", "TSLA"],
@@ -49,7 +49,7 @@ export const PC_MODELS: Model[] = [
   {
     id: "mB",
     name: "Model B",
-    notional: 50000000,
+    size: 50000000,
     manager: "Wilson Capital",
     intro: "01 Jul 2021",
     symbols: ["JNJ", "LLY", "ABBV"],
@@ -63,7 +63,7 @@ export const PC_MODELS: Model[] = [
   {
     id: "mC",
     name: "Model C",
-    notional: 25000000,
+    size: 25000000,
     manager: "Wilson Capital",
     intro: "01 Apr 2024",
     symbols: ["XOM"],
@@ -77,7 +77,7 @@ export const PC_MODELS: Model[] = [
   {
     id: "mD",
     name: "Model D",
-    notional: 15000000,
+    size: 15000000,
     manager: "Wilson Capital",
     intro: "—",
     symbols: ["GLD", "SLV"],
@@ -93,10 +93,10 @@ export const PC_MODELS: Model[] = [
 /* ---- Allocation matrix ------------------------------------- */
 
 export const ALLOC_MODELS: AllocationModel[] = [
-  { id: "mA", name: "Model A", notional: 1000000, acct: "U-1011", live: true },
-  { id: "mB", name: "Model B", notional: 1000000, acct: "U-2044", live: true },
-  { id: "mC", name: "Model C", notional: 500000, acct: "U-3077", live: true },
-  { id: "mD", name: "Model D", notional: 0, acct: null, live: false },
+  { id: "mA", name: "Model A", size: 1000000, live: true },
+  { id: "mB", name: "Model B", size: 1000000, live: true },
+  { id: "mC", name: "Model C", size: 500000, live: true },
+  { id: "mD", name: "Model D", size: 0, live: false },
 ];
 
 export const ALLOC_CLIENTS: AllocationClient[] = [

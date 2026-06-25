@@ -4,14 +4,14 @@
    MegaCRM — PC · Allocation Matrix (hi-fi page)
    Framing A — the matrix is the resting surface; clicking a cell
    floats in the per-allocation detail (units, derived fund, the
-   model's one linked IB account). Plus edit (linked units ↔ fund
-   with validation), an irreversible period lock, and the empty
-   new-period state.
+   client's one linked IB account). An irreversible period lock, and
+   the empty new-period state.
 
    Ported faithfully from the design prototype (AllocationMatrix.jsx).
    Adaptations (ship the baked product, not the tweakable demo):
-     - acctScope baked to "model" (per-model IB account); the host
-       "Tweaks" branch + per-client scope is dropped (as MOBO did).
+     - The IB account is per CLIENT, not per model: every allocation a
+       client holds trades through that client's single IB account
+       (AllocationClient.acct). The cell detail sources it from the row.
      - flow-canvas `initial*` props dropped — internal useState with
        the prototype's resting defaults. The matrix renders `locked`
        (cells show "—" / stay clickable → DetailPanel) and the panel
@@ -24,7 +24,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarDays, ChevronDown, Check, Lock, Eye, Grid3x3, RefreshCw,
-  Briefcase, Minus, Plus, Link, UserRound, TriangleAlert, History, X, Pencil,
+  Briefcase, Plus, TriangleAlert, History, X,
+  Info, Rows3, Columns3,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -162,6 +163,30 @@ function ViewToggle({ view, onView }: { view: Toggle; onView: (v: Toggle) => voi
 }
 
 /* ============================================================
+   "HOW TO READ THIS" legend strip
+   ============================================================ */
+function HowToRead({ view }: { view: Toggle }) {
+  const rows: [typeof Rows3, string, string][] = [
+    [Rows3, "Each row", "one client — name & IB Account ID"],
+    [Columns3, "Each column", "one live model — name & model size per unit"],
+    [Grid3x3, "Each cell", view === "pct" ? "the client’s share of that model" : "units the client holds of that model"],
+  ];
+  return (
+    <div className="mb-3.5 flex flex-wrap gap-x-6 gap-y-2.5 rounded-md border border-outline-variant bg-surface-low px-4 py-3">
+      <div className={`flex items-center gap-[7px] ${LABEL}`}>
+        <Info size={14} strokeWidth={2} />How to read this
+      </div>
+      {rows.map(([Icon, label, text]) => (
+        <div key={label} className="flex items-center gap-[7px] text-[12.5px] text-secondary">
+          <Icon size={14} strokeWidth={2} className="text-primary" />
+          <span><b className="text-on-surface">{label}:</b> {text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
    THE MATRIX  (client rows × active-model columns)
    ============================================================ */
 const TH =
@@ -198,7 +223,7 @@ function Matrix({
                     {m.name}
                   </div>
                   <div className="mt-1 text-[11px] font-semibold normal-case tracking-[0.02em] text-secondary">
-                    {m.acct} · {fmtMoneyShort(m.notional)} / unit
+                    {fmtMoneyShort(m.size)} / unit
                   </div>
                 </th>
               ))}
@@ -304,15 +329,13 @@ function MatrixCell({
    FLOATING ALLOCATION DETAIL  (framing A — rounded card from right)
    ============================================================ */
 function DetailPanel({
-  data, period, cid, mid, readOnly, onClose, onEdit,
+  data, period, cid, mid, onClose,
 }: {
   data: AllocationView;
   period: string;
   cid: string;
   mid: string;
-  readOnly: boolean;
   onClose: () => void;
-  onEdit: (cid: string, mid: string) => void;
 }) {
   const c = data.clientById(cid);
   const m = data.modelById(mid);
@@ -354,8 +377,8 @@ function DetailPanel({
           <div className="grid grid-cols-2 gap-[11px]">
             <Fact label="Model units" value={cell.units + "×"} />
             <Fact label="Account fund" value={fmtMoney(fund)} />
-            <Fact label="Model notional" value={fmtMoneyShort(m.notional)} sub="/ unit" />
-            <Fact label="Min account fund" value={fmtMoney(m.notional)} sub="= 1 unit" />
+            <Fact label="Model size" value={fmtMoneyShort(m.size)} sub="/ unit" />
+            <Fact label="Min account fund" value={fmtMoney(m.size)} sub="= 1 unit" />
           </div>
 
           <Eyebrow className="mb-[9px] mt-5">Linked IB account</Eyebrow>
@@ -364,182 +387,18 @@ function DetailPanel({
               <Briefcase size={18} strokeWidth={1.75} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-bold tabular-nums">{m.acct}</div>
+              <div className="text-[15px] font-bold tabular-nums">{c.acct}</div>
               <div className="mt-0.5 text-[12.5px] text-secondary">
-                {m.name} · trades 100% of this allocation
+                {c.name} · all of this client’s allocations trade here
               </div>
             </div>
             <Chip tone="neutral" dot={false}>
-              <Lock size={11} strokeWidth={2} className="mr-[3px]" />per model
+              <Lock size={11} strokeWidth={2} className="mr-[3px]" />per client
             </Chip>
           </div>
         </div>
       </div>
     </>
-  );
-}
-
-/* ============================================================
-   EDIT ALLOCATION (linked units ↔ fund, validated) — F3 Modal shell
-   ============================================================ */
-function EditModal({
-  data, cid, mid, onClose,
-}: {
-  data: AllocationView;
-  cid: string;
-  mid: string;
-  onClose: () => void;
-}) {
-  const c = data.clientById(cid);
-  const m = data.modelById(mid);
-  const cell = data.cell(cid, mid) ?? { units: 1 };
-
-  const notional = m?.notional ?? 0;
-  const acct = m?.acct ?? "";
-
-  const [units, setUnits] = useState(cell.units);
-  const [fundStr, setFundStr] = useState(fmtMoney(cell.units * notional));
-  const [err, setErr] = useState("");
-
-  if (!c || !m) return null;
-
-  const minMsg = "Model units can’t go below 1 — that’s the minimum (one unit).";
-
-  const syncFromUnits = (n: number) => {
-    const clamped = Math.max(1, Math.floor(n || 0));
-    setUnits(clamped);
-    setFundStr(fmtMoney(clamped * notional));
-    setErr(n < 1 || !Number.isFinite(n) ? minMsg : "");
-  };
-  const onUnitsInput = (raw: string) => {
-    const n = parseInt(raw.replace(/[^0-9-]/g, ""), 10);
-    if (!Number.isFinite(n) || n < 1) {
-      setErr(minMsg);
-      setUnits(Number.isFinite(n) ? n : 1);
-      return;
-    }
-    syncFromUnits(n);
-  };
-  const onFundInput = (raw: string) => {
-    setFundStr(raw);
-    const v = parseInt(raw.replace(/[^0-9]/g, ""), 10) || 0;
-    if (v < notional) {
-      setErr(`Account fund can’t go below ${fmtMoney(notional)} — ${m.name}’s notional (one unit).`);
-      return;
-    }
-    setErr("");
-    setUnits(Math.round(v / notional));
-  };
-  const onFundBlur = () => {
-    const v = parseInt(fundStr.replace(/[^0-9]/g, ""), 10) || 0;
-    const u = Math.max(1, Math.round(v / notional));
-    setUnits(u);
-    setFundStr(fmtMoney(u * notional));
-    setErr("");
-  };
-
-  const invalid = !!err || units < 1;
-
-  const StepperBtn = ({ dir }: { dir: -1 | 1 }) => {
-    const disabled = dir < 0 && units <= 1;
-    return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => syncFromUnits(units + dir)}
-        className={[
-          "flex h-10 w-[38px] flex-none items-center justify-center border border-outline-variant",
-          disabled ? "cursor-not-allowed bg-surface-low text-outline" : "cursor-pointer bg-white text-on-surface",
-        ].join(" ")}
-      >
-        {dir < 0 ? <Minus size={16} strokeWidth={2.2} /> : <Plus size={16} strokeWidth={2.2} />}
-      </button>
-    );
-  };
-
-  const inputBorder = invalid ? "border-error" : "border-outline-variant";
-
-  return (
-    <Modal
-      title={`Edit allocation · ${c.name} × ${m.name}`}
-      subtitle="Set the model units or the account fund — they’re linked, so changing one updates the other."
-      onClose={onClose}
-      width={540}
-      centered
-      footer={
-        <>
-          <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-secondary">
-            <Briefcase size={14} strokeWidth={2} />Routes through {acct} ({m.name}’s IB account)
-          </span>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button icon={Check} onClick={onClose} disabled={invalid}>Save allocation</Button>
-        </>
-      }
-    >
-      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3.5">
-        <label className="flex min-w-0 flex-col gap-1.5">
-          <span className={LABEL}>Model units (multiplier)</span>
-          <div className={`flex overflow-hidden rounded border ${inputBorder}`}>
-            <StepperBtn dir={-1} />
-            <input
-              value={units}
-              onChange={(e) => onUnitsInput(e.target.value)}
-              inputMode="numeric"
-              className="box-border min-w-0 flex-1 border-x border-outline-variant bg-white text-center text-[16px] font-bold text-on-surface outline-none"
-            />
-            <StepperBtn dir={1} />
-          </div>
-        </label>
-        <div
-          className="flex h-10 items-center justify-center text-secondary"
-          title="Linked — editing either updates the other"
-        >
-          <Link size={16} strokeWidth={2} />
-        </div>
-        <label className="flex min-w-0 flex-col gap-1.5">
-          <span className={LABEL}>Account fund</span>
-          <input
-            value={fundStr}
-            onChange={(e) => onFundInput(e.target.value)}
-            onBlur={onFundBlur}
-            className={`box-border h-10 min-w-0 rounded border px-3 text-[16px] font-bold tabular-nums text-on-surface outline-none ${inputBorder} bg-white`}
-          />
-        </label>
-      </div>
-
-      {err ? (
-        <div
-          className="mt-3 flex items-center gap-2 rounded-[9px] border px-3 py-2.5 text-[12.5px] font-semibold text-error"
-          style={{ background: "#ffeceb", borderColor: "#ffd5d2" }}
-        >
-          <TriangleAlert size={15} strokeWidth={2} className="flex-none" />
-          {err}
-        </div>
-      ) : (
-        <p className="m-0 mt-3 text-[12.5px] leading-[1.5] text-secondary">
-          Linked — fund = units × {fmtMoney(notional)} notional. The fund can’t drop below{" "}
-          {fmtMoney(notional)} (one unit); units can’t go below 1.
-        </p>
-      )}
-
-      <div className="mt-[18px]">
-        <div className={LABEL}>Linked IB account</div>
-        <div className="mt-2 flex items-center gap-3 rounded-md border border-outline-variant bg-surface-low px-[15px] py-3">
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded bg-primary-fixed text-primary">
-            <Briefcase size={17} strokeWidth={1.75} />
-          </span>
-          <div className="flex-1">
-            <div className="text-[14.5px] font-bold tabular-nums">{acct}</div>
-            <div className="mt-0.5 text-[12.5px] text-secondary">
-              Inherited from {m.name} · one IB account per model
-            </div>
-          </div>
-          <Chip tone="neutral" dot={false}>
-            <Lock size={11} strokeWidth={2} className="mr-[3px]" />per model
-          </Chip>
-        </div>
-      </div>
-    </Modal>
   );
 }
 
@@ -614,14 +473,12 @@ export default function AllocationMatrixPage() {
   const [view, setView] = useState<Toggle>("units");
   const [period, setPeriod] = useState(PERIOD);
   const [open, setOpen] = useState<Coord | null>(null);       // floating detail
-  const [edit, setEdit] = useState<Coord | null>(null);       // edit modal
   const [lockConfirm, setLockConfirm] = useState(false);
   const [locked, setLocked] = useState(false);
   const [empty] = useState(false);
 
   const historical = period !== PERIOD;                       // previewing a past period
   const onOpen = (cid: string, mid: string) => setOpen({ cid, mid });
-  const onEdit = (cid: string, mid: string) => { setOpen(null); setEdit({ cid, mid }); };
 
   return (
     // Full-bleed work surface: negative margins cancel <main>'s p-8 px-16 so
@@ -689,6 +546,7 @@ export default function AllocationMatrixPage() {
                 </div>
               </div>
             )}
+            <HowToRead view={view} />
             <Matrix data={data} view={view} locked onOpen={onOpen} />
           </>
         )}
@@ -700,13 +558,8 @@ export default function AllocationMatrixPage() {
           period={PERIOD}
           cid={open.cid}
           mid={open.mid}
-          readOnly
           onClose={() => setOpen(null)}
-          onEdit={onEdit}
         />
-      )}
-      {edit && (
-        <EditModal data={data} cid={edit.cid} mid={edit.mid} onClose={() => setEdit(null)} />
       )}
       {lockConfirm && (
         <LockModal

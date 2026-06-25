@@ -166,15 +166,15 @@ export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
     "box-border w-full rounded border border-outline-variant bg-white px-3 py-2.5 text-[15px] text-on-surface outline-none";
 
   const lines: [string, string][] = [
-    [`Management fee · ${m.mgmt}% × ${fmtMoney(m.notional)}`, fmtMoney(Math.round(f.mgmtFee))],
-    [`Incentive fee · ${m.incentive}% × ${f.excess}% excess × notional`, fmtMoney(Math.round(f.incFee))],
+    [`Management fee · ${m.mgmt}% × ${fmtMoney(m.size)}`, fmtMoney(Math.round(f.mgmtFee))],
+    [`Incentive fee · ${m.incentive}% × ${f.excess}% excess × model size`, fmtMoney(Math.round(f.incFee))],
   ];
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-[10px] bg-surface-low px-[15px] py-[13px] text-[13.5px] leading-[1.65] text-secondary">
-        <b className="text-on-surface">Management fee</b> = Management Rate (%) × Notional (AUM)<br />
-        <b className="text-on-surface">Incentive fee</b> = Incentive Rate (%) × max(Performance − Hurdle, 0) × Notional
+        <b className="text-on-surface">Management fee</b> = Management Rate (%) × Model size<br />
+        <b className="text-on-surface">Incentive fee</b> = Incentive Rate (%) × max(Performance − Hurdle, 0) × Model size
       </div>
       <label className="flex flex-col gap-1.5">
         <span className={labelCls}>Select model</span>
@@ -184,7 +184,7 @@ export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
           className={`${fieldCls} cursor-pointer`}
         >
           {live.map((x) => (
-            <option key={x.id} value={x.id}>{x.name} · {fmtMoney(x.notional)}</option>
+            <option key={x.id} value={x.id}>{x.name} · {fmtMoney(x.size)}</option>
           ))}
         </select>
       </label>
