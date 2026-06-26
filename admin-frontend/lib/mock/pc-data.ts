@@ -126,8 +126,8 @@ export const ALLOC: AllocationMap = {
 
 export const PERIODS: Period[] = [
   { label: "Aug 2026", status: "open" },
-  { label: "Jul 2026", status: "locked" },
-  { label: "Jun 2026", status: "locked" },
-  { label: "May 2026", status: "locked" },
-  { label: "Apr 2026", status: "locked" },
+  { label: "Jul 2026", status: "confirmed" },
+  { label: "Jun 2026", status: "confirmed" },
+  { label: "May 2026", status: "confirmed" },
+  { label: "Apr 2026", status: "confirmed" },
 ];

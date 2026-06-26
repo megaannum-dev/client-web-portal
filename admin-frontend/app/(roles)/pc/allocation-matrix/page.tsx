@@ -24,7 +24,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarDays, ChevronDown, Check, Lock, Eye, Grid3x3, RefreshCw,
-  Briefcase, Plus, TriangleAlert, History, X,
+  Briefcase, TriangleAlert, History, X,
   Info, Rows3, Columns3,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
@@ -121,7 +121,7 @@ function PeriodPicker({
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-secondary">
-                      <Lock size={11} strokeWidth={2} />Locked
+                      <Check size={11} strokeWidth={2} />Confirmed
                     </span>
                   )}
                   {sel && <Check size={15} strokeWidth={2.2} className="text-primary" />}
@@ -193,11 +193,10 @@ const TH =
   "border-b-0 bg-surface-low px-4 py-[13px] text-left align-top text-[11px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap";
 
 function Matrix({
-  data, view, locked, onOpen,
+  data, view, onOpen,
 }: {
   data: AllocationView;
   view: Toggle;
-  locked: boolean;
   onOpen: (cid: string, mid: string) => void;
 }) {
   const cols = data.liveModels;
@@ -242,7 +241,6 @@ function Matrix({
                     data={data}
                     cid={c.id}
                     mid={m.id}
-                    locked={locked}
                     primary={cellPrimary}
                     onOpen={onOpen}
                   />
@@ -276,12 +274,11 @@ function Matrix({
 }
 
 function MatrixCell({
-  data, cid, mid, locked, primary, onOpen,
+  data, cid, mid, primary, onOpen,
 }: {
   data: AllocationView;
   cid: string;
   mid: string;
-  locked: boolean;
   primary: (units: number, mid: string) => string;
   onOpen: (cid: string, mid: string) => void;
 }) {
@@ -290,20 +287,8 @@ function MatrixCell({
 
   if (!cell || !cell.units) {
     return (
-      <td
-        className="min-w-[150px] border-t border-outline-variant px-4 py-3 align-top"
-        style={{ cursor: locked ? "default" : "pointer", background: hover && !locked ? "rgb(var(--color-surface-low))" : "transparent" }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        onClick={() => !locked && onOpen(cid, mid)}
-      >
-        {locked ? (
-          <span className="text-outline">—</span>
-        ) : (
-          <span className={`inline-flex items-center gap-1 text-[12.5px] font-bold ${hover ? "text-primary" : "text-secondary"}`}>
-            <Plus size={13} strokeWidth={2.2} />assign
-          </span>
-        )}
+      <td className="min-w-[150px] border-t border-outline-variant px-4 py-3 align-top">
+        <span className="text-outline">—</span>
       </td>
     );
   }
@@ -403,9 +388,9 @@ function DetailPanel({
 }
 
 /* ============================================================
-   LOCK CONFIRM MODAL  (irreversible until next period) — F3 Modal shell
+   CONFIRM MODAL  (irreversible until next period) — F3 Modal shell
    ============================================================ */
-function LockModal({
+function ConfirmModal({
   data, period, onClose, onConfirm,
 }: {
   data: AllocationView;
@@ -415,15 +400,15 @@ function LockModal({
 }) {
   return (
     <Modal
-      title={`Lock ${period} allocation?`}
-      subtitle="Locking freezes the matrix for the period so trading can open."
+      title={`Confirm ${period} allocation?`}
+      subtitle="Confirming freezes the matrix for the period so trading can open."
       onClose={onClose}
       width={470}
       centered
       footer={
         <>
           <Button variant="secondary" onClick={onClose} className="ml-auto">Cancel</Button>
-          <Button icon={Lock} onClick={onConfirm}>Lock allocation</Button>
+          <Button icon={Check} onClick={onConfirm}>Confirm allocation</Button>
         </>
       }
     >
@@ -432,7 +417,7 @@ function LockModal({
           <Lock size={20} strokeWidth={1.75} />
         </span>
         <div className="text-[13.5px] leading-[1.6] text-secondary">
-          <b className="text-on-surface">{data.count()} allocations</b> across {data.liveModels.length} live models are ready to lock.
+          <b className="text-on-surface">{data.count()} allocations</b> across {data.liveModels.length} live models are ready to confirm.
         </div>
       </div>
       <div
@@ -440,7 +425,7 @@ function LockModal({
         style={{ color: "#9a5b00", background: "#fff6e6", borderColor: "#ffe2b0" }}
       >
         <TriangleAlert size={15} strokeWidth={2} className="mt-px flex-none" />
-        <span>This can’t be undone. The matrix and entry editing stay locked until the next allocation period opens.</span>
+        <span>This can’t be undone. The matrix stays frozen until the next allocation period opens.</span>
       </div>
     </Modal>
   );
@@ -473,8 +458,8 @@ export default function AllocationMatrixPage() {
   const [view, setView] = useState<Toggle>("units");
   const [period, setPeriod] = useState(PERIOD);
   const [open, setOpen] = useState<Coord | null>(null);       // floating detail
-  const [lockConfirm, setLockConfirm] = useState(false);
-  const [locked, setLocked] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const [empty] = useState(false);
 
   const historical = period !== PERIOD;                       // previewing a past period
@@ -494,7 +479,7 @@ export default function AllocationMatrixPage() {
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <PeriodPicker view={data} period={period} onPick={setPeriod} />
               <p className="text-[15px] text-secondary">
-                {historical ? "Historical · read-only" : "Pre-trade allocation · review & lock"} · {data.clients.length} clients · {data.liveModels.length} live models
+                {historical ? "Historical · read-only" : "Pre-trade allocation · review & confirm"} · {data.clients.length} clients · {data.liveModels.length} live models
               </p>
             </div>
           </div>
@@ -503,10 +488,10 @@ export default function AllocationMatrixPage() {
               <ViewToggle view={view} onView={setView} />
               {historical ? (
                 <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>
-              ) : locked ? (
-                <Button variant="secondary" icon={Lock} disabled>Locked until next period</Button>
+              ) : confirmed ? (
+                <Button variant="secondary" icon={Check} disabled>Confirmed · read-only</Button>
               ) : (
-                <Button icon={Lock} onClick={() => setLockConfirm(true)}>Lock allocation</Button>
+                <Button icon={Check} onClick={() => setConfirmModal(true)}>Confirm allocation</Button>
               )}
             </div>
           )}
@@ -530,24 +515,24 @@ export default function AllocationMatrixPage() {
                 </div>
               </div>
             )}
-            {locked && !historical && (
+            {confirmed && !historical && (
               <div
                 className="mb-[18px] flex items-start gap-3 rounded-md border px-4 py-[13px]"
                 style={{ background: "#fff6e6", borderColor: "#ffe2b0" }}
               >
                 <span className="mt-px flex flex-none" style={{ color: "#9a5b00" }}>
-                  <Lock size={18} strokeWidth={2} />
+                  <Check size={18} strokeWidth={2} />
                 </span>
                 <div className="flex-1">
-                  <div className="text-[13.5px] font-bold text-on-surface">{PERIOD} allocation is locked</div>
+                  <div className="text-[13.5px] font-bold text-on-surface">{PERIOD} allocation is confirmed</div>
                   <div className="mt-0.5 text-[12.5px]" style={{ color: "#9a5b00" }}>
-                    The matrix is frozen so trading can open. This can’t be undone — locking and entry editing stay disabled until the next allocation period opens.
+                    The matrix is frozen so trading can open. This can’t be undone — the allocation is fixed until the next period opens.
                   </div>
                 </div>
               </div>
             )}
             <HowToRead view={view} />
-            <Matrix data={data} view={view} locked onOpen={onOpen} />
+            <Matrix data={data} view={view} onOpen={onOpen} />
           </>
         )}
       </div>
@@ -561,12 +546,12 @@ export default function AllocationMatrixPage() {
           onClose={() => setOpen(null)}
         />
       )}
-      {lockConfirm && (
-        <LockModal
+      {confirmModal && (
+        <ConfirmModal
           data={data}
           period={PERIOD}
-          onClose={() => setLockConfirm(false)}
-          onConfirm={() => { setLockConfirm(false); setLocked(true); }}
+          onClose={() => setConfirmModal(false)}
+          onConfirm={() => { setConfirmModal(false); setConfirmed(true); }}
         />
       )}
     </div>

@@ -98,8 +98,8 @@ export interface AllocationCell {
 /** Sparse allocation grid keyed `"${clientId}-${modelId}"`. */
 export type AllocationMap = Record<string, AllocationCell>;
 
-/** Whether an allocation period is editable or frozen. */
-export type PeriodStatus = "open" | "locked";
+/** Whether an allocation period is editable or confirmed/frozen. */
+export type PeriodStatus = "open" | "confirmed";
 
 /** One allocation period (e.g. a month). */
 export interface Period {
