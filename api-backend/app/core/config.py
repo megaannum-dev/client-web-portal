@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # False (prod): internal users cannot self-register; Super Admin must pre-create them.
     dev_mode: bool = True
 
+    # PC workspace — file storage (BE-1)
+    pc_storage_backend: str = "local"  # "local" | "nas"
+    pc_storage_root: str = "./pc_storage"  # path for LocalStorage mount
+
 
 @lru_cache
 def get_settings() -> Settings:

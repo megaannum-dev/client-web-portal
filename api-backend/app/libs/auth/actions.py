@@ -8,6 +8,11 @@ class Action(str, enum.Enum):
     USER_MANAGE = "admin:user_manage"
     CLIENT_VIEW = "clients:view"  # pre-kept for 004 (RM client onboarding)
     CLIENT_MANAGE = "clients:manage"  # pre-kept for 004 (RM client onboarding)
+    # PC workspace — feature 006 (BE-2)
+    MODEL_VIEW = "pc:model_view"
+    MODEL_MANAGE = "pc:model_manage"
+    ALLOCATION_VIEW = "pc:allocation_view"
+    ALLOCATION_MANAGE = "pc:allocation_manage"
 
 
 # Only RM and ADMIN carry actions at this point. MOBO/PM/PC/COMPLIANCE are
@@ -19,7 +24,12 @@ ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
     AdminRole.RM: {Action.CLIENT_VIEW, Action.CLIENT_MANAGE},
     AdminRole.MOBO: set(),
     AdminRole.PM: set(),
-    AdminRole.PC: set(),
+    AdminRole.PC: {
+        Action.MODEL_VIEW,
+        Action.MODEL_MANAGE,
+        Action.ALLOCATION_VIEW,
+        Action.ALLOCATION_MANAGE,
+    },
     AdminRole.COMPLIANCE: set(),
     AdminRole.ADMIN: set(Action),
 }
