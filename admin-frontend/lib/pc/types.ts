@@ -103,6 +103,96 @@ export type PeriodStatus = "open" | "confirmed";
 
 /** One allocation period (e.g. a month). */
 export interface Period {
+  /** Backend-assigned period UUID; present once the API is wired. */
+  id?: string;
   label: string;
   status: PeriodStatus;
+}
+
+/* ---- Transport DTOs (backend payload shapes) --------------- */
+
+/** Discriminant for change-log entries returned by the API. */
+export type ModelChangeKind = "created" | "published" | "material_uploaded" | "edited";
+
+/** Raw change-log entry from the backend. Mapped to `ChangeEntry` by FE-5. */
+export interface ChangeEntryDTO {
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
+  actor: string;
+  version: string;
+  date: string;
+}
+
+/** Backend payload for a single model (GET /api/pc/models/:id and list). */
+export interface ModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  manager: string;
+  intro: string;
+  symbols: string[];
+  mgmt_fee: number;
+  incentive_fee: number;
+  status: "live" | "draft";
+  version: string;
+  materials: { file: string; ver: string; date: string; size: string }[];
+  changes: ChangeEntryDTO[];
+}
+
+/** Backend payload for GET /api/pc/models. */
+export interface ModelsListDTO {
+  models: ModelDTO[];
+}
+
+/** One cell in the allocation matrix as returned by the backend. */
+export interface AllocationCellDTO {
+  units: number;
+  /** Precomputed: units × model_size (BE-5). */
+  fund: number;
+}
+
+/** One model column in the allocation matrix payload. */
+export interface AllocationModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  live: boolean;
+  /** Sum of units across all clients (precomputed, BE-5). */
+  col_units: number;
+  /** Sum of fund across all clients (precomputed, BE-5). */
+  col_fund: number;
+}
+
+/** One client row in the allocation matrix payload. */
+export interface AllocationClientDTO {
+  id: string;
+  name: string;
+  code: string;
+  ib_account: string;
+}
+
+/** Backend payload for a single period. */
+export interface PeriodDTO {
+  id: string;
+  label: string;
+  status: "open" | "confirmed";
+}
+
+/** Backend payload for GET /api/pc/allocation. All aggregates precomputed by BE-5. */
+export interface AllocationDTO {
+  models: AllocationModelDTO[];
+  clients: AllocationClientDTO[];
+  /** Sparse grid keyed `"${clientId}-${modelId}"`. */
+  cells: Record<string, AllocationCellDTO>;
+  /** Sum of col_fund over live models (precomputed, BE-5). */
+  total_fund: number;
+  /** # of (client, live-model) pairs with a cell (precomputed, BE-5). */
+  count: number;
+  periods: PeriodDTO[];
+  open_period_id: string;
+}
+
+/** Backend payload for GET /api/pc/periods. */
+export interface PeriodsListDTO {
+  periods: PeriodDTO[];
 }

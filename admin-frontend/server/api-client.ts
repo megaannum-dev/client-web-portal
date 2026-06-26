@@ -46,6 +46,32 @@ export async function apiClient<T>(
   }
 }
 
+/** POST a multipart FormData body (file uploads — omits Content-Type so fetch sets the boundary). */
+export async function apiClientFormData<T>(
+  path: string,
+  body: FormData,
+): Promise<APIResult<T>> {
+  const token = await getToken();
+  const url = `${getApiBase()}${path}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body,
+    });
+    if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { msg = (await res.text()).slice(0, 200) || msg; } catch { /* noop */ }
+      return { success: false, error: msg, code: `HTTP_${res.status}` };
+    }
+    return { success: true, data: (await res.json()) as T };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };
+  }
+}
+
 /** Variant that handles ETag / 304 round-trips (allocation endpoint only). */
 export type ConditionalResult<T> = {
   result: APIResult<T>;
