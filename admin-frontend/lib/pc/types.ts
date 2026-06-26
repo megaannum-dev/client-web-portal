@@ -23,12 +23,13 @@ export interface Material {
   size: string;
 }
 
-/** One audit-trail entry in a model's change history. */
+/** One audit-trail entry in a model's change history (view shape). */
 export interface ChangeEntry {
-  date: string;
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
   user: string;
-  change: string;
   ver: string;
+  date: string;
 }
 
 /** Lifecycle state of a model. */

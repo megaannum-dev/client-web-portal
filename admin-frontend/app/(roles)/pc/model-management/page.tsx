@@ -26,7 +26,8 @@ import {
   Eyebrow, StatusChip, Ticks, VerBadge, Modal, Fact, FeeCalc,
 } from "@/components/pc/Shared";
 import { loadModels, fmtMoney } from "@/lib/pc/models";
-import type { ChangeEntry, Material, Model, ModelStatus } from "@/lib/pc/types";
+import { renderChange } from "@/lib/pc/change-log";
+import type { ChangeEntry, Material, Model, ModelChangeKind, ModelStatus } from "@/lib/pc/types";
 
 /* Today as an ISO date (YYYY-MM-DD) — matches the change-history /
    material date format used throughout the model book. */
@@ -259,7 +260,7 @@ function ChangesTab({ m }: { m: Model }) {
               border: `1.5px solid ${i === 0 ? "rgb(var(--color-primary))" : "rgb(var(--color-outline))"}`,
             }}
           />
-          <div className="text-[13.5px] font-bold text-on-surface">{c.change}</div>
+          <div className="text-[13.5px] font-bold text-on-surface">{renderChange(c)}</div>
           <div className="mt-0.5 text-[12.5px] text-secondary">
             {c.date} · {c.user} · <span className="font-bold text-primary">{c.ver}</span>
           </div>
@@ -468,13 +469,20 @@ function CreateModelForm({ onClose, onCreate }: { onClose: () => void; onCreate:
       : [];
     const changes: ChangeEntry[] = [
       {
-        date: today,
+        kind: "created" as ModelChangeKind,
+        detail: { status },
         user: "You",
-        change: status === "live" ? "Model created and set live" : "Draft model created",
         ver: version,
+        date: today,
       },
       ...(hasMaterial
-        ? [{ date: today, user: "You", change: "Initial materials uploaded", ver: "v1" }]
+        ? [{
+            kind: "material_uploaded" as ModelChangeKind,
+            detail: { filename: material!, version: "v1" },
+            user: "You",
+            ver: "v1",
+            date: today,
+          }]
         : []),
     ];
     return {
@@ -687,10 +695,11 @@ export default function ModelManagementPage() {
         if (m.id !== id || m.status !== "draft") return m;
         const version = m.materials[0]?.ver ?? m.version;
         const entry: ChangeEntry = {
-          date: isoToday(),
+          kind: "published",
+          detail: {},
           user: "You",
-          change: "Published to live",
           ver: version,
+          date: isoToday(),
         };
         return { ...m, status: "live", version, changes: [entry, ...m.changes] };
       }),

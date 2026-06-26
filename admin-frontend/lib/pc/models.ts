@@ -1,19 +1,27 @@
 /* ============================================================
-   PC — model-book data-access SEAM + fee math
+   PC — model-book data-access SEAM + DTO→view mapper
 
-   data-access seam — flip this file to the API later; components
-   never import the mock.
+   `loadModels()` reads the purgeable mock until FE-6 swaps the
+   screens onto `useModels()`; then the mock is deleted. Components
+   never import the mock directly.
 
-   Today `loadModels()` reads the purgeable mock (`@/lib/mock/pc-data`,
-   landed by F2); tomorrow it fetches the backend and deserializes
-   into `Model[]`. No component changes either way — screens bind to
-   `loadModels()` / `modelById()` and the types in `./types` only.
+   `mapDtoToModel` / `mapDtoToModels` are the permanent DTO→view
+   mappers: structural shaping only, no derivation (all aggregates
+   arrive precomputed from BE-5).
+
+   Formatters and fee math live in `./format` and are re-exported
+   here so screens keep importing from `lib/pc/*`.
    ============================================================ */
 
 import { PC_MODELS } from "@/lib/mock/pc-data";
-import type { FeeBreakdown, Model } from "./types";
+import type { ChangeEntry, Model, ModelDTO, ModelsListDTO } from "./types";
 
-/** THE model-book entry point. Every screen reads the book through this. */
+/* ---- Re-export presentation helpers from format.ts --------- */
+export { fmtMoney, fmtMoneyShort, computeFees } from "./format";
+
+/* ---- Mock loader (deleted with the mock in FE-6) ----------- */
+
+/** THE model-book entry point against the mock. Replaced by useModels() in FE-6. */
 export function loadModels(): Model[] {
   return PC_MODELS;
 }
@@ -23,40 +31,37 @@ export function modelById(id: string): Model | undefined {
   return loadModels().find((m) => m.id === id);
 }
 
-/* ---- Formatters -------------------------------------------- */
+/* ---- DTO→view mappers -------------------------------------- */
 
-/** `1000000` → `"$1,000,000"`. */
-export function fmtMoney(n: number): string {
-  return "$" + n.toLocaleString("en-US");
+function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
+  return {
+    kind: c.kind,
+    detail: c.detail,
+    user: c.actor,
+    ver: c.version,
+    date: c.date,
+  };
 }
 
-/** Compact money: `$X.XM` / `$Xk` / `$X` (exact PCData.jsx semantics). */
-export function fmtMoneyShort(v: number): string {
-  if (v >= 1e6) {
-    const x = v / 1e6;
-    return "$" + (x % 1 === 0 ? x : x.toFixed(1)) + "M";
-  }
-  if (v >= 1e3) {
-    const x = v / 1e3;
-    return "$" + Math.round(x) + "k";
-  }
-  return "$" + v;
+/** Map a single backend model DTO to the view `Model` type. */
+export function mapDtoToModel(dto: ModelDTO): Model {
+  return {
+    id: dto.id,
+    name: dto.name,
+    size: dto.model_size,
+    manager: dto.manager,
+    intro: dto.intro,
+    symbols: dto.symbols,
+    mgmt: dto.mgmt_fee,
+    incentive: dto.incentive_fee,
+    status: dto.status,
+    version: dto.version,
+    materials: dto.materials,
+    changes: dto.changes.map(mapChangeEntry),
+  };
 }
 
-/* ---- Fee math ---------------------------------------------- */
-
-/**
- * Compute management + incentive fees for a model given a performance
- * figure and hurdle (both whole-number percentages). Exact formula from
- * PCData.jsx:
- *   mgmtFee = (mgmt/100) × size
- *   excess  = max(perf − hurdle, 0)
- *   incFee  = (incentive/100) × (excess/100) × size
- *   total   = mgmtFee + incFee
- */
-export function computeFees(m: Model, perf: number, hurdle: number): FeeBreakdown {
-  const mgmtFee = (m.mgmt / 100) * m.size;
-  const excess = Math.max(perf - hurdle, 0);
-  const incFee = (m.incentive / 100) * (excess / 100) * m.size;
-  return { mgmtFee, incFee, total: mgmtFee + incFee, excess };
+/** Map the models-list DTO to `Model[]`. */
+export function mapDtoToModels(dto: ModelsListDTO): Model[] {
+  return dto.models.map(mapDtoToModel);
 }

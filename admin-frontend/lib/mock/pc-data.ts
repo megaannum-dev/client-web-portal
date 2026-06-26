@@ -42,8 +42,8 @@ export const PC_MODELS: Model[] = [
       { file: "ModelA_Marketing_v1.pdf", ver: "v1", date: "2025-12-01", size: "2.1 MB" },
     ],
     changes: [
-      { date: "2026-02-10", user: "Wilson", change: "Updated performance numbers and fee example", ver: "v2" },
-      { date: "2025-12-01", user: "Marketing", change: "Initial materials uploaded", ver: "v1" },
+      { kind: "edited", detail: { fields: [{ field: "Performance numbers", before: "—", after: "—" }] }, user: "Wilson", ver: "v2", date: "2026-02-10" },
+      { kind: "material_uploaded", detail: { filename: "ModelA_Marketing_v1.pdf", version: "v1" }, user: "Marketing", ver: "v1", date: "2025-12-01" },
     ],
   },
   {
@@ -58,7 +58,7 @@ export const PC_MODELS: Model[] = [
     status: "live",
     version: "v1",
     materials: [{ file: "ModelB_Marketing_v1.pdf", ver: "v1", date: "2025-09-15", size: "1.8 MB" }],
-    changes: [{ date: "2025-09-15", user: "Marketing", change: "Initial materials uploaded", ver: "v1" }],
+    changes: [{ kind: "material_uploaded", detail: { filename: "ModelB_Marketing_v1.pdf", version: "v1" }, user: "Marketing", ver: "v1", date: "2025-09-15" }],
   },
   {
     id: "mC",
@@ -72,7 +72,7 @@ export const PC_MODELS: Model[] = [
     status: "live",
     version: "v1",
     materials: [{ file: "ModelC_Marketing_v1.pdf", ver: "v1", date: "2026-01-20", size: "1.5 MB" }],
-    changes: [{ date: "2026-01-20", user: "Marketing", change: "Initial materials uploaded", ver: "v1" }],
+    changes: [{ kind: "material_uploaded", detail: { filename: "ModelC_Marketing_v1.pdf", version: "v1" }, user: "Marketing", ver: "v1", date: "2026-01-20" }],
   },
   {
     id: "mD",
