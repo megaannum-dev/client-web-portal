@@ -117,4 +117,5 @@ export {
   Info,
   Rows3,
   Columns3,
+  Rocket,
 } from "lucide-react";

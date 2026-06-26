@@ -15,10 +15,10 @@
    Ported faithfully from the design prototype (ModelManagement.jsx).
    ============================================================ */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   LayoutGrid, List, Calculator, Plus, Pencil, Copy, Upload, Download,
-  FileText, File, Eye, Check, History, Clock, ChevronDown, X,
+  FileText, File, Eye, Check, History, Clock, ChevronDown, X, Rocket, Trash2,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -26,7 +26,11 @@ import {
   Eyebrow, StatusChip, Ticks, VerBadge, Modal, Fact, FeeCalc,
 } from "@/components/pc/Shared";
 import { loadModels, fmtMoney } from "@/lib/pc/models";
-import type { Model } from "@/lib/pc/types";
+import type { ChangeEntry, Material, Model, ModelStatus } from "@/lib/pc/types";
+
+/* Today as an ISO date (YYYY-MM-DD) — matches the change-history /
+   material date format used throughout the model book. */
+const isoToday = () => new Date().toISOString().slice(0, 10);
 
 type Layout = "grid" | "table";
 type Tab = "overview" | "materials" | "changes";
@@ -266,7 +270,7 @@ function ChangesTab({ m }: { m: Model }) {
 }
 
 function ModelDetailPanel({
-  m, tab, staged, onTab, onClose, onEdit,
+  m, tab, staged, onTab, onClose, onEdit, onPublish, onDelete,
 }: {
   m: Model;
   tab: Tab;
@@ -274,8 +278,11 @@ function ModelDetailPanel({
   onTab: (t: Tab) => void;
   onClose: () => void;
   onEdit: (id: string) => void;
+  onPublish: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const TABS: [Tab, string][] = [["overview", "Overview"], ["materials", "Materials"], ["changes", "Changes"]];
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
       <div onClick={onClose} className="absolute inset-0 z-[8]" style={{ background: "rgba(40,38,34,0.18)" }} />
@@ -326,6 +333,37 @@ function ModelDetailPanel({
             <FactGrid m={m} onEdit={onEdit} />
           )}
         </div>
+        {m.status === "draft" && (
+          <div className="flex flex-none justify-end items-center gap-3 border-t border-outline-variant bg-surface-low px-[22px] py-[13px]">
+            {confirmDelete ? (
+              <>
+                <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-error">
+                  <Trash2 size={14} strokeWidth={2} />Delete this draft? This can&rsquo;t be undone.
+                </span>
+                <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                <Button
+                  icon={Trash2}
+                  onClick={() => onDelete(m.id)}
+                  className="border-transparent bg-error text-white hover:bg-[#93000a]"
+                >
+                  Delete draft
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  icon={Trash2}
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-error hover:bg-[rgba(186,26,26,0.08)] hover:text-error"
+                >
+                  Delete draft
+                </Button>
+                <Button icon={Rocket} onClick={() => onPublish(m.id)}>Publish to live</Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
@@ -334,74 +372,274 @@ function ModelDetailPanel({
 /* ============================================================
    MODALS — create / edit model · fee calculator
    ============================================================ */
+const MANAGER_OPTIONS = ["Wilson Capital", "Brookfield Advisors", "Sequoia Partners"];
+
+/* A labelled form field. Read-only (display div) by default — that is
+   the Edit-model path, which stays display-only as in the prototype.
+   When `onChange` is supplied it renders a live <input> / <select>,
+   used by the New-model form. */
 function CreateField({
-  label, value, placeholder, select,
+  label, value, placeholder, select, onChange, options, inputMode,
 }: {
   label: string;
   value?: string;
   placeholder?: string;
   select?: boolean;
+  onChange?: (v: string) => void;
+  options?: string[];
+  inputMode?: "numeric" | "decimal";
 }) {
+  const labelEl = (
+    <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{label}</span>
+  );
+
+  if (onChange === undefined) {
+    return (
+      <label className="flex flex-col gap-1.5">
+        {labelEl}
+        <div
+          className={`flex h-10 items-center gap-2 rounded border border-outline-variant bg-white px-3 text-[14px] ${
+            select ? "justify-between" : "justify-start"
+          } ${value ? "font-semibold text-on-surface" : "font-normal text-secondary"}`}
+        >
+          <span>{value || placeholder}</span>
+          {select && <ChevronDown size={15} strokeWidth={2} className="text-secondary" />}
+        </div>
+      </label>
+    );
+  }
+
+  if (select) {
+    return (
+      <label className="flex flex-col gap-1.5">
+        {labelEl}
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 cursor-pointer rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none focus:border-primary"
+        >
+          {(options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </label>
+    );
+  }
+
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{label}</span>
-      <div
-        className={`flex h-10 items-center gap-2 rounded border border-outline-variant bg-white px-3 text-[14px] ${
-          select ? "justify-between" : "justify-start"
-        } ${value ? "font-semibold text-on-surface" : "font-normal text-secondary"}`}
-      >
-        <span>{value || placeholder}</span>
-        {select && <ChevronDown size={15} strokeWidth={2} className="text-secondary" />}
-      </div>
+      {labelEl}
+      <input
+        value={value}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
+      />
     </label>
   );
 }
 
-function ModelFormModal({ model, onClose }: { model?: Model; onClose: () => void }) {
-  const editing = !!model;
-  const symbols = editing ? model!.symbols : ["SPY", "QQQ", "IWM"];
+/* ---- New-model form (create live or draft) ----------------- */
+function CreateModelForm({ onClose, onCreate }: { onClose: () => void; onCreate: (m: Model) => void }) {
+  const [name, setName] = useState("");
+  const [manager, setManager] = useState(MANAGER_OPTIONS[0]);
+  const [size, setSize] = useState("");            // raw digits
+  const [symbols, setSymbols] = useState<string[]>(["SPY", "QQQ", "IWM"]);
+  const [mgmt, setMgmt] = useState("0.85");
+  const [incentive, setIncentive] = useState("15");
+  const [material, setMaterial] = useState<string | null>(null);
+  const [addingSym, setAddingSym] = useState(false);
+  const [draftSym, setDraftSym] = useState("");
+
+  const commitSym = () => {
+    const s = draftSym.trim().toUpperCase();
+    if (s && !symbols.includes(s)) setSymbols((xs) => [...xs, s]);
+    setDraftSym("");
+    setAddingSym(false);
+  };
+
+  const valid = name.trim().length > 0;
+
+  const build = (status: ModelStatus): Model => {
+    const today = isoToday();
+    const hasMaterial = !!material;
+    const version = hasMaterial ? "v1" : "—";
+    const materials: Material[] = hasMaterial
+      ? [{ file: material!, ver: "v1", date: today, size: "2.6 MB" }]
+      : [];
+    const changes: ChangeEntry[] = [
+      {
+        date: today,
+        user: "You",
+        change: status === "live" ? "Model created and set live" : "Draft model created",
+        ver: version,
+      },
+      ...(hasMaterial
+        ? [{ date: today, user: "You", change: "Initial materials uploaded", ver: "v1" }]
+        : []),
+    ];
+    return {
+      id: `m_${Date.now().toString(36)}`,
+      name: name.trim(),
+      size: Number(size) || 0,
+      manager,
+      intro: "—",
+      symbols,
+      mgmt: parseFloat(mgmt) || 0,
+      incentive: parseFloat(incentive) || 0,
+      status,
+      version,
+      materials,
+      changes,
+    };
+  };
+
+  const submit = (status: ModelStatus) => {
+    if (!valid) return;
+    onCreate(build(status));
+  };
+
   return (
     <Modal
-      title={editing ? `Edit ${model!.name}` : "New model"}
-      subtitle={
-        editing
-          ? "Amend the strategy. Changes are versioned and appended to the model’s change history."
-          : "Define a trading strategy. It saves as a draft until marketing materials are attached."
-      }
+      title="New model"
+      subtitle="Define a trading strategy. Create it live, or save it as a draft to finish later."
       onClose={onClose}
       footer={
         <>
-          {editing ? (
-            <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-secondary">
-              <History size={14} strokeWidth={2} />Changes are logged to the model&rsquo;s history
-            </span>
-          ) : (
-            <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-secondary">
-              <Clock size={14} strokeWidth={2} />Saves as <b className="text-on-surface">Draft</b> — add materials before distribution
-            </span>
-          )}
+          <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-secondary">
+            {material ? <FileText size={14} strokeWidth={2} /> : <Clock size={14} strokeWidth={2} />}
+            {material ? (
+              <>Material attaches as <b className="text-on-surface">v1</b> either way</>
+            ) : (
+              <>Drafts and live models both keep any material you add</>
+            )}
+          </span>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button icon={Check} onClick={onClose}>{editing ? "Save changes" : "Create model"}</Button>
+          <Button variant="secondary" icon={Clock} disabled={!valid} onClick={() => submit("draft")}>
+            Save as draft
+          </Button>
+          <Button icon={Check} disabled={!valid} onClick={() => submit("live")}>Create model</Button>
         </>
       }
     >
       <div className="grid grid-cols-2 gap-4">
         <div style={{ gridColumn: "1 / -1" }}>
-          <CreateField label="Model name" value={editing ? model!.name : undefined} placeholder="e.g. Model E — Global Macro" />
+          <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <CreateField label="Manager" value={editing ? model!.manager : "Wilson Capital"} select />
-        <CreateField label="Model size" value={editing ? fmtMoney(model!.size) : "$40,000,000"} />
+        <CreateField label="Manager" value={manager} onChange={setManager} select options={MANAGER_OPTIONS} />
+        <CreateField
+          label="Notional size (AUM)"
+          value={size ? fmtMoney(Number(size)) : ""}
+          placeholder="$40,000,000"
+          inputMode="numeric"
+          onChange={(v) => setSize(v.replace(/[^0-9]/g, ""))}
+        />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Symbol universe</span>
+            <div className="flex min-h-10 flex-wrap items-center gap-2 rounded border border-outline-variant bg-white px-3 py-1.5">
+              <Ticks symbols={symbols} onRemove={(s) => setSymbols((xs) => xs.filter((x) => x !== s))} />
+              {addingSym ? (
+                <input
+                  autoFocus
+                  value={draftSym}
+                  onChange={(e) => setDraftSym(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); commitSym(); }
+                    if (e.key === "Escape") { setAddingSym(false); setDraftSym(""); }
+                  }}
+                  onBlur={commitSym}
+                  placeholder="e.g. NVDA"
+                  className="h-7 w-[110px] rounded border border-outline-variant bg-white px-2 text-[12px] font-bold uppercase text-on-surface outline-none focus:border-primary"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingSym(true)}
+                  className="cursor-pointer text-[13.5px] text-secondary transition-colors hover:text-primary"
+                >
+                  + add symbol
+                </button>
+              )}
+            </div>
+          </label>
+        </div>
+        <CreateField label="Standard mgmt fee (%)" value={mgmt} onChange={setMgmt} placeholder="0.85" inputMode="decimal" />
+        <CreateField label="Standard incentive fee (%)" value={incentive} onChange={setIncentive} placeholder="15" inputMode="decimal" />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <span className="flex items-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
+            Marketing material
+            <span className="font-semibold normal-case tracking-normal text-secondary">· optional</span>
+          </span>
+          {material ? (
+            <div className="mt-1.5 flex items-center gap-3 rounded-[10px] border border-outline-variant bg-surface-low p-3">
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[9px] bg-primary-fixed text-primary">
+                <FileText size={18} strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13.5px] font-bold">{material}</div>
+                <div className="mt-0.5 text-[12px] text-secondary">2.6 MB · attaches as <b className="text-primary">v1</b> on save</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMaterial(null)}
+                aria-label="Remove material"
+                className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded text-secondary hover:text-on-surface"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+          ) : (
+            <div
+              onClick={() => setMaterial("Model_Marketing_v1.pdf")}
+              className="mt-1.5 flex cursor-pointer flex-col items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-outline px-3.5 py-4 text-center"
+            >
+              <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] bg-primary-fixed text-primary">
+                <Upload size={19} strokeWidth={1.75} />
+              </span>
+              <div className="text-[13.5px] font-bold">Drop a fact sheet or deck, or browse</div>
+              <div className="text-[12px] text-secondary">Saved as <b>v1</b> · kept whether you create live or save as draft</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---- Edit-model form (display-only, as in the prototype) --- */
+function EditModelForm({ model, onClose }: { model: Model; onClose: () => void }) {
+  return (
+    <Modal
+      title={`Edit ${model.name}`}
+      subtitle="Amend the strategy. Changes are versioned and appended to the model’s change history."
+      onClose={onClose}
+      footer={
+        <>
+          <span className="mr-auto flex items-center gap-[7px] text-[12.5px] text-secondary">
+            <History size={14} strokeWidth={2} />Changes are logged to the model&rsquo;s history
+          </span>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button icon={Check} onClick={onClose}>Save changes</Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateField label="Model name" value={model.name} />
+        </div>
+        <CreateField label="Manager" value={model.manager} select />
+        <CreateField label="Model size" value={fmtMoney(model.size)} />
         <div style={{ gridColumn: "1 / -1" }}>
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</span>
             <div className="flex min-h-10 flex-wrap items-center gap-2 rounded border border-outline-variant bg-white px-3 py-1.5">
-              <Ticks symbols={symbols} />
+              <Ticks symbols={model.symbols} />
               <span className="text-[13.5px] text-secondary">+ add symbol</span>
             </div>
           </label>
         </div>
-        <CreateField label="Standard mgmt fee (%)" value={editing ? String(model!.mgmt) : "0.85"} />
-        <CreateField label="Standard incentive fee (%)" value={editing ? String(model!.incentive) : "15"} />
+        <CreateField label="Standard mgmt fee (%)" value={String(model.mgmt)} />
+        <CreateField label="Standard incentive fee (%)" value={String(model.incentive)} />
       </div>
     </Modal>
   );
@@ -419,7 +657,10 @@ function CalcModal({ onClose }: { onClose: () => void }) {
    PAGE
    ============================================================ */
 export default function ModelManagementPage() {
-  const models = useMemo(() => loadModels(), []);
+  // The model book is held in state so create/publish mutate it locally.
+  // `loadModels()` is still the seam (mock today, API later); when the API
+  // lands these handlers POST and refetch instead of mutating in place.
+  const [models, setModels] = useState<Model[]>(() => loadModels());
 
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -429,6 +670,38 @@ export default function ModelManagementPage() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const open = (id: string, t: Tab) => { setOpenId(id); setTab(t || "overview"); };
+
+  // Create a model (live or draft) — prepend so it surfaces at the top.
+  const handleCreate = (model: Model) => {
+    setModels((ms) => [model, ...ms]);
+    setCreating(false);
+    open(model.id, "overview");
+  };
+
+  // Publish a draft → live: flip status, adopt the latest material version
+  // (or keep "—" if none), and append a change-log entry. Panel stays open
+  // so the status flip is visible.
+  const handlePublish = (id: string) => {
+    setModels((ms) =>
+      ms.map((m) => {
+        if (m.id !== id || m.status !== "draft") return m;
+        const version = m.materials[0]?.ver ?? m.version;
+        const entry: ChangeEntry = {
+          date: isoToday(),
+          user: "You",
+          change: "Published to live",
+          ver: version,
+        };
+        return { ...m, status: "live", version, changes: [entry, ...m.changes] };
+      }),
+    );
+  };
+
+  // Delete a draft model — drafts only; closes the panel.
+  const handleDelete = (id: string) => {
+    setModels((ms) => ms.filter((x) => !(x.id === id && x.status === "draft")));
+    setOpenId(null);
+  };
   const m = models.find((x) => x.id === openId);
   const editModel = editId ? models.find((x) => x.id === editId) : undefined;
   const draftCount = models.filter((x) => x.status === "draft").length;
@@ -493,10 +766,12 @@ export default function ModelManagementPage() {
           onTab={setTab}
           onClose={() => setOpenId(null)}
           onEdit={(id) => setEditId(id)}
+          onPublish={handlePublish}
+          onDelete={handleDelete}
         />
       )}
-      {creating && <ModelFormModal onClose={() => setCreating(false)} />}
-      {editModel && <ModelFormModal model={editModel} onClose={() => setEditId(null)} />}
+      {creating && <CreateModelForm onClose={() => setCreating(false)} onCreate={handleCreate} />}
+      {editModel && <EditModelForm model={editModel} onClose={() => setEditId(null)} />}
       {calc && <CalcModal onClose={() => setCalc(false)} />}
     </div>
   );

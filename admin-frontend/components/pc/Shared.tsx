@@ -36,16 +36,29 @@ export function StatusChip({ status }: { status: ModelStatus }) {
   );
 }
 
-/* ---- Ticks — wrapping row of symbol pills ------------------ */
-export function Ticks({ symbols }: { symbols: string[] }) {
+/* ---- Ticks — wrapping row of symbol pills ------------------
+   `onRemove` is optional: when supplied (e.g. the New-model symbol
+   editor) each pill grows a remove affordance; existing read-only
+   callers pass nothing and are unaffected. */
+export function Ticks({ symbols, onRemove }: { symbols: string[]; onRemove?: (s: string) => void }) {
   return (
     <div className="flex flex-wrap gap-[5px]">
       {symbols.map((s) => (
         <span
           key={s}
-          className="rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
+          className="inline-flex items-center gap-1 rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
         >
           {s}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(s)}
+              aria-label={`Remove ${s}`}
+              className="-mr-0.5 flex cursor-pointer text-secondary transition-colors hover:text-on-surface"
+            >
+              <X size={11} strokeWidth={2.5} />
+            </button>
+          )}
         </span>
       ))}
     </div>
