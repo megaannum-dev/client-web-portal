@@ -54,6 +54,12 @@ class ModelOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ModelsListOut(BaseModel):
+    """Wrapper for GET /api/pc/models — matches frontend ModelsListDTO."""
+
+    models: list[ModelOut]
+
+
 # ---------------------------------------------------------------------------
 # Material schemas
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ from app.schemas.pc import (
     MaterialOut,
     ModelCreate,
     ModelOut,
+    ModelsListOut,
     ModelUpdate,
     PeriodCreate,
     PeriodOut,
@@ -57,12 +58,12 @@ def _get_alloc_service(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/models", response_model=list[ModelOut])
+@router.get("/models", response_model=ModelsListOut)
 def list_models(
     service: Annotated[ModelService, Depends(_get_model_service)],
     _: Annotated[User, Depends(require_action(Action.MODEL_VIEW))],
-) -> list:
-    return service.list_models()
+) -> dict:
+    return {"models": service.list_models()}
 
 
 @router.get("/models/{model_id}", response_model=ModelOut)
