@@ -4,6 +4,7 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -13,6 +14,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+import { writeIdTokenCookie } from "@/lib/id-token";
 import type { PortalUser } from "@/types/portal";
 
 type AuthContextValue = {
@@ -104,6 +106,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       unsub();
     };
+  }, [firebaseReady]);
+
+  // Mirror the Firebase ID token into a non-httpOnly SameSite=Strict cookie
+  // so the server-only apiClient can attach it as a Bearer token.
+  useEffect(() => {
+    if (!firebaseReady) return;
+    const auth = getFirebaseAuth();
+    const unsub = onIdTokenChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        const token = await fbUser.getIdToken();
+        writeIdTokenCookie(token);
+      } else {
+        writeIdTokenCookie("");
+      }
+    });
+    return () => unsub();
   }, [firebaseReady]);
 
   const signInWithGoogle = useCallback(async () => {
