@@ -4,6 +4,7 @@ import {
   getModels as _getModels,
   getModel as _getModel,
   createModel as _createModel,
+  deleteModel as _deleteModel,
   updateModel as _updateModel,
   publishModel as _publishModel,
   getMaterials as _getMaterials,
@@ -19,6 +20,7 @@ export async function updateModel(id: string, body: Record<string, unknown>) { r
 export async function publishModel(id: string) { return _publishModel(id); }
 export async function getMaterials(id: string) { return _getMaterials(id); }
 export async function uploadMaterial(id: string, formData: FormData) { return _uploadMaterial(id, formData); }
+export async function deleteModel(id: string) { return _deleteModel(id); }
 export async function downloadMaterial(modelId: string, materialId: string) {
   return _downloadMaterial(modelId, materialId);
 }

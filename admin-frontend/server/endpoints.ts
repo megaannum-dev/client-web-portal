@@ -8,6 +8,7 @@ export const ENDPOINTS = {
     DOWNLOAD:            (id: string, mid: string) => `${PC}/models/${id}/materials/${mid}/download`,
     CHANGES:             (id: string) => `${PC}/models/${id}/changes`,
     PUBLISH:             (id: string) => `${PC}/models/${id}/publish`,
+    DELETE:              (id: string) => `${PC}/models/${id}`,
     ALLOCATION:          `${PC}/allocation`,
     PERIODS:             `${PC}/periods`,
     CONFIRM:             (id: string) => `${PC}/periods/${id}/confirm`,

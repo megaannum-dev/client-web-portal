@@ -36,6 +36,7 @@ import {
   updateModel as updateModelAction,
   getMaterials as getMaterialsAction,
   downloadMaterial as downloadMaterialAction,
+  deleteModel as deleteModelAction
 } from "@/app/(roles)/pc/model-management/action";
 
 /* Today as an ISO date (YYYY-MM-DD) — matches the change-history /
@@ -975,6 +976,11 @@ export default function ModelManagementPage() {
   // NOTE: there is no backend DELETE endpoint yet (see chat report);
   // this is a client-only prune until the backend lands.
   const handleDelete = (id: string) => {
+    void (async () => {
+      const result = await deleteModelAction(id);
+      if (result.success) refetch();
+    })();
+
     setModels((ms) => ms.filter((x) => !(x.id === id && x.status === "draft")));
     setOpenId(null);
   };

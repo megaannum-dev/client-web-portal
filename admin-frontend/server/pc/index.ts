@@ -55,6 +55,10 @@ export async function publishModel(id: string): Promise<APIResult<ModelDTO>> {
   return apiClient<ModelDTO>(ENDPOINTS.PC.PUBLISH(id), { method: "POST" });
 }
 
+export async function deleteModel(id: string): Promise<APIResult<ModelDTO>> {
+  return apiClient<ModelDTO>(ENDPOINTS.PC.DELETE(id), { method: "DELETE" });
+}
+
 export async function getMaterials(id: string): Promise<APIResult<MaterialDTO[]>> {
   return apiClient<MaterialDTO[]>(ENDPOINTS.PC.MATERIALS(id));
 }
