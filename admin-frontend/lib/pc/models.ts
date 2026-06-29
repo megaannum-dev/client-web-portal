@@ -13,42 +13,78 @@
    here so screens keep importing from `lib/pc/*`.
    ============================================================ */
 
-import type { ChangeEntry, Model, ModelDTO, ModelsListDTO } from "./types";
+import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO } from "./types";
 
 /* ---- Re-export presentation helpers from format.ts --------- */
 export { fmtMoney, fmtMoneyShort, computeFees } from "./format";
+
+/* Hardcoded fee rates per 006 (`pc-workspace-006-decisions`):
+   fees are NOT stored on the model — they are 2% / 20% across the board
+   until per-client overrides land. */
+const DEFAULT_MGMT_PCT = 2;
+const DEFAULT_INCENTIVE_PCT = 20;
 
 /* ---- DTO→view mappers -------------------------------------- */
 
 function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
   return {
     kind: c.kind,
-    detail: c.detail,
+    detail: c.detail ?? {},
     user: c.actor,
     ver: c.version,
     date: c.date,
   };
 }
 
+/** Normalize backend `symbols` (may be null, list, or {tickers:[...]} dict). */
+function normalizeSymbols(s: unknown): string[] {
+  if (Array.isArray(s)) return s as string[];
+  if (s && typeof s === "object" && Array.isArray((s as { tickers?: unknown }).tickers)) {
+    return (s as { tickers: string[] }).tickers;
+  }
+  return [];
+}
+
 /** Map a single backend model DTO to the view `Model` type. */
-export function mapDtoToModel(dto: ModelDTO): Model {
+export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: string }): Model {
   return {
     id: dto.id,
     name: dto.name,
-    size: dto.model_size,
-    manager: dto.manager,
-    intro: dto.intro,
-    symbols: dto.symbols,
-    mgmt: dto.mgmt_fee,
-    incentive: dto.incentive_fee,
-    status: dto.status,
-    version: dto.version,
-    materials: dto.materials,
-    changes: dto.changes.map(mapChangeEntry),
+    size: Number(dto.model_size ?? 0),
+    manager: dto.manager ?? "",
+    intro: dto.intro ?? "—",
+    symbols: normalizeSymbols(dto.symbols),
+    mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,
+    incentive: dto.incentive_fee ?? DEFAULT_INCENTIVE_PCT,
+    status: (dto.status ?? "draft") as Model["status"],
+    version: dto.version ?? "—",
+    materials: dto.materials ?? [],
+    changes: (dto.changes ?? []).map(mapChangeEntry),
   };
 }
 
-/** Map the models-list DTO to `Model[]`. */
-export function mapDtoToModels(dto: ModelsListDTO): Model[] {
-  return dto.models.map(mapDtoToModel);
+/** Map the models-list DTO to `Model[]`. Tolerant to either `{models:[...]}` or a bare array. */
+export function mapDtoToModels(dto: ModelsListDTO | ModelDTO[] | null | undefined): Model[] {
+  if (!dto) return [];
+  const list = Array.isArray(dto) ? dto : Array.isArray(dto.models) ? dto.models : [];
+  return list.map(mapDtoToModel);
+}
+
+/** Human file size: 2_600_000 → "2.6 MB". */
+function fmtFileSize(bytes: number | null | undefined): string {
+  if (!bytes && bytes !== 0) return "—";
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`;
+  return `${bytes} B`;
+}
+
+/** Map a backend MaterialDTO to the view `Material` (`v1`, `YYYY-MM-DD`, `2.6 MB`). */
+export function mapDtoToMaterial(m: MaterialDTO): Material {
+  return {
+    id: m.id,
+    file: m.filename,
+    ver: m.version,
+    date: (m.created_at ?? "").slice(0, 10),
+    size: fmtFileSize(m.size_bytes),
+  };
 }

@@ -17,10 +17,24 @@
 
 /** A marketing / reference document attached to a model, versioned. */
 export interface Material {
+  /** Backend material UUID — present once loaded from the server; needed for download. */
+  id?: string;
   file: string;
   ver: string;
   date: string;
   size: string;
+}
+
+/** Raw material DTO from the backend (GET /api/pc/models/{id}/materials). */
+export interface MaterialDTO {
+  id: string;
+  model_id: string;
+  filename: string;
+  version: string;
+  size_bytes: number | null;
+  content_type: string | null;
+  uploaded_by: string | null;
+  created_at: string;
 }
 
 /** One audit-trail entry in a model's change history (view shape). */
