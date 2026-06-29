@@ -15,7 +15,7 @@
    Ported faithfully from the design prototype (ModelManagement.jsx).
    ============================================================ */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutGrid, List, Calculator, Plus, Pencil, Copy, Upload, Download,
   FileText, File, Eye, Check, History, Clock, ChevronDown, X, Rocket, Trash2,
@@ -25,9 +25,14 @@ import { Chip } from "@/components/ui/Chip";
 import {
   Eyebrow, StatusChip, Ticks, VerBadge, Modal, Fact, FeeCalc,
 } from "@/components/pc/Shared";
-import { loadModels, fmtMoney } from "@/lib/pc/models";
+import { fmtMoney, mapDtoToModel } from "@/lib/pc/models";
 import { renderChange } from "@/lib/pc/change-log";
 import type { ChangeEntry, Material, Model, ModelChangeKind, ModelStatus } from "@/lib/pc/types";
+import { useModels } from "@/hooks/api/useModels";
+import {
+  createModel as createModelAction,
+  publishModel as publishModelAction,
+} from "@/app/(roles)/pc/model-management/action";
 
 /* Today as an ISO date (YYYY-MM-DD) — matches the change-history /
    material date format used throughout the model book. */
@@ -653,10 +658,10 @@ function EditModelForm({ model, onClose }: { model: Model; onClose: () => void }
   );
 }
 
-function CalcModal({ onClose }: { onClose: () => void }) {
+function CalcModal({ models, onClose }: { models: Model[]; onClose: () => void }) {
   return (
     <Modal title="Fee reference" subtitle="Estimate the management and incentive fees for a model." onClose={onClose} width={520} centered>
-      <FeeCalc />
+      <FeeCalc models={models} />
     </Modal>
   );
 }
@@ -665,10 +670,9 @@ function CalcModal({ onClose }: { onClose: () => void }) {
    PAGE
    ============================================================ */
 export default function ModelManagementPage() {
-  // The model book is held in state so create/publish mutate it locally.
-  // `loadModels()` is still the seam (mock today, API later); when the API
-  // lands these handlers POST and refetch instead of mutating in place.
-  const [models, setModels] = useState<Model[]>(() => loadModels());
+  const { data: remoteModels, refetch } = useModels();
+  const [models, setModels] = useState<Model[]>([]);
+  useEffect(() => { if (remoteModels) setModels(remoteModels); }, [remoteModels]);
 
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -679,16 +683,28 @@ export default function ModelManagementPage() {
 
   const open = (id: string, t: Tab) => { setOpenId(id); setTab(t || "overview"); };
 
-  // Create a model (live or draft) — prepend so it surfaces at the top.
+  // Optimistically prepend, then swap in the server-assigned model once API responds.
   const handleCreate = (model: Model) => {
     setModels((ms) => [model, ...ms]);
     setCreating(false);
     open(model.id, "overview");
+    void (async () => {
+      try {
+        const result = await createModelAction({
+          name: model.name, model_size: model.size, manager: model.manager,
+          symbols: model.symbols, mgmt_fee: model.mgmt, incentive_fee: model.incentive,
+          status: model.status,
+        });
+        if (result.success) {
+          const serverModel = mapDtoToModel(result.data);
+          setModels((ms) => ms.map((m) => (m.id === model.id ? serverModel : m)));
+          setOpenId((id) => (id === model.id ? serverModel.id : id));
+        }
+      } catch { /* keep optimistic model */ }
+    })();
   };
 
-  // Publish a draft → live: flip status, adopt the latest material version
-  // (or keep "—" if none), and append a change-log entry. Panel stays open
-  // so the status flip is visible.
+  // Optimistic publish flip; confirmed via API then refetched.
   const handlePublish = (id: string) => {
     setModels((ms) =>
       ms.map((m) => {
@@ -704,6 +720,9 @@ export default function ModelManagementPage() {
         return { ...m, status: "live", version, changes: [entry, ...m.changes] };
       }),
     );
+    void (async () => {
+      try { await publishModelAction(id); refetch(); } catch { /* keep optimistic state */ }
+    })();
   };
 
   // Delete a draft model — drafts only; closes the panel.
@@ -781,7 +800,7 @@ export default function ModelManagementPage() {
       )}
       {creating && <CreateModelForm onClose={() => setCreating(false)} onCreate={handleCreate} />}
       {editModel && <EditModelForm model={editModel} onClose={() => setEditId(null)} />}
-      {calc && <CalcModal onClose={() => setCalc(false)} />}
+      {calc && <CalcModal models={models} onClose={() => setCalc(false)} />}
     </div>
   );
 }

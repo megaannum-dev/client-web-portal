@@ -11,12 +11,6 @@
    that screens already consume. No math is recomputed here.
    ============================================================ */
 
-import {
-  ALLOC,
-  ALLOC_CLIENTS,
-  ALLOC_MODELS,
-  PERIODS,
-} from "@/lib/mock/pc-data";
 import type {
   AllocationCell,
   AllocationClient,
@@ -43,61 +37,6 @@ export interface AllocationView {
   totalFund(): number;
   /** # of (client, live-model) pairs with a cell. */
   count(): number;
-}
-
-/* ---- Mock loader (deleted with the mock in FE-6) ----------- */
-
-/**
- * THE allocation entry point against the mock. Replaced by useAllocation() in FE-6.
- */
-export function loadAllocation(): AllocationView {
-  const models: AllocationModel[] = ALLOC_MODELS;
-  const clients: AllocationClient[] = ALLOC_CLIENTS;
-  const alloc: AllocationMap = ALLOC;
-  const periods: Period[] = PERIODS;
-
-  const liveModels = models.filter((m) => m.live);
-  const openPeriod = periods.find((p) => p.status === "open")?.label ?? "";
-
-  const modelById = (id: string): AllocationModel | undefined =>
-    models.find((m) => m.id === id);
-  const clientById = (id: string): AllocationClient | undefined =>
-    clients.find((c) => c.id === id);
-  const cell = (cid: string, mid: string): AllocationCell | undefined =>
-    alloc[`${cid}-${mid}`];
-
-  const cellFund = (cid: string, mid: string): number => {
-    const c = cell(cid, mid);
-    const m = modelById(mid);
-    return c && m ? c.units * m.size : 0;
-  };
-  const colUnits = (mid: string): number =>
-    clients.reduce((n, c) => n + (cell(c.id, mid)?.units ?? 0), 0);
-  const colFund = (mid: string): number =>
-    clients.reduce((n, c) => n + cellFund(c.id, mid), 0);
-  const totalFund = (): number =>
-    liveModels.reduce((n, m) => n + colFund(m.id), 0);
-  const count = (): number =>
-    clients.reduce(
-      (n, c) => n + liveModels.filter((m) => cell(c.id, m.id)).length,
-      0,
-    );
-
-  return {
-    models,
-    clients,
-    liveModels,
-    periods,
-    openPeriod,
-    modelById,
-    clientById,
-    cell,
-    cellFund,
-    colUnits,
-    colFund,
-    totalFund,
-    count,
-  };
 }
 
 /* ---- DTO→view mapper --------------------------------------- */

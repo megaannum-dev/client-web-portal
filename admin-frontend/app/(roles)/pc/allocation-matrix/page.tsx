@@ -21,7 +21,7 @@
    methods; no fund/units math is recomputed inline.
    ============================================================ */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   CalendarDays, ChevronDown, Check, Lock, Eye, Grid3x3, RefreshCw,
   Briefcase, TriangleAlert, History, X,
@@ -30,8 +30,10 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Eyebrow, Modal, Fact } from "@/components/pc/Shared";
-import { loadAllocation, type AllocationView } from "@/lib/pc/allocation";
+import { type AllocationView } from "@/lib/pc/allocation";
 import { fmtMoney, fmtMoneyShort } from "@/lib/pc/models";
+import { useAllocation } from "@/hooks/api/useAllocation";
+import { confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/action";
 
 type Toggle = "units" | "pct";
 interface Coord { cid: string; mid: string }
@@ -452,21 +454,51 @@ function EmptyPeriod({ onRetry }: { onRetry: () => void }) {
    PAGE
    ============================================================ */
 export default function AllocationMatrixPage() {
-  const data = useMemo(() => loadAllocation(), []);
-  const PERIOD = data.openPeriod;
+  const [periodLabel, setPeriodLabel] = useState<string | undefined>(undefined);
+  const { data, loading, refetch } = useAllocation(periodLabel);
+
+  const PERIOD = data?.openPeriod ?? "";
+  const period = periodLabel ?? PERIOD;
 
   const [view, setView] = useState<Toggle>("units");
-  const [period, setPeriod] = useState(PERIOD);
-  const [open, setOpen] = useState<Coord | null>(null);       // floating detail
+  const [open, setOpen] = useState<Coord | null>(null);
   const [confirmModal, setConfirmModal] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const [empty] = useState(false);
 
-  const historical = period !== PERIOD;                       // previewing a past period
+  const historical = !!PERIOD && period !== PERIOD;
   const onOpen = (cid: string, mid: string) => setOpen({ cid, mid });
 
+  const handleConfirm = () => {
+    const openPeriodId = data?.periods.find((p) => p.status === "open")?.id;
+    if (!openPeriodId) return;
+    void (async () => {
+      try {
+        const result = await confirmPeriodAction(openPeriodId);
+        if (result.success) { setConfirmModal(false); setConfirmed(true); }
+      } catch { setConfirmModal(false); }
+    })();
+  };
+
+  if (loading && !data) {
+    return (
+      <div className="px-16 py-8">
+        <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Allocation Matrix</h1>
+        <div className="mt-8 text-center text-[15px] text-secondary">Loading allocation…</div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="px-16 py-8">
+        <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Allocation Matrix</h1>
+        <div className="mt-8"><EmptyPeriod onRetry={refetch} /></div>
+      </div>
+    );
+  }
+
   return (
-    // Full-bleed work surface: negative margins cancel <main>'s p-8 px-16 so
+    // Full-bleed work surface: negative margins cancel <main>’s p-8 px-16 so
     // the relative root (and every absolute inset-0 backdrop + the floating
     // detail panel) covers the entire content area, padding included. The
     // inner wrapper re-applies that padding so content stays put. min-h fills
@@ -477,64 +509,56 @@ export default function AllocationMatrixPage() {
           <div>
             <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Allocation Matrix</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <PeriodPicker view={data} period={period} onPick={setPeriod} />
+              <PeriodPicker view={data} period={period} onPick={setPeriodLabel} />
               <p className="text-[15px] text-secondary">
                 {historical ? "Historical · read-only" : "Pre-trade allocation · review & confirm"} · {data.clients.length} clients · {data.liveModels.length} live models
               </p>
             </div>
           </div>
-          {!empty && (
-            <div className="flex items-center gap-3">
-              <ViewToggle view={view} onView={setView} />
-              {historical ? (
-                <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>
-              ) : confirmed ? (
-                <Button variant="secondary" icon={Check} disabled>Confirmed · read-only</Button>
-              ) : (
-                <Button icon={Check} onClick={() => setConfirmModal(true)}>Confirm allocation</Button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <ViewToggle view={view} onView={setView} />
+            {historical ? (
+              <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>
+            ) : confirmed ? (
+              <Button variant="secondary" icon={Check} disabled>Confirmed · read-only</Button>
+            ) : (
+              <Button icon={Check} onClick={() => setConfirmModal(true)}>Confirm allocation</Button>
+            )}
+          </div>
         </div>
 
-        {empty ? (
-          <EmptyPeriod onRetry={() => {}} />
-        ) : (
-          <>
-            <StatStrip view={data} period={period} />
-            {historical && (
-              <div className="mb-[18px] flex items-start gap-3 rounded-md border border-outline-variant bg-surface-low px-4 py-[13px]">
-                <span className="mt-px flex flex-none text-secondary">
-                  <History size={18} strokeWidth={2} />
-                </span>
-                <div className="flex-1">
-                  <div className="text-[13.5px] font-bold text-on-surface">Previewing {period} · historical</div>
-                  <div className="mt-0.5 text-[12.5px] text-secondary">
-                    This is a locked past period, shown read-only. Switch back to {PERIOD} to edit the open allocation.
-                  </div>
-                </div>
+        <StatStrip view={data} period={period} />
+        {historical && (
+          <div className="mb-[18px] flex items-start gap-3 rounded-md border border-outline-variant bg-surface-low px-4 py-[13px]">
+            <span className="mt-px flex flex-none text-secondary">
+              <History size={18} strokeWidth={2} />
+            </span>
+            <div className="flex-1">
+              <div className="text-[13.5px] font-bold text-on-surface">Previewing {period} · historical</div>
+              <div className="mt-0.5 text-[12.5px] text-secondary">
+                This is a locked past period, shown read-only. Switch back to {PERIOD} to edit the open allocation.
               </div>
-            )}
-            {confirmed && !historical && (
-              <div
-                className="mb-[18px] flex items-start gap-3 rounded-md border px-4 py-[13px]"
-                style={{ background: "#fff6e6", borderColor: "#ffe2b0" }}
-              >
-                <span className="mt-px flex flex-none" style={{ color: "#9a5b00" }}>
-                  <Check size={18} strokeWidth={2} />
-                </span>
-                <div className="flex-1">
-                  <div className="text-[13.5px] font-bold text-on-surface">{PERIOD} allocation is confirmed</div>
-                  <div className="mt-0.5 text-[12.5px]" style={{ color: "#9a5b00" }}>
-                    The matrix is frozen so trading can open. This can’t be undone — the allocation is fixed until the next period opens.
-                  </div>
-                </div>
-              </div>
-            )}
-            <HowToRead view={view} />
-            <Matrix data={data} view={view} onOpen={onOpen} />
-          </>
+            </div>
+          </div>
         )}
+        {confirmed && !historical && (
+          <div
+            className="mb-[18px] flex items-start gap-3 rounded-md border px-4 py-[13px]"
+            style={{ background: "#fff6e6", borderColor: "#ffe2b0" }}
+          >
+            <span className="mt-px flex flex-none" style={{ color: "#9a5b00" }}>
+              <Check size={18} strokeWidth={2} />
+            </span>
+            <div className="flex-1">
+              <div className="text-[13.5px] font-bold text-on-surface">{PERIOD} allocation is confirmed</div>
+              <div className="mt-0.5 text-[12.5px]" style={{ color: "#9a5b00" }}>
+                The matrix is frozen so trading can open. This can’t be undone — the allocation is fixed until the next period opens.
+              </div>
+            </div>
+          </div>
+        )}
+        <HowToRead view={view} />
+        <Matrix data={data} view={view} onOpen={onOpen} />
       </div>
 
       {open && (
@@ -551,7 +575,7 @@ export default function AllocationMatrixPage() {
           data={data}
           period={PERIOD}
           onClose={() => setConfirmModal(false)}
-          onConfirm={() => { setConfirmModal(false); setConfirmed(true); }}
+          onConfirm={handleConfirm}
         />
       )}
     </div>

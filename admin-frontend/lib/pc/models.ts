@@ -13,23 +13,10 @@
    here so screens keep importing from `lib/pc/*`.
    ============================================================ */
 
-import { PC_MODELS } from "@/lib/mock/pc-data";
 import type { ChangeEntry, Model, ModelDTO, ModelsListDTO } from "./types";
 
 /* ---- Re-export presentation helpers from format.ts --------- */
 export { fmtMoney, fmtMoneyShort, computeFees } from "./format";
-
-/* ---- Mock loader (deleted with the mock in FE-6) ----------- */
-
-/** THE model-book entry point against the mock. Replaced by useModels() in FE-6. */
-export function loadModels(): Model[] {
-  return PC_MODELS;
-}
-
-/** Convenience lookup of a single model by id. */
-export function modelById(id: string): Model | undefined {
-  return loadModels().find((m) => m.id === id);
-}
 
 /* ---- DTO→view mappers -------------------------------------- */
 

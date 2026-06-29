@@ -10,8 +10,8 @@
 import { useState, type ReactNode } from "react";
 import { Upload, FileText, X } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { loadModels, fmtMoney, computeFees } from "@/lib/pc/models";
-import type { ModelStatus } from "@/lib/pc/types";
+import { fmtMoney, computeFees } from "@/lib/pc/models";
+import type { Model, ModelStatus } from "@/lib/pc/types";
 
 /* ---- Eyebrow — uppercase section label (MmEyebrow / amLabel) */
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
@@ -163,8 +163,7 @@ export function Fact({
 /* ============================================================
    FEE CALCULATOR (used inside the Model Management calc modal)
    ============================================================ */
-export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
-  const models = loadModels();
+export function FeeCalc({ initialModelId, models }: { initialModelId?: string; models: Model[] }) {
   const live = models.filter((x) => x.status === "live");
   const [modelId, setModelId] = useState(initialModelId ?? (live[0]?.id ?? models[0]?.id ?? ""));
   const [perf, setPerf] = useState(5);
