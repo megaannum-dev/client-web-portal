@@ -124,77 +124,75 @@ class PeriodOut(BaseModel):
 class AllocationCellOut(BaseModel):
     """One (client, model) cell in the derived matrix."""
 
-    # `units` is the public name; internally called `multiplier`.
     units: float
-    model_size: float
-    cell_fund: float
-    pct_share: float  # % share within the model column
+    fund: float  # precomputed units × model_size (BE-5)
 
 
 class AllocationClientOut(BaseModel):
-    """One client row in the derived matrix."""
+    """One client row in the derived matrix — frontend AllocationClientDTO shape."""
 
-    user_id: str
+    id: str
+    name: str
+    code: str
     ib_account: str | None
-    row_total: float
-    # model_id → cell
-    cells: dict[str, AllocationCellOut]
 
 
 class AllocationModelOut(BaseModel):
-    """One model column header with column-level aggregates."""
+    """One model column with column-level aggregates."""
 
     id: str
     name: str
     model_size: float | None
+    live: bool
     col_units: float
     col_fund: float
 
 
-class AllocationTotalsOut(BaseModel):
-    total_fund: float
-    count: int  # number of non-empty cells
+class PeriodLiteOut(BaseModel):
+    """Period entry as the allocation payload carries it (id as str)."""
+
+    id: str
+    label: str
+    status: PeriodStatus
 
 
 class AllocationViewOut(BaseModel):
-    """Full allocation matrix response."""
+    """Full allocation matrix response — matches frontend AllocationDTO."""
 
     models: list[AllocationModelOut]
     clients: list[AllocationClientOut]
-    totals: AllocationTotalsOut
+    cells: dict[str, AllocationCellOut]  # keyed "${clientId}-${modelId}"
+    total_fund: float
+    count: int
+    periods: list[PeriodLiteOut]
+    open_period_id: str | None = None
     is_open: bool
     etag: str
     period_id: str | None = None  # set for confirmed views
 
     @classmethod
-    def from_dict(cls, d: dict, etag: str) -> "AllocationViewOut":
+    def from_dict(
+        cls,
+        d: dict,
+        *,
+        etag: str,
+        periods: list[PeriodLiteOut],
+        open_period_id: str | None,
+    ) -> "AllocationViewOut":
         models_out = [AllocationModelOut(**m) for m in d["models"]]
-        clients_out = []
-        for c in d["clients"]:
-            cells = {
-                mid: AllocationCellOut(
-                    units=cell["multiplier"],
-                    model_size=cell["model_size"],
-                    cell_fund=cell["cell_fund"],
-                    pct_share=cell["pct_share"],
-                )
-                for mid, cell in c["cells"].items()
-            }
-            clients_out.append(
-                AllocationClientOut(
-                    user_id=c["user_id"],
-                    ib_account=c["ib_account"],
-                    row_total=c["row_total"],
-                    cells=cells,
-                )
-            )
+        clients_out = [AllocationClientOut(**c) for c in d["clients"]]
+        cells_out = {
+            key: AllocationCellOut(units=cell["units"], fund=cell["fund"])
+            for key, cell in d["cells"].items()
+        }
         return cls(
             models=models_out,
             clients=clients_out,
-            totals=AllocationTotalsOut(
-                total_fund=d["total_fund"],
-                count=d["count"],
-            ),
+            cells=cells_out,
+            total_fund=d["total_fund"],
+            count=d["count"],
+            periods=periods,
+            open_period_id=open_period_id,
             is_open=d["is_open"],
             etag=etag,
             period_id=d.get("period_id"),

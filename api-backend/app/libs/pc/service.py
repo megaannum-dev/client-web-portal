@@ -338,8 +338,9 @@ class AllocationService:
         cells = self.sub_repo.list_active_subscriptions()
         live_models = self.model_repo.list_models()
         live_models = [m for m in live_models if m.status == ModelStatus.LIVE]
+        roster = self.sub_repo.roster()
 
-        return _build_matrix(cells, live_models, is_open=True)
+        return _build_matrix(cells, live_models, roster=roster, is_open=True)
 
     def derive_confirmed_matrix(self, period_id: uuid.UUID) -> dict:
         """Rebuild AllocationViewOut from frozen snapshots."""
@@ -384,7 +385,10 @@ class AllocationService:
                 self.status = d["status"]
 
         stub_models = [_ModelStub(v) for v in model_ids_seen.values()]
-        result = _build_matrix(snapshot_cells, stub_models, is_open=False)
+        roster = self.sub_repo.roster()
+        result = _build_matrix(
+            snapshot_cells, stub_models, roster=roster, is_open=False
+        )
         result["period_id"] = str(period_id)
         return result
 
@@ -398,8 +402,20 @@ class AllocationService:
         return subs, models, clients
 
 
-def _build_matrix(cells: list, models: list, *, is_open: bool) -> dict:
-    """Shared derivation logic for open and confirmed matrices."""
+def _build_matrix(
+    cells: list,
+    models: list,
+    *,
+    roster: list,
+    is_open: bool,
+) -> dict:
+    """Shared derivation logic for open and confirmed matrices.
+
+    Emits the AllocationDTO-shaped payload the frontend consumes:
+      - `clients` is the full client-portal roster (not just clients with subs)
+      - `cells` is a flat `"{clientId}-{modelId}"` map of {units, fund}
+      - column-level aggregates ride on each `models[]` entry
+    """
     from decimal import Decimal
 
     ZERO = Decimal("0")
@@ -409,100 +425,73 @@ def _build_matrix(cells: list, models: list, *, is_open: bool) -> dict:
     for m in models:
         model_map[str(m.id)] = m
 
-    # Per-client roster (user_id → IB account + name from cells).
-    client_info: dict[str, dict] = {}
-    for cell in cells:
-        uid = str(cell.user_id)
-        if uid not in client_info:
-            client_info[uid] = {
-                "user_id": cell.user_id,
-                "ib_account": cell.ib_account,
-            }
-
-    # Build cell grid: client_id → model_id → {multiplier, model_size, cell_fund}.
-    # col aggregates: model_id → {col_units, col_fund}
+    # Per-cell aggregates.
     col_units: dict[str, Decimal] = {mid: ZERO for mid in model_map}
     col_fund: dict[str, Decimal] = {mid: ZERO for mid in model_map}
-    # row totals per client
-    row_total: dict[str, Decimal] = {}
-    # cells grid for output
-    cell_grid: dict[str, dict[str, dict]] = {}
+    flat_cells: dict[str, dict] = {}
+
+    # Track ib_account per client from cells as a fallback (some confirmed
+    # snapshots store a frozen account that may differ from the live roster).
+    cell_ib_account: dict[str, str | None] = {}
 
     for cell in cells:
         uid = str(cell.user_id)
         mid = str(cell.model_id)
+        cell_ib_account.setdefault(uid, cell.ib_account)
         if mid not in model_map:
-            continue  # skip if model not live / not in set
+            continue
         m = model_map[mid]
         ms = cell.model_size if cell.model_size is not None else (
             Decimal(str(m.model_size)) if m.model_size is not None else ZERO
         )
         multiplier = cell.multiplier
-        cell_fund = multiplier * ms
+        fund = multiplier * ms
 
         col_units[mid] = col_units.get(mid, ZERO) + multiplier
-        col_fund[mid] = col_fund.get(mid, ZERO) + cell_fund
-        row_total[uid] = row_total.get(uid, ZERO) + cell_fund
+        col_fund[mid] = col_fund.get(mid, ZERO) + fund
 
-        if uid not in cell_grid:
-            cell_grid[uid] = {}
-        cell_grid[uid][mid] = {
-            "multiplier": float(multiplier),
-            "model_size": float(ms),
-            "cell_fund": float(cell_fund),
+        flat_cells[f"{uid}-{mid}"] = {
+            "units": float(multiplier),
+            "fund": float(fund),
         }
 
-    # % share per cell within its column.
-    for uid, cols in cell_grid.items():
-        for mid, cell_data in cols.items():
-            cf = col_fund.get(mid, ZERO)
-            pct = (
-                float(Decimal(str(cell_data["cell_fund"])) / cf * 100)
-                if cf
-                else 0.0
-            )
-            cell_data["pct_share"] = round(pct, 4)
-
     total_fund = sum(col_fund.values(), ZERO)
-    count = sum(len(c) for c in cell_grid.values())
+    count = len(flat_cells)
 
-    # Build output structure.
+    # Models column output.
     models_out = []
     for mid, m in model_map.items():
-        ms_val = (
-            float(m.model_size)
-            if m.model_size is not None
-            else None
-        )
+        ms_val = float(m.model_size) if m.model_size is not None else None
         models_out.append(
             {
                 "id": str(m.id),
                 "name": m.name,
                 "model_size": ms_val,
+                "live": True,  # only LIVE models reach this list (open path) /
+                              # snapshot stubs are flagged LIVE (confirmed path)
                 "col_units": float(col_units.get(mid, ZERO)),
                 "col_fund": float(col_fund.get(mid, ZERO)),
             }
         )
 
+    # Clients: full roster — every client-portal user gets a row, with or
+    # without subscriptions, so the matrix is visible after dummy data lands.
     clients_out = []
-    for uid, info in client_info.items():
-        # Include a client if they appear in any cell.
-        client_cells = cell_grid.get(uid, {})
+    for r in roster:
+        uid = str(r.user_id)
         clients_out.append(
             {
-                "user_id": str(info["user_id"]),
-                "ib_account": info["ib_account"],
-                "row_total": float(row_total.get(uid, ZERO)),
-                "cells": {
-                    mid: cell_data
-                    for mid, cell_data in client_cells.items()
-                },
+                "id": uid,
+                "name": r.name or r.email or uid,
+                "code": r.ib_account or r.firebase_uid,
+                "ib_account": r.ib_account,
             }
         )
 
     return {
         "models": models_out,
         "clients": clients_out,
+        "cells": flat_cells,
         "total_fund": float(total_fund),
         "count": count,
         "is_open": is_open,

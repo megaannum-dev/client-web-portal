@@ -16,7 +16,7 @@ from app.core.database import get_db
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
 from app.libs.pc import cache as _cache
-from app.libs.pc.repository import AllocationRepository, SubscriptionRepository
+from app.libs.pc.repository import AllocationRepository
 from app.libs.pc.service import AllocationService, ModelService
 from app.libs.pc.storage import FileStorage, get_storage
 from app.models.users import User
@@ -29,6 +29,7 @@ from app.schemas.pc import (
     ModelsListOut,
     ModelUpdate,
     PeriodCreate,
+    PeriodLiteOut,
     PeriodOut,
 )
 
@@ -232,24 +233,30 @@ def get_allocation(
     - Client may send ``If-None-Match: <etag>`` on subsequent requests.
     - When the matrix has not changed → 304 Not Modified (no body).
     """
+    # Periods + open-period id are attached to every response so the frontend
+    # always has the period picker populated. They are cheap to read and
+    # change rarely; we don't fold them into the matrix cache.
+    alloc_repo = AllocationRepository(db)
+    all_periods = alloc_repo.list_periods()
+    periods_out = [
+        PeriodLiteOut(id=str(p.id), label=p.label, status=p.status) for p in all_periods
+    ]
+    open_period = next((p for p in all_periods if p.status.value == "open"), None)
+    open_period_id = str(open_period.id) if open_period is not None else None
+
     if period is not None:
         # Lookup by label.
-        alloc_repo = AllocationRepository(db)
-        sub_repo = SubscriptionRepository(db)
+        from app.models.pc import AllocationPeriod, PeriodStatus as PS
+
         matched = (
-            db.query(__import__("app.models.pc", fromlist=["AllocationPeriod"]).AllocationPeriod)
-            .filter(
-                __import__("app.models.pc", fromlist=["AllocationPeriod"]).AllocationPeriod.label
-                == period
-            )
+            db.query(AllocationPeriod)
+            .filter(AllocationPeriod.label == period)
             .one_or_none()
         )
         if matched is None:
             from fastapi import HTTPException
 
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Period '{period}' not found")
-
-        from app.models.pc import PeriodStatus as PS
 
         if matched.status == PS.CONFIRMED:
             # Confirmed: cache by period_id with long TTL.
@@ -259,13 +266,16 @@ def get_allocation(
                 raw = service.derive_confirmed_matrix(matched.id)
                 _cache.put_confirmed(pid_str, raw)
                 cached = raw
-            view = AllocationViewOut.from_dict(cached, etag=pid_str)
+            view = AllocationViewOut.from_dict(
+                cached,
+                etag=pid_str,
+                periods=periods_out,
+                open_period_id=open_period_id,
+            )
             response.headers["ETag"] = pid_str
             response.headers["Cache-Control"] = "immutable"
             return view
-        else:
-            # Open period by label — fall through to live derivation below.
-            pass
+        # Open period by label — fall through to live derivation below.
 
     # --- Open matrix with ETag ---
     subs_wm, models_wm, clients_wm = service.compute_etag_components()
@@ -281,6 +291,11 @@ def get_allocation(
         cached = service.derive_open_matrix()
         _cache.put_open(etag, cached)
 
-    view = AllocationViewOut.from_dict(cached, etag=etag)
+    view = AllocationViewOut.from_dict(
+        cached,
+        etag=etag,
+        periods=periods_out,
+        open_period_id=open_period_id,
+    )
     response.headers["ETag"] = f'"{etag}"'
     return view
