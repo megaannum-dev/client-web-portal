@@ -29,6 +29,7 @@ from app.core.database import Base
 class ModelStatus(str, enum.Enum):
     LIVE = "live"
     DRAFT = "draft"
+    DELETED = "deleted"
 
 
 class PeriodStatus(str, enum.Enum):
@@ -41,6 +42,7 @@ class ModelChangeKind(str, enum.Enum):
     EDITED = "edited"
     PUBLISHED = "published"
     MATERIAL_UPLOADED = "material_uploaded"
+    DELETED = "deleted"
 
 
 # ---------------------------------------------------------------------------

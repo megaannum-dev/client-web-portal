@@ -243,6 +243,26 @@ class ModelService:
         self.db.refresh(model)
         return model
 
+    def delete_model(
+        self, model_id: uuid.UUID, *, actor: str | None = None
+    ) -> Model:
+        model = self.get_model(model_id)
+
+        if model.status == ModelStatus.LIVE:
+            return model
+        
+        self.repo.set_status(model_id, ModelStatus.DELETED)
+        self.repo.add_change(
+            model_id,
+            kind=ModelChangeKind.DELETED,
+            detail=None,
+            actor=actor,
+            version=model.version,
+        )
+        self.db.commit()
+        self.db.refresh(model)
+        return model
+
 
 # ---------------------------------------------------------------------------
 # AllocationService  (BE-5)

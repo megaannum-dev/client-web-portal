@@ -110,6 +110,14 @@ def publish_model(
 ) -> object:
     return service.publish_model(model_id, actor=actor.firebase_uid)
 
+@router.delete("/models/{model_id}", response_model=ModelOut)
+def delete_model(
+    model_id: uuid.UUID,
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+) -> object:
+    return service.delete_model(model_id, actor=actor.firebase_uid)
+
 
 @router.get("/models/{model_id}/materials", response_model=list[MaterialOut])
 def list_materials(

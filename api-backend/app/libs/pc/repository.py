@@ -34,7 +34,7 @@ class ModelRepository:
         self.db = db
 
     def list_models(self) -> list[Model]:
-        return self.db.query(Model).order_by(Model.created_at).all()
+        return self.db.query(Model).filter(Model.status != ModelStatus.DELETED).order_by(Model.created_at)
 
     def get_model(self, model_id: uuid.UUID) -> Model | None:
         return self.db.query(Model).filter(Model.id == model_id).one_or_none()
