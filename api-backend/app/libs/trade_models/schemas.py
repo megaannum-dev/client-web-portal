@@ -49,6 +49,7 @@ class ModelUpdate(BaseModel):
     nav_perf: str | None = None
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
+    status: str | None = None   # "live" | "deleted" — triggers state machine
 
 
 class ModelOut(BaseModel):

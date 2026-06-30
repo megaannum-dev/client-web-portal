@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,6 +21,7 @@ from app.libs.trade_models.schemas import (
     ChangeOut,
     MaterialOut,
     ModelCreate,
+    ModelDetailOut,
     ModelOut,
     ModelsListOut,
     ModelUpdate,
@@ -55,13 +56,21 @@ def list_models(
     return {"models": service.list_models()}
 
 
-@router.get("/models/{model_id}", response_model=ModelOut)
+@router.get("/models/{model_id}")
 def get_model(
     model_id: uuid.UUID,
     service: Annotated[ModelService, Depends(_get_model_service)],
     _: Annotated[User, Depends(require_action(Action.MODEL_VIEW))],
+    include: str | None = None,
 ) -> object:
-    return service.get_model(model_id)
+    model = service.get_model(model_id)
+    includes = {s.strip() for s in include.split(",")} if include else set()
+    result = ModelDetailOut.model_validate(model)
+    if "materials" in includes:
+        result.materials = service.list_materials(model_id)
+    if "changes" in includes:
+        result.changes = service.list_changes(model_id)
+    return result
 
 
 @router.post("/models", response_model=ModelOut, status_code=status.HTTP_201_CREATED)
@@ -88,24 +97,23 @@ def edit_model(
     actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
 ) -> object:
     updates = body.model_dump(exclude_unset=True)
-    return service.edit_model(model_id, actor=actor.firebase_uid, **updates)
-
-
-@router.post("/models/{model_id}/publish", response_model=ModelOut)
-def publish_model(
-    model_id: uuid.UUID,
-    service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
-) -> object:
-    return service.publish_model(model_id, actor=actor.firebase_uid)
-
-@router.delete("/models/{model_id}", response_model=ModelOut)
-def delete_model(
-    model_id: uuid.UUID,
-    service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
-) -> object:
-    return service.delete_model(model_id, actor=actor.firebase_uid)
+    result = None
+    if "status" in updates:
+        new_status = updates.pop("status")
+        if new_status == "live":
+            result = service.publish_model(model_id, actor=actor.firebase_uid)
+        elif new_status == "deleted":
+            result = service.delete_model(model_id, actor=actor.firebase_uid)
+        else:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"Invalid status transition: {new_status!r}",
+            )
+    if updates:
+        result = service.edit_model(model_id, actor=actor.firebase_uid, **updates)
+    if result is None:
+        result = service.get_model(model_id)
+    return result
 
 
 @router.get("/models/{model_id}/materials", response_model=list[MaterialOut])

@@ -22,6 +22,7 @@ from app.libs.allocation_matrix.schemas import (
     PeriodCreate,
     PeriodLiteOut,
     PeriodOut,
+    PeriodStatusUpdate,
 )
 from app.models.pc import PeriodStatus
 from app.models.users import User
@@ -45,14 +46,6 @@ def _get_alloc_service(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/allocation/periods", response_model=list[PeriodOut])
-def list_periods(
-    service: Annotated[AllocationService, Depends(_get_alloc_service)],
-    _: Annotated[User, Depends(require_action(Action.ALLOCATION_VIEW))],
-) -> list:
-    return service.list_periods()
-
-
 @router.post(
     "/allocation/periods",
     response_model=PeriodOut,
@@ -66,13 +59,19 @@ def create_period(
     return service.create_period(body.label)
 
 
-@router.post("/allocation/periods/{period_id}/confirm", response_model=PeriodOut)
-def confirm_period(
+@router.patch("/allocation/periods/{period_id}", response_model=PeriodOut)
+def update_period(
     period_id: uuid.UUID,
+    body: PeriodStatusUpdate,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
     actor: Annotated[User, Depends(require_action(Action.ALLOCATION_MANAGE))],
 ) -> object:
-    return service.confirm_period(period_id, actor=actor.firebase_uid)
+    if body.status == PeriodStatus.CONFIRMED:
+        return service.confirm_period(period_id, actor=actor.firebase_uid)
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        f"Unsupported period status transition: {body.status!r}",
+    )
 
 
 @router.get("/allocation")
@@ -99,7 +98,14 @@ def get_allocation(
     # change rarely; we don't fold them into the matrix cache.
     all_periods = service.list_periods()
     periods_out = [
-        PeriodLiteOut(id=str(p.id), label=p.label, status=p.status) for p in all_periods
+        PeriodLiteOut(
+            id=str(p.id),
+            label=p.label,
+            status=p.status,
+            confirmed_at=p.confirmed_at,
+            confirmed_by=p.confirmed_by,
+        )
+        for p in all_periods
     ]
     open_period = next((p for p in all_periods if p.status.value == "open"), None)
     open_period_id = str(open_period.id) if open_period is not None else None
