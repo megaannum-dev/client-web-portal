@@ -161,9 +161,9 @@ def upgrade() -> None:
         "rfqID",
     )
 
-    _shared_col_list = ", ".join(f'"{c}"' for c in _shared)
+    _shared_col_list = ", ".join(f'`{c}`' for c in _shared)
     _tcf_null_list   = ", ".join("NULL" for _ in _tcf_only_null)
-    _tcf_null_names  = ", ".join(f'"{c}"' for c in _tcf_only_null)
+    _tcf_null_names  = ", ".join(f'`{c}`' for c in _tcf_only_null)
 
     # Direct TCF cols (ib_trades uses TCF schema already)
     _tcf_direct = (
@@ -175,40 +175,41 @@ def upgrade() -> None:
         "tradeCharge", "netCashWithBillable", "allocatedTo", "blockID", "code",
         "rfqID",
     )
-    _tcf_direct_list = ", ".join(f'"{c}"' for c in _tcf_direct)
+    _tcf_direct_list = ", ".join(f'`{c}`' for c in _tcf_direct)
     _all_tcf_cols = _tcf_direct + _shared
-    _all_tcf_col_list = ", ".join(f'"{c}"' for c in _all_tcf_cols)
+    _all_tcf_col_list = ", ".join(f'`{c}`' for c in _all_tcf_cols)
 
     # From ib_trades (TCF schema) — direct copy
     op.execute(
         f'INSERT INTO trades ({_all_tcf_col_list}) '
-        f'SELECT {_all_tcf_col_list} FROM ib_trades WHERE "levelOfDetail" = \'EXECUTION\''
+        f'SELECT {_all_tcf_col_list} FROM ib_trades WHERE `levelOfDetail` = \'EXECUTION\''
     )
     op.execute(
         f'INSERT INTO orders ({_all_tcf_col_list}) '
-        f'SELECT {_all_tcf_col_list} FROM ib_trades WHERE "levelOfDetail" = \'ORDER\''
+        f'SELECT {_all_tcf_col_list} FROM ib_trades WHERE `levelOfDetail` = \'ORDER\''
     )
 
     # AF alias cols: AF name -> TCF name
     _af_alias_select = (
-        '"id", "ibOrderID", "ibExecID", "tradePrice", "tradeMoney", "ibCommission", '
-        '"ibCommissionCurrency", "settleDateTarget", "taxes", "transactionID", '
+        '`id`, `ibOrderID`, `ibExecID`, `tradePrice`, `tradeMoney`, `ibCommission`, '
+        '`ibCommissionCurrency`, `settleDateTarget`, `taxes`, `transactionID`, '
         + _tcf_null_list + ", "
         + _shared_col_list
     )
     _af_alias_target = (
-        '"id", "orderID", "execID", "price", "amount", "commission", '
-        '"commissionCurrency", "settleDate", "tax", "tradeID", '
+        '`id`, `orderID`, `execID`, `price`, `amount`, `commission`, '
+        '`commissionCurrency`, `settleDate`, `tax`, `tradeID`, '
         + _tcf_null_names + ", "
         + _shared_col_list
     )
+    # INSERT IGNORE to skip AF rows whose execID/orderID already came from ib_trades
     op.execute(
-        f'INSERT INTO trades ({_af_alias_target}) '
-        f'SELECT {_af_alias_select} FROM ib_activity WHERE "levelOfDetail" = \'EXECUTION\''
+        f'INSERT IGNORE INTO trades ({_af_alias_target}) '
+        f'SELECT {_af_alias_select} FROM ib_activity WHERE `levelOfDetail` = \'EXECUTION\''
     )
     op.execute(
-        f'INSERT INTO orders ({_af_alias_target}) '
-        f'SELECT {_af_alias_select} FROM ib_activity WHERE "levelOfDetail" = \'ORDER\''
+        f'INSERT IGNORE INTO orders ({_af_alias_target}) '
+        f'SELECT {_af_alias_select} FROM ib_activity WHERE `levelOfDetail` = \'ORDER\''
     )
 
     # -------------------------------------------------------------------------
@@ -304,12 +305,29 @@ def upgrade() -> None:
 def downgrade() -> None:
     # -------------------------------------------------------------------------
     # Reverse B-9 — Drop composite indexes
+    # Use raw SQL with IF EXISTS to tolerate partial prior runs (MariaDB DDL is
+    # non-transactional, so a failed downgrade may have already dropped some).
     # -------------------------------------------------------------------------
-    op.drop_index("ix_model_changes_model_id_created_at", table_name="model_changes")
-    op.drop_index(
-        "ix_allocation_model_snapshots_user_period",
-        table_name="allocation_model_snapshots",
+    op.execute("DROP INDEX IF EXISTS `ix_model_changes_model_id_created_at` ON model_changes")
+
+    # ix_allocation_model_snapshots_user_period covers (user_id, period_id).
+    # MariaDB requires every FK column to have an index where it is leftmost.
+    # user_id is only leftmost in this composite, not in the PRIMARY KEY
+    # (period_id, user_id, model_id).  Dropping the composite directly fails
+    # with ER_DROP_INDEX_FK.  Workaround: create a plain single-column index on
+    # user_id first, then drop the composite, then clean up the temp index.
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS `ix_allocation_model_snapshots_user_id` "
+        "ON allocation_model_snapshots (user_id)"
     )
+    op.execute(
+        "DROP INDEX IF EXISTS `ix_allocation_model_snapshots_user_period` "
+        "ON allocation_model_snapshots"
+    )
+    # NOTE: ix_allocation_model_snapshots_user_id is intentionally left in place.
+    # MariaDB cannot drop the last index covering a FK column (user_id -> users.id),
+    # so we leave this single-column index as a replacement for the composite.
+    # Pre-0009 MariaDB created an implicit FK index; this explicit one is equivalent.
 
     # -------------------------------------------------------------------------
     # Reverse B-4 — Restore model_size on allocation_model_snapshots
@@ -548,7 +566,7 @@ def downgrade() -> None:
         "underlyingListingExchange", "underlyingSecurityID", "underlyingSymbol",
         "volatilityOrderLink", "ingested_at",
     )
-    _tcf_col_list = ", ".join(f'"{c}"' for c in _tcf_col_names)
+    _tcf_col_list = ", ".join(f'`{c}`' for c in _tcf_col_names)
     op.execute(
         f"INSERT INTO ib_trades ({_tcf_col_list}) "
         f"SELECT {_tcf_col_list} FROM trades "
@@ -589,8 +607,8 @@ def downgrade() -> None:
         "weight", "description", "issuer", "whenGenerated", "dateTime", "orderTime",
         "expiry", "acctAlias", "ingested_at",
     )
-    _af_target_list = ", ".join(f'"{c}"' for c in _af_target_names)
-    _af_source_list = ", ".join(f'"{c}"' for c in _af_source_names)
+    _af_target_list = ", ".join(f'`{c}`' for c in _af_target_names)
+    _af_source_list = ", ".join(f'`{c}`' for c in _af_source_names)
     op.execute(
         f"INSERT INTO ib_activity ({_af_target_list}) "
         f"SELECT {_af_source_list} FROM trades "
