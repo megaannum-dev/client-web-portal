@@ -108,6 +108,11 @@ class ModelMaterial(Base):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     version: Mapped[str] = mapped_column(String(32), nullable=False)
+    version_no: Mapped[int] = mapped_column(
+        Integer(),
+        nullable=False,
+        server_default="0",
+    )
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
