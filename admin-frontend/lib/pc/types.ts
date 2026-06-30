@@ -17,32 +17,48 @@
 
 /** A marketing / reference document attached to a model, versioned. */
 export interface Material {
+  /** Backend material UUID — present once loaded from the server; needed for download. */
+  id?: string;
   file: string;
   ver: string;
   date: string;
   size: string;
 }
 
-/** One audit-trail entry in a model's change history. */
+/** Raw material DTO from the backend (GET /api/pc/models/{id}/materials). */
+export interface MaterialDTO {
+  id: string;
+  model_id: string;
+  filename: string;
+  version: string;
+  size_bytes: number | null;
+  content_type: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+/** One audit-trail entry in a model's change history (view shape). */
 export interface ChangeEntry {
-  date: string;
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
   user: string;
-  change: string;
   ver: string;
+  date: string;
 }
 
 /** Lifecycle state of a model. */
 export type ModelStatus = "live" | "draft";
 
 /**
- * A trading model in the model book. `notional` is the model's total
- * notional; `mgmt` / `incentive` are fee percentages (whole numbers,
- * e.g. 1.0 = 1%, 20 = 20%).
+ * A trading model in the model book. `size` is the model size (the
+ * total figure shown in the book; the allocation matrix carries a
+ * per-unit size); `mgmt` / `incentive` are fee percentages (whole
+ * numbers, e.g. 1.0 = 1%, 20 = 20%).
  */
 export interface Model {
   id: string;
   name: string;
-  notional: number;
+  size: number;
   manager: string;
   intro: string;
   symbols: string[];
@@ -65,20 +81,23 @@ export interface FeeBreakdown {
 /* ---- Allocation matrix ------------------------------------- */
 
 /**
- * A model as it appears in the allocation matrix. `notional` here is
- * the PER-UNIT notional (account fund = units × notional). One IB
- * account per model, identical across its clients, shown in the
- * column header. `acct` is null for non-live models.
+ * A model as it appears in the allocation matrix. `size` here is the
+ * PER-UNIT model size (account fund = units × size). Models do NOT
+ * carry an IB account — the IB account is a property of the client
+ * (see `AllocationClient.acct`), and every allocation a client holds
+ * trades through that single account.
  */
 export interface AllocationModel {
   id: string;
   name: string;
-  notional: number;
-  acct: string | null;
+  size: number;
   live: boolean;
 }
 
-/** A client (row) in the allocation matrix. */
+/**
+ * A client (row) in the allocation matrix. `acct` is the client's one
+ * IB account — ALL of this client's model allocations trade through it.
+ */
 export interface AllocationClient {
   id: string;
   name: string;
@@ -94,11 +113,101 @@ export interface AllocationCell {
 /** Sparse allocation grid keyed `"${clientId}-${modelId}"`. */
 export type AllocationMap = Record<string, AllocationCell>;
 
-/** Whether an allocation period is editable or frozen. */
-export type PeriodStatus = "open" | "locked";
+/** Whether an allocation period is editable or confirmed/frozen. */
+export type PeriodStatus = "open" | "confirmed";
 
 /** One allocation period (e.g. a month). */
 export interface Period {
+  /** Backend-assigned period UUID; present once the API is wired. */
+  id?: string;
   label: string;
   status: PeriodStatus;
+}
+
+/* ---- Transport DTOs (backend payload shapes) --------------- */
+
+/** Discriminant for change-log entries returned by the API. */
+export type ModelChangeKind = "created" | "published" | "material_uploaded" | "edited";
+
+/** Raw change-log entry from the backend. Mapped to `ChangeEntry` by FE-5. */
+export interface ChangeEntryDTO {
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
+  actor: string;
+  version: string;
+  date: string;
+}
+
+/** Backend payload for a single model (GET /api/pc/models/:id and list). */
+export interface ModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  manager: string;
+  intro: string;
+  symbols: string[];
+  mgmt_fee: number;
+  incentive_fee: number;
+  status: "live" | "draft";
+  version: string;
+  materials: { file: string; ver: string; date: string; size: string }[];
+  changes: ChangeEntryDTO[];
+}
+
+/** Backend payload for GET /api/pc/models. */
+export interface ModelsListDTO {
+  models: ModelDTO[];
+}
+
+/** One cell in the allocation matrix as returned by the backend. */
+export interface AllocationCellDTO {
+  units: number;
+  /** Precomputed: units × model_size (BE-5). */
+  fund: number;
+}
+
+/** One model column in the allocation matrix payload. */
+export interface AllocationModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  live: boolean;
+  /** Sum of units across all clients (precomputed, BE-5). */
+  col_units: number;
+  /** Sum of fund across all clients (precomputed, BE-5). */
+  col_fund: number;
+}
+
+/** One client row in the allocation matrix payload. */
+export interface AllocationClientDTO {
+  id: string;
+  name: string;
+  code: string;
+  ib_account: string;
+}
+
+/** Backend payload for a single period. */
+export interface PeriodDTO {
+  id: string;
+  label: string;
+  status: "open" | "confirmed";
+}
+
+/** Backend payload for GET /api/pc/allocation. All aggregates precomputed by BE-5. */
+export interface AllocationDTO {
+  models: AllocationModelDTO[];
+  clients: AllocationClientDTO[];
+  /** Sparse grid keyed `"${clientId}-${modelId}"`. */
+  cells: Record<string, AllocationCellDTO>;
+  /** Sum of col_fund over live models (precomputed, BE-5). */
+  total_fund: number;
+  /** # of (client, live-model) pairs with a cell (precomputed, BE-5). */
+  count: number;
+  periods: PeriodDTO[];
+  open_period_id: string;
+}
+
+/** Backend payload for GET /api/pc/periods. */
+export interface PeriodsListDTO {
+  periods: PeriodDTO[];
 }

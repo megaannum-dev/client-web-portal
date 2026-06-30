@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -103,6 +103,7 @@ class ClientProfile(Base):
     country_of_residence: Mapped[str | None] = mapped_column(String(255), nullable=True)
     authorized_person: Mapped[str | None] = mapped_column(String(255), nullable=True)
     initiate_method: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -110,6 +111,8 @@ class ClientProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    __table_args__ = (Index("ix_client_profiles_updated_at", "updated_at"),)
 
 
 class AdminProfile(Base):

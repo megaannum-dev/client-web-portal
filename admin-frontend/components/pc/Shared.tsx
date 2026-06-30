@@ -10,8 +10,8 @@
 import { useState, type ReactNode } from "react";
 import { Upload, FileText, X } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { loadModels, fmtMoney, computeFees } from "@/lib/pc/models";
-import type { ModelStatus } from "@/lib/pc/types";
+import { fmtMoney, computeFees } from "@/lib/pc/models";
+import type { Model, ModelStatus } from "@/lib/pc/types";
 
 /* ---- Eyebrow — uppercase section label (MmEyebrow / amLabel) */
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
@@ -36,16 +36,29 @@ export function StatusChip({ status }: { status: ModelStatus }) {
   );
 }
 
-/* ---- Ticks — wrapping row of symbol pills ------------------ */
-export function Ticks({ symbols }: { symbols: string[] }) {
+/* ---- Ticks — wrapping row of symbol pills ------------------
+   `onRemove` is optional: when supplied (e.g. the New-model symbol
+   editor) each pill grows a remove affordance; existing read-only
+   callers pass nothing and are unaffected. */
+export function Ticks({ symbols, onRemove }: { symbols: string[]; onRemove?: (s: string) => void }) {
   return (
     <div className="flex flex-wrap gap-[5px]">
       {symbols.map((s) => (
         <span
           key={s}
-          className="rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
+          className="inline-flex items-center gap-1 rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
         >
           {s}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(s)}
+              aria-label={`Remove ${s}`}
+              className="-mr-0.5 flex cursor-pointer text-secondary transition-colors hover:text-on-surface"
+            >
+              <X size={11} strokeWidth={2.5} />
+            </button>
+          )}
         </span>
       ))}
     </div>
@@ -150,8 +163,7 @@ export function Fact({
 /* ============================================================
    FEE CALCULATOR (used inside the Model Management calc modal)
    ============================================================ */
-export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
-  const models = loadModels();
+export function FeeCalc({ initialModelId, models }: { initialModelId?: string; models: Model[] }) {
   const live = models.filter((x) => x.status === "live");
   const [modelId, setModelId] = useState(initialModelId ?? (live[0]?.id ?? models[0]?.id ?? ""));
   const [perf, setPerf] = useState(5);
@@ -166,15 +178,15 @@ export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
     "box-border w-full rounded border border-outline-variant bg-white px-3 py-2.5 text-[15px] text-on-surface outline-none";
 
   const lines: [string, string][] = [
-    [`Management fee · ${m.mgmt}% × ${fmtMoney(m.notional)}`, fmtMoney(Math.round(f.mgmtFee))],
-    [`Incentive fee · ${m.incentive}% × ${f.excess}% excess × notional`, fmtMoney(Math.round(f.incFee))],
+    [`Management fee · ${m.mgmt}% × ${fmtMoney(m.size)}`, fmtMoney(Math.round(f.mgmtFee))],
+    [`Incentive fee · ${m.incentive}% × ${f.excess}% excess × model size`, fmtMoney(Math.round(f.incFee))],
   ];
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-[10px] bg-surface-low px-[15px] py-[13px] text-[13.5px] leading-[1.65] text-secondary">
-        <b className="text-on-surface">Management fee</b> = Management Rate (%) × Notional (AUM)<br />
-        <b className="text-on-surface">Incentive fee</b> = Incentive Rate (%) × max(Performance − Hurdle, 0) × Notional
+        <b className="text-on-surface">Management fee</b> = Management Rate (%) × Model size<br />
+        <b className="text-on-surface">Incentive fee</b> = Incentive Rate (%) × max(Performance − Hurdle, 0) × Model size
       </div>
       <label className="flex flex-col gap-1.5">
         <span className={labelCls}>Select model</span>
@@ -184,7 +196,7 @@ export function FeeCalc({ initialModelId }: { initialModelId?: string }) {
           className={`${fieldCls} cursor-pointer`}
         >
           {live.map((x) => (
-            <option key={x.id} value={x.id}>{x.name} · {fmtMoney(x.notional)}</option>
+            <option key={x.id} value={x.id}>{x.name} · {fmtMoney(x.size)}</option>
           ))}
         </select>
       </label>

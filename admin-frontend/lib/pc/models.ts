@@ -1,62 +1,90 @@
 /* ============================================================
-   PC — model-book data-access SEAM + fee math
+   PC — model-book data-access SEAM + DTO→view mapper
 
-   data-access seam — flip this file to the API later; components
-   never import the mock.
+   `loadModels()` reads the purgeable mock until FE-6 swaps the
+   screens onto `useModels()`; then the mock is deleted. Components
+   never import the mock directly.
 
-   Today `loadModels()` reads the purgeable mock (`@/lib/mock/pc-data`,
-   landed by F2); tomorrow it fetches the backend and deserializes
-   into `Model[]`. No component changes either way — screens bind to
-   `loadModels()` / `modelById()` and the types in `./types` only.
+   `mapDtoToModel` / `mapDtoToModels` are the permanent DTO→view
+   mappers: structural shaping only, no derivation (all aggregates
+   arrive precomputed from BE-5).
+
+   Formatters and fee math live in `./format` and are re-exported
+   here so screens keep importing from `lib/pc/*`.
    ============================================================ */
 
-import { PC_MODELS } from "@/lib/mock/pc-data";
-import type { FeeBreakdown, Model } from "./types";
+import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO } from "./types";
 
-/** THE model-book entry point. Every screen reads the book through this. */
-export function loadModels(): Model[] {
-  return PC_MODELS;
+/* ---- Re-export presentation helpers from format.ts --------- */
+export { fmtMoney, fmtMoneyShort, computeFees } from "./format";
+
+/* Hardcoded fee rates per 006 (`pc-workspace-006-decisions`):
+   fees are NOT stored on the model — they are 2% / 20% across the board
+   until per-client overrides land. */
+const DEFAULT_MGMT_PCT = 2;
+const DEFAULT_INCENTIVE_PCT = 20;
+
+/* ---- DTO→view mappers -------------------------------------- */
+
+function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
+  return {
+    kind: c.kind,
+    detail: c.detail ?? {},
+    user: c.actor,
+    ver: c.version,
+    date: c.date,
+  };
 }
 
-/** Convenience lookup of a single model by id. */
-export function modelById(id: string): Model | undefined {
-  return loadModels().find((m) => m.id === id);
-}
-
-/* ---- Formatters -------------------------------------------- */
-
-/** `1000000` → `"$1,000,000"`. */
-export function fmtMoney(n: number): string {
-  return "$" + n.toLocaleString("en-US");
-}
-
-/** Compact money: `$X.XM` / `$Xk` / `$X` (exact PCData.jsx semantics). */
-export function fmtMoneyShort(v: number): string {
-  if (v >= 1e6) {
-    const x = v / 1e6;
-    return "$" + (x % 1 === 0 ? x : x.toFixed(1)) + "M";
+/** Normalize backend `symbols` (may be null, list, or {tickers:[...]} dict). */
+function normalizeSymbols(s: unknown): string[] {
+  if (Array.isArray(s)) return s as string[];
+  if (s && typeof s === "object" && Array.isArray((s as { tickers?: unknown }).tickers)) {
+    return (s as { tickers: string[] }).tickers;
   }
-  if (v >= 1e3) {
-    const x = v / 1e3;
-    return "$" + Math.round(x) + "k";
-  }
-  return "$" + v;
+  return [];
 }
 
-/* ---- Fee math ---------------------------------------------- */
+/** Map a single backend model DTO to the view `Model` type. */
+export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: string }): Model {
+  return {
+    id: dto.id,
+    name: dto.name,
+    size: Number(dto.model_size ?? 0),
+    manager: dto.manager ?? "",
+    intro: dto.intro ?? "—",
+    symbols: normalizeSymbols(dto.symbols),
+    mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,
+    incentive: dto.incentive_fee ?? DEFAULT_INCENTIVE_PCT,
+    status: (dto.status ?? "draft") as Model["status"],
+    version: dto.version ?? "—",
+    materials: dto.materials ?? [],
+    changes: (dto.changes ?? []).map(mapChangeEntry),
+  };
+}
 
-/**
- * Compute management + incentive fees for a model given a performance
- * figure and hurdle (both whole-number percentages). Exact formula from
- * PCData.jsx:
- *   mgmtFee = (mgmt/100) × notional
- *   excess  = max(perf − hurdle, 0)
- *   incFee  = (incentive/100) × (excess/100) × notional
- *   total   = mgmtFee + incFee
- */
-export function computeFees(m: Model, perf: number, hurdle: number): FeeBreakdown {
-  const mgmtFee = (m.mgmt / 100) * m.notional;
-  const excess = Math.max(perf - hurdle, 0);
-  const incFee = (m.incentive / 100) * (excess / 100) * m.notional;
-  return { mgmtFee, incFee, total: mgmtFee + incFee, excess };
+/** Map the models-list DTO to `Model[]`. Tolerant to either `{models:[...]}` or a bare array. */
+export function mapDtoToModels(dto: ModelsListDTO | ModelDTO[] | null | undefined): Model[] {
+  if (!dto) return [];
+  const list = Array.isArray(dto) ? dto : Array.isArray(dto.models) ? dto.models : [];
+  return list.map(mapDtoToModel);
+}
+
+/** Human file size: 2_600_000 → "2.6 MB". */
+function fmtFileSize(bytes: number | null | undefined): string {
+  if (!bytes && bytes !== 0) return "—";
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`;
+  return `${bytes} B`;
+}
+
+/** Map a backend MaterialDTO to the view `Material` (`v1`, `YYYY-MM-DD`, `2.6 MB`). */
+export function mapDtoToMaterial(m: MaterialDTO): Material {
+  return {
+    id: m.id,
+    file: m.filename,
+    ver: m.version,
+    date: (m.created_at ?? "").slice(0, 10),
+    size: fmtFileSize(m.size_bytes),
+  };
 }

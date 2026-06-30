@@ -7,9 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import Base, engine
 from app.libs.auth.router import router as auth_router
+from app.libs.pc.router import router as pc_router
+from app.libs.pc.scheduler import start_scheduler
 from app.libs.users.router import router as users_router
 
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
+import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,7 +22,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI):  # type: ignore[type-arg]
     Base.metadata.create_all(bind=engine)
     logger.info("Database metadata ensured (create_all).")
+    scheduler_task = start_scheduler()
     yield
+    scheduler_task.cancel()
 
 
 settings = get_settings()
@@ -35,6 +40,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
+app.include_router(pc_router, prefix="/api")
 
 
 @app.get("/health")
