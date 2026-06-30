@@ -6,10 +6,9 @@ from app.models.users import (  # noqa: F401
     User,
 )
 from app.models.reconciliation import (  # noqa: F401
-    IBActivity,
-    IBTrade,
-    _ActivityRow,
-    _TradeConfirmRow,
+    Order,
+    Trade,
+    SymbolSummary,
 )
 from app.models.pc import (  # noqa: F401
     ModelStatus,
@@ -21,5 +20,7 @@ from app.models.pc import (  # noqa: F401
     ClientSubscription,
     AllocationPeriod,
     AllocationModelSnapshot,
+    ModelSymbol,
+    AllocationPeriodModel,
 )
 from app.core.database import Base  # noqa: F401
