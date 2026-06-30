@@ -271,3 +271,20 @@ class AllocationModelSnapshot(Base):
     __table_args__ = (
         Index("ix_allocation_model_snapshots_model_id", "model_id"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-new — model_symbols
+# ---------------------------------------------------------------------------
+
+
+class ModelSymbol(Base):
+    __tablename__ = "model_symbols"
+
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
+    weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
