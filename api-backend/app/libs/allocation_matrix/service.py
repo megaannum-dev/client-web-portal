@@ -39,6 +39,9 @@ class AllocationService:
 
     # --- Period management ---
 
+    def find_period_by_label(self, label: str) -> AllocationPeriod | None:
+        return self.alloc_repo.find_by_label(label)
+
     def list_periods(self) -> list[AllocationPeriod]:
         return self.alloc_repo.list_periods()
 

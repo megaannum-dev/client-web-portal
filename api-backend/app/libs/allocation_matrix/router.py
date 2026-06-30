@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -23,6 +23,7 @@ from app.libs.allocation_matrix.schemas import (
     PeriodLiteOut,
     PeriodOut,
 )
+from app.models.pc import PeriodStatus
 from app.models.users import User
 
 router = APIRouter(prefix="/pc", tags=["pc"])
@@ -78,7 +79,6 @@ def confirm_period(
 def get_allocation(
     response: Response,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
-    db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(require_action(Action.ALLOCATION_VIEW))],
     period: str | None = None,
     if_none_match: Annotated[str | None, Header()] = None,
@@ -106,19 +106,11 @@ def get_allocation(
 
     if period is not None:
         # Lookup by label.
-        from app.models.pc import AllocationPeriod, PeriodStatus as PS
-
-        matched = (
-            db.query(AllocationPeriod)
-            .filter(AllocationPeriod.label == period)
-            .one_or_none()
-        )
+        matched = service.find_period_by_label(period)
         if matched is None:
-            from fastapi import HTTPException
-
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Period '{period}' not found")
 
-        if matched.status == PS.CONFIRMED:
+        if matched.status == PeriodStatus.CONFIRMED:
             # Confirmed: cache by period_id with long TTL.
             pid_str = str(matched.id)
             cached = _cache.get_confirmed(pid_str)

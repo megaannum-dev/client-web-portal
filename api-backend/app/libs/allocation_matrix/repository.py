@@ -90,6 +90,13 @@ class AllocationRepository:
             self.db.add(snap)
         self.db.flush()
 
+    def find_by_label(self, label: str) -> AllocationPeriod | None:
+        return (
+            self.db.query(AllocationPeriod)
+            .filter(AllocationPeriod.label == label)
+            .one_or_none()
+        )
+
     def read_snapshots(self, period_id: uuid.UUID) -> list[AllocationModelSnapshot]:
         return (
             self.db.query(AllocationModelSnapshot)
