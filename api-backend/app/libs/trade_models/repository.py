@@ -85,6 +85,22 @@ class ModelRepository:
             .all()
         )
 
+    def next_version_no(self, model_id: uuid.UUID) -> int:
+        """
+        Lock-safe next version number.
+        Uses SELECT ... FOR UPDATE to prevent concurrent uploads racing past
+        the same Python count.
+        """
+        from sqlalchemy import text
+        row = self.db.execute(
+            text(
+                "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_n "
+                "FROM model_materials WHERE model_id = :mid FOR UPDATE"
+            ),
+            {"mid": str(model_id)},
+        ).one()
+        return row.next_n
+
     def add_material(
         self,
         *,

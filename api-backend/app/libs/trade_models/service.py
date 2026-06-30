@@ -144,8 +144,7 @@ class ModelService:
         model = self.get_model(model_id)
 
         # Compute next version number.
-        existing = self.repo.list_materials(model_id)
-        next_n = len(existing) + 1
+        next_n = self.repo.next_version_no(model_id)
         version_tag = f"v{next_n}"
 
         # Persist file.
