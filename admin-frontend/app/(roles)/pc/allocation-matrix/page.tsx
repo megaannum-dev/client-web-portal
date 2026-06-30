@@ -457,15 +457,22 @@ export default function AllocationMatrixPage() {
   const [periodLabel, setPeriodLabel] = useState<string | undefined>(undefined);
   const { data, loading, refetch } = useAllocation(periodLabel);
 
-  const PERIOD = data?.openPeriod ?? "";
-  const period = periodLabel ?? PERIOD;
+  // The latest period is periods[0] (backend orders by created_at DESC).
+  // Default selection follows the latest matrix, not the open one — when the
+  // newest period has already been confirmed, openPeriod points to an older
+  // still-open period, which is the wrong default.
+  const LATEST = data?.periods[0]?.label ?? "";
+  const OPEN = data?.openPeriod ?? "";
+  const period = periodLabel ?? LATEST;
 
   const [view, setView] = useState<Toggle>("units");
   const [open, setOpen] = useState<Coord | null>(null);
   const [confirmModal, setConfirmModal] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [justConfirmed, setJustConfirmed] = useState(false);
 
-  const historical = !!PERIOD && period !== PERIOD;
+  const selectedStatus = data?.periods.find((p) => p.label === period)?.status;
+  const confirmed = selectedStatus === "confirmed" || justConfirmed;
+  const historical = !!OPEN && period !== OPEN;
   const onOpen = (cid: string, mid: string) => setOpen({ cid, mid });
 
   const handleConfirm = () => {
@@ -474,7 +481,7 @@ export default function AllocationMatrixPage() {
     void (async () => {
       try {
         const result = await confirmPeriodAction(openPeriodId);
-        if (result.success) { setConfirmModal(false); setConfirmed(true); }
+        if (result.success) { setConfirmModal(false); setJustConfirmed(true); refetch(); }
       } catch { setConfirmModal(false); }
     })();
   };
@@ -511,7 +518,7 @@ export default function AllocationMatrixPage() {
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <PeriodPicker view={data} period={period} onPick={setPeriodLabel} />
               <p className="text-[15px] text-secondary">
-                {historical ? "Historical · read-only" : "Pre-trade allocation · review & confirm"} · {data.clients.length} clients · {data.liveModels.length} live models
+                {historical || confirmed ? "Historical · read-only" : "Pre-trade allocation · review & confirm"} · {data.clients.length} clients · {data.liveModels.length} live models
               </p>
             </div>
           </div>
@@ -536,7 +543,7 @@ export default function AllocationMatrixPage() {
             <div className="flex-1">
               <div className="text-[13.5px] font-bold text-on-surface">Previewing {period} · historical</div>
               <div className="mt-0.5 text-[12.5px] text-secondary">
-                This is a locked past period, shown read-only. Switch back to {PERIOD} to edit the open allocation.
+                This is a locked past period, shown read-only. Switch back to {OPEN} to edit the open allocation.
               </div>
             </div>
           </div>
@@ -550,7 +557,7 @@ export default function AllocationMatrixPage() {
               <Check size={18} strokeWidth={2} />
             </span>
             <div className="flex-1">
-              <div className="text-[13.5px] font-bold text-on-surface">{PERIOD} allocation is confirmed</div>
+              <div className="text-[13.5px] font-bold text-on-surface">{period} allocation is confirmed</div>
               <div className="mt-0.5 text-[12.5px]" style={{ color: "#9a5b00" }}>
                 The matrix is frozen so trading can open. This can’t be undone — the allocation is fixed until the next period opens.
               </div>
@@ -564,7 +571,7 @@ export default function AllocationMatrixPage() {
       {open && (
         <DetailPanel
           data={data}
-          period={PERIOD}
+          period={period}
           cid={open.cid}
           mid={open.mid}
           onClose={() => setOpen(null)}
@@ -573,7 +580,7 @@ export default function AllocationMatrixPage() {
       {confirmModal && (
         <ConfirmModal
           data={data}
-          period={PERIOD}
+          period={OPEN}
           onClose={() => setConfirmModal(false)}
           onConfirm={handleConfirm}
         />

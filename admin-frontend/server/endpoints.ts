@@ -10,7 +10,7 @@ export const ENDPOINTS = {
     PUBLISH:             (id: string) => `${PC}/models/${id}/publish`,
     DELETE:              (id: string) => `${PC}/models/${id}`,
     ALLOCATION:          `${PC}/allocation`,
-    PERIODS:             `${PC}/periods`,
-    CONFIRM:             (id: string) => `${PC}/periods/${id}/confirm`,
+    PERIODS:             `${PC}/allocation/periods`,
+    CONFIRM:             (id: string) => `${PC}/allocation/periods/${id}/confirm`,
   },
 } as const;
