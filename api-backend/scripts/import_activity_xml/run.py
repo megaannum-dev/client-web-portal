@@ -2,7 +2,8 @@
 
   levelOfDetail=ORDER                     -> orders          (unique on orderID)
   levelOfDetail=EXECUTION                 -> trades          (unique on execID)
-  levelOfDetail=SYMBOL_SUMMARY / ASSET_SUMMARY -> symbol_summaries (unique on symbol+tradeDate)
+  levelOfDetail=SYMBOL_SUMMARY              -> symbol_summaries (dedup on symbol+tradeDate+buySell)
+  levelOfDetail=ASSET_SUMMARY               (skipped)
 
 Handles both Flex query types:
   type="AF"  (Activity Flex)         -- 9 columns have different names; aliased to TCF names.
@@ -35,7 +36,7 @@ from app.models.reconciliation import Order, SymbolSummary, Trade
 # levelOfDetail values that route to each table
 _ORDER_LEVELS = frozenset({"ORDER"})
 _EXECUTION_LEVELS = frozenset({"EXECUTION"})
-_SUMMARY_LEVELS = frozenset({"SYMBOL_SUMMARY", "ASSET_SUMMARY"})
+_SUMMARY_LEVELS = frozenset({"SYMBOL_SUMMARY"})
 _KEEP_LEVELS = _ORDER_LEVELS | _EXECUTION_LEVELS | _SUMMARY_LEVELS
 
 # Header attributes on <FlexStatement> that are also row columns.
