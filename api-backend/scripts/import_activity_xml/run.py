@@ -206,14 +206,20 @@ def load(
             conn.execute(text("DELETE FROM `orders`"))
             existing_order_ids: set = set()
             existing_exec_ids: set = set()
+            existing_null_exec_order_ids: set = set()
             existing_summary_keys: set = set()
         else:
             existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
             existing_exec_ids = _existing_single(conn, _TRADES_TABLE, "execID")
+            existing_null_exec_order_ids = _existing_single(conn, _TRADES_TABLE, "orderID")
             existing_summary_keys = _existing_triple(conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell")
 
         fresh_orders = [r for r in order_rows if r.get("orderID") not in existing_order_ids]
-        fresh_trades = [r for r in trade_rows if r.get("execID") not in existing_exec_ids]
+        fresh_trades = [
+            r for r in trade_rows
+            if r.get("execID") is not None and r.get("execID") not in existing_exec_ids
+            or r.get("execID") is None and r.get("orderID") not in existing_null_exec_order_ids
+        ]
         fresh_summaries = [
             r for r in summary_rows
             if (r.get("symbol"), r.get("tradeDate"), r.get("buySell")) not in existing_summary_keys
