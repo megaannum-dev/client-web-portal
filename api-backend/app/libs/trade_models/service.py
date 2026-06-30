@@ -26,7 +26,38 @@ from app.models.pc import (
 logger = logging.getLogger(__name__)
 
 # Fields that are diffed in the changelog when a model is edited.
-_TRACKED_FIELDS = ("name", "manager", "model_size", "intro", "symbols")
+_TRACKED_FIELDS = (
+    "name", "manager", "model_size", "intro", "symbols",
+    "description", "underlyings", "risk",
+    "liquidity", "reporting", "nav_perf",
+    "mgmt_fee", "incentive_fee",
+)
+
+_LONG_TEXT_FIELDS = frozenset({"description", "underlyings", "risk"})
+
+
+def _diff_field(field: str, before: Any, after: Any) -> dict | None:
+    """
+    Return a diff entry dict or None if unchanged.
+    - Decimal fields: compare as float (precision-normalized).
+    - Long-text fields: emit sentinel {"changed": True} when different.
+    - All others: emit {"before": before, "after": after}.
+    """
+    if isinstance(before, Decimal) or isinstance(after, Decimal):
+        norm_b = float(before) if before is not None else None
+        norm_a = float(after)  if after  is not None else None
+        if norm_b == norm_a:
+            return None
+        return {"name": field, "before": norm_b, "after": norm_a}
+
+    if field in _LONG_TEXT_FIELDS:
+        if before == after:
+            return None
+        return {"name": field, "changed": True}
+
+    if before == after:
+        return None
+    return {"name": field, "before": before, "after": after}
 
 
 # ---------------------------------------------------------------------------
@@ -93,19 +124,9 @@ class ModelService:
         for field in _TRACKED_FIELDS:
             if field not in updates:
                 continue
-            before = getattr(model, field)
-            after = updates[field]
-            # Normalise Decimal → float for comparison stability.
-            norm_before = float(before) if isinstance(before, Decimal) else before
-            norm_after = float(after) if isinstance(after, Decimal) else after
-            if norm_before != norm_after:
-                changed_fields.append(
-                    {
-                        "name": field,
-                        "before": norm_before,
-                        "after": norm_after,
-                    }
-                )
+            entry = _diff_field(field, getattr(model, field), updates[field])
+            if entry is not None:
+                changed_fields.append(entry)
 
         updated = self.repo.update(model_id, **updates)
         if updated is None:
