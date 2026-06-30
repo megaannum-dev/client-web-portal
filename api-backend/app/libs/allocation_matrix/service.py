@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+import uuid as _uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -24,17 +25,28 @@ from app.models.pc import (
 logger = logging.getLogger(__name__)
 
 
+class ModelLookup(Protocol):
+    def bulk_get(self, model_ids: list[_uuid.UUID]) -> dict[_uuid.UUID, object]:
+        ...
+
+
 # ---------------------------------------------------------------------------
 # AllocationService  (BE-5)
 # ---------------------------------------------------------------------------
 
 
 class AllocationService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        model_lookup: ModelLookup | None = None,
+    ) -> None:
         self.db = db
         self.sub_repo = SubscriptionRepository(db)
         self.alloc_repo = AllocationRepository(db)
-        self.model_repo = ModelRepository(db)
+        self.model_repo: ModelLookup = (
+            model_lookup if model_lookup is not None else ModelRepository(db)
+        )
         self.matrix_repo = MatrixReadRepository(db)
 
     # --- Period management ---
