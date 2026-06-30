@@ -241,7 +241,10 @@ class ModelService:
         model = self.get_model(model_id)
 
         if model.status == ModelStatus.LIVE:
-            return model
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Cannot delete a live model — unpublish it first",
+            )
 
         self.repo.set_status(model_id, ModelStatus.DELETED)
         self.repo.add_change(
