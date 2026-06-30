@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelLeftOpen } from "@/lib/icons";
-import { useResizable }  from "@/lib/hooks/useResizable";
+import { useResizable }  from "@/hooks/api/useResizable";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Header } from "./header/Header";
 
