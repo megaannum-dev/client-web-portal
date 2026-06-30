@@ -1,4 +1,4 @@
-"""PC workspace models — trading models & client subscriptions (feature 006)."""
+﻿"""PC workspace models — trading models & client subscriptions (feature 006)."""
 import enum
 import uuid
 from datetime import datetime
@@ -14,6 +14,7 @@ from sqlalchemy import (
     JSON,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -82,6 +83,14 @@ class Model(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
+    liquidity:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    reporting:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    nav_perf:      Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    mgmt_fee:      Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
+    incentive_fee: Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
 
     __table_args__ = (
         Index("ix_models_status", "status"),
