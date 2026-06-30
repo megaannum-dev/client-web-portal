@@ -262,7 +262,6 @@ class AllocationModelSnapshot(Base):
         primary_key=True,
     )
     multiplier: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
-    model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -288,3 +287,25 @@ class ModelSymbol(Base):
     )
     symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
     weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# DB-new — allocation_period_models  (B-4: normalize model_size out of snapshots)
+# ---------------------------------------------------------------------------
+
+
+class AllocationPeriodModel(Base):
+    __tablename__ = "allocation_period_models"
+
+    period_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("allocation_periods.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    model_size: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
