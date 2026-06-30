@@ -2,6 +2,7 @@
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     ForeignKey,
     Index,
+    Integer,
     JSON,
     Numeric,
     String,
@@ -58,7 +60,7 @@ class Model(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     manager: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    model_size: Mapped[float | None] = mapped_column(Numeric(28, 10), nullable=True)
+    model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     intro: Mapped[str | None] = mapped_column(String(255), nullable=True)
     symbols: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[ModelStatus] = mapped_column(
@@ -171,7 +173,7 @@ class ClientSubscription(Base):
         ForeignKey("models.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    multiplier: Mapped[float] = mapped_column(
+    multiplier: Mapped[Decimal] = mapped_column(
         Numeric(28, 10), nullable=False, server_default="1"
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -254,8 +256,8 @@ class AllocationModelSnapshot(Base):
         ForeignKey("models.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    multiplier: Mapped[float] = mapped_column(Numeric(28, 10), nullable=False)
-    model_size: Mapped[float | None] = mapped_column(Numeric(28, 10), nullable=True)
+    multiplier: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
+    model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
