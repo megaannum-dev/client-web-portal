@@ -153,5 +153,4 @@ class SymbolSummary(Base, _TradeRow):
 
     __table_args__ = (
         Index("ix_symbol_summaries_symbol", "symbol"),
-        UniqueConstraint("symbol", "tradeDate", name="uq_symbol_summaries_symbol_date"),
     )

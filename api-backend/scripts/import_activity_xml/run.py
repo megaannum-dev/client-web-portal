@@ -174,6 +174,13 @@ def _existing_pair(conn, table: Table, col1: str, col2: str) -> set:
     return {(row[0], row[1]) for row in conn.execute(select(table.c[col1], table.c[col2]))}
 
 
+def _existing_triple(conn, table: Table, col1: str, col2: str, col3: str) -> set:
+    return {
+        (row[0], row[1], row[2])
+        for row in conn.execute(select(table.c[col1], table.c[col2], table.c[col3]))
+    }
+
+
 def load(
     order_rows: list[dict[str, object]],
     trade_rows: list[dict[str, object]],
@@ -202,13 +209,13 @@ def load(
         else:
             existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
             existing_exec_ids = _existing_single(conn, _TRADES_TABLE, "execID")
-            existing_summary_keys = _existing_pair(conn, _SUMMARIES_TABLE, "symbol", "tradeDate")
+            existing_summary_keys = _existing_triple(conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell")
 
         fresh_orders = [r for r in order_rows if r.get("orderID") not in existing_order_ids]
         fresh_trades = [r for r in trade_rows if r.get("execID") not in existing_exec_ids]
         fresh_summaries = [
             r for r in summary_rows
-            if (r.get("symbol"), r.get("tradeDate")) not in existing_summary_keys
+            if (r.get("symbol"), r.get("tradeDate"), r.get("buySell")) not in existing_summary_keys
         ]
 
         for start in range(0, len(fresh_orders), batch_size):
