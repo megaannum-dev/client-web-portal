@@ -86,10 +86,10 @@ class AllocationService:
             }
             for cell in cells
         ]
-        self.alloc_repo.write_snapshots(period_id, snapshot_rows)
-
-        confirmed_at = datetime.now(tz=timezone.utc)
-        updated = self.alloc_repo.confirm_period(period_id, actor, confirmed_at)
+        with self.db.begin_nested():
+            self.alloc_repo.write_snapshots(period_id, snapshot_rows)
+            confirmed_at = datetime.now(tz=timezone.utc)
+            updated = self.alloc_repo.confirm_period(period_id, actor, confirmed_at)
         self.db.commit()
         if updated:
             self.db.refresh(updated)

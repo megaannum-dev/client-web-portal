@@ -78,8 +78,8 @@ class AllocationRepository:
         self, period_id: uuid.UUID, rows: list[dict]
     ) -> None:
         """Insert one AllocationModelSnapshot row per cell dict."""
-        for row in rows:
-            snap = AllocationModelSnapshot(
+        snaps = [
+            AllocationModelSnapshot(
                 period_id=period_id,
                 user_id=row["user_id"],
                 model_id=row["model_id"],
@@ -87,7 +87,9 @@ class AllocationRepository:
                 model_size=row.get("model_size"),
                 ib_account=row.get("ib_account"),
             )
-            self.db.add(snap)
+            for row in rows
+        ]
+        self.db.add_all(snaps)
         self.db.flush()
 
     def find_by_label(self, label: str) -> AllocationPeriod | None:
