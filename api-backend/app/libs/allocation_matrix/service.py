@@ -14,11 +14,10 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.libs.allocation_matrix.repository import AllocationCellRow, AllocationRepository
+from app.libs.allocation_matrix.repository import AllocationRepository, MatrixReadRepository
 from app.libs.trade_models.repository import ModelRepository, SubscriptionRepository
 from app.models.pc import (
     AllocationPeriod,
-    ModelStatus,
     PeriodStatus,
 )
 
@@ -36,6 +35,7 @@ class AllocationService:
         self.sub_repo = SubscriptionRepository(db)
         self.alloc_repo = AllocationRepository(db)
         self.model_repo = ModelRepository(db)
+        self.matrix_repo = MatrixReadRepository(db)
 
     # --- Period management ---
 
@@ -96,57 +96,102 @@ class AllocationService:
 
     def derive_open_matrix(self) -> dict:
         """Build the fully-derived AllocationViewOut dict from live subscriptions."""
-        cells = self.sub_repo.list_active_subscriptions()
-        live_models = self.model_repo.list_models()
-        live_models = [m for m in live_models if m.status == ModelStatus.LIVE]
-        roster = self.sub_repo.roster()
-
-        return _build_matrix(cells, live_models, roster=roster, is_open=True)
+        rows = self.matrix_repo.cell_and_roster_stream()
+        model_rows = self.matrix_repo.live_models_with_aggregates()
+        return _build_matrix(rows, model_rows, is_open=True)
 
     def derive_confirmed_matrix(self, period_id: uuid.UUID) -> dict:
         """Rebuild AllocationViewOut from frozen snapshots."""
         period = self.get_period(period_id)
         snapshots = self.alloc_repo.read_snapshots(period_id)
 
-        # Reconstruct model stubs from snapshots (frozen model_size).
-        # We need unique model_ids; build minimal stubs.
+        # Bulk-fetch model names in one query (avoids N+1).
+        unique_model_ids = list({snap.model_id for snap in snapshots})
+        model_map_fetched = self.model_repo.bulk_get(unique_model_ids)
+
+        # Build per-model aggregates from snapshot data (frozen values).
+        ZERO = Decimal("0")
+        model_col_units: dict[str, Decimal] = {}
+        model_col_fund: dict[str, Decimal] = {}
         model_ids_seen: dict[str, dict] = {}
+
         for snap in snapshots:
             mid = str(snap.model_id)
+            multiplier = Decimal(str(snap.multiplier)) if snap.multiplier is not None else ZERO
+            model_size = Decimal(str(snap.model_size)) if snap.model_size is not None else ZERO
+            model_col_units[mid] = model_col_units.get(mid, ZERO) + multiplier
+            model_col_fund[mid] = model_col_fund.get(mid, ZERO) + multiplier * model_size
             if mid not in model_ids_seen:
-                # Fetch model name for display, but use frozen model_size.
-                m = self.model_repo.get_model(snap.model_id)
+                m = model_map_fetched.get(snap.model_id)
                 model_ids_seen[mid] = {
                     "id": snap.model_id,
                     "name": m.name if m else mid,
-                    "model_size": Decimal(str(snap.model_size)) if snap.model_size else None,
-                    "status": ModelStatus.LIVE,
+                    "model_size": snap.model_size,
                 }
 
-        # Build cell list from snapshots.
-        snapshot_cells = [
-            AllocationCellRow(
+        # Construct synthetic row objects compatible with _build_matrix.
+        class _Row:
+            __slots__ = ("row_kind", "user_id", "model_id", "multiplier",
+                         "model_size", "ib_account", "name", "email", "firebase_uid")
+
+            def __init__(self, **kwargs: Any) -> None:
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+
+        class _ModelAggRow:
+            __slots__ = ("id", "name", "model_size", "col_units", "col_fund")
+
+            def __init__(self, **kwargs: Any) -> None:
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+
+        # Cell rows from snapshots.
+        cell_rows = [
+            _Row(
+                row_kind="cell",
                 user_id=snap.user_id,
                 model_id=snap.model_id,
-                multiplier=Decimal(str(snap.multiplier)),
-                model_size=Decimal(str(snap.model_size)) if snap.model_size else None,
+                multiplier=snap.multiplier,
+                model_size=snap.model_size,
                 ib_account=snap.ib_account,
+                name=None,
+                email=None,
+                firebase_uid=None,
             )
             for snap in snapshots
         ]
 
-        # Build model list from stubs.
-        class _ModelStub:
-            def __init__(self, d: dict) -> None:
-                self.id = d["id"]
-                self.name = d["name"]
-                self.model_size = d["model_size"]
-                self.status = d["status"]
-
-        stub_models = [_ModelStub(v) for v in model_ids_seen.values()]
+        # Roster rows from live DB.
         roster = self.sub_repo.roster()
+        roster_rows = [
+            _Row(
+                row_kind="client",
+                user_id=r.user_id,
+                model_id=None,
+                multiplier=None,
+                model_size=None,
+                ib_account=r.ib_account,
+                name=r.name,
+                email=r.email,
+                firebase_uid=r.firebase_uid,
+            )
+            for r in roster
+        ]
+
+        # Model aggregate rows from frozen snapshot calculations.
+        model_agg_rows = [
+            _ModelAggRow(
+                id=info["id"],
+                name=info["name"],
+                model_size=info["model_size"],
+                col_units=float(model_col_units.get(mid, ZERO)),
+                col_fund=float(model_col_fund.get(mid, ZERO)),
+            )
+            for mid, info in model_ids_seen.items()
+        ]
+
         result = _build_matrix(
-            snapshot_cells, stub_models, roster=roster, is_open=False
+            cell_rows + roster_rows, model_agg_rows, is_open=False
         )
         result["period_id"] = str(period_id)
         return result
@@ -155,20 +200,21 @@ class AllocationService:
 
     def compute_etag_components(self) -> tuple:
         """Return the three watermark results used for ETag computation."""
-        subs = self.sub_repo.subscriptions_watermark()
-        models = self.sub_repo.models_watermark()
-        clients = self.sub_repo.clients_watermark()
-        return subs, models, clients
+        wm = self.matrix_repo.combined_watermarks()
+        return wm["subs"], wm["models"], wm["clients"]
 
 
 def _build_matrix(
-    cells: list,
-    models: list,
+    rows: list,
+    model_rows: list,
     *,
-    roster: list,
     is_open: bool,
 ) -> dict:
     """Shared derivation logic for open and confirmed matrices.
+
+    Accepts raw Row objects from MatrixReadRepository:
+      - rows: UNION ALL result from cell_and_roster_stream() (row_kind='cell'|'client')
+      - model_rows: pre-aggregated result from live_models_with_aggregates()
 
     Emits the AllocationDTO-shaped payload the frontend consumes:
       - `clients` is the full client-portal roster (not just clients with subs)
@@ -179,36 +225,31 @@ def _build_matrix(
 
     ZERO = Decimal("0")
 
-    # Index models by id.
+    # Split UNION ALL rows by row_kind.
+    cell_rows = [r for r in rows if r.row_kind == "cell"]
+    roster_rows = [r for r in rows if r.row_kind == "client"]
+
+    # Build model map from pre-aggregated model_rows.
+    # col_units and col_fund come directly from DB aggregates — no Python accumulation.
     model_map: dict[str, Any] = {}
-    for m in models:
-        model_map[str(m.id)] = m
+    col_units: dict[str, Decimal] = {}
+    col_fund: dict[str, Decimal] = {}
+    for mr in model_rows:
+        mid = str(mr.id)
+        model_map[mid] = mr
+        col_units[mid] = Decimal(mr.col_units or 0)
+        col_fund[mid] = Decimal(mr.col_fund or 0)
 
-    # Per-cell aggregates.
-    col_units: dict[str, Decimal] = {mid: ZERO for mid in model_map}
-    col_fund: dict[str, Decimal] = {mid: ZERO for mid in model_map}
+    # Build flat cell map from cell rows.
     flat_cells: dict[str, dict] = {}
-
-    # Track ib_account per client from cells as a fallback (some confirmed
-    # snapshots store a frozen account that may differ from the live roster).
-    cell_ib_account: dict[str, str | None] = {}
-
-    for cell in cells:
+    for cell in cell_rows:
         uid = str(cell.user_id)
         mid = str(cell.model_id)
-        cell_ib_account.setdefault(uid, cell.ib_account)
         if mid not in model_map:
             continue
-        m = model_map[mid]
-        ms = cell.model_size if cell.model_size is not None else (
-            Decimal(str(m.model_size)) if m.model_size is not None else ZERO
-        )
-        multiplier = cell.multiplier
-        fund = multiplier * ms
-
-        col_units[mid] = col_units.get(mid, ZERO) + multiplier
-        col_fund[mid] = col_fund.get(mid, ZERO) + fund
-
+        multiplier = cell.multiplier or ZERO
+        model_size = cell.model_size or ZERO
+        fund = Decimal(multiplier) * Decimal(model_size)
         flat_cells[f"{uid}-{mid}"] = {
             "units": float(multiplier),
             "fund": float(fund),
@@ -217,17 +258,16 @@ def _build_matrix(
     total_fund = sum(col_fund.values(), ZERO)
     count = len(flat_cells)
 
-    # Models column output.
+    # Models column output — col_units/col_fund sourced from DB aggregates.
     models_out = []
-    for mid, m in model_map.items():
-        ms_val = float(m.model_size) if m.model_size is not None else None
+    for mid, mr in model_map.items():
+        ms_val = float(mr.model_size) if mr.model_size is not None else None
         models_out.append(
             {
-                "id": str(m.id),
-                "name": m.name,
+                "id": str(mr.id),
+                "name": mr.name,
                 "model_size": ms_val,
-                "live": True,  # only LIVE models reach this list (open path) /
-                              # snapshot stubs are flagged LIVE (confirmed path)
+                "live": True,  # only LIVE models reach this list
                 "col_units": float(col_units.get(mid, ZERO)),
                 "col_fund": float(col_fund.get(mid, ZERO)),
             }
@@ -236,7 +276,7 @@ def _build_matrix(
     # Clients: full roster — every client-portal user gets a row, with or
     # without subscriptions, so the matrix is visible after dummy data lands.
     clients_out = []
-    for r in roster:
+    for r in roster_rows:
         uid = str(r.user_id)
         clients_out.append(
             {
