@@ -93,13 +93,28 @@ class AllocationService:
                 "user_id": cell.user_id,
                 "model_id": cell.model_id,
                 "multiplier": cell.multiplier,
-                "model_size": cell.model_size,
                 "ib_account": cell.ib_account,
             }
             for cell in cells
         ]
+
+        # Freeze model name/size for every model referenced this period (DB B-4) —
+        # allocation_model_snapshots no longer carries model_size directly.
+        unique_model_ids = list({cell.model_id for cell in cells})
+        model_map = self.model_repo.bulk_get(unique_model_ids)
+        period_model_rows = [
+            {
+                "model_id": mid,
+                "model_name": model_map[mid].name,
+                "model_size": model_map[mid].model_size or Decimal("0"),
+            }
+            for mid in unique_model_ids
+            if mid in model_map
+        ]
+
         with self.db.begin_nested():
             self.alloc_repo.write_snapshots(period_id, snapshot_rows)
+            self.alloc_repo.write_period_models(period_id, period_model_rows)
             confirmed_at = datetime.now(tz=timezone.utc)
             updated = self.alloc_repo.confirm_period(period_id, actor, confirmed_at)
         self.db.commit()
@@ -120,9 +135,11 @@ class AllocationService:
         period = self.get_period(period_id)
         snapshots = self.alloc_repo.read_snapshots(period_id)
 
-        # Bulk-fetch model names in one query (avoids N+1).
-        unique_model_ids = list({snap.model_id for snap in snapshots})
-        model_map_fetched = self.model_repo.bulk_get(unique_model_ids)
+        # Model name/size frozen at confirm time (DB B-4) — read from
+        # allocation_period_models, never the live `models` table, so a later
+        # rename/resize can't retroactively change an already-confirmed view.
+        period_models = self.alloc_repo.read_period_models(period_id)
+        model_by_id = {pm.model_id: pm for pm in period_models}
 
         # Build per-model aggregates from snapshot data (frozen values).
         ZERO = Decimal("0")
@@ -132,16 +149,16 @@ class AllocationService:
 
         for snap in snapshots:
             mid = str(snap.model_id)
-            multiplier = Decimal(str(snap.multiplier)) if snap.multiplier is not None else ZERO
-            model_size = Decimal(str(snap.model_size)) if snap.model_size is not None else ZERO
+            pm = model_by_id.get(snap.model_id)
+            multiplier = snap.multiplier if snap.multiplier is not None else ZERO
+            model_size = pm.model_size if pm is not None else ZERO
             model_col_units[mid] = model_col_units.get(mid, ZERO) + multiplier
             model_col_fund[mid] = model_col_fund.get(mid, ZERO) + multiplier * model_size
             if mid not in model_ids_seen:
-                m = model_map_fetched.get(snap.model_id)
                 model_ids_seen[mid] = {
                     "id": snap.model_id,
-                    "name": m.name if m else mid,
-                    "model_size": snap.model_size,
+                    "name": pm.model_name if pm is not None else mid,
+                    "model_size": model_size,
                 }
 
         # Construct synthetic row objects compatible with _build_matrix.
@@ -167,7 +184,11 @@ class AllocationService:
                 user_id=snap.user_id,
                 model_id=snap.model_id,
                 multiplier=snap.multiplier,
-                model_size=snap.model_size,
+                model_size=(
+                    model_by_id[snap.model_id].model_size
+                    if snap.model_id in model_by_id
+                    else ZERO
+                ),
                 ib_account=snap.ib_account,
                 name=None,
                 email=None,

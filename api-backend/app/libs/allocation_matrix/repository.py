@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.pc import (
     AllocationModelSnapshot,
     AllocationPeriod,
+    AllocationPeriodModel,
     PeriodStatus,
 )
 from app.libs.trade_models.repository import _SubscriptionCell, _WatermarkResult
@@ -84,12 +85,31 @@ class AllocationRepository:
                 user_id=row["user_id"],
                 model_id=row["model_id"],
                 multiplier=row["multiplier"],
-                model_size=row.get("model_size"),
                 ib_account=row.get("ib_account"),
             )
             for row in rows
         ]
         self.db.add_all(snaps)
+        self.db.flush()
+
+    def write_period_models(
+        self, period_id: uuid.UUID, models: list[dict]
+    ) -> None:
+        """Insert one AllocationPeriodModel row per distinct model referenced this period.
+
+        Freezes model_name/model_size at confirm time (DB B-4) so a later rename
+        or resize of the live model does not retroactively change a confirmed view.
+        """
+        rows = [
+            AllocationPeriodModel(
+                period_id=period_id,
+                model_id=m["model_id"],
+                model_name=m["model_name"],
+                model_size=m["model_size"],
+            )
+            for m in models
+        ]
+        self.db.add_all(rows)
         self.db.flush()
 
     def find_by_label(self, label: str) -> AllocationPeriod | None:
@@ -103,6 +123,13 @@ class AllocationRepository:
         return (
             self.db.query(AllocationModelSnapshot)
             .filter(AllocationModelSnapshot.period_id == period_id)
+            .all()
+        )
+
+    def read_period_models(self, period_id: uuid.UUID) -> list[AllocationPeriodModel]:
+        return (
+            self.db.query(AllocationPeriodModel)
+            .filter(AllocationPeriodModel.period_id == period_id)
             .all()
         )
 
