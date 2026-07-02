@@ -30,7 +30,6 @@ function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => vo
       </td>
       <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.size)}</td>
       <td className={`${td} text-secondary`}>{m.manager}</td>
-      <td className={`${td} whitespace-nowrap text-secondary`}>{m.intro}</td>
       <td className={td}><Ticks symbols={m.symbols} /></td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.mgmt}%</td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.incentive}%</td>
@@ -58,7 +57,8 @@ function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => vo
 }
 
 export function ModelTable({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
-  const headers = ["Model", "Model size", "Manager", "Intro", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
+  const headers = ["Model", "Model size", "Manager", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
+  const rightAligned = new Set([1, 4, 5, 7]);
   return (
     <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
       <div className="overflow-x-auto">
@@ -66,7 +66,7 @@ export function ModelTable({ models, onOpen }: { models: Model[]; onOpen: (id: s
           <thead>
             <tr>
               {headers.map((h, i) => (
-                <th key={h} className={`${TH_BASE} ${i === 1 || i === 5 || i === 6 || i === 8 ? "text-right" : "text-left"}`}>
+                <th key={h} className={`${TH_BASE} ${rightAligned.has(i) ? "text-right" : "text-left"}`}>
                   {h}
                 </th>
               ))}
