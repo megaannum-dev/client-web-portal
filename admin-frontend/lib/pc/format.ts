@@ -5,6 +5,19 @@ export function fmtMoney(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
+/** ISO timestamp -> `"Jun 11, 2026, 2:32 PM"` for change-log entries. */
+export function fmtTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 /** Compact money: `$X.XM` / `$Xk` / `$X` (exact PCData.jsx semantics). */
 export function fmtMoneyShort(v: number): string {
   if (v >= 1e6) {

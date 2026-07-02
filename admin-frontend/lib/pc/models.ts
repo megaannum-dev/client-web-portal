@@ -29,7 +29,7 @@ function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
     detail: c.detail ?? {},
     user: c.actor,
     ver: c.version,
-    date: c.date,
+    date: c.created_at,
   };
 }
 

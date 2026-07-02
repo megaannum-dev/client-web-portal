@@ -146,7 +146,7 @@ export interface ChangeEntryDTO {
   detail: Record<string, unknown>;
   actor: string;
   version: string;
-  date: string;
+  created_at: string;
 }
 
 /** Backend payload for a single model (GET /api/pc/models/:id and list). */
