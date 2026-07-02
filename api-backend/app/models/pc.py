@@ -1,7 +1,8 @@
-"""PC workspace models — trading models & client subscriptions (feature 006)."""
+﻿"""PC workspace models — trading models & client subscriptions (feature 006)."""
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
@@ -9,9 +10,11 @@ from sqlalchemy import (
     Enum as SAEnum,
     ForeignKey,
     Index,
+    Integer,
     JSON,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -58,7 +61,7 @@ class Model(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     manager: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    model_size: Mapped[float | None] = mapped_column(Numeric(28, 10), nullable=True)
+    model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     intro: Mapped[str | None] = mapped_column(String(255), nullable=True)
     symbols: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[ModelStatus] = mapped_column(
@@ -80,6 +83,14 @@ class Model(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
+    liquidity:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    reporting:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    nav_perf:      Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    mgmt_fee:      Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
+    incentive_fee: Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
 
     __table_args__ = (
         Index("ix_models_status", "status"),
@@ -106,6 +117,11 @@ class ModelMaterial(Base):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     version: Mapped[str] = mapped_column(String(32), nullable=False)
+    version_no: Mapped[int] = mapped_column(
+        Integer(),
+        nullable=False,
+        server_default="0",
+    )
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -171,7 +187,7 @@ class ClientSubscription(Base):
         ForeignKey("models.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    multiplier: Mapped[float] = mapped_column(
+    multiplier: Mapped[Decimal] = mapped_column(
         Numeric(28, 10), nullable=False, server_default="1"
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -254,8 +270,7 @@ class AllocationModelSnapshot(Base):
         ForeignKey("models.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    multiplier: Mapped[float] = mapped_column(Numeric(28, 10), nullable=False)
-    model_size: Mapped[float | None] = mapped_column(Numeric(28, 10), nullable=True)
+    multiplier: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
     ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -264,3 +279,42 @@ class AllocationModelSnapshot(Base):
     __table_args__ = (
         Index("ix_allocation_model_snapshots_model_id", "model_id"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-new — model_symbols
+# ---------------------------------------------------------------------------
+
+
+class ModelSymbol(Base):
+    __tablename__ = "model_symbols"
+
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
+    weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# DB-new — allocation_period_models  (B-4: normalize model_size out of snapshots)
+# ---------------------------------------------------------------------------
+
+
+class AllocationPeriodModel(Base):
+    __tablename__ = "allocation_period_models"
+
+    period_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("allocation_periods.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    model_size: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)

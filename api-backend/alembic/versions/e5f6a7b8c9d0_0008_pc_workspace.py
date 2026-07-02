@@ -26,7 +26,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "models",
-        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("id", sa.Uuid(native_uuid=False), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("manager", sa.String(255), nullable=True),
         sa.Column("model_size", sa.Numeric(28, 10), nullable=True),
@@ -60,10 +60,10 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "model_materials",
-        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("id", sa.Uuid(native_uuid=False), primary_key=True),
         sa.Column(
             "model_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("models.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -88,10 +88,10 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "model_changes",
-        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("id", sa.Uuid(native_uuid=False), primary_key=True),
         sa.Column(
             "model_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("models.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -123,13 +123,13 @@ def upgrade() -> None:
         "client_subscriptions",
         sa.Column(
             "user_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             primary_key=True,
         ),
         sa.Column(
             "model_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("models.id", ondelete="CASCADE"),
             primary_key=True,
         ),
@@ -160,7 +160,7 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "allocation_periods",
-        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("id", sa.Uuid(native_uuid=False), primary_key=True),
         sa.Column("label", sa.String(32), nullable=False),
         sa.Column(
             "status",
@@ -193,19 +193,19 @@ def upgrade() -> None:
         "allocation_model_snapshots",
         sa.Column(
             "period_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("allocation_periods.id", ondelete="CASCADE"),
             primary_key=True,
         ),
         sa.Column(
             "user_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             primary_key=True,
         ),
         sa.Column(
             "model_id",
-            sa.String(36),
+            sa.Uuid(native_uuid=False),
             sa.ForeignKey("models.id", ondelete="CASCADE"),
             primary_key=True,
         ),
