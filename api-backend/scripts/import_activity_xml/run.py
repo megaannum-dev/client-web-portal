@@ -68,7 +68,13 @@ _KEEP_LEVELS = _ORDER_LEVELS | _EXECUTION_LEVELS | _SUMMARY_LEVELS
 # Header attributes on <FlexStatement> that are also row columns.
 _STATEMENT_HEADER_KEYS = ("period", "fromDate", "toDate", "whenGenerated")
 
-# AF column name -> TCF column name (9 renames; everything else is unchanged)
+# AF column name -> TCF column name (8 renames; everything else is unchanged).
+# NOTE: AF also has its own native "tradeID" attribute (same name as the TCF
+# column, so it needs no alias and passes through as-is). "transactionID" is
+# a *different* AF attribute that must NOT be aliased onto "tradeID" — doing
+# so overwrites the correct native tradeID with transactionID's value
+# whenever both are present on the same row (transactionID appears to vary
+# between report regenerations for the same trade; tradeID does not).
 _AF_TO_TCF: dict[str, str] = {
     "ibOrderID": "orderID",
     "ibExecID": "execID",
@@ -78,7 +84,6 @@ _AF_TO_TCF: dict[str, str] = {
     "ibCommissionCurrency": "commissionCurrency",
     "settleDateTarget": "settleDate",
     "taxes": "tax",
-    "transactionID": "tradeID",
 }
 
 _ORDERS_TABLE: Table = cast(Table, Order.__table__)
