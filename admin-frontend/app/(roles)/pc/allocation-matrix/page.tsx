@@ -23,7 +23,7 @@
 
 import { useState } from "react";
 import { Check, Eye, History } from "@/lib/icons";
-import { fmtMoney, fmtMoneyShort } from "@/lib/pc/models";
+import { fmtMoney, fmtMoneyShort } from "@/lib/pc/format";
 import { useAllocation } from "@/hooks/api/useAllocation";
 import { confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/actions";
 import { Button } from "@/components/ui/Button";

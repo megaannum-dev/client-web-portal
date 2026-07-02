@@ -9,14 +9,11 @@
    mappers: structural shaping only, no derivation (all aggregates
    arrive precomputed from BE-5).
 
-   Formatters and fee math live in `./format` and are re-exported
-   here so screens keep importing from `lib/pc/*`.
+   Formatters and fee math live in `./format` — import them from
+   there directly.
    ============================================================ */
 
 import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO } from "./types";
-
-/* ---- Re-export presentation helpers from format.ts --------- */
-export { fmtMoney, fmtMoneyShort, computeFees } from "./format";
 
 /* Hardcoded fee rates per 006 (`pc-workspace-006-decisions`):
    fees are NOT stored on the model — they are 2% / 20% across the board
@@ -71,10 +68,10 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
   };
 }
 
-/** Map the models-list DTO to `Model[]`. Tolerant to either `{models:[...]}` or a bare array. */
-export function mapDtoToModels(dto: ModelsListDTO | ModelDTO[] | null | undefined): Model[] {
+/** Map the models-list DTO to `Model[]`. */
+export function mapDtoToModels(dto: ModelsListDTO | null | undefined): Model[] {
   if (!dto) return [];
-  const list = Array.isArray(dto) ? dto : Array.isArray(dto.models) ? dto.models : [];
+  const list = Array.isArray(dto.models) ? dto.models : [];
   return list.map(mapDtoToModel);
 }
 

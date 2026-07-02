@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type AllocationView } from "@/lib/pc/allocation";
-import { fmtMoneyShort } from "@/lib/pc/models";
+import { fmtMoneyShort } from "@/lib/pc/format";
 import { type Toggle } from "./ViewToggle";
 
 /* ============================================================

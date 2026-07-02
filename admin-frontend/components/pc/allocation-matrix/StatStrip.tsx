@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { CalendarDays } from "@/lib/icons";
 import { type AllocationView } from "@/lib/pc/allocation";
-import { fmtMoneyShort } from "@/lib/pc/models";
+import { fmtMoneyShort } from "@/lib/pc/format";
 import { LABEL } from "./HowToRead";
 
 /* ============================================================

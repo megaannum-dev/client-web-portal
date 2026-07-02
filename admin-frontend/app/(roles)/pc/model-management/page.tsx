@@ -23,7 +23,8 @@
 import { useState, useEffect } from "react";
 import { LayoutGrid, List, Calculator, Plus } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
-import { fmtMoney, mapDtoToModel, mapDtoToMaterial } from "@/lib/pc/models";
+import { fmtMoney } from "@/lib/pc/format";
+import { mapDtoToModel, mapDtoToMaterial } from "@/lib/pc/models";
 import type { Material, Model, ModelStatus } from "@/lib/pc/types";
 import { useModels } from "@/hooks/api/useModels";
 import {

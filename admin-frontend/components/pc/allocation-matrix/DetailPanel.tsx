@@ -4,7 +4,7 @@ import { Briefcase, Lock, X } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Eyebrow, Fact } from "@/components/pc/Shared";
 import { type AllocationView } from "@/lib/pc/allocation";
-import { fmtMoney, fmtMoneyShort } from "@/lib/pc/models";
+import { fmtMoney, fmtMoneyShort } from "@/lib/pc/format";
 
 /* ============================================================
    FLOATING ALLOCATION DETAIL  (framing A — rounded card from right)

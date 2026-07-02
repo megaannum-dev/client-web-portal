@@ -10,7 +10,7 @@
 import { useState, type ReactNode } from "react";
 import { Upload, FileText, X } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { fmtMoney, computeFees } from "@/lib/pc/models";
+import { fmtMoney, computeFees } from "@/lib/pc/format";
 import type { Model, ModelStatus } from "@/lib/pc/types";
 
 /* ---- Eyebrow — uppercase section label (MmEyebrow / amLabel) */
