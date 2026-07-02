@@ -11,36 +11,66 @@ interface FieldDiff {
   changed?: boolean;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  size: "Model size",
+  model_size: "Model size",
+  manager: "Manager",
+  intro: "Introduction",
+  symbols: "Symbols",
+  mgmt: "Mgmt fee %",
+  incentive: "Incentive fee %",
+  description: "Description",
+  underlyings: "Underlyings",
+  risk: "Risk",
+  liquidity: "Liquidity",
+  reporting: "Reporting",
+  nav_perf: "NAV performance",
+  mgmt_fee: "Management fee",
+  incentive_fee: "Incentive fee",
+};
+
+function fieldLabel(raw: string): string {
+  return FIELD_LABELS[raw] ?? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function fmtValue(v: unknown): string {
   if (typeof v === "number") return fmtMoney(v);
   return String(v ?? "—");
 }
 
-/** Render a change-log entry to a display string using per-kind templates. */
-export function renderChange(c: ChangeEntry): string {
+/** Render a change-log entry as an array of display lines (one per field). */
+export function renderChangeLines(c: ChangeEntry): string[] {
   switch (c.kind) {
     case "created":
-      return "Model created";
+      return ["Model created"];
 
     case "published":
-      return "Published to live";
+      return ["Published to live"];
 
     case "material_uploaded": {
       const d = c.detail as { filename?: string; version?: string };
       const fname = d.filename ?? "file";
       const ver = d.version ?? c.ver;
-      return `Uploaded ${fname} (${ver})`;
+      return [`Uploaded ${fname} (${ver})`];
     }
 
     case "edited": {
       const d = c.detail as { fields?: FieldDiff[] };
-      if (!d.fields?.length) return "Model updated";
-      return d.fields
-        .map((f) => (f.changed ? `${f.name} updated` : `${f.name} ${fmtValue(f.before)} → ${fmtValue(f.after)}`))
-        .join("; ");
+      if (!d.fields?.length) return ["Model updated"];
+      return d.fields.map((f) =>
+        f.changed
+          ? `${fieldLabel(f.name)} updated`
+          : `${fieldLabel(f.name)}: ${fmtValue(f.before)} → ${fmtValue(f.after)}`
+      );
     }
 
     default:
-      return c.kind;
+      return [c.kind];
   }
+}
+
+/** @deprecated Use renderChangeLines for multi-line rendering. */
+export function renderChange(c: ChangeEntry): string {
+  return renderChangeLines(c).join("; ");
 }

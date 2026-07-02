@@ -18,6 +18,16 @@ export function fmtTimestamp(iso: string): string {
   });
 }
 
+/** ISO timestamp split into separate date and time strings. */
+export function fmtTimestampParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: "—", time: "" };
+  return {
+    date: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    time: d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+  };
+}
+
 /** Compact money: `$X.XM` / `$Xk` / `$X` (exact PCData.jsx semantics). */
 export function fmtMoneyShort(v: number): string {
   if (v >= 1e6) {
