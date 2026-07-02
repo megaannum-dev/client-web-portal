@@ -22,6 +22,9 @@ build/
 *.db
 *.sqlite
 
+# PC workspace uploaded marketing materials (local storage backend mount)
+/pc_storage/
+
 # IDE
 .idea/
 .vscode/
