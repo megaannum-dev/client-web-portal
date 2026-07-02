@@ -1,4 +1,8 @@
-"""BE-3 — Repositories: pure DB access, no business logic."""
+"""Trade model repositories — split from app/libs/pc/repository.py (007-A).
+
+ModelRepository, MaterialRepository (methods on ModelRepository), SubscriptionRepository.
+Pure DB access, no business logic.
+"""
 
 from __future__ import annotations
 
@@ -7,21 +11,18 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.pc import (
-    AllocationModelSnapshot,
-    AllocationPeriod,
     ClientSubscription,
     Model,
     ModelChange,
     ModelChangeKind,
     ModelMaterial,
     ModelStatus,
-    PeriodStatus,
 )
-from app.models.users import ClientProfile, Portal, User
+from app.models.users import AdminProfile, ClientProfile, Portal, User
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +40,10 @@ class ModelRepository:
     def get_model(self, model_id: uuid.UUID) -> Model | None:
         return self.db.query(Model).filter(Model.id == model_id).one_or_none()
 
+    def bulk_get(self, model_ids: list[uuid.UUID]) -> dict[uuid.UUID, Model]:
+        rows = self.db.query(Model).filter(Model.id.in_(model_ids)).all()
+        return {m.id: m for m in rows}
+
     def create(
         self,
         *,
@@ -47,6 +52,14 @@ class ModelRepository:
         model_size: Decimal | None = None,
         intro: str | None = None,
         symbols: Any = None,
+        description: str | None = None,
+        underlyings: str | None = None,
+        risk: str | None = None,
+        liquidity: str | None = None,
+        reporting: str | None = None,
+        nav_perf: str | None = None,
+        mgmt_fee: Decimal | None = None,
+        incentive_fee: Decimal | None = None,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),
@@ -55,6 +68,14 @@ class ModelRepository:
             model_size=model_size,
             intro=intro,
             symbols=symbols,
+            description=description,
+            underlyings=underlyings,
+            risk=risk,
+            liquidity=liquidity,
+            reporting=reporting,
+            nav_perf=nav_perf,
+            mgmt_fee=mgmt_fee,
+            incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
         )
         self.db.add(model)
@@ -80,12 +101,32 @@ class ModelRepository:
             .all()
         )
 
+    def next_version_no(self, model_id: uuid.UUID) -> int:
+        """
+        Lock-safe next version number.
+        Uses SELECT ... FOR UPDATE to prevent concurrent uploads racing past
+        the same Python count.
+        """
+        from sqlalchemy import text
+        row = self.db.execute(
+            text(
+                "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_n "
+                "FROM model_materials WHERE model_id = :mid FOR UPDATE"
+            ),
+            # Uuid(native_uuid=False) persists as a 32-char hex CHAR column
+            # (no dashes) — str(model_id) produces the 36-char dashed form,
+            # which never matches, so this must bind the same .hex form.
+            {"mid": model_id.hex},
+        ).one()
+        return row.next_n
+
     def add_material(
         self,
         *,
         model_id: uuid.UUID,
         filename: str,
         version: str,
+        version_no: int,
         size_bytes: int | None = None,
         storage_key: str | None = None,
         content_type: str | None = None,
@@ -96,6 +137,7 @@ class ModelRepository:
             model_id=model_id,
             filename=filename,
             version=version,
+            version_no=version_no,
             size_bytes=size_bytes,
             storage_key=storage_key,
             content_type=content_type,
@@ -154,9 +196,22 @@ class ModelRepository:
             model.status = status
             self.db.flush()
 
+    def resolve_actor_names(self, firebase_uids: set[str]) -> dict[str, str]:
+        """Map a change-log actor's firebase_uid to a display name (AdminProfile.name,
+        falling back to email, then the uid itself if the user can't be found)."""
+        if not firebase_uids:
+            return {}
+        rows = (
+            self.db.query(User.firebase_uid, User.email, AdminProfile.name)
+            .outerjoin(AdminProfile, AdminProfile.user_id == User.id)
+            .filter(User.firebase_uid.in_(firebase_uids))
+            .all()
+        )
+        return {uid: (name or email or uid) for uid, email, name in rows}
+
 
 # ---------------------------------------------------------------------------
-# SubscriptionRepository
+# SubscriptionRepository — private helper types
 # ---------------------------------------------------------------------------
 
 
@@ -294,79 +349,3 @@ class SubscriptionRepository:
             func.count(CP.id),
         ).one()
         return _WatermarkResult(max_updated_at=row[0], count=row[1] or 0)
-
-
-# ---------------------------------------------------------------------------
-# AllocationRepository
-# ---------------------------------------------------------------------------
-
-
-class AllocationRepository:
-    def __init__(self, db: Session) -> None:
-        self.db = db
-
-    def list_periods(self) -> list[AllocationPeriod]:
-        return (
-            self.db.query(AllocationPeriod)
-            .order_by(AllocationPeriod.created_at.desc())
-            .all()
-        )
-
-    def get_period(self, period_id: uuid.UUID) -> AllocationPeriod | None:
-        return (
-            self.db.query(AllocationPeriod)
-            .filter(AllocationPeriod.id == period_id)
-            .one_or_none()
-        )
-
-    def get_open_period(self) -> AllocationPeriod | None:
-        return (
-            self.db.query(AllocationPeriod)
-            .filter(AllocationPeriod.status == PeriodStatus.OPEN)
-            .one_or_none()
-        )
-
-    def create_period(self, label: str) -> AllocationPeriod:
-        period = AllocationPeriod(
-            id=uuid.uuid4(),
-            label=label,
-            status=PeriodStatus.OPEN,
-        )
-        self.db.add(period)
-        self.db.flush()
-        return period
-
-    def confirm_period(
-        self, period_id: uuid.UUID, actor: str, confirmed_at: datetime
-    ) -> AllocationPeriod | None:
-        period = self.get_period(period_id)
-        if period is None:
-            return None
-        period.status = PeriodStatus.CONFIRMED
-        period.confirmed_by = actor
-        period.confirmed_at = confirmed_at
-        self.db.flush()
-        return period
-
-    def write_snapshots(
-        self, period_id: uuid.UUID, rows: list[dict]
-    ) -> None:
-        """Insert one AllocationModelSnapshot row per cell dict."""
-        for row in rows:
-            snap = AllocationModelSnapshot(
-                period_id=period_id,
-                user_id=row["user_id"],
-                model_id=row["model_id"],
-                multiplier=row["multiplier"],
-                model_size=row.get("model_size"),
-                ib_account=row.get("ib_account"),
-            )
-            self.db.add(snap)
-        self.db.flush()
-
-    def read_snapshots(self, period_id: uuid.UUID) -> list[AllocationModelSnapshot]:
-        return (
-            self.db.query(AllocationModelSnapshot)
-            .filter(AllocationModelSnapshot.period_id == period_id)
-            .all()
-        )

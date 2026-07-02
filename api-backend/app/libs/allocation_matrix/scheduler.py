@@ -44,26 +44,19 @@ async def _try_open_period(label: str) -> None:
     """Attempt to open a new period; skip gracefully if one is already open."""
     # Import here to avoid circular imports at module load time.
     from app.core.database import SessionLocal
-    from app.libs.pc.repository import AllocationRepository
+    from app.libs.allocation_matrix.service import AllocationService
 
     db = SessionLocal()
     try:
-        repo = AllocationRepository(db)
-        open_period = repo.get_open_period()
-        if open_period is not None:
-            logger.info(
-                "PC scheduler: skipping auto-open for %s — period '%s' is still open",
-                label,
-                open_period.label,
-            )
-            return
-
-        period = repo.create_period(label)
-        db.commit()
-        logger.info("PC scheduler: auto-opened allocation period '%s' (%s)", label, period.id)
-    except Exception:
-        db.rollback()
-        logger.exception("PC scheduler: failed to auto-open period '%s'", label)
+        svc = AllocationService(db)
+        svc.create_period(label)
+        logger.info("PC scheduler: auto-opened allocation period '%s'", label)
+    except Exception as exc:
+        if "already exists" in str(exc) or getattr(exc, "status_code", None) == 409:
+            logger.info("PC scheduler: skipping — open period already exists")
+        else:
+            db.rollback()
+            logger.exception("PC scheduler: failed to auto-open period '%s'", label)
     finally:
         db.close()
 

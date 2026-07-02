@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import Base, engine
 from app.libs.auth.router import router as auth_router
-from app.libs.pc.router import router as pc_router
-from app.libs.pc.scheduler import start_scheduler
+from app.libs.trade_models.router import router as trade_models_router
+from app.libs.allocation_matrix.router import router as allocation_matrix_router
+from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.users.router import router as users_router
 
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
@@ -40,7 +41,8 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
-app.include_router(pc_router, prefix="/api")
+app.include_router(trade_models_router, prefix="/api")
+app.include_router(allocation_matrix_router, prefix="/api")
 
 
 @app.get("/health")

@@ -40,11 +40,14 @@ services:
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       DEV_MODE: ${DEV_MODE:-false}
+      PC_STORAGE_ROOT: /app/pc_storage
     depends_on:
       mariadb:
         condition: service_healthy
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./api-backend/pc_storage:/app/pc_storage
 
   admin-frontend:
     build:
