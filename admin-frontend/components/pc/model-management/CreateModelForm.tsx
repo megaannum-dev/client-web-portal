@@ -76,6 +76,45 @@ export function CreateField({
   );
 }
 
+/* A labelled multi-line text field — same visual language as `CreateField`,
+   used for the free-text prospectus fields (description / underlyings /
+   risk) which don't fit a single-line input. */
+export function CreateTextArea({
+  label, value, placeholder, onChange, rows = 3,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+  rows?: number;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{label}</span>
+      <textarea
+        value={value}
+        placeholder={placeholder}
+        rows={rows}
+        onChange={(e) => onChange(e.target.value)}
+        className="resize-y rounded border border-outline-variant bg-white px-3 py-2 text-[14px] font-semibold leading-[1.4] text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
+      />
+    </label>
+  );
+}
+
+/** Parse a fee-percentage text input into the stored value. Fees are kept on
+ * the SAME whole-number percentage scale as `Model.mgmt` / `Model.incentive`
+ * (e.g. "2.5" => 2.5, meaning 2.5%) — see `lib/pc/models.ts`
+ * (`mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT`) and `lib/pc/format.ts`
+ * (`m.mgmt / 100`), which both treat `mgmt_fee` as already-whole-number.
+ * Empty or unparsable input => null (falls back to the hardcoded default). */
+export function parseFeePercent(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Build a `NewModelDraft` payload sent up to `handleCreate`. */
 export interface NewModelDraft {
   name: string;
@@ -84,6 +123,14 @@ export interface NewModelDraft {
   symbols: string[];
   status: ModelStatus;
   file: File | null;
+  description?: string;
+  underlyings?: string;
+  risk?: string;
+  liquidity?: string;
+  reporting?: string;
+  nav_perf?: string;
+  mgmt_fee?: number | null;
+  incentive_fee?: number | null;
 }
 
 /* ---- New-model form (create live or draft) -----------------
@@ -96,7 +143,20 @@ export function CreateModelForm({
 }: {
   onClose: () => void;
   onCreate: (m: NewModelDraft) => void;
-  initial?: { name: string; manager: string; size: number; symbols: string[] };
+  initial?: {
+    name: string;
+    manager: string;
+    size: number;
+    symbols: string[];
+    description?: string;
+    underlyings?: string;
+    risk?: string;
+    liquidity?: string;
+    reporting?: string;
+    nav_perf?: string;
+    mgmt_fee?: number | null;
+    incentive_fee?: number | null;
+  };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [manager, setManager] = useState(initial?.manager || MANAGER_OPTIONS[0]);
@@ -105,6 +165,14 @@ export function CreateModelForm({
   const [file, setFile] = useState<File | null>(null);
   const [addingSym, setAddingSym] = useState(false);
   const [draftSym, setDraftSym] = useState("");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [underlyings, setUnderlyings] = useState(initial?.underlyings ?? "");
+  const [risk, setRisk] = useState(initial?.risk ?? "");
+  const [liquidity, setLiquidity] = useState(initial?.liquidity ?? "");
+  const [reporting, setReporting] = useState(initial?.reporting ?? "");
+  const [navPerf, setNavPerf] = useState(initial?.nav_perf ?? "");
+  const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? String(initial.mgmt_fee) : "");
+  const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? String(initial.incentive_fee) : "");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const commitSym = () => {
@@ -128,6 +196,14 @@ export function CreateModelForm({
       symbols,
       status,
       file,
+      description: description.trim() || undefined,
+      underlyings: underlyings.trim() || undefined,
+      risk: risk.trim() || undefined,
+      liquidity: liquidity.trim() || undefined,
+      reporting: reporting.trim() || undefined,
+      nav_perf: navPerf.trim() || undefined,
+      mgmt_fee: parseFeePercent(mgmtFee),
+      incentive_fee: parseFeePercent(incentiveFee),
     });
   };
 
@@ -206,6 +282,32 @@ export function CreateModelForm({
             </div>
           </div>
         </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Description" value={description} onChange={setDescription} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Traded Underlyings" value={underlyings} onChange={setUnderlyings} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Leverage and Risk" value={risk} onChange={setRisk} />
+        </div>
+        <CreateField label="Liquidity" value={liquidity} onChange={setLiquidity} placeholder="e.g. Daily" />
+        <CreateField label="Reporting" value={reporting} onChange={setReporting} placeholder="e.g. Monthly" />
+        <CreateField label="NAV and Performance" value={navPerf} onChange={setNavPerf} placeholder="e.g. Monthly" />
+        <CreateField
+          label="Mgmt Fee %"
+          value={mgmtFee}
+          onChange={setMgmtFee}
+          placeholder="e.g. 2.0"
+          inputMode="decimal"
+        />
+        <CreateField
+          label="Incentive Fee %"
+          value={incentiveFee}
+          onChange={setIncentiveFee}
+          placeholder="e.g. 20.0"
+          inputMode="decimal"
+        />
         <div style={{ gridColumn: "1 / -1" }}>
           <span className="flex items-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
             Marketing material

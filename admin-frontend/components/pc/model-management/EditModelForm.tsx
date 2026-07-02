@@ -7,12 +7,14 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
-import { CreateField, MANAGER_OPTIONS } from "./CreateModelForm";
+import { CreateField, CreateTextArea, MANAGER_OPTIONS, parseFeePercent } from "./CreateModelForm";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
-   changed (the diff). Fees are not editable here — they are not
-   stored on the model (hardcoded 2 % / 20 %). */
+   changed (the diff). `mgmt_fee` / `incentive_fee` are optional
+   per-model overrides (null => the hardcoded 2 % / 20 % default from
+   `lib/pc/models.ts` applies); they are stored on the SAME
+   whole-number percentage scale as `Model.mgmt` / `Model.incentive`. */
 export function EditModelForm({
   model,
   onClose,
@@ -29,6 +31,14 @@ export function EditModelForm({
   const [addingSym, setAddingSym] = useState(false);
   const [draftSym, setDraftSym] = useState("");
   const [saving, setSaving] = useState(false);
+  const [description, setDescription] = useState(model.description ?? "");
+  const [underlyings, setUnderlyings] = useState(model.underlyings ?? "");
+  const [risk, setRisk] = useState(model.risk ?? "");
+  const [liquidity, setLiquidity] = useState(model.liquidity ?? "");
+  const [reporting, setReporting] = useState(model.reporting ?? "");
+  const [navPerf, setNavPerf] = useState(model.nav_perf ?? "");
+  const [mgmtFee, setMgmtFee] = useState(model.mgmt_fee != null ? String(model.mgmt_fee) : "");
+  const [incentiveFee, setIncentiveFee] = useState(model.incentive_fee != null ? String(model.incentive_fee) : "");
 
   const commitSym = () => {
     const s = draftSym.trim().toUpperCase();
@@ -50,6 +60,36 @@ export function EditModelForm({
     const numSize = Number(size) || 0;
     if (numSize !== model.size) patch.model_size = numSize;
     if (JSON.stringify(symbols) !== JSON.stringify(model.symbols)) patch.symbols = symbols;
+
+    const trimmedDescription = description.trim();
+    if (trimmedDescription !== (model.description ?? "")) {
+      patch.description = trimmedDescription === "" ? null : trimmedDescription;
+    }
+    const trimmedUnderlyings = underlyings.trim();
+    if (trimmedUnderlyings !== (model.underlyings ?? "")) {
+      patch.underlyings = trimmedUnderlyings === "" ? null : trimmedUnderlyings;
+    }
+    const trimmedRisk = risk.trim();
+    if (trimmedRisk !== (model.risk ?? "")) {
+      patch.risk = trimmedRisk === "" ? null : trimmedRisk;
+    }
+    const trimmedLiquidity = liquidity.trim();
+    if (trimmedLiquidity !== (model.liquidity ?? "")) {
+      patch.liquidity = trimmedLiquidity === "" ? null : trimmedLiquidity;
+    }
+    const trimmedReporting = reporting.trim();
+    if (trimmedReporting !== (model.reporting ?? "")) {
+      patch.reporting = trimmedReporting === "" ? null : trimmedReporting;
+    }
+    const trimmedNavPerf = navPerf.trim();
+    if (trimmedNavPerf !== (model.nav_perf ?? "")) {
+      patch.nav_perf = trimmedNavPerf === "" ? null : trimmedNavPerf;
+    }
+    const mgmtFeeNum = parseFeePercent(mgmtFee);
+    if (mgmtFeeNum !== (model.mgmt_fee ?? null)) patch.mgmt_fee = mgmtFeeNum;
+    const incentiveFeeNum = parseFeePercent(incentiveFee);
+    if (incentiveFeeNum !== (model.incentive_fee ?? null)) patch.incentive_fee = incentiveFeeNum;
+
     return patch;
   };
 
@@ -134,6 +174,32 @@ export function EditModelForm({
             </div>
           </div>
         </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Description" value={description} onChange={setDescription} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Traded Underlyings" value={underlyings} onChange={setUnderlyings} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <CreateTextArea label="Leverage and Risk" value={risk} onChange={setRisk} />
+        </div>
+        <CreateField label="Liquidity" value={liquidity} onChange={setLiquidity} placeholder="e.g. Daily" />
+        <CreateField label="Reporting" value={reporting} onChange={setReporting} placeholder="e.g. Monthly" />
+        <CreateField label="NAV and Performance" value={navPerf} onChange={setNavPerf} placeholder="e.g. Monthly" />
+        <CreateField
+          label="Mgmt Fee %"
+          value={mgmtFee}
+          onChange={setMgmtFee}
+          placeholder="e.g. 2.0"
+          inputMode="decimal"
+        />
+        <CreateField
+          label="Incentive Fee %"
+          value={incentiveFee}
+          onChange={setIncentiveFee}
+          placeholder="e.g. 20.0"
+          inputMode="decimal"
+        />
       </div>
     </Modal>
   );
