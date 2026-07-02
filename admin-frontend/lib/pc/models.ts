@@ -60,6 +60,14 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     version: dto.version ?? "—",
     materials: dto.materials ?? [],
     changes: (dto.changes ?? []).map(mapChangeEntry),
+    description: dto.description ?? null,
+    underlyings: dto.underlyings ?? null,
+    risk: dto.risk ?? null,
+    liquidity: dto.liquidity ?? null,
+    reporting: dto.reporting ?? null,
+    nav_perf: dto.nav_perf ?? null,
+    mgmt_fee: dto.mgmt_fee ?? null,
+    incentive_fee: dto.incentive_fee ?? null,
   };
 }
 
