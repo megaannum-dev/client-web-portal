@@ -40,7 +40,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
 
 export function CardGrid({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-[18px]">
+    <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
       {models.map((m) => <ModelCard key={m.id} m={m} onOpen={onOpen} />)}
     </div>
   );
