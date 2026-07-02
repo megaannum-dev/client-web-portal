@@ -212,8 +212,11 @@ class ModelService:
     def download_material(self, model_id: uuid.UUID, mid: uuid.UUID) -> IO[bytes]:
         mat = self.get_material(model_id, mid)
         if not mat.storage_key:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "File not stored")
-        return self.storage.open(mat.storage_key)
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "File does not exist")
+        try:
+            return self.storage.open(mat.storage_key)
+        except FileNotFoundError:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "File does not exist")
 
     def list_changes(self, model_id: uuid.UUID) -> list[ModelChange]:
         self.get_model(model_id)  # 404 guard
