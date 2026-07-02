@@ -24,6 +24,14 @@ export interface UseModelsResult {
     symbols: string[];
     status: "live" | "draft";
     file: File | null;
+    description?: string;
+    underlyings?: string;
+    risk?: string;
+    liquidity?: string;
+    reporting?: string;
+    nav_perf?: string;
+    mgmt_fee?: number | null;
+    incentive_fee?: number | null;
   }) => Promise<{ success: boolean; error?: string; id?: string }>;
   updateModel: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   uploadMaterial: (id: string, file: File) => Promise<{ success: boolean; error?: string }>;
@@ -74,12 +82,28 @@ export function useModels(): UseModelsResult {
       symbols: string[];
       status: "live" | "draft";
       file: File | null;
+      description?: string;
+      underlyings?: string;
+      risk?: string;
+      liquidity?: string;
+      reporting?: string;
+      nav_perf?: string;
+      mgmt_fee?: number | null;
+      incentive_fee?: number | null;
     }) => {
       const created = await createModelAction({
         name: params.name,
         model_size: params.size,
         manager: params.manager,
         symbols: params.symbols,
+        description: params.description,
+        underlyings: params.underlyings,
+        risk: params.risk,
+        liquidity: params.liquidity,
+        reporting: params.reporting,
+        nav_perf: params.nav_perf,
+        mgmt_fee: params.mgmt_fee,
+        incentive_fee: params.incentive_fee,
       });
       if (!created.success) return { success: false, error: created.error };
       const newId = created.data.id;

@@ -63,7 +63,14 @@ export default function ModelManagementPage() {
   const handleDuplicate = (id: string) => {
     const src = safeModels.find((x) => x.id === id);
     if (!src) return;
-    setDuplicateSeed({ name: `${src.name} (copy)`, manager: src.manager, size: src.size, symbols: [...src.symbols], status: "draft", file: null });
+    setDuplicateSeed({
+      name: `${src.name} (copy)`, manager: src.manager, size: src.size, symbols: [...src.symbols],
+      status: "draft", file: null,
+      description: src.description ?? undefined, underlyings: src.underlyings ?? undefined,
+      risk: src.risk ?? undefined, liquidity: src.liquidity ?? undefined,
+      reporting: src.reporting ?? undefined, nav_perf: src.nav_perf ?? undefined,
+      mgmt_fee: src.mgmt_fee, incentive_fee: src.incentive_fee,
+    });
     setOpenId(null); setCreating(true);
   };
 
