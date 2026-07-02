@@ -37,7 +37,7 @@ import {
   getMaterials as getMaterialsAction,
   downloadMaterial as downloadMaterialAction,
   deleteModel as deleteModelAction
-} from "@/app/(roles)/pc/model-management/action";
+} from "@/app/(roles)/pc/model-management/actions";
 
 /* Today as an ISO date (YYYY-MM-DD) — matches the change-history /
    material date format used throughout the model book. */

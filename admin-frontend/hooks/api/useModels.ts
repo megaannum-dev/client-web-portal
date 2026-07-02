@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getModels } from "@/app/(roles)/pc/model-management/action";
+import { getModels } from "@/app/(roles)/pc/model-management/actions";
 import { mapDtoToModels } from "@/lib/pc/models";
 import type { Model } from "@/lib/pc/types";
 

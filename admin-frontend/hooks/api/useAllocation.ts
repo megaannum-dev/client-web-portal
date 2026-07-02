@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAllocation } from "@/app/(roles)/pc/allocation-matrix/action";
+import { getAllocation } from "@/app/(roles)/pc/allocation-matrix/actions";
 import { mapDtoToAllocationView, type AllocationView } from "@/lib/pc/allocation";
 
 export interface UseAllocationResult {

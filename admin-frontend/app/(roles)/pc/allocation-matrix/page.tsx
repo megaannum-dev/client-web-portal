@@ -33,7 +33,7 @@ import { Eyebrow, Modal, Fact } from "@/components/pc/Shared";
 import { type AllocationView } from "@/lib/pc/allocation";
 import { fmtMoney, fmtMoneyShort } from "@/lib/pc/models";
 import { useAllocation } from "@/hooks/api/useAllocation";
-import { confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/action";
+import { confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/actions";
 
 type Toggle = "units" | "pct";
 interface Coord { cid: string; mid: string }
