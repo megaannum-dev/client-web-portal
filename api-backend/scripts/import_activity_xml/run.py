@@ -7,8 +7,10 @@
 
 Two input formats are accepted (mutually exclusive):
 
-  --xml PATH        A single Flex Query XML export, mixed levelOfDetail values
-                     in one <FlexQueryResponse>.
+  --xml PATH [PATH ...]
+                     One or more Flex Query XML exports, each with mixed
+                     levelOfDetail values in one <FlexQueryResponse>. Multiple
+                     files are parsed and merged before loading, same as --csv.
   --csv PATH [PATH ...]
                      One or more per-section Activity Statement CSVs (e.g.
                      *_Order.csv, *_Trade.csv, *_SymbolSummary.csv exported
@@ -23,14 +25,22 @@ Handles both Flex query schemas (auto-detected per file):
 Deduplication: rows whose unique key already exists in the target table are
 skipped silently. Counts of inserted vs. skipped are reported per table.
 Use --mode replace to clear all three tables before loading.
+Use --no-dedup to skip all dedup lookups/filtering and insert every parsed
+row as-is — intended for a clean import (normally --mode replace + --no-dedup
+together) where you know the tables start empty and want a byte-for-byte
+insert of what's in the source file, with no risk of the dedup logic itself
+silently dropping a row it misjudges as a duplicate.
 
 Usage:
     .venv/Scripts/python.exe -m scripts.import_activity_xml.run \\
         --xml "C:/path/to/flex.xml"
     .venv/Scripts/python.exe -m scripts.import_activity_xml.run \\
+        --xml "C:/path/to/flex1.xml" "C:/path/to/flex2.xml"
+    .venv/Scripts/python.exe -m scripts.import_activity_xml.run \\
         --csv "C:/path/to/activity_Order.csv" "C:/path/to/activity_Trade.csv" \\
               "C:/path/to/activity_SymbolSummary.csv"
     ... --mode replace   # clear orders, trades, symbol_summaries first
+    ... --no-dedup       # skip dedup entirely; insert every parsed row as-is
     ... --dry-run        # parse + report only, touch nothing
 """
 
@@ -41,6 +51,7 @@ import csv
 import uuid
 import xml.etree.ElementTree as ET
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 from typing import cast
 
 from sqlalchemy import Table, select, text
@@ -247,15 +258,85 @@ def _existing_single(conn, table: Table, col: str) -> set:
     return {row[0] for row in conn.execute(select(table.c[col]))}
 
 
-def _existing_pair(conn, table: Table, col1: str, col2: str) -> set:
-    return {(row[0], row[1]) for row in conn.execute(select(table.c[col1], table.c[col2]))}
-
-
 def _existing_triple(conn, table: Table, col1: str, col2: str, col3: str) -> set:
     return {
         (row[0], row[1], row[2])
         for row in conn.execute(select(table.c[col1], table.c[col2], table.c[col3]))
     }
+
+
+def _existing_multi_where_null(
+    conn, table: Table, cols: tuple[str, ...], null_col: str
+) -> set[tuple]:
+    """Return `cols` tuples for rows where `null_col` IS NULL only.
+
+    Used for the trades NULL-execID fallback key: only rows that themselves
+    lack an execID are candidates for that key space. A row with a real
+    execID must never suppress a genuinely distinct NULL-execID execution
+    that happens to share the same orderID (e.g. a normal fill followed by
+    a later assignment/expiry execution on the same order).
+    """
+    column_objs = [table.c[c] for c in cols]
+    stmt = select(*column_objs).where(table.c[null_col].is_(None))
+    return {
+        tuple(_normalize_key_value(c, v) for c, v in zip(cols, row))
+        for row in conn.execute(stmt)
+    }
+
+
+# Columns used to key a trades row that has no execID (IB omits execID for
+# option expiry/assignment executions). orderID alone is too coarse — an
+# order can accumulate more than one NULL-execID execution over its life —
+# so the key also pins symbol/date/side/qty/price/amount to make a false
+# collision between two genuinely different executions statistically
+# negligible.
+_NULL_EXEC_KEY_COLS = ("orderID", "symbol", "tradeDate", "buySell", "quantity", "price", "amount")
+
+# Numeric(28,10) columns in the key: incoming rows hold these as raw text
+# (from CSV/XML), but a value read back from the DB is a Decimal. "0E-10"
+# (str) != Decimal("0") as dict-key material even though they're the same
+# number, so both sides must be normalized to Decimal or the same row
+# silently re-inserts on every subsequent import.
+_NULL_EXEC_NUMERIC_COLS = frozenset({"quantity", "price", "amount"})
+
+
+def _normalize_key_value(col: str, value: object) -> object:
+    if value is None or col not in _NULL_EXEC_NUMERIC_COLS:
+        return value
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return value
+
+
+def _dedupe_fresh(rows, key_fn, existing_keys: set) -> list:
+    """Keep rows whose key isn't in `existing_keys`, updating it in place.
+
+    Handles both "already in the DB" and "duplicated within this same
+    import call" in one pass — the latter matters for trades/summaries,
+    which (for NULL-execID rows / post-B-6 summaries) have no DB unique
+    constraint to fall back on if the in-memory filter misses a dup.
+    """
+    fresh = []
+    for r in rows:
+        key = key_fn(r)
+        if key not in existing_keys:
+            existing_keys.add(key)
+            fresh.append(r)
+    return fresh
+
+
+def _trade_key(row: dict[str, object]) -> tuple:
+    """execID when present (unique per fill); the composite fallback key
+    otherwise (see _NULL_EXEC_KEY_COLS). Tagged so the two key spaces can't
+    collide with each other in the same set."""
+    exec_id = row.get("execID")
+    if exec_id is not None:
+        return ("exec", exec_id)
+    return (
+        "null_exec",
+        *(_normalize_key_value(c, row.get(c)) for c in _NULL_EXEC_KEY_COLS),
+    )
 
 
 def load(
@@ -265,12 +346,21 @@ def load(
     *,
     mode: str,
     batch_size: int,
+    no_dedup: bool = False,
 ) -> tuple[int, int, int, int, int, int]:
     """Insert all three row sets in one transaction.
 
     Deduplication runs inside the transaction before inserting, so rows whose
-    unique key already exists are skipped rather than raising. FK order:
-    clear symbol_summaries -> trades -> orders (reverse dependency).
+    unique key already exists (in the DB, or earlier in this same batch) are
+    skipped rather than raising. FK order: clear symbol_summaries -> trades ->
+    orders (reverse dependency).
+
+    If no_dedup is True, all dedup lookups/filtering are skipped and every
+    parsed row is inserted as-is. DB unique constraints (orders.orderID,
+    trades.execID) still apply and will raise IntegrityError if the parsed
+    data itself contains a real duplicate — trades rows with a NULL execID
+    and symbol_summaries rows have no such backstop, so a raw re-import in
+    this mode against a non-empty table WILL create literal duplicates.
 
     Returns (orders_inserted, orders_skipped, trades_inserted, trades_skipped,
              summaries_inserted, summaries_skipped).
@@ -280,26 +370,37 @@ def load(
             conn.execute(text("DELETE FROM `symbol_summaries`"))
             conn.execute(text("DELETE FROM `trades`"))
             conn.execute(text("DELETE FROM `orders`"))
-            existing_order_ids: set = set()
-            existing_exec_ids: set = set()
-            existing_null_exec_order_ids: set = set()
-            existing_summary_keys: set = set()
-        else:
-            existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
-            existing_exec_ids = _existing_single(conn, _TRADES_TABLE, "execID")
-            existing_null_exec_order_ids = _existing_single(conn, _TRADES_TABLE, "orderID")
-            existing_summary_keys = _existing_triple(conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell")
 
-        fresh_orders = [r for r in order_rows if r.get("orderID") not in existing_order_ids]
-        fresh_trades = [
-            r for r in trade_rows
-            if r.get("execID") is not None and r.get("execID") not in existing_exec_ids
-            or r.get("execID") is None and r.get("orderID") not in existing_null_exec_order_ids
-        ]
-        fresh_summaries = [
-            r for r in summary_rows
-            if (r.get("symbol"), r.get("tradeDate"), r.get("buySell")) not in existing_summary_keys
-        ]
+        if no_dedup:
+            fresh_orders = order_rows
+            fresh_trades = trade_rows
+            fresh_summaries = summary_rows
+        else:
+            if mode == "replace":
+                existing_order_ids: set = set()
+                existing_trade_keys: set = set()
+                existing_summary_keys: set = set()
+            else:
+                existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
+                existing_trade_keys = {
+                    ("exec", e) for e in _existing_single(conn, _TRADES_TABLE, "execID")
+                } | {
+                    ("null_exec", *t)
+                    for t in _existing_multi_where_null(
+                        conn, _TRADES_TABLE, _NULL_EXEC_KEY_COLS, "execID"
+                    )
+                }
+                existing_summary_keys = _existing_triple(
+                    conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell"
+                )
+
+            fresh_orders = _dedupe_fresh(order_rows, lambda r: r.get("orderID"), existing_order_ids)
+            fresh_trades = _dedupe_fresh(trade_rows, _trade_key, existing_trade_keys)
+            fresh_summaries = _dedupe_fresh(
+                summary_rows,
+                lambda r: (r.get("symbol"), r.get("tradeDate"), r.get("buySell")),
+                existing_summary_keys,
+            )
 
         for start in range(0, len(fresh_orders), batch_size):
             conn.execute(_ORDERS_TABLE.insert(), fresh_orders[start : start + batch_size])
@@ -318,7 +419,12 @@ def load(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--xml", help="Path to an IB Flex XML file (AF or TCF).")
+    source.add_argument(
+        "--xml",
+        nargs="+",
+        metavar="PATH",
+        help="One or more IB Flex XML files (AF or TCF), parsed and merged before loading.",
+    )
     source.add_argument(
         "--csv",
         nargs="+",
@@ -336,6 +442,17 @@ def main() -> None:
     )
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument(
+        "--no-dedup",
+        action="store_true",
+        help=(
+            "Skip all deduplication (DB-existing lookup and intra-batch check); "
+            "insert every parsed row as-is. For a clean import into empty "
+            "tables. DB unique constraints on orders.orderID/trades.execID "
+            "still apply; NULL-execID trades and symbol_summaries have no "
+            "such backstop and WILL duplicate if the target table isn't empty."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse and report only; do not touch the database.",
@@ -351,16 +468,17 @@ def main() -> None:
     summaries_unk: set[str] = set()
 
     if args.xml:
-        file_type = _detect_type(args.xml)
-        o, t, s, c, ou, tu, su = parse(args.xml, file_type)
-        print(f"Parsed {args.xml}  (type={file_type})")
-        order_rows += o
-        trade_rows += t
-        summary_rows += s
-        counts += c
-        orders_unk |= ou
-        trades_unk |= tu
-        summaries_unk |= su
+        for path in args.xml:
+            file_type = _detect_type(path)
+            o, t, s, c, ou, tu, su = parse(path, file_type)
+            print(f"Parsed {path}  (type={file_type})")
+            order_rows += o
+            trade_rows += t
+            summary_rows += s
+            counts += c
+            orders_unk |= ou
+            trades_unk |= tu
+            summaries_unk |= su
     else:
         for path in args.csv:
             with open(path, newline="", encoding="utf-8-sig") as f:
@@ -406,12 +524,16 @@ def main() -> None:
         )
         return
 
+    if args.no_dedup:
+        print("WARNING: --no-dedup is set — inserting every parsed row as-is, no dedup checks.")
+
     o_ins, o_skip, t_ins, t_skip, s_ins, s_skip = load(
         order_rows, trade_rows, summary_rows,
         mode=args.mode,
         batch_size=args.batch_size,
+        no_dedup=args.no_dedup,
     )
-    print(f"Inserted (mode={args.mode}):")
+    print(f"Inserted (mode={args.mode}, no_dedup={args.no_dedup}):")
     print(f"  {'orders':<22} inserted={o_ins:>6}  skipped(dup)={o_skip:>6}")
     print(f"  {'trades':<22} inserted={t_ins:>6}  skipped(dup)={t_skip:>6}")
     print(f"  {'symbol_summaries':<22} inserted={s_ins:>6}  skipped(dup)={s_skip:>6}")
