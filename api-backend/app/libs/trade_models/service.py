@@ -180,6 +180,7 @@ class ModelService:
             model_id=model_id,
             filename=filename,
             version=version_tag,
+            version_no=next_n,
             size_bytes=size_bytes,
             storage_key=storage_key,
             content_type=content_type,

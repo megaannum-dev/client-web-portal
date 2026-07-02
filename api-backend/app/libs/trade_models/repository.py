@@ -97,7 +97,10 @@ class ModelRepository:
                 "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_n "
                 "FROM model_materials WHERE model_id = :mid FOR UPDATE"
             ),
-            {"mid": str(model_id)},
+            # Uuid(native_uuid=False) persists as a 32-char hex CHAR column
+            # (no dashes) — str(model_id) produces the 36-char dashed form,
+            # which never matches, so this must bind the same .hex form.
+            {"mid": model_id.hex},
         ).one()
         return row.next_n
 
@@ -107,6 +110,7 @@ class ModelRepository:
         model_id: uuid.UUID,
         filename: str,
         version: str,
+        version_no: int,
         size_bytes: int | None = None,
         storage_key: str | None = None,
         content_type: str | None = None,
@@ -117,6 +121,7 @@ class ModelRepository:
             model_id=model_id,
             filename=filename,
             version=version,
+            version_no=version_no,
             size_bytes=size_bytes,
             storage_key=storage_key,
             content_type=content_type,
