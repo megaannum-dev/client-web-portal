@@ -1,13 +1,24 @@
-"""Importer: IB Flex XML -> MariaDB. Routes all rows to three tables simultaneously.
+"""Importer: IB Flex XML/CSV -> MariaDB. Routes all rows to three tables simultaneously.
 
   levelOfDetail=ORDER                     -> orders          (unique on orderID)
   levelOfDetail=EXECUTION                 -> trades          (unique on execID)
   levelOfDetail=SYMBOL_SUMMARY              -> symbol_summaries (dedup on symbol+tradeDate+buySell)
   levelOfDetail=ASSET_SUMMARY               (skipped)
 
-Handles both Flex query types:
-  type="AF"  (Activity Flex)         -- 9 columns have different names; aliased to TCF names.
-  type="TCF" (Trade Confirm Flex)    -- column names match the ORM directly.
+Two input formats are accepted (mutually exclusive):
+
+  --xml PATH        A single Flex Query XML export, mixed levelOfDetail values
+                     in one <FlexQueryResponse>.
+  --csv PATH [PATH ...]
+                     One or more per-section Activity Statement CSVs (e.g.
+                     *_Order.csv, *_Trade.csv, *_SymbolSummary.csv exported
+                     from the IB web portal). Each file has a single header
+                     row; rows are routed by their own levelOfDetail column,
+                     same as --xml. Multiple files may be passed together.
+
+Handles both Flex query schemas (auto-detected per file):
+  AF  (Activity Flex)       -- 9 columns have different names; aliased to TCF names.
+  TCF (Trade Confirm Flex)  -- column names match the ORM directly.
 
 Deduplication: rows whose unique key already exists in the target table are
 skipped silently. Counts of inserted vs. skipped are reported per table.
@@ -16,6 +27,9 @@ Use --mode replace to clear all three tables before loading.
 Usage:
     .venv/Scripts/python.exe -m scripts.import_activity_xml.run \\
         --xml "C:/path/to/flex.xml"
+    .venv/Scripts/python.exe -m scripts.import_activity_xml.run \\
+        --csv "C:/path/to/activity_Order.csv" "C:/path/to/activity_Trade.csv" \\
+              "C:/path/to/activity_SymbolSummary.csv"
     ... --mode replace   # clear orders, trades, symbol_summaries first
     ... --dry-run        # parse + report only, touch nothing
 """
@@ -23,6 +37,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 import uuid
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -76,6 +91,18 @@ def _detect_type(xml_path: str) -> str:
     raise SystemExit("No <FlexQueryResponse> root element found — not a Flex export.")
 
 
+def _detect_csv_type(header: list[str]) -> str:
+    """Infer AF vs TCF schema from a CSV header row (no type= attribute in CSV)."""
+    if "ibOrderID" in header:
+        return "AF"
+    if "orderID" in header:
+        return "TCF"
+    raise SystemExit(
+        f"Cannot detect Flex schema from CSV header — no 'ibOrderID' (AF) or "
+        f"'orderID' (TCF) column found: {header}"
+    )
+
+
 def _build_row(
     attrs: dict[str, str],
     header: dict[str, str],
@@ -99,10 +126,7 @@ def _build_row(
     return row
 
 
-def parse(
-    xml_path: str,
-    file_type: str,
-) -> tuple[
+_ParseResult = tuple[
     list[dict[str, object]],
     list[dict[str, object]],
     list[dict[str, object]],
@@ -110,8 +134,50 @@ def parse(
     set[str],
     set[str],
     set[str],
-]:
-    """Stream-parse XML into three row buckets split by levelOfDetail.
+]
+
+
+def _route_row(
+    attrs: dict[str, str],
+    header: dict[str, str],
+    aliases: dict[str, str],
+    counts: Counter,
+    order_rows: list[dict[str, object]],
+    trade_rows: list[dict[str, object]],
+    summary_rows: list[dict[str, object]],
+    orders_unknown: set[str],
+    trades_unknown: set[str],
+    summaries_unknown: set[str],
+) -> None:
+    """Route one raw row (an XML element's attrib, or a CSV DictReader row) by levelOfDetail.
+
+    Shared by both the XML and CSV parsers so routing/dedup-of-unknown-columns
+    logic lives in exactly one place.
+    """
+    level = attrs.get("levelOfDetail")
+    if level is None:
+        return
+
+    counts[level] += 1
+    if level in _ORDER_LEVELS:
+        orders_unknown.update(
+            {aliases.get(k, k) for k in attrs} - _ORDERS_VALID - set(_STATEMENT_HEADER_KEYS)
+        )
+        order_rows.append(_build_row(attrs, header, aliases, _ORDERS_VALID))
+    elif level in _EXECUTION_LEVELS:
+        trades_unknown.update(
+            {aliases.get(k, k) for k in attrs} - _TRADES_VALID - set(_STATEMENT_HEADER_KEYS)
+        )
+        trade_rows.append(_build_row(attrs, header, aliases, _TRADES_VALID))
+    elif level in _SUMMARY_LEVELS:
+        summaries_unknown.update(
+            {aliases.get(k, k) for k in attrs} - _SUMMARIES_VALID - set(_STATEMENT_HEADER_KEYS)
+        )
+        summary_rows.append(_build_row(attrs, header, aliases, _SUMMARIES_VALID))
+
+
+def parse(xml_path: str, file_type: str) -> _ParseResult:
+    """Stream-parse a Flex XML export into three row buckets split by levelOfDetail.
 
     Returns (order_rows, trade_rows, summary_rows, level_counts,
              orders_unknown_attrs, trades_unknown_attrs, summaries_unknown_attrs).
@@ -132,33 +198,43 @@ def parse(
                 header = dict(elem.attrib)
             continue
 
-        level = elem.attrib.get("levelOfDetail")
-        if level is None:
-            continue
-
-        counts[level] += 1
-        if level in _ORDER_LEVELS:
-            orders_unknown.update(
-                {aliases.get(k, k) for k in elem.attrib}
-                - _ORDERS_VALID
-                - set(_STATEMENT_HEADER_KEYS)
-            )
-            order_rows.append(_build_row(elem.attrib, header, aliases, _ORDERS_VALID))
-        elif level in _EXECUTION_LEVELS:
-            trades_unknown.update(
-                {aliases.get(k, k) for k in elem.attrib}
-                - _TRADES_VALID
-                - set(_STATEMENT_HEADER_KEYS)
-            )
-            trade_rows.append(_build_row(elem.attrib, header, aliases, _TRADES_VALID))
-        elif level in _SUMMARY_LEVELS:
-            summaries_unknown.update(
-                {aliases.get(k, k) for k in elem.attrib}
-                - _SUMMARIES_VALID
-                - set(_STATEMENT_HEADER_KEYS)
-            )
-            summary_rows.append(_build_row(elem.attrib, header, aliases, _SUMMARIES_VALID))
+        _route_row(
+            elem.attrib, header, aliases, counts,
+            order_rows, trade_rows, summary_rows,
+            orders_unknown, trades_unknown, summaries_unknown,
+        )
         elem.clear()
+
+    return (
+        order_rows, trade_rows, summary_rows,
+        counts,
+        orders_unknown, trades_unknown, summaries_unknown,
+    )
+
+
+def parse_csv(csv_path: str, file_type: str) -> _ParseResult:
+    """Parse a single per-section Activity Statement CSV into three row buckets.
+
+    Each CSV row already carries fromDate/toDate/period/whenGenerated directly
+    (unlike XML, where those live on the parent <FlexStatement> element), so no
+    separate header dict is needed — routing happens purely off levelOfDetail.
+    """
+    aliases = _AF_TO_TCF if file_type == "AF" else {}
+    order_rows: list[dict[str, object]] = []
+    trade_rows: list[dict[str, object]] = []
+    summary_rows: list[dict[str, object]] = []
+    counts: Counter = Counter()
+    orders_unknown: set[str] = set()
+    trades_unknown: set[str] = set()
+    summaries_unknown: set[str] = set()
+
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            _route_row(
+                row, {}, aliases, counts,
+                order_rows, trade_rows, summary_rows,
+                orders_unknown, trades_unknown, summaries_unknown,
+            )
 
     return (
         order_rows, trade_rows, summary_rows,
@@ -241,7 +317,17 @@ def load(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--xml", required=True, help="Path to an IB Flex XML file (AF or TCF).")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--xml", help="Path to an IB Flex XML file (AF or TCF).")
+    source.add_argument(
+        "--csv",
+        nargs="+",
+        metavar="PATH",
+        help=(
+            "One or more per-section Activity Statement CSVs "
+            "(e.g. *_Order.csv, *_Trade.csv, *_SymbolSummary.csv)."
+        ),
+    )
     parser.add_argument(
         "--mode",
         choices=("replace", "append"),
@@ -256,12 +342,40 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    file_type = _detect_type(args.xml)
-    order_rows, trade_rows, summary_rows, counts, orders_unk, trades_unk, summaries_unk = parse(
-        args.xml, file_type
-    )
+    order_rows: list[dict[str, object]] = []
+    trade_rows: list[dict[str, object]] = []
+    summary_rows: list[dict[str, object]] = []
+    counts: Counter = Counter()
+    orders_unk: set[str] = set()
+    trades_unk: set[str] = set()
+    summaries_unk: set[str] = set()
 
-    print(f"Parsed {args.xml}  (type={file_type})")
+    if args.xml:
+        file_type = _detect_type(args.xml)
+        o, t, s, c, ou, tu, su = parse(args.xml, file_type)
+        print(f"Parsed {args.xml}  (type={file_type})")
+        order_rows += o
+        trade_rows += t
+        summary_rows += s
+        counts += c
+        orders_unk |= ou
+        trades_unk |= tu
+        summaries_unk |= su
+    else:
+        for path in args.csv:
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                header = next(csv.reader(f))
+            file_type = _detect_csv_type(header)
+            o, t, s, c, ou, tu, su = parse_csv(path, file_type)
+            print(f"Parsed {path}  (type={file_type})")
+            order_rows += o
+            trade_rows += t
+            summary_rows += s
+            counts += c
+            orders_unk |= ou
+            trades_unk |= tu
+            summaries_unk |= su
+
     for level, n in sorted(counts.items()):
         if level in _ORDER_LEVELS:
             dest = "-> orders"
