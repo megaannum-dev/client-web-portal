@@ -2,9 +2,13 @@ import type { ChangeEntry } from "./types";
 import { fmtMoney } from "./format";
 
 interface FieldDiff {
-  field: string;
-  before: string;
-  after: string;
+  name: string;
+  before?: unknown;
+  after?: unknown;
+  // Long-text fields (description/underlyings/risk) omit before/after and
+  // just flag that the value changed — see _LONG_TEXT_FIELDS in the
+  // backend's ModelService._diff_field.
+  changed?: boolean;
 }
 
 function fmtValue(v: unknown): string {
@@ -32,7 +36,7 @@ export function renderChange(c: ChangeEntry): string {
       const d = c.detail as { fields?: FieldDiff[] };
       if (!d.fields?.length) return "Model updated";
       return d.fields
-        .map((f) => `${f.field} ${fmtValue(f.before)} → ${fmtValue(f.after)}`)
+        .map((f) => (f.changed ? `${f.name} updated` : `${f.name} ${fmtValue(f.before)} → ${fmtValue(f.after)}`))
         .join("; ");
     }
 

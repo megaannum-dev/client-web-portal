@@ -145,7 +145,7 @@ export async function downloadMaterial(
 
 export async function getChanges(
   id: string,
-): Promise<APIResult<{ changes: ModelDTO["changes"] }>> {
+): Promise<APIResult<ModelDTO["changes"]>> {
   try {
     logger.log("🔄 Fetching PC model changes:", id);
     const response = await _getChanges(id);

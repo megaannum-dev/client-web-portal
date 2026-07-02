@@ -64,7 +64,7 @@ export function useModelDetail(id: string | null): UseModelDetailResult {
       // the changes call failed, rather than losing the whole detail view.
       const dto = {
         ...modelResult.data,
-        changes: changesResult.success ? changesResult.data.changes : modelResult.data.changes,
+        changes: changesResult.success ? changesResult.data : modelResult.data.changes,
       };
       const model = mapDtoToModel(dto);
       const materials = materialsResult.success
