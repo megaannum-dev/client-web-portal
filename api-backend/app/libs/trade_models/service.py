@@ -239,6 +239,11 @@ class ModelService:
         self.get_model(model_id)  # 404 guard
         return self.repo.list_changes(model_id)
 
+    def resolve_actor_names(self, actors: Any) -> dict[str, str]:
+        """actor firebase_uid -> display name, for rendering change-log entries."""
+        uids = {a for a in actors if a}
+        return self.repo.resolve_actor_names(uids)
+
     # --- Publish state machine ---
 
     def publish_model(

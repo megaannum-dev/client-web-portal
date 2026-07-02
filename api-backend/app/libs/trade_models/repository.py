@@ -22,7 +22,7 @@ from app.models.pc import (
     ModelMaterial,
     ModelStatus,
 )
-from app.models.users import ClientProfile, Portal, User
+from app.models.users import AdminProfile, ClientProfile, Portal, User
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +195,19 @@ class ModelRepository:
         if model is not None:
             model.status = status
             self.db.flush()
+
+    def resolve_actor_names(self, firebase_uids: set[str]) -> dict[str, str]:
+        """Map a change-log actor's firebase_uid to a display name (AdminProfile.name,
+        falling back to email, then the uid itself if the user can't be found)."""
+        if not firebase_uids:
+            return {}
+        rows = (
+            self.db.query(User.firebase_uid, User.email, AdminProfile.name)
+            .outerjoin(AdminProfile, AdminProfile.user_id == User.id)
+            .filter(User.firebase_uid.in_(firebase_uids))
+            .all()
+        )
+        return {uid: (name or email or uid) for uid, email, name in rows}
 
 
 # ---------------------------------------------------------------------------

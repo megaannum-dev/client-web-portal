@@ -179,4 +179,9 @@ def list_changes(
     service: Annotated[ModelService, Depends(_get_model_service)],
     _: Annotated[User, Depends(require_action(Action.MODEL_VIEW))],
 ) -> list:
-    return service.list_changes(model_id)
+    changes = service.list_changes(model_id)
+    names = service.resolve_actor_names(c.actor for c in changes)
+    return [
+        ChangeOut.model_validate(c).model_copy(update={"actor": names.get(c.actor, c.actor)})
+        for c in changes
+    ]
