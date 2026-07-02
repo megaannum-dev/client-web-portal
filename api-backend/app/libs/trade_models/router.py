@@ -85,6 +85,14 @@ def create_model(
         model_size=body.model_size,
         intro=body.intro,
         symbols=body.symbols,
+        description=body.description,
+        underlyings=body.underlyings,
+        risk=body.risk,
+        liquidity=body.liquidity,
+        reporting=body.reporting,
+        nav_perf=body.nav_perf,
+        mgmt_fee=body.mgmt_fee,
+        incentive_fee=body.incentive_fee,
         actor=actor.firebase_uid,
     )
 

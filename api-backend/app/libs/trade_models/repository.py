@@ -52,6 +52,14 @@ class ModelRepository:
         model_size: Decimal | None = None,
         intro: str | None = None,
         symbols: Any = None,
+        description: str | None = None,
+        underlyings: str | None = None,
+        risk: str | None = None,
+        liquidity: str | None = None,
+        reporting: str | None = None,
+        nav_perf: str | None = None,
+        mgmt_fee: Decimal | None = None,
+        incentive_fee: Decimal | None = None,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),
@@ -60,6 +68,14 @@ class ModelRepository:
             model_size=model_size,
             intro=intro,
             symbols=symbols,
+            description=description,
+            underlyings=underlyings,
+            risk=risk,
+            liquidity=liquidity,
+            reporting=reporting,
+            nav_perf=nav_perf,
+            mgmt_fee=mgmt_fee,
+            incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
         )
         self.db.add(model)
