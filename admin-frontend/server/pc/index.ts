@@ -16,7 +16,6 @@ import type {
   ModelDTO,
   ModelsListDTO,
   PeriodDTO,
-  PeriodsListDTO,
 } from "@/lib/pc/types";
 
 export type { APIResult };
@@ -52,11 +51,17 @@ export async function updateModel(
 }
 
 export async function publishModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.PUBLISH(id), { method: "POST" });
+  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "live" }),
+  });
 }
 
 export async function deleteModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.DELETE(id), { method: "DELETE" });
+  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "deleted" }),
+  });
 }
 
 export async function getMaterials(id: string): Promise<APIResult<MaterialDTO[]>> {
@@ -109,10 +114,6 @@ export async function getChanges(
 
 /* ---- Allocation matrix ------------------------------------- */
 
-export async function getPeriods(): Promise<APIResult<PeriodsListDTO>> {
-  return apiClient<PeriodsListDTO>(ENDPOINTS.PC.PERIODS);
-}
-
 /**
  * Fetch the allocation matrix for a given period.
  * Pass `etag` (from a prior 200 response) to get a conditional 304 if nothing changed.
@@ -129,5 +130,8 @@ export async function getAllocation(
 }
 
 export async function confirmPeriod(id: string): Promise<APIResult<PeriodDTO>> {
-  return apiClient<PeriodDTO>(ENDPOINTS.PC.CONFIRM(id), { method: "POST" });
+  return apiClient<PeriodDTO>(ENDPOINTS.PC.PATCH_PERIOD(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "confirmed" }),
+  });
 }
