@@ -91,7 +91,15 @@ export async function downloadMaterial(
     });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
     if (!res.ok) {
-      return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+      let msg = `HTTP ${res.status}`;
+      try {
+        const errJson: unknown = await res.json();
+        if (typeof errJson === "object" && errJson !== null && "detail" in errJson) {
+          const d = (errJson as { detail?: unknown }).detail;
+          if (typeof d === "string") msg = d;
+        }
+      } catch { /* noop */ }
+      return { success: false, error: msg, code: `HTTP_${res.status}` };
     }
     // Pull the filename out of the Content-Disposition header (FastAPI sets
     // `attachment; filename="…"` in the download route).
