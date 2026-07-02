@@ -14,7 +14,7 @@ type Tab = "overview" | "materials" | "changes";
 export const TH_BASE =
   "bg-surface-low px-3.5 py-3 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap";
 
-function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => void }) {
+function ModelTr({ m, onOpen, onDownloadLatest }: { m: Model; onOpen: (id: string, tab: Tab) => void; onDownloadLatest: (id: string) => void }) {
   const [hover, setHover] = useState(false);
   const td = `border-t border-outline-variant px-3.5 py-3.5 text-[14px] align-middle ${hover ? "bg-surface-low" : ""}`;
   return (
@@ -47,16 +47,26 @@ function ModelTr({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => vo
             <Upload size={13} strokeWidth={2} />Upload v1
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded bg-primary px-[11px] py-1.5 text-[12.5px] font-semibold text-white">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDownloadLatest(m.id); }}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded border-none bg-primary px-[11px] py-1.5 text-[12.5px] font-semibold text-white"
+          >
             <Download size={13} strokeWidth={2} />Download {m.version}
-          </span>
+          </button>
         )}
       </td>
     </tr>
   );
 }
 
-export function ModelTable({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
+export function ModelTable({
+  models, onOpen, onDownloadLatest,
+}: {
+  models: Model[];
+  onOpen: (id: string, tab: Tab) => void;
+  onDownloadLatest: (id: string) => void;
+}) {
   const headers = ["Model", "Model size", "Manager", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
   const rightAligned = new Set([1, 4, 5, 7]);
   return (
@@ -73,7 +83,7 @@ export function ModelTable({ models, onOpen }: { models: Model[]; onOpen: (id: s
             </tr>
           </thead>
           <tbody>
-            {models.map((m) => <ModelTr key={m.id} m={m} onOpen={onOpen} />)}
+            {models.map((m) => <ModelTr key={m.id} m={m} onOpen={onOpen} onDownloadLatest={onDownloadLatest} />)}
           </tbody>
         </table>
       </div>

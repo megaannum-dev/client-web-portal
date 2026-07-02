@@ -33,7 +33,7 @@ const TOGGLES: [Layout, typeof LayoutGrid, string][] = [
 ];
 
 export default function ModelManagementPage() {
-  const { data: models, refetch, createModel, updateModel } = useModels();
+  const { data: models, refetch, createModel, updateModel, downloadLatestMaterial } = useModels();
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
@@ -73,6 +73,11 @@ export default function ModelManagementPage() {
     });
     setOpenId(null); setCreating(true);
   };
+  const handleDownloadLatest = (modelId: string) => {
+    void downloadLatestMaterial(modelId).then((r) =>
+      r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`)
+    );
+  };
 
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
@@ -97,7 +102,11 @@ export default function ModelManagementPage() {
             <Button icon={Plus} onClick={() => setCreating(true)}>New model</Button>
           </div>
         </div>
-        {layout === "grid" ? <CardGrid models={safeModels} onOpen={open} /> : <ModelTable models={safeModels} onOpen={open} />}
+        {layout === "grid" ? (
+          <CardGrid models={safeModels} onOpen={open} />
+        ) : (
+          <ModelTable models={safeModels} onOpen={open} onDownloadLatest={handleDownloadLatest} />
+        )}
       </div>
       {m && (
         <ModelDetailPanel

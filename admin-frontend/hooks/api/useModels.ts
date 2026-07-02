@@ -8,6 +8,7 @@ import {
   uploadMaterial as uploadMaterialAction,
   downloadMaterial as downloadMaterialAction,
   publishModel as publishModelAction,
+  getMaterials as getMaterialsAction,
 } from "@/app/(roles)/pc/model-management/actions";
 import { mapDtoToModels } from "@/lib/pc/models";
 import type { Model } from "@/lib/pc/types";
@@ -38,6 +39,9 @@ export interface UseModelsResult {
   downloadMaterial: (
     modelId: string,
     materialId: string,
+  ) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
+  downloadLatestMaterial: (
+    modelId: string,
   ) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
 }
 
@@ -158,5 +162,20 @@ export function useModels(): UseModelsResult {
     return { success: true, ...result.data };
   }, []);
 
-  return { data, loading, error, refetch: fetch, createModel, updateModel, uploadMaterial, downloadMaterial };
+  // Materials come back ascending by created_at (repository.list_materials), so
+  // the latest upload is the last element — no dedicated "latest" endpoint exists.
+  const downloadLatestMaterial = useCallback(async (modelId: string) => {
+    const materials = await getMaterialsAction(modelId);
+    if (!materials.success) return { success: false, error: materials.error };
+    if (!materials.data.length) return { success: false, error: "No materials uploaded" };
+    const latest = materials.data[materials.data.length - 1];
+    const result = await downloadMaterialAction(modelId, latest.id);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, ...result.data };
+  }, []);
+
+  return {
+    data, loading, error, refetch: fetch, createModel, updateModel,
+    uploadMaterial, downloadMaterial, downloadLatestMaterial,
+  };
 }
