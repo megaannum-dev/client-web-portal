@@ -36,8 +36,8 @@ export function ModelDetailPanel({
     <>
       <div onClick={onClose} className="absolute inset-0 z-[8]" style={{ background: "rgba(40,38,34,0.18)" }} />
       <div
-        className="absolute bottom-[18px] right-[18px] top-[18px] z-[9] flex w-[432px] flex-col overflow-hidden rounded-[18px] border border-outline-variant bg-surface-lowest shadow-overlay"
-        style={{ maxWidth: "calc(100% - 36px)" }}
+        className="absolute bottom-[18px] right-[18px] top-[18px] z-[9] flex flex-col overflow-hidden rounded-[18px] border border-outline-variant bg-surface-lowest shadow-overlay"
+        style={{ width: "clamp(380px, 32vw, 540px)", maxWidth: "calc(100% - 36px)" }}
       >
         <div className="flex-none border-b border-outline-variant px-[22px] pb-3.5 pt-[18px]">
           <div className="flex items-start justify-between gap-3">
