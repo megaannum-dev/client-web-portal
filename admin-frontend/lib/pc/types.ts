@@ -68,6 +68,15 @@ export interface Model {
   version: string;
   materials: Material[];
   changes: ChangeEntry[];
+  // Prospectus / fee fields (from DB B-1b)
+  description: string | null;
+  underlyings: string | null;
+  risk: string | null;
+  liquidity: string | null;
+  reporting: string | null;
+  nav_perf: string | null;
+  mgmt_fee: number | null;       // null → use DEFAULT_MGMT_PCT fallback
+  incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_PCT fallback
 }
 
 /** Fee figures derived from a model (see `computeFees`). */
@@ -122,6 +131,8 @@ export interface Period {
   id?: string;
   label: string;
   status: PeriodStatus;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
 }
 
 /* ---- Transport DTOs (backend payload shapes) --------------- */
@@ -135,7 +146,7 @@ export interface ChangeEntryDTO {
   detail: Record<string, unknown>;
   actor: string;
   version: string;
-  date: string;
+  created_at: string;
 }
 
 /** Backend payload for a single model (GET /api/pc/models/:id and list). */
@@ -146,12 +157,19 @@ export interface ModelDTO {
   manager: string;
   intro: string;
   symbols: string[];
-  mgmt_fee: number;
-  incentive_fee: number;
   status: "live" | "draft";
   version: string;
   materials: { file: string; ver: string; date: string; size: string }[];
   changes: ChangeEntryDTO[];
+  // New fields from DB B-1b (all nullable until backend populates them)
+  description?: string | null;
+  underlyings?: string | null;
+  risk?: string | null;
+  liquidity?: string | null;
+  reporting?: string | null;
+  nav_perf?: string | null;
+  mgmt_fee?: number | null;
+  incentive_fee?: number | null;
 }
 
 /** Backend payload for GET /api/pc/models. */

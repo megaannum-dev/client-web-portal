@@ -16,7 +16,6 @@ import type {
   ModelDTO,
   ModelsListDTO,
   PeriodDTO,
-  PeriodsListDTO,
 } from "@/lib/pc/types";
 
 export type { APIResult };
@@ -52,11 +51,17 @@ export async function updateModel(
 }
 
 export async function publishModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.PUBLISH(id), { method: "POST" });
+  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "live" }),
+  });
 }
 
 export async function deleteModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.DELETE(id), { method: "DELETE" });
+  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "deleted" }),
+  });
 }
 
 export async function getMaterials(id: string): Promise<APIResult<MaterialDTO[]>> {
@@ -86,7 +91,15 @@ export async function downloadMaterial(
     });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
     if (!res.ok) {
-      return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+      let msg = `HTTP ${res.status}`;
+      try {
+        const errJson: unknown = await res.json();
+        if (typeof errJson === "object" && errJson !== null && "detail" in errJson) {
+          const d = (errJson as { detail?: unknown }).detail;
+          if (typeof d === "string") msg = d;
+        }
+      } catch { /* noop */ }
+      return { success: false, error: msg, code: `HTTP_${res.status}` };
     }
     // Pull the filename out of the Content-Disposition header (FastAPI sets
     // `attachment; filename="…"` in the download route).
@@ -103,15 +116,11 @@ export async function downloadMaterial(
 
 export async function getChanges(
   id: string,
-): Promise<APIResult<{ changes: ModelDTO["changes"] }>> {
+): Promise<APIResult<ModelDTO["changes"]>> {
   return apiClient(ENDPOINTS.PC.CHANGES(id));
 }
 
 /* ---- Allocation matrix ------------------------------------- */
-
-export async function getPeriods(): Promise<APIResult<PeriodsListDTO>> {
-  return apiClient<PeriodsListDTO>(ENDPOINTS.PC.PERIODS);
-}
 
 /**
  * Fetch the allocation matrix for a given period.
@@ -129,5 +138,8 @@ export async function getAllocation(
 }
 
 export async function confirmPeriod(id: string): Promise<APIResult<PeriodDTO>> {
-  return apiClient<PeriodDTO>(ENDPOINTS.PC.CONFIRM(id), { method: "POST" });
+  return apiClient<PeriodDTO>(ENDPOINTS.PC.PATCH_PERIOD(id), {
+    method: "PATCH",
+    body: JSON.stringify({ status: "confirmed" }),
+  });
 }

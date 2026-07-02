@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAllocation } from "@/app/(roles)/pc/allocation-matrix/action";
+import { getAllocation, confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/actions";
 import { mapDtoToAllocationView, type AllocationView } from "@/lib/pc/allocation";
 
 export interface UseAllocationResult {
@@ -9,6 +9,7 @@ export interface UseAllocationResult {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  confirmPeriod: (periodId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 interface CacheEntry {
@@ -97,5 +98,24 @@ export function useAllocation(period?: string): UseAllocationResult {
     };
   }, [doFetch]);
 
-  return { data, loading, error, refetch: () => doFetch(period) };
+  // Confirm the given period, then invalidate its cache entry and refetch
+  // whichever period is currently being viewed (confirming can also affect
+  // the derived "open" period, so we re-pull from the currently-viewed ref).
+  const doConfirm = useCallback(
+    async (periodId: string) => {
+      try {
+        const result = await confirmPeriodAction(periodId);
+        if (result.success) {
+          cache.delete(cacheKey(periodRef.current));
+          doFetch(periodRef.current);
+        }
+        return { success: result.success, error: result.success ? undefined : result.error };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : "Confirm failed" };
+      }
+    },
+    [doFetch],
+  );
+
+  return { data, loading, error, refetch: () => doFetch(period), confirmPeriod: doConfirm };
 }

@@ -5,14 +5,18 @@ import { useResizable }  from "@/hooks/api/useResizable";
 import { Sidebar } from "./sidebar/Sidebar";
 import { Header } from "./header/Header";
 
-const DEFAULT_WIDTH    = 256;
 const MIN_WIDTH        = 180;
 const MAX_WIDTH        = 360;
 const COLLAPSED_GUTTER = 32;
 
+function getDefaultWidth() {
+  if (typeof window === "undefined") return 256;
+  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(window.innerWidth * 0.18)));
+}
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { open, setOpen, width, isDragging, handleResizeStart } = useResizable(
-    DEFAULT_WIDTH,
+    getDefaultWidth(),
     MIN_WIDTH,
     MAX_WIDTH,
   );
