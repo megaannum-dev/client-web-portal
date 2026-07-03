@@ -2,14 +2,14 @@
 subscription_redemption, and reorder created_at/updated_at to trail on
 models, client_profiles, and model_materials.
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: c9e2f4a7b183
 Revises: 9b76c05d3e2f
 Create Date: 2026-07-03 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "a1b2c3d4e5f6"
+revision = "c9e2f4a7b183"
 down_revision = "9b76c05d3e2f"
 branch_labels = None
 depends_on = None
@@ -38,8 +38,16 @@ def upgrade() -> None:
     # -----------------------------------------------------------------------
     op.execute(
         "ALTER TABLE models "
+        "MODIFY COLUMN category VARCHAR(64) NULL AFTER incentive_fee"
+    )
+    op.execute(
+        "ALTER TABLE models "
+        "MODIFY COLUMN subscription_redemption VARCHAR(64) NULL AFTER category"
+    )
+    op.execute(
+        "ALTER TABLE models "
         "MODIFY COLUMN created_at DATETIME NOT NULL "
-        "DEFAULT CURRENT_TIMESTAMP AFTER incentive_fee"
+        "DEFAULT CURRENT_TIMESTAMP AFTER subscription_redemption"
     )
     op.execute(
         "ALTER TABLE models "
