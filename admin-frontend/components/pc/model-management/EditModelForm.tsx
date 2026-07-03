@@ -135,13 +135,26 @@ export function EditModelForm({
           <CreateField label="Model name" value={name} onChange={setName} />
         </div>
         <CreateField label="Category" value={category} onChange={setCategory} />
-        <CreateField label="Subscription / Redemption" value={subscriptionRedemption} onChange={setSubscriptionRedemption} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
           placeholder="$40,000,000"
           inputMode="numeric"
           onChange={(v) => setSize(v.replace(/[^0-9]/g, ""))}
+        />
+        <CreateField
+          label="Mgmt Fee %"
+          value={mgmtFee}
+          onChange={setMgmtFee}
+          placeholder="e.g. 2.0"
+          inputMode="decimal"
+        />
+        <CreateField
+          label="Incentive Fee %"
+          value={incentiveFee}
+          onChange={setIncentiveFee}
+          placeholder="e.g. 20.0"
+          inputMode="decimal"
         />
         <div style={{ gridColumn: "1 / -1" }}>
           {/* See CreateModelForm: a wrapping <label> would relay blank-area
@@ -187,20 +200,7 @@ export function EditModelForm({
         <CreateField label="Liquidity" value={liquidity} onChange={setLiquidity} placeholder="e.g. Daily" />
         <CreateField label="Reporting" value={reporting} onChange={setReporting} placeholder="e.g. Monthly" />
         <CreateField label="NAV and Performance" value={navPerf} onChange={setNavPerf} placeholder="e.g. Monthly" />
-        <CreateField
-          label="Mgmt Fee %"
-          value={mgmtFee}
-          onChange={setMgmtFee}
-          placeholder="e.g. 2.0"
-          inputMode="decimal"
-        />
-        <CreateField
-          label="Incentive Fee %"
-          value={incentiveFee}
-          onChange={setIncentiveFee}
-          placeholder="e.g. 20.0"
-          inputMode="decimal"
-        />
+        <CreateField label="Allotment & Redemption Process" value={subscriptionRedemption} onChange={setSubscriptionRedemption} placeholder="e.g. 15 days prior EoM"/>
       </div>
     </Modal>
   );

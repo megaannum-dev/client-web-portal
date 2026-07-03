@@ -27,6 +27,7 @@ export function OverviewTab({ m, onEdit, onDuplicate }: { m: Model; onEdit: (id:
         {m.liquidity && <Fact label="Liquidity" value={m.liquidity} />}
         {m.reporting && <Fact label="Reporting" value={m.reporting} />}
         {m.nav_perf && <Fact label="NAV and Performance" value={m.nav_perf} />}
+        {m.subscription_redemption && <Fact label="Allotment & Redemption Process" value={m.subscription_redemption} />}
       </div>
       <div className="mt-4 flex gap-2">
         <Button variant="secondary" icon={Pencil} onClick={() => onEdit(m.id)}>Edit model</Button>
