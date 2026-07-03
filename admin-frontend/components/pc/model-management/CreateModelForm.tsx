@@ -163,7 +163,7 @@ export function CreateModelForm({
   const [category, setCategory] = useState<string>(initial?.category ?? "");
   const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(initial?.subscription_redemption ?? "");
   const [size, setSize] = useState(initial?.size ? String(initial.size) : "");
-  const [symbols, setSymbols] = useState<string[]>(initial?.symbols ?? ["SPY", "QQQ", "IWM"]);
+  const [symbols, setSymbols] = useState<string[]>(initial?.symbols ?? ["SPY", "QQQ"]);
   const [file, setFile] = useState<File | null>(null);
   const [addingSym, setAddingSym] = useState(false);
   const [draftSym, setDraftSym] = useState("");
