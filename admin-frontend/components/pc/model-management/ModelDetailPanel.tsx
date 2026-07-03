@@ -43,7 +43,7 @@ export function ModelDetailPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[20px] font-bold tracking-[-0.01em]">{m.name}</div>
-              <div className="mt-1 text-[13px] text-secondary">{m.manager} · {fmtMoney(m.size)}</div>
+              <div className="mt-1 text-[13px] text-secondary">{m.category ?? "—"} · {fmtMoney(m.size)}</div>
             </div>
             <div className="flex flex-none items-center gap-2.5">
               <StatusChip status={m.status} />

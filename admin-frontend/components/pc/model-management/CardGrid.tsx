@@ -19,7 +19,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
       <div className="flex items-start justify-between gap-2.5">
         <div>
           <div className="text-[18px] font-bold tracking-[-0.01em] text-on-surface">{m.name}</div>
-          <div className="mt-[3px] text-[13px] text-secondary">{m.manager}</div>
+          <div className="mt-[3px] text-[13px] text-secondary">{m.category ?? "—"}</div>
         </div>
         <StatusChip status={m.status} />
       </div>
