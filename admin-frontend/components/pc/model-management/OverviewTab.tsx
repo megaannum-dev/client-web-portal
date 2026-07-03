@@ -14,7 +14,7 @@ export function OverviewTab({ m, onEdit, onDuplicate }: { m: Model; onEdit: (id:
     <>
       <div className="grid grid-cols-2 gap-[11px]">
         <Fact label="Model size" value={fmtMoney(m.size)} />
-        <Fact label="Manager" value={m.manager} />
+        <Fact label="Category" value={m.category ?? "—"} />
         <Fact label="Mgmt Fee" value={m.mgmt_fee ? `${m.mgmt_fee.toFixed(2)}%` : "2.00%"} />
         <Fact label="Incentive Fee" value={m.incentive_fee ? `${m.incentive_fee.toFixed(2)}%` : "20.00%"} />
         <div className="rounded-[10px] bg-surface-low px-[13px] py-[11px]" style={{ gridColumn: "1 / -1" }}>
