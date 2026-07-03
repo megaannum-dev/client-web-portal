@@ -7,7 +7,7 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
-import { CreateField, CreateTextArea, MANAGER_OPTIONS, parseFeePercent } from "./CreateModelForm";
+import { CreateField, CreateTextArea, parseFeePercent } from "./CreateModelForm";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
@@ -25,7 +25,8 @@ export function EditModelForm({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(model.name);
-  const [manager, setManager] = useState(model.manager || MANAGER_OPTIONS[0]);
+  const [category, setCategory] = useState<string>(model.category ?? "");
+  const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(model.subscription_redemption ?? "");
   const [size, setSize] = useState(String(model.size || ""));
   const [symbols, setSymbols] = useState<string[]>(model.symbols);
   const [addingSym, setAddingSym] = useState(false);
@@ -47,16 +48,15 @@ export function EditModelForm({
     setAddingSym(false);
   };
 
-  const managerOptions = MANAGER_OPTIONS.includes(manager)
-    ? MANAGER_OPTIONS
-    : [manager, ...MANAGER_OPTIONS];
-
   // Only send fields the user actually changed.
   const buildPatch = (): Record<string, unknown> => {
     const patch: Record<string, unknown> = {};
     const trimmed = name.trim();
     if (trimmed !== model.name) patch.name = trimmed;
-    if (manager !== model.manager) patch.manager = manager;
+    const nextCategory = category || null;
+    if (nextCategory !== model.category) patch.category = nextCategory;
+    const nextSR = subscriptionRedemption || null;
+    if (nextSR !== model.subscription_redemption) patch.subscription_redemption = nextSR;
     const numSize = Number(size) || 0;
     if (numSize !== model.size) patch.model_size = numSize;
     if (JSON.stringify(symbols) !== JSON.stringify(model.symbols)) patch.symbols = symbols;
@@ -134,7 +134,8 @@ export function EditModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} />
         </div>
-        <CreateField label="Manager" value={manager} onChange={setManager} select options={managerOptions} />
+        <CreateField label="Category" value={category} onChange={setCategory} />
+        <CreateField label="Subscription / Redemption" value={subscriptionRedemption} onChange={setSubscriptionRedemption} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

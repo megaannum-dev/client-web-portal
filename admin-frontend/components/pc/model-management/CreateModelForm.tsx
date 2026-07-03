@@ -10,7 +10,6 @@ import type { ModelStatus } from "@/lib/pc/types";
 /* ============================================================
    MODALS — create / edit model
    ============================================================ */
-export const MANAGER_OPTIONS = ["Wilson Capital", "Brookfield Advisors", "Sequoia Partners"];
 
 /* A labelled form field. Read-only (display div) by default — that is
    the Edit-model path, which stays display-only as in the prototype.
@@ -118,7 +117,8 @@ export function parseFeePercent(raw: string): number | null {
 /** Build a `NewModelDraft` payload sent up to `handleCreate`. */
 export interface NewModelDraft {
   name: string;
-  manager: string;
+  category: string | null;
+  subscription_redemption: string | null;
   size: number;
   symbols: string[];
   status: ModelStatus;
@@ -145,7 +145,8 @@ export function CreateModelForm({
   onCreate: (m: NewModelDraft) => void;
   initial?: {
     name: string;
-    manager: string;
+    category?: string | null;
+    subscription_redemption?: string | null;
     size: number;
     symbols: string[];
     description?: string;
@@ -159,7 +160,8 @@ export function CreateModelForm({
   };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [manager, setManager] = useState(initial?.manager || MANAGER_OPTIONS[0]);
+  const [category, setCategory] = useState<string>(initial?.category ?? "");
+  const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(initial?.subscription_redemption ?? "");
   const [size, setSize] = useState(initial?.size ? String(initial.size) : "");
   const [symbols, setSymbols] = useState<string[]>(initial?.symbols ?? ["SPY", "QQQ", "IWM"]);
   const [file, setFile] = useState<File | null>(null);
@@ -191,7 +193,8 @@ export function CreateModelForm({
     if (status === "live" && !file) return;
     onCreate({
       name: name.trim(),
-      manager,
+      category: category || null,
+      subscription_redemption: subscriptionRedemption || null,
       size: Number(size) || 0,
       symbols,
       status,
@@ -240,7 +243,8 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <CreateField label="Manager" value={manager} onChange={setManager} select options={MANAGER_OPTIONS} />
+        <CreateField label="Category" value={category} onChange={setCategory} />
+        <CreateField label="Subscription / Redemption" value={subscriptionRedemption} onChange={setSubscriptionRedemption} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
