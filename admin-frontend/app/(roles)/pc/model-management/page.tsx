@@ -57,7 +57,7 @@ export default function ModelManagementPage() {
     });
   };
   // Publish/delete are status PATCHes — same endpoint the backend's dedicated routes use.
-  const handlePublish = (id: string) => void updateModel(id, { status: "live" }).then((r) => { if (!r.success) alert(`Could not publish: ${r.error}`); });
+  const handlePublish = (id: string) => void updateModel(id, { status: "live" }).then((r) => { if (r.success) setOpenId(null); else alert(`Could not publish: ${r.error}`); });
   const handleDelete = (id: string) => void updateModel(id, { status: "deleted" }).then((r) => { if (r.success) setOpenId(null); });
   // Duplicate: close the detail panel and open New-model pre-filled.
   const handleDuplicate = (id: string) => {
@@ -113,7 +113,7 @@ export default function ModelManagementPage() {
           m={detail?.model ?? m} tab={tab} materials={detail?.materials ?? []}
           onTab={setTab} onClose={() => setOpenId(null)} onEdit={(id) => setEditId(id)}
           onDuplicate={handleDuplicate} onPublish={handlePublish} onDelete={handleDelete}
-          onUploadMaterial={async (_id, file) => { const r = await upload(file); if (!r.success) alert(`Upload failed: ${r.error}`); return r.success; }}
+          onUploadMaterial={async (_id, file) => { const r = await upload(file); if (r.success) refetch(); else alert(`Upload failed: ${r.error}`); return r.success; }}
           onDownloadMaterial={(_modelId, material) => { if (!material.id) return; void download(material.id).then((r) => (r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`))); }}
         />
       )}
