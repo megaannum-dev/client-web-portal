@@ -21,6 +21,7 @@ from app.models.pc import (
     ModelChangeKind,
     ModelMaterial,
     ModelStatus,
+    ModelSymbol,
 )
 from app.models.users import AdminProfile, ClientProfile, Portal, User
 
@@ -48,10 +49,10 @@ class ModelRepository:
         self,
         *,
         name: str,
-        manager: str | None = None,
+        category: str | None = None,
+        subscription_redemption: str | None = None,
+        symbols: list | None = None,
         model_size: Decimal | None = None,
-        intro: str | None = None,
-        symbols: Any = None,
         description: str | None = None,
         underlyings: str | None = None,
         risk: str | None = None,
@@ -64,10 +65,9 @@ class ModelRepository:
         model = Model(
             id=uuid.uuid4(),
             name=name,
-            manager=manager,
+            category=category,
+            subscription_redemption=subscription_redemption,
             model_size=model_size,
-            intro=intro,
-            symbols=symbols,
             description=description,
             underlyings=underlyings,
             risk=risk,
@@ -78,6 +78,10 @@ class ModelRepository:
             incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
         )
+        if symbols:
+            model.symbols = [
+                ModelSymbol(symbol=s.symbol, weight=s.weight) for s in symbols
+            ]
         self.db.add(model)
         self.db.flush()
         return model

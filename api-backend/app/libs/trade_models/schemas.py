@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.pc import ModelChangeKind, ModelStatus
 
@@ -19,12 +19,30 @@ from app.models.pc import ModelChangeKind, ModelStatus
 # ---------------------------------------------------------------------------
 
 
+class SymbolIn(BaseModel):
+    symbol: str
+    weight: float | None = None
+
+
+def _coerce_symbols(v):
+    # Accept ["QQQ", ...] or [{"symbol": "QQQ", "weight": 0.5}, ...].
+    if v is None:
+        return v
+    return [{"symbol": s} if isinstance(s, str) else s for s in v]
+
+
+class SymbolOut(BaseModel):
+    symbol: str
+    weight: float | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class ModelCreate(BaseModel):
     name: str
-    manager: str | None = None
+    category: str | None = None
+    subscription_redemption: str | None = None
     model_size: float | None = None
-    intro: str | None = None
-    symbols: Any = None
     description: str | None = None
     underlyings: str | None = None
     risk: str | None = None
@@ -33,14 +51,16 @@ class ModelCreate(BaseModel):
     nav_perf: str | None = None
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
+    symbols: list[SymbolIn] | None = None
+
+    _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
 
 
 class ModelUpdate(BaseModel):
     name: str | None = None
-    manager: str | None = None
+    category: str | None = None
+    subscription_redemption: str | None = None
     model_size: float | None = None
-    intro: str | None = None
-    symbols: Any = None
     description: str | None = None
     underlyings: str | None = None
     risk: str | None = None
@@ -50,15 +70,17 @@ class ModelUpdate(BaseModel):
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
     status: str | None = None   # "live" | "deleted" — triggers state machine
+    symbols: list[SymbolIn] | None = None
+
+    _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
 
 
 class ModelOut(BaseModel):
     id: uuid.UUID
     name: str
-    manager: str | None
+    category: str | None
+    subscription_redemption: str | None
     model_size: float | None
-    intro: str | None
-    symbols: Any
     status: ModelStatus
     version: str | None
     created_at: datetime
@@ -71,6 +93,7 @@ class ModelOut(BaseModel):
     nav_perf: str | None = None
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
+    symbols: list[SymbolOut] = []
 
     model_config = {"from_attributes": True}
 

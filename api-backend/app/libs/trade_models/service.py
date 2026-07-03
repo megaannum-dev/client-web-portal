@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Fields that are diffed in the changelog when a model is edited.
 _TRACKED_FIELDS = (
-    "name", "manager", "model_size", "intro", "symbols",
+    "name", "category", "subscription_redemption", "model_size",
     "description", "underlyings", "risk",
     "liquidity", "reporting", "nav_perf",
     "mgmt_fee", "incentive_fee",
@@ -86,10 +86,10 @@ class ModelService:
         self,
         *,
         name: str,
-        manager: str | None = None,
+        category: str | None = None,
+        subscription_redemption: str | None = None,
+        symbols: list | None = None,
         model_size: Decimal | None = None,
-        intro: str | None = None,
-        symbols: Any = None,
         description: str | None = None,
         underlyings: str | None = None,
         risk: str | None = None,
@@ -100,12 +100,13 @@ class ModelService:
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
     ) -> Model:
+        # ponytail: symbol diff not tracked in changelog, add when audit requires
         model = self.repo.create(
             name=name,
-            manager=manager,
-            model_size=model_size,
-            intro=intro,
+            category=category,
+            subscription_redemption=subscription_redemption,
             symbols=symbols,
+            model_size=model_size,
             description=description,
             underlyings=underlyings,
             risk=risk,
@@ -134,6 +135,25 @@ class ModelService:
         **updates: Any,
     ) -> Model:
         model = self.get_model(model_id)
+
+        # Symbols are a relationship, not a scalar — handle separately so the
+        # setattr loop in repo.update() doesn't clobber the collection with a
+        # raw list of SymbolIn.
+        # ponytail: symbol diff not tracked in changelog, add when audit requires
+        if "symbols" in updates and updates["symbols"] is not None:
+            from app.models.pc import ModelSymbol
+            new_symbols = updates.pop("symbols")
+            # cascade delete-orphan drops removed rows on flush
+            model.symbols = [
+                ModelSymbol(
+                    symbol=s["symbol"] if isinstance(s, dict) else s.symbol,
+                    weight=s.get("weight") if isinstance(s, dict) else s.weight,
+                )
+                for s in new_symbols
+            ]
+        elif "symbols" in updates:
+            # explicit None sent — treat as no-op for symbols
+            updates.pop("symbols")
 
         # Diff tracked fields before applying update.
         changed_fields = []

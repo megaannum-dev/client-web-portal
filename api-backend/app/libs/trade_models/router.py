@@ -81,10 +81,10 @@ def create_model(
 ) -> object:
     return service.create_model(
         name=body.name,
-        manager=body.manager,
-        model_size=body.model_size,
-        intro=body.intro,
+        category=body.category,
+        subscription_redemption=body.subscription_redemption,
         symbols=body.symbols,
+        model_size=body.model_size,
         description=body.description,
         underlyings=body.underlyings,
         risk=body.risk,

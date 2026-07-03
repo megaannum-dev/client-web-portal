@@ -19,7 +19,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -60,10 +60,9 @@ class Model(Base):
         Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    manager: Mapped[str | None] = mapped_column(String(255), nullable=True)
     model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
-    intro: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    symbols: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    subscription_redemption: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[ModelStatus] = mapped_column(
         SAEnum(
             ModelStatus,
@@ -74,6 +73,14 @@ class Model(Base):
         server_default="draft",
     )
     version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
+    risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
+    liquidity:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    reporting:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    nav_perf:      Mapped[str | None]      = mapped_column(String(255), nullable=True)
+    mgmt_fee:      Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
+    incentive_fee: Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -83,14 +90,13 @@ class Model(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-    description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
-    underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
-    risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
-    liquidity:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
-    reporting:     Mapped[str | None]      = mapped_column(String(255), nullable=True)
-    nav_perf:      Mapped[str | None]      = mapped_column(String(255), nullable=True)
-    mgmt_fee:      Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
-    incentive_fee: Mapped[Decimal | None]  = mapped_column(Numeric(9, 6), nullable=True)
+
+    symbols: Mapped[list["ModelSymbol"]] = relationship(
+        "ModelSymbol",
+        back_populates="model",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         Index("ix_models_status", "status"),
@@ -296,6 +302,8 @@ class ModelSymbol(Base):
     )
     symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
     weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+
+    model: Mapped["Model"] = relationship("Model", back_populates="symbols")
 
 
 # ---------------------------------------------------------------------------
