@@ -21,6 +21,7 @@ from app.models.pc import (
     ModelChangeKind,
     ModelMaterial,
     ModelStatus,
+    ModelSymbol,
 )
 from app.models.users import AdminProfile, ClientProfile, Portal, User
 
@@ -50,6 +51,7 @@ class ModelRepository:
         name: str,
         category: str | None = None,
         subscription_redemption: str | None = None,
+        symbols: list | None = None,
         model_size: Decimal | None = None,
         description: str | None = None,
         underlyings: str | None = None,
@@ -76,6 +78,10 @@ class ModelRepository:
             incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
         )
+        if symbols:
+            model.symbols = [
+                ModelSymbol(symbol=s.symbol, weight=s.weight) for s in symbols
+            ]
         self.db.add(model)
         self.db.flush()
         return model

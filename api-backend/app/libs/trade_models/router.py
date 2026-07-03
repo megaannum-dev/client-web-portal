@@ -83,6 +83,7 @@ def create_model(
         name=body.name,
         category=body.category,
         subscription_redemption=body.subscription_redemption,
+        symbols=body.symbols,
         model_size=body.model_size,
         description=body.description,
         underlyings=body.underlyings,
