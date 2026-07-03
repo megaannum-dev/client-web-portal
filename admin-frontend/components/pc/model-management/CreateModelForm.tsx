@@ -10,7 +10,6 @@ import type { ModelStatus } from "@/lib/pc/types";
 /* ============================================================
    MODALS — create / edit model
    ============================================================ */
-export const MANAGER_OPTIONS = ["Wilson Capital", "Brookfield Advisors", "Sequoia Partners"];
 
 /* A labelled form field. Read-only (display div) by default — that is
    the Edit-model path, which stays display-only as in the prototype.
@@ -96,7 +95,7 @@ export function CreateTextArea({
         placeholder={placeholder}
         rows={rows}
         onChange={(e) => onChange(e.target.value)}
-        className="resize-y rounded border border-outline-variant bg-white px-3 py-2 text-[14px] font-semibold leading-[1.4] text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
+        className="[field-sizing:content] resize-y rounded border border-outline-variant bg-white px-3 py-2 text-[14px] font-semibold leading-[1.4] text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
       />
     </label>
   );
@@ -118,7 +117,8 @@ export function parseFeePercent(raw: string): number | null {
 /** Build a `NewModelDraft` payload sent up to `handleCreate`. */
 export interface NewModelDraft {
   name: string;
-  manager: string;
+  category: string | null;
+  subscription_redemption: string | null;
   size: number;
   symbols: string[];
   status: ModelStatus;
@@ -145,7 +145,8 @@ export function CreateModelForm({
   onCreate: (m: NewModelDraft) => void;
   initial?: {
     name: string;
-    manager: string;
+    category?: string | null;
+    subscription_redemption?: string | null;
     size: number;
     symbols: string[];
     description?: string;
@@ -159,7 +160,8 @@ export function CreateModelForm({
   };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [manager, setManager] = useState(initial?.manager || MANAGER_OPTIONS[0]);
+  const [category, setCategory] = useState<string>(initial?.category ?? "");
+  const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(initial?.subscription_redemption ?? "");
   const [size, setSize] = useState(initial?.size ? String(initial.size) : "");
   const [symbols, setSymbols] = useState<string[]>(initial?.symbols ?? ["SPY", "QQQ", "IWM"]);
   const [file, setFile] = useState<File | null>(null);
@@ -191,7 +193,8 @@ export function CreateModelForm({
     if (status === "live" && !file) return;
     onCreate({
       name: name.trim(),
-      manager,
+      category: category || null,
+      subscription_redemption: subscriptionRedemption || null,
       size: Number(size) || 0,
       symbols,
       status,
@@ -240,7 +243,7 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <CreateField label="Manager" value={manager} onChange={setManager} select options={MANAGER_OPTIONS} />
+        <CreateField label="Category" value={category} onChange={setCategory} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
@@ -248,6 +251,21 @@ export function CreateModelForm({
           inputMode="numeric"
           onChange={(v) => setSize(v.replace(/[^0-9]/g, ""))}
         />
+        <CreateField
+          label="Mgmt Fee %"
+          value={mgmtFee}
+          onChange={setMgmtFee}
+          placeholder="e.g. 2.0"
+          inputMode="decimal"
+        />
+        <CreateField
+          label="Incentive Fee %"
+          value={incentiveFee}
+          onChange={setIncentiveFee}
+          placeholder="e.g. 20.0"
+          inputMode="decimal"
+        />
+
         <div style={{ gridColumn: "1 / -1" }}>
           {/* NOTE: wrapping element is a <div>, not <label>. A <label> with
               no `htmlFor` delegates blank-area clicks to its first
@@ -294,20 +312,7 @@ export function CreateModelForm({
         <CreateField label="Liquidity" value={liquidity} onChange={setLiquidity} placeholder="e.g. Daily" />
         <CreateField label="Reporting" value={reporting} onChange={setReporting} placeholder="e.g. Monthly" />
         <CreateField label="NAV and Performance" value={navPerf} onChange={setNavPerf} placeholder="e.g. Monthly" />
-        <CreateField
-          label="Mgmt Fee %"
-          value={mgmtFee}
-          onChange={setMgmtFee}
-          placeholder="e.g. 2.0"
-          inputMode="decimal"
-        />
-        <CreateField
-          label="Incentive Fee %"
-          value={incentiveFee}
-          onChange={setIncentiveFee}
-          placeholder="e.g. 20.0"
-          inputMode="decimal"
-        />
+        <CreateField label="Allotment & Redemption Process" value={subscriptionRedemption} onChange={setSubscriptionRedemption} placeholder="e.g. 15 days prior EoM"/>
         <div style={{ gridColumn: "1 / -1" }}>
           <span className="flex items-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
             Marketing material

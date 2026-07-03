@@ -19,7 +19,6 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
       <div className="flex items-start justify-between gap-2.5">
         <div>
           <div className="text-[18px] font-bold tracking-[-0.01em] text-on-surface">{m.name}</div>
-          <div className="mt-[3px] text-[13px] text-secondary">{m.manager}</div>
         </div>
         <StatusChip status={m.status} />
       </div>
@@ -27,6 +26,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
         {fmtMoney(m.size)}
       </div>
       <div className="flex gap-2">
+        <Chip tone="active" dot={false}>{m.category ?? "—"}</Chip>
         <Chip tone="warm" dot={false}>Mgmt {m.mgmt}%</Chip>
         <Chip tone="neutral" dot={false}>Incentive {m.incentive}%</Chip>
       </div>
@@ -40,7 +40,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
 
 export function CardGrid({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
   return (
-    <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+    <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(20vw, 1fr))" }}>
       {models.map((m) => <ModelCard key={m.id} m={m} onOpen={onOpen} />)}
     </div>
   );
