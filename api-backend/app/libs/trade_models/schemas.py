@@ -19,6 +19,18 @@ from app.models.pc import ModelChangeKind, ModelStatus
 # ---------------------------------------------------------------------------
 
 
+class SymbolIn(BaseModel):
+    symbol: str
+    weight: float | None = None
+
+
+class SymbolOut(BaseModel):
+    symbol: str
+    weight: float | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class ModelCreate(BaseModel):
     name: str
     category: str | None = None
@@ -32,6 +44,7 @@ class ModelCreate(BaseModel):
     nav_perf: str | None = None
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
+    symbols: list[SymbolIn] | None = None
 
 
 class ModelUpdate(BaseModel):
@@ -48,6 +61,7 @@ class ModelUpdate(BaseModel):
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
     status: str | None = None   # "live" | "deleted" — triggers state machine
+    symbols: list[SymbolIn] | None = None
 
 
 class ModelOut(BaseModel):
@@ -68,6 +82,7 @@ class ModelOut(BaseModel):
     nav_perf: str | None = None
     mgmt_fee: float | None = None
     incentive_fee: float | None = None
+    symbols: list[SymbolOut] = []
 
     model_config = {"from_attributes": True}
 
