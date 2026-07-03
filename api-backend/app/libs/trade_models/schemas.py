@@ -21,10 +21,9 @@ from app.models.pc import ModelChangeKind, ModelStatus
 
 class ModelCreate(BaseModel):
     name: str
-    manager: str | None = None
+    category: str | None = None
+    subscription_redemption: str | None = None
     model_size: float | None = None
-    intro: str | None = None
-    symbols: Any = None
     description: str | None = None
     underlyings: str | None = None
     risk: str | None = None
@@ -37,10 +36,9 @@ class ModelCreate(BaseModel):
 
 class ModelUpdate(BaseModel):
     name: str | None = None
-    manager: str | None = None
+    category: str | None = None
+    subscription_redemption: str | None = None
     model_size: float | None = None
-    intro: str | None = None
-    symbols: Any = None
     description: str | None = None
     underlyings: str | None = None
     risk: str | None = None
@@ -55,10 +53,9 @@ class ModelUpdate(BaseModel):
 class ModelOut(BaseModel):
     id: uuid.UUID
     name: str
-    manager: str | None
+    category: str | None
+    subscription_redemption: str | None
     model_size: float | None
-    intro: str | None
-    symbols: Any
     status: ModelStatus
     version: str | None
     created_at: datetime
