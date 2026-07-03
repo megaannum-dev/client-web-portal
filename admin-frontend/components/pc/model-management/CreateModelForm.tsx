@@ -95,7 +95,7 @@ export function CreateTextArea({
         placeholder={placeholder}
         rows={rows}
         onChange={(e) => onChange(e.target.value)}
-        className="resize-y rounded border border-outline-variant bg-white px-3 py-2 text-[14px] font-semibold leading-[1.4] text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
+        className="[field-sizing:content] resize-y rounded border border-outline-variant bg-white px-3 py-2 text-[14px] font-semibold leading-[1.4] text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary"
       />
     </label>
   );
@@ -244,7 +244,6 @@ export function CreateModelForm({
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
         <CreateField label="Category" value={category} onChange={setCategory} />
-        <CreateField label="Subscription / Redemption" value={subscriptionRedemption} onChange={setSubscriptionRedemption} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
@@ -252,6 +251,21 @@ export function CreateModelForm({
           inputMode="numeric"
           onChange={(v) => setSize(v.replace(/[^0-9]/g, ""))}
         />
+        <CreateField
+          label="Mgmt Fee %"
+          value={mgmtFee}
+          onChange={setMgmtFee}
+          placeholder="e.g. 2.0"
+          inputMode="decimal"
+        />
+        <CreateField
+          label="Incentive Fee %"
+          value={incentiveFee}
+          onChange={setIncentiveFee}
+          placeholder="e.g. 20.0"
+          inputMode="decimal"
+        />
+
         <div style={{ gridColumn: "1 / -1" }}>
           {/* NOTE: wrapping element is a <div>, not <label>. A <label> with
               no `htmlFor` delegates blank-area clicks to its first
@@ -298,20 +312,7 @@ export function CreateModelForm({
         <CreateField label="Liquidity" value={liquidity} onChange={setLiquidity} placeholder="e.g. Daily" />
         <CreateField label="Reporting" value={reporting} onChange={setReporting} placeholder="e.g. Monthly" />
         <CreateField label="NAV and Performance" value={navPerf} onChange={setNavPerf} placeholder="e.g. Monthly" />
-        <CreateField
-          label="Mgmt Fee %"
-          value={mgmtFee}
-          onChange={setMgmtFee}
-          placeholder="e.g. 2.0"
-          inputMode="decimal"
-        />
-        <CreateField
-          label="Incentive Fee %"
-          value={incentiveFee}
-          onChange={setIncentiveFee}
-          placeholder="e.g. 20.0"
-          inputMode="decimal"
-        />
+        <CreateField label="Allotment & Redemption Process" value={subscriptionRedemption} onChange={setSubscriptionRedemption} placeholder="e.g. 15 days prior EoM"/>
         <div style={{ gridColumn: "1 / -1" }}>
           <span className="flex items-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
             Marketing material
