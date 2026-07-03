@@ -19,7 +19,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -89,6 +89,13 @@ class Model(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    symbols: Mapped[list["ModelSymbol"]] = relationship(
+        "ModelSymbol",
+        back_populates="model",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     __table_args__ = (
@@ -295,6 +302,8 @@ class ModelSymbol(Base):
     )
     symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
     weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+
+    model: Mapped["Model"] = relationship("Model", back_populates="symbols")
 
 
 # ---------------------------------------------------------------------------
