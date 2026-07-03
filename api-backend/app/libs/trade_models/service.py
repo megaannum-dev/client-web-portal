@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Fields that are diffed in the changelog when a model is edited.
 _TRACKED_FIELDS = (
-    "name", "manager", "model_size", "intro", "symbols",
+    "name", "category", "subscription_redemption", "model_size",
     "description", "underlyings", "risk",
     "liquidity", "reporting", "nav_perf",
     "mgmt_fee", "incentive_fee",
@@ -86,10 +86,9 @@ class ModelService:
         self,
         *,
         name: str,
-        manager: str | None = None,
+        category: str | None = None,
+        subscription_redemption: str | None = None,
         model_size: Decimal | None = None,
-        intro: str | None = None,
-        symbols: Any = None,
         description: str | None = None,
         underlyings: str | None = None,
         risk: str | None = None,
@@ -102,10 +101,9 @@ class ModelService:
     ) -> Model:
         model = self.repo.create(
             name=name,
-            manager=manager,
+            category=category,
+            subscription_redemption=subscription_redemption,
             model_size=model_size,
-            intro=intro,
-            symbols=symbols,
             description=description,
             underlyings=underlyings,
             risk=risk,
