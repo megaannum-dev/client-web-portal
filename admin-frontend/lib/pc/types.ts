@@ -59,8 +59,8 @@ export interface Model {
   id: string;
   name: string;
   size: number;
-  manager: string;
-  intro: string;
+  category: string | null;
+  subscription_redemption: string | null;
   symbols: string[];
   mgmt: number;
   incentive: number;
@@ -154,9 +154,9 @@ export interface ModelDTO {
   id: string;
   name: string;
   model_size: number;
-  manager: string;
-  intro: string;
-  symbols: string[];
+  category: string | null;
+  subscription_redemption: string | null;
+  symbols: { symbol: string; weight: number | null }[];
   status: "live" | "draft";
   version: string;
   materials: { file: string; ver: string; date: string; size: string }[];

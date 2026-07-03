@@ -20,11 +20,12 @@ export interface UseModelsResult {
   refetch: () => void;
   createModel: (params: {
     name: string;
-    manager: string;
     size: number;
     symbols: string[];
     status: "live" | "draft";
     file: File | null;
+    category?: string | null;
+    subscription_redemption?: string | null;
     description?: string;
     underlyings?: string;
     risk?: string;
@@ -81,11 +82,12 @@ export function useModels(): UseModelsResult {
   const createModel = useCallback(
     async (params: {
       name: string;
-      manager: string;
       size: number;
       symbols: string[];
       status: "live" | "draft";
       file: File | null;
+      category?: string | null;
+      subscription_redemption?: string | null;
       description?: string;
       underlyings?: string;
       risk?: string;
@@ -98,7 +100,8 @@ export function useModels(): UseModelsResult {
       const created = await createModelAction({
         name: params.name,
         model_size: params.size,
-        manager: params.manager,
+        category: params.category,
+        subscription_redemption: params.subscription_redemption,
         symbols: params.symbols,
         description: params.description,
         underlyings: params.underlyings,

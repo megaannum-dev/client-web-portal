@@ -33,13 +33,14 @@ function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
   };
 }
 
-/** Normalize backend `symbols` (may be null, list, or {tickers:[...]} dict). */
+/** Normalize backend `symbols` — now an array of `{symbol, weight}` objects.
+ *  Stays defensive: accepts plain string arrays too, in case an older cached
+ *  response comes through. */
 function normalizeSymbols(s: unknown): string[] {
-  if (Array.isArray(s)) return s as string[];
-  if (s && typeof s === "object" && Array.isArray((s as { tickers?: unknown }).tickers)) {
-    return (s as { tickers: string[] }).tickers;
-  }
-  return [];
+  if (!Array.isArray(s)) return [];
+  return s
+    .map((it) => (typeof it === "string" ? it : (it as { symbol?: string })?.symbol))
+    .filter((x): x is string => typeof x === "string" && x.length > 0);
 }
 
 /** Map a single backend model DTO to the view `Model` type. */
@@ -48,8 +49,8 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     id: dto.id,
     name: dto.name,
     size: Number(dto.model_size ?? 0),
-    manager: dto.manager ?? "",
-    intro: dto.intro ?? "—",
+    category: dto.category ?? null,
+    subscription_redemption: dto.subscription_redemption ?? null,
     symbols: normalizeSymbols(dto.symbols),
     mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,
     incentive: dto.incentive_fee ?? DEFAULT_INCENTIVE_PCT,
