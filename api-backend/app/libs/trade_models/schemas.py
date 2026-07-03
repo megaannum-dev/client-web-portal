@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.pc import ModelChangeKind, ModelStatus
 
@@ -22,6 +22,13 @@ from app.models.pc import ModelChangeKind, ModelStatus
 class SymbolIn(BaseModel):
     symbol: str
     weight: float | None = None
+
+
+def _coerce_symbols(v):
+    # Accept ["QQQ", ...] or [{"symbol": "QQQ", "weight": 0.5}, ...].
+    if v is None:
+        return v
+    return [{"symbol": s} if isinstance(s, str) else s for s in v]
 
 
 class SymbolOut(BaseModel):
@@ -46,6 +53,8 @@ class ModelCreate(BaseModel):
     incentive_fee: float | None = None
     symbols: list[SymbolIn] | None = None
 
+    _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
+
 
 class ModelUpdate(BaseModel):
     name: str | None = None
@@ -62,6 +71,8 @@ class ModelUpdate(BaseModel):
     incentive_fee: float | None = None
     status: str | None = None   # "live" | "deleted" — triggers state machine
     symbols: list[SymbolIn] | None = None
+
+    _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
 
 
 class ModelOut(BaseModel):
