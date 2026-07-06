@@ -50,6 +50,13 @@ class ModelChangeKind(str, enum.Enum):
     DELETED = "deleted"
 
 
+class SymbolAuditOp(str, enum.Enum):
+    ADDED = "added"
+    DEACTIVATED = "deactivated"
+    ACTIVATED = "activated"
+    REMOVED = "removed"
+
+
 # ---------------------------------------------------------------------------
 # DB-1 — models
 # ---------------------------------------------------------------------------
@@ -307,6 +314,43 @@ class ModelSymbol(Base):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
 
     model: Mapped["Model"] = relationship("Model", back_populates="symbols")
+
+
+# ---------------------------------------------------------------------------
+# DB-2 — model_symbol_audit
+# ---------------------------------------------------------------------------
+
+
+class ModelSymbolAudit(Base):
+    __tablename__ = "model_symbol_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    symbol: Mapped[str] = mapped_column(String(32), nullable=False)
+    op: Mapped[SymbolAuditOp] = mapped_column(
+        SAEnum(
+            SymbolAuditOp,
+            native_enum=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+    )
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_model_symbol_audit_model_symbol", "model_id", "symbol"),
+    )
 
 
 # ---------------------------------------------------------------------------
