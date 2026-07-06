@@ -7,7 +7,6 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
-import { joinCategoryList } from "@/lib/pc/models";
 import { CategorySelect, CreateField, CreateTextArea, parseFeePercent } from "./CreateModelForm";
 
 /* ---- Edit-model form ---------------------------------------
@@ -55,7 +54,7 @@ export function EditModelForm({
     const trimmed = name.trim();
     if (trimmed !== model.name) patch.name = trimmed;
     if (JSON.stringify(category) !== JSON.stringify(model.category)) {
-      patch.category = joinCategoryList(category);
+      patch.category = category;
     }
     const nextSR = subscriptionRedemption || null;
     if (nextSR !== model.subscription_redemption) patch.subscription_redemption = nextSR;

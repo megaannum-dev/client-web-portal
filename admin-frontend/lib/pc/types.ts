@@ -154,7 +154,7 @@ export interface ModelDTO {
   id: string;
   name: string;
   model_size: number;
-  category: string | null;
+  category: string[];
   subscription_redemption: string | null;
   symbols: { symbol: string; weight: number | null }[];
   status: "live" | "draft";
