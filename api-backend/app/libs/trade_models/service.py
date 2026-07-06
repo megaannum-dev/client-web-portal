@@ -86,7 +86,7 @@ class ModelService:
         self,
         *,
         name: str,
-        category: list[str] | None = None,
+        category: str | None = None,
         subscription_redemption: str | None = None,
         symbols: list | None = None,
         model_size: Decimal | None = None,
