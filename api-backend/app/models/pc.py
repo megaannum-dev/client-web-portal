@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Enum as SAEnum,
     ForeignKey,
@@ -18,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -302,6 +304,7 @@ class ModelSymbol(Base):
     )
     symbol: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
     weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("1"))
 
     model: Mapped["Model"] = relationship("Model", back_populates="symbols")
 
