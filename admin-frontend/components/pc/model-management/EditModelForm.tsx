@@ -7,7 +7,8 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
-import { CreateField, CreateTextArea, parseFeePercent } from "./CreateModelForm";
+import { joinCategoryList } from "@/lib/pc/models";
+import { CategorySelect, CreateField, CreateTextArea, parseFeePercent } from "./CreateModelForm";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
@@ -25,7 +26,7 @@ export function EditModelForm({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(model.name);
-  const [category, setCategory] = useState<string>(model.category ?? "");
+  const [category, setCategory] = useState<string[]>(model.category);
   const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(model.subscription_redemption ?? "");
   const [size, setSize] = useState(String(model.size || ""));
   const [symbols, setSymbols] = useState<string[]>(model.symbols);
@@ -53,8 +54,9 @@ export function EditModelForm({
     const patch: Record<string, unknown> = {};
     const trimmed = name.trim();
     if (trimmed !== model.name) patch.name = trimmed;
-    const nextCategory = category || null;
-    if (nextCategory !== model.category) patch.category = nextCategory;
+    if (JSON.stringify(category) !== JSON.stringify(model.category)) {
+      patch.category = joinCategoryList(category);
+    }
     const nextSR = subscriptionRedemption || null;
     if (nextSR !== model.subscription_redemption) patch.subscription_redemption = nextSR;
     const numSize = Number(size) || 0;
@@ -134,7 +136,7 @@ export function EditModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} />
         </div>
-        <CreateField label="Category" value={category} onChange={setCategory} />
+        <CategorySelect value={category} onChange={setCategory} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, FileText, Clock, Check, Upload, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal, Ticks } from "@/components/pc/Shared";
@@ -75,6 +75,111 @@ export function CreateField({
   );
 }
 
+/* ---- Category multi-select --------------------------------
+   Stored on the backend as a single joined string (`category` is a
+   VARCHAR column, not an array — see api-backend/app/models/pc.py),
+   so the list <-> string conversion happens entirely here. Custom
+   entries a user types are remembered in localStorage (per-browser,
+   never sent to the backend) so they resurface as suggestions next
+   time — see CATEGORY_STORAGE_KEY. */
+const DEFAULT_CATEGORIES = ["Options", "ETF", "Common stocks", "Futures", "Bonds", "Commodity"];
+const CATEGORY_STORAGE_KEY = "pc:custom-categories";
+
+function loadCustomCategories(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberCustomCategory(name: string) {
+  if (typeof window === "undefined") return;
+  const existing = loadCustomCategories();
+  if (existing.includes(name)) return;
+  window.localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify([...existing, name]));
+}
+
+/* Same interaction shape as the Symbols pill-input below: chips +
+   an inline "+ add category" text entry, Enter/blur commits. The
+   only addition is a suggestion dropdown that opens while that
+   entry is focused — click a suggestion or type a value that isn't
+   one; either way it's just committed as a tick. A committed value
+   outside DEFAULT_CATEGORIES is implicitly a new custom category and
+   gets remembered for future suggestions (see rememberCustomCategory). */
+export function CategorySelect({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [customOptions, setCustomOptions] = useState<string[]>([]);
+
+  useEffect(() => setCustomOptions(loadCustomCategories()), []);
+
+  const suggestions = [...DEFAULT_CATEGORIES, ...customOptions.filter((c) => !DEFAULT_CATEGORIES.includes(c))]
+    .filter((c) => !value.includes(c));
+
+  const commit = (raw?: string) => {
+    const c = (raw ?? draft).trim();
+    setDraft("");
+    setAdding(false);
+    if (!c) return;
+    if (!DEFAULT_CATEGORIES.includes(c) && !customOptions.includes(c)) {
+      rememberCustomCategory(c);
+      setCustomOptions((xs) => [...xs, c]);
+    }
+    if (!value.includes(c)) onChange([...value, c]);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Category</span>
+      <div className="relative">
+        <div className="flex min-h-10 flex-wrap items-center gap-2 rounded border border-outline-variant bg-white px-3 py-1.5">
+          <Ticks symbols={value} onRemove={(c) => onChange(value.filter((x) => x !== c))} />
+          {adding ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commit(); }
+                if (e.key === "Escape") { setDraft(""); setAdding(false); }
+              }}
+              onBlur={() => commit()}
+              placeholder="e.g. Options"
+              className="h-7 w-[140px] rounded border border-outline-variant bg-white px-2 text-[12px] font-bold text-on-surface outline-none focus:border-primary"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="cursor-pointer text-[13.5px] text-secondary transition-colors hover:text-primary"
+            >
+              + add category
+            </button>
+          )}
+        </div>
+        {adding && suggestions.length > 0 && (
+          <div className="absolute top-full z-10 mt-1 w-full max-h-[180px] overflow-auto rounded border border-outline-variant bg-white p-1 shadow-lg">
+            {suggestions.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => commit(c)}
+                className="block w-full cursor-pointer rounded px-2 py-1.5 text-left text-[13px] text-on-surface hover:bg-surface-container"
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* A labelled multi-line text field — same visual language as `CreateField`,
    used for the free-text prospectus fields (description / underlyings /
    risk) which don't fit a single-line input. */
@@ -117,7 +222,7 @@ export function parseFeePercent(raw: string): number | null {
 /** Build a `NewModelDraft` payload sent up to `handleCreate`. */
 export interface NewModelDraft {
   name: string;
-  category: string | null;
+  category: string[];
   subscription_redemption: string | null;
   size: number;
   symbols: string[];
@@ -145,7 +250,7 @@ export function CreateModelForm({
   onCreate: (m: NewModelDraft) => void;
   initial?: {
     name: string;
-    category?: string | null;
+    category?: string[];
     subscription_redemption?: string | null;
     size: number;
     symbols: string[];
@@ -160,7 +265,7 @@ export function CreateModelForm({
   };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState<string>(initial?.category ?? "");
+  const [category, setCategory] = useState<string[]>(initial?.category ?? []);
   const [subscriptionRedemption, setSubscriptionRedemption] = useState<string>(initial?.subscription_redemption ?? "");
   const [size, setSize] = useState(initial?.size ? String(initial.size) : "");
   const [symbols, setSymbols] = useState<string[]>(initial?.symbols ?? ["SPY", "QQQ"]);
@@ -193,7 +298,7 @@ export function CreateModelForm({
     if (status === "live" && !file) return;
     onCreate({
       name: name.trim(),
-      category: category || null,
+      category,
       subscription_redemption: subscriptionRedemption || null,
       size: Number(size) || 0,
       symbols,
@@ -243,7 +348,7 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <CreateField label="Category" value={category} onChange={setCategory} />
+        <CategorySelect value={category} onChange={setCategory} />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

@@ -52,7 +52,7 @@ export function Ticks({ symbols, onRemove }: { symbols: string[]; onRemove?: (s:
           {onRemove && (
             <button
               type="button"
-              onClick={() => onRemove(s)}
+              onClick={(e) => { e.stopPropagation(); onRemove(s); }}
               aria-label={`Remove ${s}`}
               className="-mr-0.5 flex cursor-pointer text-secondary transition-colors hover:text-on-surface"
             >

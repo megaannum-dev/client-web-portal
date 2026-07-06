@@ -21,6 +21,20 @@ import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO
 const DEFAULT_MGMT_PCT = 2;
 const DEFAULT_INCENTIVE_PCT = 20;
 
+/* ---- Category list <-> string -------------------------------
+   Backend `category` is a single VARCHAR column (api-backend/app/
+   models/pc.py), not an array — the view layer treats it as a list
+   (like `symbols`) and this is the only seam where it's flattened
+   back to a joined string for the wire. */
+export function parseCategoryList(category?: string | null): string[] {
+  if (!category) return [];
+  return category.split(",").map((c) => c.trim()).filter(Boolean);
+}
+
+export function joinCategoryList(categories: string[]): string | null {
+  return categories.length ? categories.join(", ") : null;
+}
+
 /* ---- DTO→view mappers -------------------------------------- */
 
 function mapChangeEntry(c: ModelDTO["changes"][number]): ChangeEntry {
@@ -49,7 +63,7 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     id: dto.id,
     name: dto.name,
     size: Number(dto.model_size ?? 0),
-    category: dto.category ?? null,
+    category: parseCategoryList(dto.category),
     subscription_redemption: dto.subscription_redemption ?? null,
     symbols: normalizeSymbols(dto.symbols),
     mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,

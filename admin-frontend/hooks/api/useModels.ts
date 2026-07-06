@@ -10,7 +10,7 @@ import {
   publishModel as publishModelAction,
   getMaterials as getMaterialsAction,
 } from "@/app/(roles)/pc/model-management/actions";
-import { mapDtoToModels } from "@/lib/pc/models";
+import { joinCategoryList, mapDtoToModels } from "@/lib/pc/models";
 import type { Model } from "@/lib/pc/types";
 
 export interface UseModelsResult {
@@ -24,7 +24,7 @@ export interface UseModelsResult {
     symbols: string[];
     status: "live" | "draft";
     file: File | null;
-    category?: string | null;
+    category?: string[];
     subscription_redemption?: string | null;
     description?: string;
     underlyings?: string;
@@ -86,7 +86,7 @@ export function useModels(): UseModelsResult {
       symbols: string[];
       status: "live" | "draft";
       file: File | null;
-      category?: string | null;
+      category?: string[];
       subscription_redemption?: string | null;
       description?: string;
       underlyings?: string;
@@ -100,7 +100,7 @@ export function useModels(): UseModelsResult {
       const created = await createModelAction({
         name: params.name,
         model_size: params.size,
-        category: params.category,
+        category: joinCategoryList(params.category ?? []),
         subscription_redemption: params.subscription_redemption,
         symbols: params.symbols,
         description: params.description,

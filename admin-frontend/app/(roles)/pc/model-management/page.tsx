@@ -64,7 +64,7 @@ export default function ModelManagementPage() {
     const src = safeModels.find((x) => x.id === id);
     if (!src) return;
     setDuplicateSeed({
-      name: `${src.name} (copy)`, category: src.category, subscription_redemption: src.subscription_redemption, size: src.size, symbols: [...src.symbols],
+      name: `${src.name} (copy)`, category: [...src.category], subscription_redemption: src.subscription_redemption, size: src.size, symbols: [...src.symbols],
       status: "draft", file: null,
       description: src.description ?? undefined, underlyings: src.underlyings ?? undefined,
       risk: src.risk ?? undefined, liquidity: src.liquidity ?? undefined,
