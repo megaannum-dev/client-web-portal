@@ -24,7 +24,7 @@ export interface UseModelsResult {
     symbols: string[];
     status: "live" | "draft";
     file: File | null;
-    category?: string | null;
+    category?: string[];
     subscription_redemption?: string | null;
     description?: string;
     underlyings?: string;
@@ -86,7 +86,7 @@ export function useModels(): UseModelsResult {
       symbols: string[];
       status: "live" | "draft";
       file: File | null;
-      category?: string | null;
+      category?: string[];
       subscription_redemption?: string | null;
       description?: string;
       underlyings?: string;

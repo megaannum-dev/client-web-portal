@@ -40,7 +40,7 @@ class SymbolOut(BaseModel):
 
 class ModelCreate(BaseModel):
     name: str
-    category: str | None = None
+    category: list[str] | None = None
     subscription_redemption: str | None = None
     model_size: float | None = None
     description: str | None = None
@@ -58,7 +58,7 @@ class ModelCreate(BaseModel):
 
 class ModelUpdate(BaseModel):
     name: str | None = None
-    category: str | None = None
+    category: list[str] | None = None
     subscription_redemption: str | None = None
     model_size: float | None = None
     description: str | None = None
@@ -78,7 +78,7 @@ class ModelUpdate(BaseModel):
 class ModelOut(BaseModel):
     id: uuid.UUID
     name: str
-    category: str | None
+    category: list[str] = []
     subscription_redemption: str | None
     model_size: float | None
     status: ModelStatus
@@ -96,6 +96,11 @@ class ModelOut(BaseModel):
     symbols: list[SymbolOut] = []
 
     model_config = {"from_attributes": True}
+
+    def _coerce_categories(v):
+        return v or []
+
+    _coerce_categories = field_validator("category", mode="before")(_coerce_categories)
 
 
 class ModelsListOut(BaseModel):

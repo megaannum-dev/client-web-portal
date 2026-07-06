@@ -29,7 +29,7 @@ function ModelTr({ m, onOpen, onDownloadLatest }: { m: Model; onOpen: (id: strin
         <div className="mt-1"><StatusChip status={m.status} /></div>
       </td>
       <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.size)}</td>
-      <td className={`${td} text-secondary`}>{m.category ?? "—"}</td>
+      <td className={td}>{m.category.length > 0 ? <Ticks symbols={m.category} /> : <span className="text-secondary">—</span>}</td>
       <td className={td}><Ticks symbols={m.symbols} /></td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.mgmt}%</td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.incentive}%</td>

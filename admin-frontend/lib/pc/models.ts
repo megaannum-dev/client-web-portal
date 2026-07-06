@@ -49,7 +49,7 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     id: dto.id,
     name: dto.name,
     size: Number(dto.model_size ?? 0),
-    category: dto.category ?? null,
+    category: dto.category ?? [],
     subscription_redemption: dto.subscription_redemption ?? null,
     symbols: normalizeSymbols(dto.symbols),
     mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,

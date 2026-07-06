@@ -25,8 +25,10 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
       <div className="text-[24px] font-bold tracking-[-0.02em] tabular-nums text-on-surface">
         {fmtMoney(m.size)}
       </div>
-      <div className="flex gap-2">
-        <Chip tone="active" dot={false}>{m.category ?? "—"}</Chip>
+      <div className="flex flex-wrap gap-2">
+        {m.category.length > 0
+          ? m.category.map((c) => <Chip key={c} tone="active" dot={false}>{c}</Chip>)
+          : <Chip tone="active" dot={false}>—</Chip>}
         <Chip tone="warm" dot={false}>Mgmt {m.mgmt}%</Chip>
         <Chip tone="neutral" dot={false}>Incentive {m.incentive}%</Chip>
       </div>

@@ -36,6 +36,7 @@ function fieldLabel(raw: string): string {
 
 function fmtValue(v: unknown): string {
   if (typeof v === "number") return fmtMoney(v);
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "—";
   return String(v ?? "—");
 }
 

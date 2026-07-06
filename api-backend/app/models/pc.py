@@ -61,7 +61,7 @@ class Model(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    category: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     subscription_redemption: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[ModelStatus] = mapped_column(
         SAEnum(

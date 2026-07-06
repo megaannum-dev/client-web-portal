@@ -49,7 +49,7 @@ class ModelRepository:
         self,
         *,
         name: str,
-        category: str | None = None,
+        category: list[str] | None = None,
         subscription_redemption: str | None = None,
         symbols: list | None = None,
         model_size: Decimal | None = None,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Rocket, Trash2 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
-import { StatusChip } from "@/components/pc/Shared";
+import { StatusChip, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Material, Model } from "@/lib/pc/types";
 import { MaterialsTab } from "./MaterialsTab";
@@ -43,7 +43,10 @@ export function ModelDetailPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[20px] font-bold tracking-[-0.01em]">{m.name}</div>
-              <div className="mt-1 text-[13px] text-secondary">{m.category ?? "—"} · {fmtMoney(m.size)}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-secondary">
+                {m.category.length > 0 ? <Ticks symbols={m.category} /> : <span>—</span>}
+                <span>· {fmtMoney(m.size)}</span>
+              </div>
             </div>
             <div className="flex flex-none items-center gap-2.5">
               <StatusChip status={m.status} />
