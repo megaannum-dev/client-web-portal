@@ -34,8 +34,28 @@ def _coerce_symbols(v):
 class SymbolOut(BaseModel):
     symbol: str
     weight: float | None = None
+    active: bool = True
 
     model_config = {"from_attributes": True}
+
+
+class SymbolAuditOut(BaseModel):
+    symbol: str
+    op: str
+    note: str | None
+    actor: str | None
+    version: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SymbolAddIn(BaseModel):
+    symbol: str
+
+
+class SymbolPatchIn(BaseModel):
+    active: bool
 
 
 class ModelCreate(BaseModel):
@@ -156,3 +176,4 @@ class ChangeOut(BaseModel):
 class ModelDetailOut(ModelOut):
     materials: list[MaterialOut] | None = None
     changes: list[ChangeOut] | None = None
+    symbol_audit: list[SymbolAuditOut] | None = None
