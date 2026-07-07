@@ -26,6 +26,7 @@ from app.libs.trade_models.schemas import (
     ModelsListOut,
     ModelUpdate,
     SymbolAddIn,
+    SymbolAuditOut,
     SymbolPatchIn,
 )
 from app.models.users import User
@@ -43,6 +44,26 @@ def _get_model_service(
     storage: Annotated[FileStorage, Depends(get_storage)],
 ) -> ModelService:
     return ModelService(db, storage)
+
+
+def _resolve_changes(service: ModelService, model_id: uuid.UUID) -> list[ChangeOut]:
+    """list_changes() with actor firebase_uid swapped for a display name."""
+    changes = service.list_changes(model_id)
+    names = service.resolve_actor_names(c.actor for c in changes)
+    return [
+        ChangeOut.model_validate(c).model_copy(update={"actor": names.get(c.actor, c.actor)})
+        for c in changes
+    ]
+
+
+def _resolve_symbol_audit(service: ModelService, model_id: uuid.UUID) -> list[SymbolAuditOut]:
+    """list_symbol_audit() with actor firebase_uid swapped for a display name."""
+    audit = service.list_symbol_audit(model_id)
+    names = service.resolve_actor_names(a.actor for a in audit)
+    return [
+        SymbolAuditOut.model_validate(a).model_copy(update={"actor": names.get(a.actor, a.actor)})
+        for a in audit
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -71,16 +92,16 @@ def get_model(
     if "materials" in includes:
         result.materials = service.list_materials(model_id)
     if "changes" in includes:
-        result.changes = service.list_changes(model_id)
+        result.changes = _resolve_changes(service, model_id)
     if "symbol_audit" in includes:
-        result.symbol_audit = service.list_symbol_audit(model_id)
+        result.symbol_audit = _resolve_symbol_audit(service, model_id)
     return result
 
 
 def _detail_with_audit(service: ModelService, model_id: uuid.UUID) -> ModelDetailOut:
     """Refreshed ModelDetailOut with symbol_audit attached — mirrors get_model's include assembly."""
     result = ModelDetailOut.model_validate(service.get_model(model_id))
-    result.symbol_audit = service.list_symbol_audit(model_id)
+    result.symbol_audit = _resolve_symbol_audit(service, model_id)
     return result
 
 
@@ -228,9 +249,4 @@ def list_changes(
     service: Annotated[ModelService, Depends(_get_model_service)],
     _: Annotated[User, Depends(require_action(Action.MODEL_VIEW))],
 ) -> list:
-    changes = service.list_changes(model_id)
-    names = service.resolve_actor_names(c.actor for c in changes)
-    return [
-        ChangeOut.model_validate(c).model_copy(update={"actor": names.get(c.actor, c.actor)})
-        for c in changes
-    ]
+    return _resolve_changes(service, model_id)

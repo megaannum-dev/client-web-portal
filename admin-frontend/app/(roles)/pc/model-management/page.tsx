@@ -37,7 +37,7 @@ export default function ModelManagementPage() {
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
-  const [initialOpenSym, setInitialOpenSym] = useState<string | null>(null);
+  const [, setInitialOpenSym] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [calc, setCalc] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function ModelManagementPage() {
       </div>
       {m && (
         <ModelDetailPanel
-          m={detail?.model ?? m} tab={tab} materials={detail?.materials ?? []} initialOpenSym={initialOpenSym}
+          m={detail?.model ?? m} tab={tab} materials={detail?.materials ?? []}
           onTab={setTab} onClose={() => setOpenId(null)} onEdit={(id) => setEditId(id)}
           onDuplicate={handleDuplicate} onOpenSymbols={() => setTab("symbols")} onPublish={handlePublish} onDelete={handleDelete}
           onUploadMaterial={async (_id, file) => { const r = await upload(file); if (r.success) refetch(); else alert(`Upload failed: ${r.error}`); return r.success; }}

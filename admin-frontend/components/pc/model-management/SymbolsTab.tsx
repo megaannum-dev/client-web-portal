@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Plus, X } from "@/lib/icons";
+import { Plus, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
-import { Chip, type ChipTone } from "@/components/ui/Chip";
+import { Chip } from "@/components/ui/Chip";
 import { fmtTimestampParts } from "@/lib/pc/format";
 import { addSymbol, setSymbolActive, removeSymbol } from "@/server/pc";
 import type { Model, SymbolAuditEntry, SymbolBookEntry } from "@/lib/pc/types";
@@ -13,20 +13,6 @@ import type { Model, SymbolAuditEntry, SymbolBookEntry } from "@/lib/pc/types";
    Book (all symbols, active + inactive) + per-symbol audit trail.
    No weight anywhere (D-4) — symbols are tracked in/out only.
    ============================================================ */
-
-const OP_TONE: Record<SymbolAuditEntry["op"], ChipTone> = {
-  added: "active",
-  activated: "active",
-  deactivated: "neutral",
-  removed: "failed",
-};
-
-const OP_LABEL: Record<SymbolAuditEntry["op"], string> = {
-  added: "Added",
-  activated: "Activated",
-  deactivated: "Deactivated",
-  removed: "Removed",
-};
 
 const TH = "bg-surface-low px-3 py-[9px] text-[10px] font-bold uppercase tracking-[0.5px] text-secondary text-left";
 
@@ -49,110 +35,58 @@ function buildSymbolBook(m: Model): BookRow[] {
   });
 }
 
-function SymAuditTrail({ trail }: { trail: SymbolAuditEntry[] }) {
-  if (!trail.length) {
-    return <div className="py-2.5 text-[12.5px] text-secondary">No audit entries.</div>;
-  }
-  return (
-    <div className="flex flex-col gap-2 py-2.5">
-      {trail.map((a, i) => {
-        const { date, time } = fmtTimestampParts(a.date);
-        return (
-          <div key={`${a.symbol}-${a.date}-${i}`} className="flex items-start justify-between gap-3 text-[12.5px]">
-            <div>
-              <Chip tone={OP_TONE[a.op]}>{OP_LABEL[a.op]}</Chip>
-              {a.note && <span className="ml-2 text-secondary">{a.note}</span>}
-              <div className="mt-0.5 text-secondary">
-                {a.user} · <span className="font-bold text-primary">{a.ver}</span>
-              </div>
-            </div>
-            <div className="shrink-0 text-right text-secondary">
-              <div>{date}</div>
-              <div>{time}</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function SymbolBookRow({
-  row, open, onToggle, onSetActive, onRemove,
+  row, onSetActive, onRemove,
 }: {
   row: BookRow;
-  open: boolean;
-  onToggle: () => void;
   onSetActive: (active: boolean) => void;
   onRemove: () => void;
 }) {
   const { entry, trail } = row;
-  const added = trail.find((a) => a.op === "added") ?? trail[trail.length - 1];
   const latest = trail[0];
-  const { date } = added ? fmtTimestampParts(added.date) : { date: "—" };
+  const activated = trail.find((a) => a.op === "added" || a.op === "activated");
+  const { date: updatedDate } = latest ? fmtTimestampParts(latest.date) : { date: "—" };
+  const { date: effectiveDate } = activated ? fmtTimestampParts(activated.date) : { date: "—" };
   const td = "border-t border-outline-variant px-3 py-2.5 text-[12.5px] align-middle";
   return (
-    <>
-      <tr className="group">
-        <td className={td}>
+    <tr className="group">
+      <td className={`${td} font-bold tabular-nums text-on-surface`}>{entry.symbol}</td>
+      <td className={`${td} text-secondary`}>{updatedDate}</td>
+      <td className={`${td} text-secondary`}>{effectiveDate}</td>
+      <td className={td}>
+        <button
+          type="button"
+          onClick={() => onSetActive(!entry.active)}
+          title={entry.active ? "Deactivate" : "Activate"}
+          className="cursor-pointer border-none bg-transparent p-0"
+        >
+          <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
+        </button>
+      </td>
+      <td className={`${td} pr-3 text-secondary`}>
+        <div className="flex items-center justify-between gap-2">
+          <span>{latest?.user ?? "—"}</span>
           <button
             type="button"
-            onClick={onToggle}
-            className="flex cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-left font-bold tabular-nums text-on-surface"
+            onClick={onRemove}
+            aria-label={`Remove ${entry.symbol}`}
+            title="Remove"
+            className="shrink-0 cursor-pointer text-secondary opacity-55 transition-opacity hover:text-error hover:opacity-100"
           >
-            {open ? (
-              <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-secondary" />
-            ) : (
-              <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-secondary" />
-            )}
-            {entry.symbol}
+            <X size={14} strokeWidth={2} />
           </button>
-        </td>
-        <td className={`${td} text-secondary`}>{date}</td>
-        <td className={td}>
-          <button
-            type="button"
-            onClick={() => onSetActive(!entry.active)}
-            title={entry.active ? "Deactivate" : "Activate"}
-            className="cursor-pointer border-none bg-transparent p-0"
-          >
-            <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
-          </button>
-        </td>
-        <td className={`${td} pr-3 text-secondary`}>
-          <div className="flex items-center justify-between gap-2">
-            <span>{latest?.user ?? "—"}</span>
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={`Remove ${entry.symbol}`}
-              title="Remove"
-              className="shrink-0 cursor-pointer text-secondary opacity-55 transition-opacity hover:text-error hover:opacity-100"
-            >
-              <X size={14} strokeWidth={2} />
-            </button>
-          </div>
-        </td>
-      </tr>
-      {open && (
-        <tr>
-          <td colSpan={4} className="border-t border-outline-variant bg-surface-low px-3 pb-1">
-            <SymAuditTrail trail={trail} />
-          </td>
-        </tr>
-      )}
-    </>
+        </div>
+      </td>
+    </tr>
   );
 }
 
 export function SymbolsTab({
-  m, initialOpenSym, onMutate,
+  m, onMutate,
 }: {
   m: Model;
-  initialOpenSym?: string | null;
   onMutate: () => void;
 }) {
-  const [openSym, setOpenSym] = useState<string | null>(initialOpenSym ?? null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -215,7 +149,8 @@ export function SymbolsTab({
             <thead>
               <tr>
                 <th className={TH}>Sym</th>
-                <th className={TH}>Input date</th>
+                <th className={TH}>Last Updated</th>
+                <th className={TH}>Effective From</th>
                 <th className={TH}>Status</th>
                 <th className={`${TH} pr-3`}>Updated by</th>
               </tr>
@@ -225,8 +160,6 @@ export function SymbolsTab({
                 <SymbolBookRow
                   key={row.entry.symbol}
                   row={row}
-                  open={openSym === row.entry.symbol}
-                  onToggle={() => setOpenSym((cur) => (cur === row.entry.symbol ? null : row.entry.symbol))}
                   onSetActive={(active) => void handleSetActive(row.entry.symbol, active)}
                   onRemove={() => void handleRemove(row.entry.symbol)}
                 />

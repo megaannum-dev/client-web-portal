@@ -32,7 +32,7 @@ export function OverviewTab({
               onClick={onOpenSymbols}
               className="cursor-pointer border-none bg-transparent p-0 text-[12px] font-bold text-primary"
             >
-              {m.symbolAudit.length} changes &rarr;
+              View All &rarr;
             </button>
           </div>
           <div className="mt-2"><Ticks symbols={m.symbols} /></div>
