@@ -126,7 +126,6 @@ class ModelService:
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
     ) -> Model:
-        # ponytail: symbol diff not tracked in changelog, add when audit requires
         model = self.repo.create(
             name=name,
             category=category,
@@ -142,6 +141,11 @@ class ModelService:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
         )
+        for s in model.symbols:
+            self._log_symbol(
+                model.id, s.symbol, SymbolAuditOp.ADDED,
+                note="Initial universe", actor=actor, version=model.version,
+            )
         self.repo.add_change(
             model.id,
             kind=ModelChangeKind.CREATED,

@@ -40,6 +40,16 @@ def actor():
     return "uid-123"
 
 
+def test_create_seeds_initial_universe(service, actor):
+    m = service.create_model(
+        name="M", symbols=[SymbolIn(symbol="AAPL"), SymbolIn(symbol="MSFT")], actor=actor
+    )
+    audit = service.list_symbol_audit(m.id)
+    assert sorted((a.symbol, a.op.value) for a in audit) == [
+        ("AAPL", "added"), ("MSFT", "added"),
+    ]
+
+
 def test_edit_drop_symbol_deactivates_and_logs(service, actor):
     m = service.create_model(name="M", symbols=[SymbolIn(symbol="AAPL")], actor=actor)
     service.edit_model(m.id, symbols=[], actor=actor)
