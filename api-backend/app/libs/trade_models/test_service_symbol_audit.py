@@ -74,6 +74,37 @@ def test_add_activate_remove_ops(service, actor):
     assert ops == ["removed", "deactivated", "added"]  # newest-first
 
 
+# --- Bug A/B regression: model_changes gets a "symbols" entry, newest-first ---
+
+
+def test_symbol_ops_write_to_model_changes(service, actor):
+    m = service.create_model(name="M", symbols=[], actor=actor)  # 1 change: created
+
+    service.add_symbol(m.id, "NVDA", actor=actor)
+    service.set_symbol_active(m.id, "NVDA", False, actor=actor)
+    service.remove_symbol(m.id, "NVDA", actor=actor)
+
+    changes = service.list_changes(m.id)
+    symbol_changes = [
+        c for c in changes
+        if c.detail and any(f["name"] == "symbols" for f in c.detail.get("fields", []))
+    ]
+    assert len(symbol_changes) == 3  # add, deactivate, remove each logged
+
+
+def test_list_changes_newest_first(service, actor):
+    m = service.create_model(name="M", symbols=[], actor=actor)
+    service.add_symbol(m.id, "AAPL", actor=actor)
+    service.add_symbol(m.id, "MSFT", actor=actor)
+
+    changes = service.list_changes(m.id)
+    timestamps = [c.created_at for c in changes]
+    assert timestamps == sorted(timestamps, reverse=True)
+    # most recent op (MSFT add) must be first, and carry the specific symbol/op
+    # so the frontend can render "Symbols updated: MSFT added".
+    assert changes[0].detail == {"fields": [{"name": "symbols", "symbol": "MSFT", "op": "added"}]}
+
+
 if __name__ == "__main__":
     from sqlalchemy import create_engine as _ce
     from sqlalchemy.orm import sessionmaker as _sm

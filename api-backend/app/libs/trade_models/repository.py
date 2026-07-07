@@ -7,7 +7,7 @@ Pure DB access, no business logic.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -164,7 +164,7 @@ class ModelRepository:
         return (
             self.db.query(ModelChange)
             .filter(ModelChange.model_id == model_id)
-            .order_by(ModelChange.created_at)
+            .order_by(ModelChange.created_at.desc())
             .all()
         )
 
@@ -183,6 +183,11 @@ class ModelRepository:
             detail=detail,
             actor=actor,
             version=version,
+            # ponytail: explicit microsecond stamp — some DBs (SQLite
+            # CURRENT_TIMESTAMP) truncate server_default now() to whole
+            # seconds, which breaks newest-first ordering for changes fired
+            # in the same request/transaction (see service.py _log_symbol).
+            created_at=datetime.now(timezone.utc),
         )
         self.db.add(change)
         self.db.flush()

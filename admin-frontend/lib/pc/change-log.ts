@@ -9,6 +9,10 @@ interface FieldDiff {
   // just flag that the value changed — see _LONG_TEXT_FIELDS in the
   // backend's ModelService._diff_field.
   changed?: boolean;
+  // Symbol mutations (name === "symbols") carry which symbol and what
+  // happened to it — see ModelService._log_symbol_change.
+  symbol?: string;
+  op?: string;
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -59,11 +63,12 @@ export function renderChangeLines(c: ChangeEntry): string[] {
     case "edited": {
       const d = c.detail as { fields?: FieldDiff[] };
       if (!d.fields?.length) return ["Model updated"];
-      return d.fields.map((f) =>
-        f.changed
+      return d.fields.map((f) => {
+        if (f.name === "symbols" && f.symbol && f.op) return `Symbols updated: ${f.symbol} ${f.op}`;
+        return f.changed
           ? `${fieldLabel(f.name)} updated`
-          : `${fieldLabel(f.name)}: ${fmtValue(f.before)} → ${fmtValue(f.after)}`
-      );
+          : `${fieldLabel(f.name)}: ${fmtValue(f.before)} → ${fmtValue(f.after)}`;
+      });
     }
 
     default:

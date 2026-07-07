@@ -97,6 +97,24 @@ class ModelService:
             )
         )
 
+    def _log_symbol_change(
+        self,
+        model_id: uuid.UUID,
+        symbol: str,
+        op: str,
+        *,
+        actor: str | None,
+        version: str | None,
+    ) -> None:
+        """Change-log entry for a symbol mutation, e.g. 'Symbols updated: QQQ deactivated'."""
+        self.repo.add_change(
+            model_id,
+            kind=ModelChangeKind.EDITED,
+            detail={"fields": [{"name": "symbols", "symbol": symbol, "op": op}]},
+            actor=actor,
+            version=version,
+        )
+
     # --- Book management ---
 
     def list_models(self) -> list[Model]:
@@ -184,6 +202,7 @@ class ModelService:
                         model_id, symbol, SymbolAuditOp.DEACTIVATED,
                         note="Deactivated", actor=actor, version=model.version,
                     )
+                    self._log_symbol_change(model_id, symbol, "deactivated", actor=actor, version=model.version)
 
             for symbol in new_set - existing_by_symbol.keys():
                 model.symbols.append(ModelSymbol(symbol=symbol, active=True))
@@ -191,6 +210,7 @@ class ModelService:
                     model_id, symbol, SymbolAuditOp.ADDED,
                     note="Added to universe", actor=actor, version=model.version,
                 )
+                self._log_symbol_change(model_id, symbol, "added", actor=actor, version=model.version)
         elif "symbols" in updates:
             # explicit None sent — treat as no-op for symbols
             updates.pop("symbols")
@@ -252,6 +272,7 @@ class ModelService:
             model_id, symbol, SymbolAuditOp.ADDED,
             note="Added to universe", actor=actor, version=model.version,
         )
+        self._log_symbol_change(model_id, symbol, "added", actor=actor, version=model.version)
         self.db.commit()
         self.db.refresh(model)
         return model
@@ -270,6 +291,7 @@ class ModelService:
             note="Activated" if active else "Deactivated",
             actor=actor, version=model.version,
         )
+        self._log_symbol_change(model_id, symbol, op.value, actor=actor, version=model.version)
         self.db.commit()
         self.db.refresh(model)
         return model
@@ -284,6 +306,7 @@ class ModelService:
             model_id, symbol, SymbolAuditOp.REMOVED,
             note="Removed", actor=actor, version=model.version,
         )
+        self._log_symbol_change(model_id, symbol, "removed", actor=actor, version=model.version)
         self.db.delete(row)
         self.db.commit()
 
