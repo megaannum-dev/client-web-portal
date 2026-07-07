@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import IO, Any
 
@@ -21,6 +22,9 @@ from app.models.pc import (
     ModelChangeKind,
     ModelMaterial,
     ModelStatus,
+    ModelSymbol,
+    ModelSymbolAudit,
+    SymbolAuditOp,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,6 +75,28 @@ class ModelService:
         self.repo = ModelRepository(db)
         self.storage = storage
 
+    def _log_symbol(
+        self,
+        model_id: uuid.UUID,
+        symbol: str,
+        op: SymbolAuditOp,
+        *,
+        note: str | None,
+        actor: str | None,
+        version: str | None,
+    ) -> None:
+        self.db.add(
+            ModelSymbolAudit(
+                model_id=model_id, symbol=symbol, op=op,
+                note=note, actor=actor, version=version,
+                # ponytail: explicit microsecond stamp — some DBs (SQLite
+                # CURRENT_TIMESTAMP) truncate server_default now() to whole
+                # seconds, which breaks newest-first ordering for ops fired
+                # in the same request/transaction.
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+
     # --- Book management ---
 
     def list_models(self) -> list[Model]:
@@ -100,7 +126,6 @@ class ModelService:
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
     ) -> Model:
-        # ponytail: symbol diff not tracked in changelog, add when audit requires
         model = self.repo.create(
             name=name,
             category=category,
@@ -116,6 +141,11 @@ class ModelService:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
         )
+        for s in model.symbols:
+            self._log_symbol(
+                model.id, s.symbol, SymbolAuditOp.ADDED,
+                note="Initial universe", actor=actor, version=model.version,
+            )
         self.repo.add_change(
             model.id,
             kind=ModelChangeKind.CREATED,
@@ -138,19 +168,29 @@ class ModelService:
 
         # Symbols are a relationship, not a scalar — handle separately so the
         # setattr loop in repo.update() doesn't clobber the collection with a
-        # raw list of SymbolIn.
-        # ponytail: symbol diff not tracked in changelog, add when audit requires
+        # raw list of SymbolIn. Bulk set here never hard-deletes: a symbol
+        # dropped from the form is deactivated (row + audit trail preserved).
         if "symbols" in updates and updates["symbols"] is not None:
-            from app.models.pc import ModelSymbol
             new_symbols = updates.pop("symbols")
-            # cascade delete-orphan drops removed rows on flush
-            model.symbols = [
-                ModelSymbol(
-                    symbol=s["symbol"] if isinstance(s, dict) else s.symbol,
-                    weight=s.get("weight") if isinstance(s, dict) else s.weight,
+            new_set = {
+                (s["symbol"] if isinstance(s, dict) else s.symbol) for s in new_symbols
+            }
+            existing_by_symbol = {s.symbol: s for s in model.symbols}
+
+            for symbol, row in existing_by_symbol.items():
+                if symbol not in new_set and row.active:
+                    row.active = False
+                    self._log_symbol(
+                        model_id, symbol, SymbolAuditOp.DEACTIVATED,
+                        note="Deactivated", actor=actor, version=model.version,
+                    )
+
+            for symbol in new_set - existing_by_symbol.keys():
+                model.symbols.append(ModelSymbol(symbol=symbol, active=True))
+                self._log_symbol(
+                    model_id, symbol, SymbolAuditOp.ADDED,
+                    note="Added to universe", actor=actor, version=model.version,
                 )
-                for s in new_symbols
-            ]
         elif "symbols" in updates:
             # explicit None sent — treat as no-op for symbols
             updates.pop("symbols")
@@ -180,6 +220,80 @@ class ModelService:
         self.db.commit()
         self.db.refresh(updated)
         return updated
+
+    # --- Fine-grained symbol ops (BE-2) ---
+
+    def _get_symbol_row(self, model_id: uuid.UUID, symbol: str) -> ModelSymbol:
+        row = (
+            self.db.query(ModelSymbol)
+            .filter(ModelSymbol.model_id == model_id, ModelSymbol.symbol == symbol)
+            .one_or_none()
+        )
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Symbol not found")
+        return row
+
+    def add_symbol(self, model_id: uuid.UUID, symbol: str, *, actor: str) -> Model:
+        model = self.get_model(model_id)
+        symbol = symbol.upper()
+
+        existing = (
+            self.db.query(ModelSymbol)
+            .filter(ModelSymbol.model_id == model_id, ModelSymbol.symbol == symbol)
+            .one_or_none()
+        )
+        if existing is not None:
+            if existing.active:
+                raise HTTPException(status.HTTP_409_CONFLICT, "Symbol already active")
+            return self.set_symbol_active(model_id, symbol, True, actor=actor)
+
+        model.symbols.append(ModelSymbol(symbol=symbol, active=True))
+        self._log_symbol(
+            model_id, symbol, SymbolAuditOp.ADDED,
+            note="Added to universe", actor=actor, version=model.version,
+        )
+        self.db.commit()
+        self.db.refresh(model)
+        return model
+
+    def set_symbol_active(
+        self, model_id: uuid.UUID, symbol: str, active: bool, *, actor: str
+    ) -> Model:
+        model = self.get_model(model_id)
+        symbol = symbol.upper()
+        row = self._get_symbol_row(model_id, symbol)
+
+        row.active = active
+        op = SymbolAuditOp.ACTIVATED if active else SymbolAuditOp.DEACTIVATED
+        self._log_symbol(
+            model_id, symbol, op,
+            note="Activated" if active else "Deactivated",
+            actor=actor, version=model.version,
+        )
+        self.db.commit()
+        self.db.refresh(model)
+        return model
+
+    def remove_symbol(self, model_id: uuid.UUID, symbol: str, *, actor: str) -> None:
+        model = self.get_model(model_id)
+        symbol = symbol.upper()
+        row = self._get_symbol_row(model_id, symbol)
+
+        # Log before delete so the audit row captures actor/version at removal time.
+        self._log_symbol(
+            model_id, symbol, SymbolAuditOp.REMOVED,
+            note="Removed", actor=actor, version=model.version,
+        )
+        self.db.delete(row)
+        self.db.commit()
+
+    def list_symbol_audit(self, model_id: uuid.UUID) -> list[ModelSymbolAudit]:
+        return (
+            self.db.query(ModelSymbolAudit)
+            .filter(ModelSymbolAudit.model_id == model_id)
+            .order_by(ModelSymbolAudit.created_at.desc())
+            .all()
+        )
 
     # --- Materials ---
 
