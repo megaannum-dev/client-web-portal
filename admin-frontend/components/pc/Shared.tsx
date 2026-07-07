@@ -39,8 +39,18 @@ export function StatusChip({ status }: { status: ModelStatus }) {
 /* ---- Ticks — wrapping row of symbol pills ------------------
    `onRemove` is optional: when supplied (e.g. the New-model symbol
    editor) each pill grows a remove affordance; existing read-only
-   callers pass nothing and are unaffected. */
-export function Ticks({ symbols, onRemove }: { symbols: string[]; onRemove?: (s: string) => void }) {
+   callers pass nothing and are unaffected.
+   `onSymbol` is optional: when supplied (e.g. table/card symbol
+   columns) each pill becomes a click target that deep-links into
+   the Symbols tab; existing read-only callers (e.g. category Ticks)
+   pass nothing and are unaffected. */
+export function Ticks({
+  symbols, onRemove, onSymbol,
+}: {
+  symbols: string[];
+  onRemove?: (s: string) => void;
+  onSymbol?: (s: string) => void;
+}) {
   return (
     <div className="flex flex-wrap gap-[5px]">
       {symbols.map((s) => (
@@ -48,7 +58,17 @@ export function Ticks({ symbols, onRemove }: { symbols: string[]; onRemove?: (s:
           key={s}
           className="inline-flex items-center gap-1 rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
         >
-          {s}
+          {onSymbol ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSymbol(s); }}
+              className="cursor-pointer border-none bg-transparent p-0 font-bold tabular-nums text-on-surface"
+            >
+              {s}
+            </button>
+          ) : (
+            s
+          )}
           {onRemove && (
             <button
               type="button"

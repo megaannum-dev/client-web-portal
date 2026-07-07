@@ -9,7 +9,14 @@ import type { Model } from "@/lib/pc/types";
 /* ============================================================
    SLIDE-IN DETAIL — Overview tab
    ============================================================ */
-export function OverviewTab({ m, onEdit, onDuplicate }: { m: Model; onEdit: (id: string) => void; onDuplicate: (id: string) => void }) {
+export function OverviewTab({
+  m, onEdit, onDuplicate, onOpenSymbols,
+}: {
+  m: Model;
+  onEdit: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onOpenSymbols: () => void;
+}) {
   return (
     <>
       <div className="grid grid-cols-2 gap-[11px]">
@@ -18,7 +25,16 @@ export function OverviewTab({ m, onEdit, onDuplicate }: { m: Model; onEdit: (id:
         <Fact label="Mgmt Fee" value={m.mgmt_fee ? `${m.mgmt_fee.toFixed(2)}%` : "2.00%"} />
         <Fact label="Incentive Fee" value={m.incentive_fee ? `${m.incentive_fee.toFixed(2)}%` : "20.00%"} />
         <div className="rounded-[10px] bg-surface-low px-[13px] py-[11px]" style={{ gridColumn: "1 / -1" }}>
-          <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</div>
+          <div className="flex items-center justify-between">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</div>
+            <button
+              type="button"
+              onClick={onOpenSymbols}
+              className="cursor-pointer border-none bg-transparent p-0 text-[12px] font-bold text-primary"
+            >
+              {m.symbolAudit.length} changes &rarr;
+            </button>
+          </div>
           <div className="mt-2"><Ticks symbols={m.symbols} /></div>
         </div>
         {m.description && <Fact label="Description" value={m.description} span />}
