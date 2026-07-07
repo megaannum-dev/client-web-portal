@@ -21,6 +21,9 @@ from app.models.pc import (
     ModelChangeKind,
     ModelMaterial,
     ModelStatus,
+    ModelSymbol,
+    ModelSymbolAudit,
+    SymbolAuditOp,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,6 +73,23 @@ class ModelService:
         self.db = db
         self.repo = ModelRepository(db)
         self.storage = storage
+
+    def _log_symbol(
+        self,
+        model_id: uuid.UUID,
+        symbol: str,
+        op: SymbolAuditOp,
+        *,
+        note: str | None,
+        actor: str | None,
+        version: str | None,
+    ) -> None:
+        self.db.add(
+            ModelSymbolAudit(
+                model_id=model_id, symbol=symbol, op=op,
+                note=note, actor=actor, version=version,
+            )
+        )
 
     # --- Book management ---
 
@@ -138,19 +158,29 @@ class ModelService:
 
         # Symbols are a relationship, not a scalar — handle separately so the
         # setattr loop in repo.update() doesn't clobber the collection with a
-        # raw list of SymbolIn.
-        # ponytail: symbol diff not tracked in changelog, add when audit requires
+        # raw list of SymbolIn. Bulk set here never hard-deletes: a symbol
+        # dropped from the form is deactivated (row + audit trail preserved).
         if "symbols" in updates and updates["symbols"] is not None:
-            from app.models.pc import ModelSymbol
             new_symbols = updates.pop("symbols")
-            # cascade delete-orphan drops removed rows on flush
-            model.symbols = [
-                ModelSymbol(
-                    symbol=s["symbol"] if isinstance(s, dict) else s.symbol,
-                    weight=s.get("weight") if isinstance(s, dict) else s.weight,
+            new_set = {
+                (s["symbol"] if isinstance(s, dict) else s.symbol) for s in new_symbols
+            }
+            existing_by_symbol = {s.symbol: s for s in model.symbols}
+
+            for symbol, row in existing_by_symbol.items():
+                if symbol not in new_set and row.active:
+                    row.active = False
+                    self._log_symbol(
+                        model_id, symbol, SymbolAuditOp.DEACTIVATED,
+                        note="Deactivated", actor=actor, version=model.version,
+                    )
+
+            for symbol in new_set - existing_by_symbol.keys():
+                model.symbols.append(ModelSymbol(symbol=symbol, active=True))
+                self._log_symbol(
+                    model_id, symbol, SymbolAuditOp.ADDED,
+                    note="Added to universe", actor=actor, version=model.version,
                 )
-                for s in new_symbols
-            ]
         elif "symbols" in updates:
             # explicit None sent — treat as no-op for symbols
             updates.pop("symbols")
