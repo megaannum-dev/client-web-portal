@@ -25,6 +25,8 @@ from app.libs.trade_models.schemas import (
     ModelOut,
     ModelsListOut,
     ModelUpdate,
+    SymbolAddIn,
+    SymbolPatchIn,
 )
 from app.models.users import User
 
@@ -70,6 +72,15 @@ def get_model(
         result.materials = service.list_materials(model_id)
     if "changes" in includes:
         result.changes = service.list_changes(model_id)
+    if "symbol_audit" in includes:
+        result.symbol_audit = service.list_symbol_audit(model_id)
+    return result
+
+
+def _detail_with_audit(service: ModelService, model_id: uuid.UUID) -> ModelDetailOut:
+    """Refreshed ModelDetailOut with symbol_audit attached — mirrors get_model's include assembly."""
+    result = ModelDetailOut.model_validate(service.get_model(model_id))
+    result.symbol_audit = service.list_symbol_audit(model_id)
     return result
 
 
@@ -171,6 +182,44 @@ def download_material(
             "Content-Disposition": f'attachment; filename="{mat.filename}"',
         },
     )
+
+
+@router.post(
+    "/models/{model_id}/symbols",
+    response_model=ModelDetailOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_symbol(
+    model_id: uuid.UUID,
+    body: SymbolAddIn,
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+) -> object:
+    service.add_symbol(model_id, body.symbol, actor=actor.firebase_uid)
+    return _detail_with_audit(service, model_id)
+
+
+@router.patch("/models/{model_id}/symbols/{symbol}", response_model=ModelDetailOut)
+def set_symbol(
+    model_id: uuid.UUID,
+    symbol: str,
+    body: SymbolPatchIn,
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+) -> object:
+    service.set_symbol_active(model_id, symbol, body.active, actor=actor.firebase_uid)
+    return _detail_with_audit(service, model_id)
+
+
+@router.delete("/models/{model_id}/symbols/{symbol}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_symbol(
+    model_id: uuid.UUID,
+    symbol: str,
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+) -> Response:
+    service.remove_symbol(model_id, symbol, actor=actor.firebase_uid)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/models/{model_id}/changes", response_model=list[ChangeOut])
