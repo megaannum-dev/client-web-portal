@@ -28,7 +28,29 @@ export async function getModels(): Promise<APIResult<ModelsListDTO>> {
 }
 
 export async function getModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id));
+  return apiClient<ModelDTO>(`${ENDPOINTS.PC.MODEL(id)}?include=materials,changes,symbol_audit`);
+}
+
+export async function addSymbol(id: string, symbol: string): Promise<APIResult<ModelDTO>> {
+  return apiClient<ModelDTO>(ENDPOINTS.PC.SYMBOLS(id), {
+    method: "POST",
+    body: JSON.stringify({ symbol }),
+  });
+}
+
+export async function setSymbolActive(
+  id: string,
+  symbol: string,
+  active: boolean,
+): Promise<APIResult<ModelDTO>> {
+  return apiClient<ModelDTO>(ENDPOINTS.PC.SYMBOL(id, symbol), {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
+}
+
+export async function removeSymbol(id: string, symbol: string): Promise<APIResult<void>> {
+  return apiClient<void>(ENDPOINTS.PC.SYMBOL(id, symbol), { method: "DELETE" });
 }
 
 export async function createModel(
