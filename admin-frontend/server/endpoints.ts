@@ -5,6 +5,8 @@ export const ENDPOINTS = {
     MODELS:              `${PC}/models`,
     MODEL:               (id: string) => `${PC}/models/${id}`,
     MATERIALS:           (id: string) => `${PC}/models/${id}/materials`,
+    SYMBOLS:             (id: string) => `${PC}/models/${id}/symbols`,
+    SYMBOL:              (id: string, sym: string) => `${PC}/models/${id}/symbols/${encodeURIComponent(sym)}`,
     DOWNLOAD:            (id: string, mid: string) => `${PC}/models/${id}/materials/${mid}/download`,
     CHANGES:             (id: string) => `${PC}/models/${id}/changes`,
     // PUBLISH removed — use MODEL(id) with PATCH {status:'live'} (D-1)

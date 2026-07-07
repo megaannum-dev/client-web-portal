@@ -14,7 +14,14 @@ type Tab = "overview" | "materials" | "changes";
 export const TH_BASE =
   "bg-surface-low px-3.5 py-3 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap";
 
-function ModelTr({ m, onOpen, onDownloadLatest }: { m: Model; onOpen: (id: string, tab: Tab) => void; onDownloadLatest: (id: string) => void }) {
+function ModelTr({
+  m, onOpen, onDownloadLatest, onOpenSymbols,
+}: {
+  m: Model;
+  onOpen: (id: string, tab: Tab) => void;
+  onDownloadLatest: (id: string) => void;
+  onOpenSymbols: (id: string, symbol: string) => void;
+}) {
   const [hover, setHover] = useState(false);
   const td = `border-t border-outline-variant px-3.5 py-3.5 text-[14px] align-middle ${hover ? "bg-surface-low" : ""}`;
   return (
@@ -30,7 +37,7 @@ function ModelTr({ m, onOpen, onDownloadLatest }: { m: Model; onOpen: (id: strin
       </td>
       <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.size)}</td>
       <td className={td}>{m.category.length > 0 ? <Ticks symbols={m.category} /> : <span className="text-secondary">—</span>}</td>
-      <td className={td}><Ticks symbols={m.symbols} /></td>
+      <td className={td}><Ticks symbols={m.symbols} onSymbol={(s) => onOpenSymbols(m.id, s)} /></td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.mgmt}%</td>
       <td className={`${td} text-right font-bold tabular-nums`}>{m.incentive}%</td>
       <td className={td}>
@@ -61,11 +68,12 @@ function ModelTr({ m, onOpen, onDownloadLatest }: { m: Model; onOpen: (id: strin
 }
 
 export function ModelTable({
-  models, onOpen, onDownloadLatest,
+  models, onOpen, onDownloadLatest, onOpenSymbols,
 }: {
   models: Model[];
   onOpen: (id: string, tab: Tab) => void;
   onDownloadLatest: (id: string) => void;
+  onOpenSymbols: (id: string, symbol: string) => void;
 }) {
   const headers = ["Model", "Model size", "Manager", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
   const rightAligned = new Set([1, 4, 5, 7]);
@@ -83,7 +91,9 @@ export function ModelTable({
             </tr>
           </thead>
           <tbody>
-            {models.map((m) => <ModelTr key={m.id} m={m} onOpen={onOpen} onDownloadLatest={onDownloadLatest} />)}
+            {models.map((m) => (
+              <ModelTr key={m.id} m={m} onOpen={onOpen} onDownloadLatest={onDownloadLatest} onOpenSymbols={onOpenSymbols} />
+            ))}
           </tbody>
         </table>
       </div>

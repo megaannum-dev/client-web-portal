@@ -9,28 +9,32 @@ import type { Material, Model } from "@/lib/pc/types";
 import { MaterialsTab } from "./MaterialsTab";
 import { ChangesTab } from "./ChangesTab";
 import { OverviewTab } from "./OverviewTab";
+import { SymbolsTab } from "./SymbolsTab";
 
-type Tab = "overview" | "materials" | "changes";
+type Tab = "overview" | "symbols" | "materials" | "changes";
 
 /* ============================================================
-   SLIDE-IN DETAIL  (Overview · Materials · Changes)
+   SLIDE-IN DETAIL  (Overview · Symbols · Materials · Changes)
    ============================================================ */
 export function ModelDetailPanel({
-  m, tab, materials, onTab, onClose, onEdit, onDuplicate, onPublish, onDelete, onUploadMaterial, onDownloadMaterial,
+  m, tab, materials, initialOpenSym, onTab, onClose, onEdit, onDuplicate, onOpenSymbols, onPublish, onDelete, onUploadMaterial, onDownloadMaterial, onRefetch,
 }: {
   m: Model;
   tab: Tab;
   materials: Material[];
+  initialOpenSym?: string | null;
   onTab: (t: Tab) => void;
   onClose: () => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onOpenSymbols: () => void;
   onPublish: (id: string) => void;
   onDelete: (id: string) => void;
   onUploadMaterial: (id: string, file: File) => Promise<boolean>;
   onDownloadMaterial: (modelId: string, material: Material) => void;
+  onRefetch: () => void;
 }) {
-  const TABS: [Tab, string][] = [["overview", "Overview"], ["materials", "Materials"], ["changes", "Changes"]];
+  const TABS: [Tab, string][] = [["overview", "Overview"], ["symbols", "Symbols"], ["materials", "Materials"], ["changes", "Changes"]];
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
@@ -86,8 +90,10 @@ export function ModelDetailPanel({
             />
           ) : tab === "changes" ? (
             <ChangesTab m={m} />
+          ) : tab === "symbols" ? (
+            <SymbolsTab m={m} initialOpenSym={initialOpenSym} onMutate={onRefetch} />
           ) : (
-            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} />
+            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} onOpenSymbols={onOpenSymbols} />
           )}
         </div>
         {m.status === "draft" && (() => {

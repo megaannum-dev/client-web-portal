@@ -10,7 +10,13 @@ type Tab = "overview" | "materials" | "changes";
 /* ============================================================
    CARD GRID (default layout)
    ============================================================ */
-function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => void }) {
+function ModelCard({
+  m, onOpen, onOpenSymbols,
+}: {
+  m: Model;
+  onOpen: (id: string, tab: Tab) => void;
+  onOpenSymbols: (id: string, symbol: string) => void;
+}) {
   return (
     <div
       onClick={() => onOpen(m.id, "overview")}
@@ -32,7 +38,7 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
         <Chip tone="warm" dot={false}>Mgmt {m.mgmt}%</Chip>
         <Chip tone="neutral" dot={false}>Incentive {m.incentive}%</Chip>
       </div>
-      <Ticks symbols={m.symbols} />
+      <Ticks symbols={m.symbols} onSymbol={(s) => onOpenSymbols(m.id, s)} />
       <div className="flex items-center justify-end gap-2.5 border-t border-outline-variant pt-[13px]">
         <VerBadge version={m.version} none={m.status === "draft"} />
       </div>
@@ -40,10 +46,16 @@ function ModelCard({ m, onOpen }: { m: Model; onOpen: (id: string, tab: Tab) => 
   );
 }
 
-export function CardGrid({ models, onOpen }: { models: Model[]; onOpen: (id: string, tab: Tab) => void }) {
+export function CardGrid({
+  models, onOpen, onOpenSymbols,
+}: {
+  models: Model[];
+  onOpen: (id: string, tab: Tab) => void;
+  onOpenSymbols: (id: string, symbol: string) => void;
+}) {
   return (
     <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(20vw, 1fr))" }}>
-      {models.map((m) => <ModelCard key={m.id} m={m} onOpen={onOpen} />)}
+      {models.map((m) => <ModelCard key={m.id} m={m} onOpen={onOpen} onOpenSymbols={onOpenSymbols} />)}
     </div>
   );
 }
