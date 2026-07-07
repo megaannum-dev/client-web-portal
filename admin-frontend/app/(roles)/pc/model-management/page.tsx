@@ -46,6 +46,7 @@ export default function ModelManagementPage() {
   const safeModels = models ?? [];
   const draftCount = safeModels.filter((x) => x.status === "draft").length;
   const open = (id: string, t: Tab) => { setOpenId(id); setTab(t || "overview"); setInitialOpenSym(null); };
+  const openSymbol = (id: string, sym: string) => { setOpenId(id); setTab("symbols"); setInitialOpenSym(sym); };
   const m = safeModels.find((x) => x.id === openId);
   const editModel = editId ? safeModels.find((x) => x.id === editId) : undefined;
 
@@ -104,16 +105,16 @@ export default function ModelManagementPage() {
           </div>
         </div>
         {layout === "grid" ? (
-          <CardGrid models={safeModels} onOpen={open} />
+          <CardGrid models={safeModels} onOpen={open} onOpenSymbols={openSymbol} />
         ) : (
-          <ModelTable models={safeModels} onOpen={open} onDownloadLatest={handleDownloadLatest} />
+          <ModelTable models={safeModels} onOpen={open} onDownloadLatest={handleDownloadLatest} onOpenSymbols={openSymbol} />
         )}
       </div>
       {m && (
         <ModelDetailPanel
           m={detail?.model ?? m} tab={tab} materials={detail?.materials ?? []} initialOpenSym={initialOpenSym}
           onTab={setTab} onClose={() => setOpenId(null)} onEdit={(id) => setEditId(id)}
-          onDuplicate={handleDuplicate} onPublish={handlePublish} onDelete={handleDelete}
+          onDuplicate={handleDuplicate} onOpenSymbols={() => setTab("symbols")} onPublish={handlePublish} onDelete={handleDelete}
           onUploadMaterial={async (_id, file) => { const r = await upload(file); if (r.success) refetch(); else alert(`Upload failed: ${r.error}`); return r.success; }}
           onDownloadMaterial={(_modelId, material) => { if (!material.id) return; void download(material.id).then((r) => (r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`))); }}
           onRefetch={refetchDetail}

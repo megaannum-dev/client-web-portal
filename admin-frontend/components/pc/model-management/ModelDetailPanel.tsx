@@ -17,7 +17,7 @@ type Tab = "overview" | "symbols" | "materials" | "changes";
    SLIDE-IN DETAIL  (Overview · Symbols · Materials · Changes)
    ============================================================ */
 export function ModelDetailPanel({
-  m, tab, materials, initialOpenSym, onTab, onClose, onEdit, onDuplicate, onPublish, onDelete, onUploadMaterial, onDownloadMaterial, onRefetch,
+  m, tab, materials, initialOpenSym, onTab, onClose, onEdit, onDuplicate, onOpenSymbols, onPublish, onDelete, onUploadMaterial, onDownloadMaterial, onRefetch,
 }: {
   m: Model;
   tab: Tab;
@@ -27,6 +27,7 @@ export function ModelDetailPanel({
   onClose: () => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onOpenSymbols: () => void;
   onPublish: (id: string) => void;
   onDelete: (id: string) => void;
   onUploadMaterial: (id: string, file: File) => Promise<boolean>;
@@ -92,7 +93,7 @@ export function ModelDetailPanel({
           ) : tab === "symbols" ? (
             <SymbolsTab m={m} initialOpenSym={initialOpenSym} onMutate={onRefetch} />
           ) : (
-            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} />
+            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} onOpenSymbols={onOpenSymbols} />
           )}
         </div>
         {m.status === "draft" && (() => {
