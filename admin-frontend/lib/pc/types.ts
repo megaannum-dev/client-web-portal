@@ -49,6 +49,22 @@ export interface ChangeEntry {
 /** Lifecycle state of a model. */
 export type ModelStatus = "live" | "draft";
 
+/** One row of a model's symbol book (view shape). */
+export interface SymbolBookEntry {
+  symbol: string;
+  active: boolean;
+}
+
+/** One audit-trail entry for a symbol (view shape). */
+export interface SymbolAuditEntry {
+  symbol: string;
+  op: SymbolAuditDTO["op"];
+  note: string | null;
+  user: string;
+  date: string;
+  ver: string;
+}
+
 /**
  * A trading model in the model book. `size` is the model size (the
  * total figure shown in the book; the allocation matrix carries a
@@ -61,7 +77,9 @@ export interface Model {
   size: number;
   category: string[];
   subscription_redemption: string | null;
-  symbols: string[];
+  symbols: string[];              // ACTIVE universe only (unchanged for existing callers)
+  symbolBook: SymbolBookEntry[];  // all rows, active flag
+  symbolAudit: SymbolAuditEntry[];// full trail, newest-first
   mgmt: number;
   incentive: number;
   status: ModelStatus;
@@ -149,6 +167,23 @@ export interface ChangeEntryDTO {
   created_at: string;
 }
 
+/** Raw symbol row from the backend (`symbols[]` on `ModelDTO`), incl. inactive rows. */
+export interface SymbolDTO {
+  symbol: string;
+  weight: number | null;
+  active: boolean;
+}
+
+/** Raw symbol audit-trail entry from the backend (`ModelDTO.symbol_audit`). */
+export interface SymbolAuditDTO {
+  symbol: string;
+  op: "added" | "deactivated" | "activated" | "removed";
+  note: string | null;
+  actor: string | null;
+  version: string | null;
+  created_at: string;
+}
+
 /** Backend payload for a single model (GET /api/pc/models/:id and list). */
 export interface ModelDTO {
   id: string;
@@ -156,7 +191,8 @@ export interface ModelDTO {
   model_size: number;
   category: string[];
   subscription_redemption: string | null;
-  symbols: { symbol: string; weight: number | null }[];
+  symbols: SymbolDTO[];
+  symbol_audit?: SymbolAuditDTO[];
   status: "live" | "draft";
   version: string;
   materials: { file: string; ver: string; date: string; size: string }[];
