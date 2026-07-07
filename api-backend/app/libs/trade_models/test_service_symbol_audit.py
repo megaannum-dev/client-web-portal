@@ -51,6 +51,19 @@ def test_edit_drop_symbol_deactivates_and_logs(service, actor):
     assert any(a.op.value == "deactivated" and a.symbol == "AAPL" for a in audit)
 
 
+def test_add_activate_remove_ops(service, actor):
+    m = service.create_model(name="M", symbols=[], actor=actor)
+    service.add_symbol(m.id, "nvda", actor=actor)  # lowercased in -> NVDA
+    assert any(s.symbol == "NVDA" and s.active for s in service.get_model(m.id).symbols)
+
+    service.set_symbol_active(m.id, "NVDA", False, actor=actor)
+    service.remove_symbol(m.id, "NVDA", actor=actor)
+    assert all(s.symbol != "NVDA" for s in service.get_model(m.id).symbols)  # row gone
+
+    ops = [a.op.value for a in service.list_symbol_audit(m.id) if a.symbol == "NVDA"]
+    assert ops == ["removed", "deactivated", "added"]  # newest-first
+
+
 if __name__ == "__main__":
     from sqlalchemy import create_engine as _ce
     from sqlalchemy.orm import sessionmaker as _sm
