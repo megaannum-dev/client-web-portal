@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, X } from "@/lib/icons";
+import { ChevronDown, ChevronRight, Plus, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { fmtTimestampParts } from "@/lib/pc/format";
@@ -28,6 +28,8 @@ const OP_LABEL: Record<SymbolAuditEntry["op"], string> = {
   removed: "Removed",
 };
 
+const TH = "bg-surface-low px-3 py-[9px] text-[10px] font-bold uppercase tracking-[0.5px] text-secondary text-left";
+
 /** One book row + its trail, sorted active-first then latest trail date desc. */
 interface BookRow {
   entry: SymbolBookEntry;
@@ -45,15 +47,6 @@ function buildSymbolBook(m: Model): BookRow[] {
     const bDate = b.trail[0]?.date ?? "";
     return aDate < bDate ? 1 : aDate > bDate ? -1 : 0;
   });
-}
-
-function SummaryPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-[10px] bg-surface-low px-[13px] py-[11px]">
-      <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">{label}</div>
-      <div className="mt-1.5 text-[16px] font-bold tabular-nums text-on-surface">{value}</div>
-    </div>
-  );
 }
 
 function SymAuditTrail({ trail }: { trail: SymbolAuditEntry[] }) {
@@ -94,51 +87,61 @@ function SymbolBookRow({
   onRemove: () => void;
 }) {
   const { entry, trail } = row;
+  const added = trail.find((a) => a.op === "added") ?? trail[trail.length - 1];
   const latest = trail[0];
-  const { date } = latest ? fmtTimestampParts(latest.date) : { date: "—" };
+  const { date } = added ? fmtTimestampParts(added.date) : { date: "—" };
+  const td = "border-t border-outline-variant px-3 py-2.5 text-[12.5px] align-middle";
   return (
-    <div className="border-t border-outline-variant first:border-t-0">
-      <div className="group flex items-center gap-3 px-0.5 py-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex flex-1 cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left"
-        >
-          {open ? (
-            <ChevronDown size={14} strokeWidth={2} className="shrink-0 text-secondary" />
-          ) : (
-            <ChevronRight size={14} strokeWidth={2} className="shrink-0 text-secondary" />
-          )}
-          <span className="min-w-0 flex-1">
-            <div className="text-[13.5px] font-bold tabular-nums text-on-surface">{entry.symbol}</div>
-            <div className="mt-0.5 text-[12px] text-secondary">
-              {date} · {latest?.user ?? "—"}
-            </div>
-          </span>
-        </button>
-        <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
-        <Button
-          variant="secondary"
-          className="flex-none px-3 py-[7px]"
-          onClick={() => onSetActive(!entry.active)}
-        >
-          {entry.active ? "Disable" : "Enable"}
-        </Button>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove ${entry.symbol}`}
-          className="flex-none cursor-pointer p-1 text-secondary opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
-        >
-          <X size={15} strokeWidth={2} />
-        </button>
-      </div>
+    <>
+      <tr className="group">
+        <td className={td}>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-left font-bold tabular-nums text-on-surface"
+          >
+            {open ? (
+              <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-secondary" />
+            ) : (
+              <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-secondary" />
+            )}
+            {entry.symbol}
+          </button>
+        </td>
+        <td className={`${td} text-secondary`}>{date}</td>
+        <td className={td}>
+          <button
+            type="button"
+            onClick={() => onSetActive(!entry.active)}
+            title={entry.active ? "Deactivate" : "Activate"}
+            className="cursor-pointer border-none bg-transparent p-0"
+          >
+            <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
+          </button>
+        </td>
+        <td className={`${td} pr-3 text-secondary`}>
+          <div className="flex items-center justify-between gap-2">
+            <span>{latest?.user ?? "—"}</span>
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={`Remove ${entry.symbol}`}
+              title="Remove"
+              className="shrink-0 cursor-pointer text-secondary opacity-55 transition-opacity hover:text-error hover:opacity-100"
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
+        </td>
+      </tr>
       {open && (
-        <div className="pl-[22px] pb-2.5">
-          <SymAuditTrail trail={trail} />
-        </div>
+        <tr>
+          <td colSpan={4} className="border-t border-outline-variant bg-surface-low px-3 pb-1">
+            <SymAuditTrail trail={trail} />
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
@@ -150,7 +153,6 @@ export function SymbolsTab({
   onMutate: () => void;
 }) {
   const [openSym, setOpenSym] = useState<string | null>(initialOpenSym ?? null);
-  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -161,7 +163,6 @@ export function SymbolsTab({
   const commitAdd = async () => {
     const s = draft.trim().toUpperCase();
     setDraft("");
-    setAdding(false);
     if (!s || busy) return;
     setBusy(true);
     await addSymbol(m.id, s);
@@ -187,54 +188,57 @@ export function SymbolsTab({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-[11px]">
-        <SummaryPill label="Assets" value={m.symbolBook.length} />
-        <SummaryPill label="Active" value={activeCount} />
-        <SummaryPill label="Inactive" value={inactiveCount} />
+      <div className="mb-3 text-[12.5px] text-secondary">
+        <span className="font-bold text-on-surface">{activeCount}</span> active ·{" "}
+        <span className="font-bold text-on-surface">{inactiveCount}</span> inactive
       </div>
 
-      <div className="mt-4 flex items-center gap-2 rounded border border-outline-variant bg-white px-3 py-1.5">
-        {adding ? (
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); void commitAdd(); }
-              if (e.key === "Escape") { setDraft(""); setAdding(false); }
-            }}
-            onBlur={() => void commitAdd()}
-            placeholder="e.g. NVDA"
-            className="h-7 w-[140px] rounded border border-outline-variant bg-white px-2 text-[12px] font-bold uppercase text-on-surface outline-none focus:border-primary"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            disabled={busy}
-            className="cursor-pointer text-[13.5px] text-secondary transition-colors hover:text-primary disabled:cursor-not-allowed"
-          >
-            + add symbol
-          </button>
-        )}
+      <div className="mb-3.5 flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void commitAdd(); } }}
+          disabled={busy}
+          placeholder="Add symbol — e.g. AAPL"
+          className="flex-1 rounded border border-outline-variant bg-white px-3 py-[9px] text-[13.5px] text-on-surface outline-none focus:border-primary"
+        />
+        <Button icon={Plus} disabled={!draft.trim() || busy} onClick={() => void commitAdd()}>
+          Add
+        </Button>
       </div>
 
       {rows.length === 0 ? (
         <div className="py-[30px] text-center text-[13.5px] text-secondary">No assets recorded yet.</div>
       ) : (
-        <div className="mt-3">
-          {rows.map((row) => (
-            <SymbolBookRow
-              key={row.entry.symbol}
-              row={row}
-              open={openSym === row.entry.symbol}
-              onToggle={() => setOpenSym((cur) => (cur === row.entry.symbol ? null : row.entry.symbol))}
-              onSetActive={(active) => void handleSetActive(row.entry.symbol, active)}
-              onRemove={() => void handleRemove(row.entry.symbol)}
-            />
-          ))}
+        <div className="overflow-hidden rounded-md border border-outline-variant">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={TH}>Sym</th>
+                <th className={TH}>Input date</th>
+                <th className={TH}>Status</th>
+                <th className={`${TH} pr-3`}>Updated by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <SymbolBookRow
+                  key={row.entry.symbol}
+                  row={row}
+                  open={openSym === row.entry.symbol}
+                  onToggle={() => setOpenSym((cur) => (cur === row.entry.symbol ? null : row.entry.symbol))}
+                  onSetActive={(active) => void handleSetActive(row.entry.symbol, active)}
+                  onRemove={() => void handleRemove(row.entry.symbol)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <p className="mt-2.5 text-[11.5px] leading-[17px] text-secondary">
+        Click the status chip to activate or deactivate. Inactive symbols stay on the record but are excluded from live allocations.
+      </p>
     </>
   );
 }
