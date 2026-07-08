@@ -5,7 +5,7 @@ import { CalendarDays } from "@/lib/icons";
 import { NavItem } from "./NavItem";
 import { RoleGroup } from "./RoleGroup";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { pagesForRole, groupsFor } from "@/lib/pages";
+import { groupsFor } from "@/lib/pages";
 
 interface SidebarNavProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ interface SidebarNavProps {
 export function SidebarNav({ isOpen }: SidebarNavProps) {
   const pathname       = usePathname();
   const { portalUser } = useAuth();
-  const groups         = groupsFor(pagesForRole(portalUser?.role ?? ""));
+  const groups         = groupsFor(portalUser?.role ?? "");
 
   const reportsActive =
     pathname === "/monthly-reports" || pathname.startsWith("/monthly-reports/");

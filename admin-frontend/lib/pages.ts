@@ -23,27 +23,38 @@ export type NavGroup = {
 };
 
 // label + icon are the page's "default name" — canonical for breadcrumbs / titles / dropdown children.
-// When a page is a group's `home`, the sidebar's parent row shadows label+icon with the group's own.
+// hideFromNav: page is reachable only by click-through or rendered outside the role's one nav
+// group (detail views, the Shared section) — never listed as a child in groupsFor.
 export type PageDef = {
   id: PageId;
   path: string;
   label: string;
   icon: LucideIcon;
-  group?: { label: string; icon: LucideIcon; home: PageId };
+  hideFromNav?: true;
 };
 
 export const PAGES: Record<PageId, PageDef> = {
-  "rm.client-info":            { id: "rm.client-info",            path: "/rm/client-info",            label: "Client Information",     icon: Users,          group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
-  "rm.onboarding-renewal":     { id: "rm.onboarding-renewal",     path: "/rm/onboarding-renewal",     label: "Onboarding & Renewal",   icon: Users,          group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
-  "rm.model-subscription":     { id: "rm.model-subscription",     path: "/rm/model-subscription",     label: "Model Subscription",     icon: Layers,         group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
-  "rm.client-detail":          { id: "rm.client-detail",          path: "/rm/client-detail",          label: "Client Detail",          icon: Users /* detail view, no nav entry */ },
-  "mobo.recon-overview":       { id: "mobo.recon-overview",       path: "/mobo/recon-overview",       label: "Reconciliation Overview", icon: ArrowLeftRight, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
-  "mobo.trade-reconciliation": { id: "mobo.trade-reconciliation", path: "/mobo/trade-reconciliation", label: "Trade Reconciliation",   icon: ArrowLeftRight, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
-  "mobo.daily-exception-report": { id: "mobo.daily-exception-report", path: "/mobo/daily-exception-report", label: "Daily Exceptions", icon: ShieldAlert,    group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
-  "pc.model-management":       { id: "pc.model-management",       path: "/pc/model-management",       label: "Model Management",       icon: Layers,         group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
-  "pc.allocation-matrix":      { id: "pc.allocation-matrix",      path: "/pc/allocation-matrix",      label: "Allocation Matrix",      icon: Grid3x3,        group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
-  "shared.monthly-reports":    { id: "shared.monthly-reports",    path: "/monthly-reports",           label: "Monthly Reports",        icon: CalendarDays /* no group — ungrouped shared page */ },
-  "admin.enroll-user":         { id: "admin.enroll-user",         path: "/admin/enroll-user",         label: "Enroll User",            icon: UserPlus,       group: { label: "Admin", icon: ShieldCheck, home: "admin.enroll-user" } },
+  "rm.client-info":            { id: "rm.client-info",            path: "/rm/client-info",            label: "Client Information",      icon: Users },
+  "rm.onboarding-renewal":     { id: "rm.onboarding-renewal",     path: "/rm/onboarding-renewal",     label: "Onboarding & Renewal",    icon: Users },
+  "rm.model-subscription":     { id: "rm.model-subscription",     path: "/rm/model-subscription",     label: "Model Subscription",      icon: Layers },
+  "rm.client-detail":          { id: "rm.client-detail",          path: "/rm/client-detail",          label: "Client Detail",           icon: Users, hideFromNav: true },
+  "mobo.recon-overview":       { id: "mobo.recon-overview",       path: "/mobo/recon-overview",       label: "Reconciliation Overview", icon: ArrowLeftRight },
+  "mobo.trade-reconciliation": { id: "mobo.trade-reconciliation", path: "/mobo/trade-reconciliation", label: "Trade Reconciliation",    icon: ArrowLeftRight },
+  "mobo.daily-exception-report": { id: "mobo.daily-exception-report", path: "/mobo/daily-exception-report", label: "Daily Exceptions", icon: ShieldAlert },
+  "pc.model-management":       { id: "pc.model-management",       path: "/pc/model-management",       label: "Model Management",        icon: Layers },
+  "pc.allocation-matrix":      { id: "pc.allocation-matrix",      path: "/pc/allocation-matrix",      label: "Allocation Matrix",       icon: Grid3x3 },
+  "shared.monthly-reports":    { id: "shared.monthly-reports",    path: "/monthly-reports",           label: "Monthly Reports",         icon: CalendarDays, hideFromNav: true },
+  "admin.enroll-user":         { id: "admin.enroll-user",         path: "/admin/enroll-user",         label: "Enroll User",             icon: UserPlus },
+};
+
+// One nav parent per role (Yes — user req.: a role sees exactly one workspace
+// parent, never a mix of other roles' domains). Roles with no grants (PM,
+// COMPLIANCE) are omitted — groupsFor returns [] for them regardless.
+const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
+  RM:    { label: "Relationship Manager", icon: Briefcase },
+  MOBO:  { label: "Middle / Back Office", icon: Building2 },
+  PC:    { label: "Portfolio Commander",  icon: Layers },
+  ADMIN: { label: "Admin",                icon: ShieldCheck },
 };
 
 const ALL_OPERATE = Object.fromEntries(
@@ -92,26 +103,17 @@ export function rolesForPath(pathname: string): Role[] {
   return (Object.keys(ROLE_PAGES) as Role[]).filter((r) => page.id in grantsFor(r));
 }
 
-// Dedupe pages' groups by home PageId, preserving encounter order.
-// Home page is excluded from children — the parent row already links to it.
-export function groupsFor(pageIds: PageId[]): NavGroup[] {
-  const byHome = new Map<PageId, NavGroup>();
-  for (const id of pageIds) {
-    const def = PAGES[id];
-    if (!def.group) continue;
-    let g = byHome.get(def.group.home);
-    if (!g) {
-      g = {
-        label: def.group.label,
-        icon: def.group.icon,
-        home: PAGES[def.group.home].path,
-        pages: [],
-      };
-      byHome.set(def.group.home, g);
-    }
-    if (def.id !== def.group.home) {
-      g.pages.push({ label: def.label, href: def.path, icon: def.icon });
-    }
-  }
-  return [...byHome.values()];
+// One parent per role: the role's own name/icon, with every non-hidden granted
+// page (including the default/home page) listed as a labeled child. A role
+// with no ROLE_NAV entry or no grants renders no workspace groups at all —
+// never falls back to another role's parent.
+export function groupsFor(role: string): NavGroup[] {
+  const nav = (ROLE_NAV as Record<string, { label: string; icon: LucideIcon } | undefined>)[role];
+  if (!nav) return [];
+  const pages = pagesForRole(role)
+    .map((id) => PAGES[id])
+    .filter((p) => !p.hideFromNav)
+    .map((p) => ({ label: p.label, href: p.path, icon: p.icon }));
+  if (pages.length === 0) return [];
+  return [{ label: nav.label, icon: nav.icon, home: defaultPathFor(role) ?? pages[0].href, pages }];
 }

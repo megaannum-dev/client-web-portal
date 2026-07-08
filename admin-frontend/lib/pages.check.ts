@@ -36,9 +36,30 @@ for (const p of Object.values(PAGES)) {
   assert.ok(p.label && p.icon, `${p.id} missing label/icon`);
 }
 
-// Nav grouping: role's groups match its granted pages, deduped by home.
-assert.deepEqual(groupsFor(pagesForRole("PC")).map((g) => g.home),     ["/pc/model-management"]);
-assert.equal(groupsFor(pagesForRole("ADMIN")).length,                  4 /* RM, MOBO, PC, Admin */);
+// Nav grouping: every role gets exactly ONE parent, even ADMIN whose grants span
+// every domain — never a mix of other roles' parents (user-reported regression).
+for (const role of ["RM", "MOBO", "PC", "ADMIN"] as const) {
+  const groups = groupsFor(role);
+  assert.equal(groups.length, 1, `${role} must have exactly one nav group`);
+}
+assert.deepEqual(groupsFor("PC").map((g) => g.home), ["/pc/model-management"]);
+assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
+  "/admin/enroll-user",
+  "/mobo/daily-exception-report",
+  "/mobo/recon-overview",
+  "/mobo/trade-reconciliation",
+  "/pc/allocation-matrix",
+  "/pc/model-management",
+  "/rm/client-info",
+  "/rm/model-subscription",
+  "/rm/onboarding-renewal",
+].sort(), "ADMIN's single group must list every non-hidden page across every domain");
+// hideFromNav pages never appear as a nav child, even for ADMIN.
+assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/rm/client-detail" || p.href === "/monthly-reports"));
+// Roles with no grants and roles with no ROLE_NAV entry both render zero groups.
+assert.deepEqual(groupsFor("PM"), []);
+assert.deepEqual(groupsFor("COMPLIANCE"), []);
+assert.deepEqual(groupsFor("BOGUS"), []);
 
 // Default landing page ↔ nav-group home coherence.
 for (const role of ["RM", "MOBO", "PC", "ADMIN"] as const) {
