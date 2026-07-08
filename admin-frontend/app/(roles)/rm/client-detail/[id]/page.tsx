@@ -112,7 +112,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   return (
     <div className="mx-auto max-w-[1180px]">
       <Link
-        href="/rm/dashboard"
+        href="/rm/client-info"
         className="mb-[18px] inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondary hover:text-on-surface"
       >
         <ArrowLeft size={16} strokeWidth={2} /> Back to Client Book

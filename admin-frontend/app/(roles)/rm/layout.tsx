@@ -7,7 +7,7 @@ export default function RmLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/rm/dashboard")}>
+    <RoleGuard allowedRoles={rolesForPath("/rm/client-info")}>
       {children}
     </RoleGuard>
   );

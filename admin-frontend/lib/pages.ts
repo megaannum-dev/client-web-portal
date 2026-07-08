@@ -9,8 +9,8 @@ export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
 export type AccessLevel = "OPERATE" | "VIEW";
 
 export type PageId =
-  | "rm.dashboard" | "rm.onboarding-renewal" | "rm.model-subscription" | "rm.clients"
-  | "mobo.dashboard" | "mobo.trade-reconciliation" | "mobo.daily-exception-report"
+  | "rm.client-info" | "rm.onboarding-renewal" | "rm.model-subscription" | "rm.client-detail"
+  | "mobo.recon-overview" | "mobo.trade-reconciliation" | "mobo.daily-exception-report"
   | "pc.model-management" | "pc.allocation-matrix"
   | "shared.monthly-reports"
   | "admin.enroll-user";
@@ -22,26 +22,28 @@ export type NavGroup = {
   pages: { label: string; href: string; icon: LucideIcon }[];
 };
 
+// label + icon are the page's "default name" — canonical for breadcrumbs / titles / dropdown children.
+// When a page is a group's `home`, the sidebar's parent row shadows label+icon with the group's own.
 export type PageDef = {
   id: PageId;
   path: string;
-  label?: string;
-  icon?: LucideIcon;
+  label: string;
+  icon: LucideIcon;
   group?: { label: string; icon: LucideIcon; home: PageId };
 };
 
 export const PAGES: Record<PageId, PageDef> = {
-  "rm.dashboard":              { id: "rm.dashboard",              path: "/rm/dashboard",              group: { label: "Relationship Manager", icon: Briefcase, home: "rm.dashboard" } },
-  "rm.onboarding-renewal":     { id: "rm.onboarding-renewal",     path: "/rm/onboarding-renewal",     label: "Onboarding & Renewal", icon: Users,  group: { label: "Relationship Manager", icon: Briefcase, home: "rm.dashboard" } },
-  "rm.model-subscription":     { id: "rm.model-subscription",     path: "/rm/model-subscription",     label: "Model Subscription",   icon: Layers, group: { label: "Relationship Manager", icon: Briefcase, home: "rm.dashboard" } },
-  "rm.clients":                { id: "rm.clients",                path: "/rm/clients" /* detail view, no nav entry */ },
-  "mobo.dashboard":            { id: "mobo.dashboard",            path: "/mobo/dashboard",            group: { label: "Middle / Back Office", icon: Building2, home: "mobo.dashboard" } },
-  "mobo.trade-reconciliation": { id: "mobo.trade-reconciliation", path: "/mobo/trade-reconciliation", label: "Trade Reconciliation", icon: ArrowLeftRight, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.dashboard" } },
-  "mobo.daily-exception-report": { id: "mobo.daily-exception-report", path: "/mobo/daily-exception-report", label: "Daily Exceptions", icon: ShieldAlert, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.dashboard" } },
-  "pc.model-management":       { id: "pc.model-management",       path: "/pc/model-management",       label: "Model Management",     icon: Layers,  group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
-  "pc.allocation-matrix":      { id: "pc.allocation-matrix",      path: "/pc/allocation-matrix",      label: "Allocation Matrix",    icon: Grid3x3, group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
-  "shared.monthly-reports":    { id: "shared.monthly-reports",    path: "/monthly-reports",           label: "Monthly Reports",      icon: CalendarDays /* no group — ungrouped shared page */ },
-  "admin.enroll-user":         { id: "admin.enroll-user",         path: "/admin/enroll-user",         label: "Enroll User",          icon: UserPlus, group: { label: "Admin", icon: ShieldCheck, home: "admin.enroll-user" } },
+  "rm.client-info":            { id: "rm.client-info",            path: "/rm/client-info",            label: "Client Information",     icon: Users,          group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
+  "rm.onboarding-renewal":     { id: "rm.onboarding-renewal",     path: "/rm/onboarding-renewal",     label: "Onboarding & Renewal",   icon: Users,          group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
+  "rm.model-subscription":     { id: "rm.model-subscription",     path: "/rm/model-subscription",     label: "Model Subscription",     icon: Layers,         group: { label: "Relationship Manager", icon: Briefcase, home: "rm.client-info" } },
+  "rm.client-detail":          { id: "rm.client-detail",          path: "/rm/client-detail",          label: "Client Detail",          icon: Users /* detail view, no nav entry */ },
+  "mobo.recon-overview":       { id: "mobo.recon-overview",       path: "/mobo/recon-overview",       label: "Reconciliation Overview", icon: ArrowLeftRight, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
+  "mobo.trade-reconciliation": { id: "mobo.trade-reconciliation", path: "/mobo/trade-reconciliation", label: "Trade Reconciliation",   icon: ArrowLeftRight, group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
+  "mobo.daily-exception-report": { id: "mobo.daily-exception-report", path: "/mobo/daily-exception-report", label: "Daily Exceptions", icon: ShieldAlert,    group: { label: "Middle / Back Office", icon: Building2, home: "mobo.recon-overview" } },
+  "pc.model-management":       { id: "pc.model-management",       path: "/pc/model-management",       label: "Model Management",       icon: Layers,         group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
+  "pc.allocation-matrix":      { id: "pc.allocation-matrix",      path: "/pc/allocation-matrix",      label: "Allocation Matrix",      icon: Grid3x3,        group: { label: "Portfolio Commander", icon: Layers, home: "pc.model-management" } },
+  "shared.monthly-reports":    { id: "shared.monthly-reports",    path: "/monthly-reports",           label: "Monthly Reports",        icon: CalendarDays /* no group — ungrouped shared page */ },
+  "admin.enroll-user":         { id: "admin.enroll-user",         path: "/admin/enroll-user",         label: "Enroll User",            icon: UserPlus,       group: { label: "Admin", icon: ShieldCheck, home: "admin.enroll-user" } },
 };
 
 const ALL_OPERATE = Object.fromEntries(
@@ -49,8 +51,8 @@ const ALL_OPERATE = Object.fromEntries(
 ) as Record<PageId, AccessLevel>;
 
 export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
-  RM:         { "rm.dashboard": "OPERATE", "rm.onboarding-renewal": "OPERATE", "rm.model-subscription": "OPERATE", "rm.clients": "OPERATE", "shared.monthly-reports": "OPERATE" },
-  MOBO:       { "mobo.dashboard": "OPERATE", "mobo.trade-reconciliation": "OPERATE", "mobo.daily-exception-report": "OPERATE", "shared.monthly-reports": "OPERATE" },
+  RM:         { "rm.client-info": "OPERATE", "rm.onboarding-renewal": "OPERATE", "rm.model-subscription": "OPERATE", "rm.client-detail": "OPERATE", "shared.monthly-reports": "OPERATE" },
+  MOBO:       { "mobo.recon-overview": "OPERATE", "mobo.trade-reconciliation": "OPERATE", "mobo.daily-exception-report": "OPERATE", "shared.monthly-reports": "OPERATE" },
   PC:         { "pc.model-management": "OPERATE", "pc.allocation-matrix": "OPERATE", "shared.monthly-reports": "OPERATE" },
   PM:         {},
   COMPLIANCE: {},
@@ -58,8 +60,8 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
 };
 
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
-  RM: "rm.dashboard", MOBO: "mobo.dashboard", PC: "pc.model-management",
-  ADMIN: "mobo.dashboard",
+  RM: "rm.client-info", MOBO: "mobo.recon-overview", PC: "pc.model-management",
+  ADMIN: "mobo.recon-overview",
   PM: null, COMPLIANCE: null,
 };
 
@@ -91,6 +93,7 @@ export function rolesForPath(pathname: string): Role[] {
 }
 
 // Dedupe pages' groups by home PageId, preserving encounter order.
+// Home page is excluded from children — the parent row already links to it.
 export function groupsFor(pageIds: PageId[]): NavGroup[] {
   const byHome = new Map<PageId, NavGroup>();
   for (const id of pageIds) {
@@ -106,7 +109,7 @@ export function groupsFor(pageIds: PageId[]): NavGroup[] {
       };
       byHome.set(def.group.home, g);
     }
-    if (def.label && def.icon && def.id !== def.group.home) {
+    if (def.id !== def.group.home) {
       g.pages.push({ label: def.label, href: def.path, icon: def.icon });
     }
   }

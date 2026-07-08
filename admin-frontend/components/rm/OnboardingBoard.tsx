@@ -148,7 +148,7 @@ export function OnboardingBoard() {
   const openProfile = (id: string) => {
     if (KNOWN_CLIENT_IDS.has(id)) {
       setSelected(null);
-      router.push(`/rm/clients/${id}`);
+      router.push(`/rm/client-detail/${id}`);
     }
   };
 

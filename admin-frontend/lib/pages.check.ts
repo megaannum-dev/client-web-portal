@@ -23,11 +23,18 @@ for (const p of Object.values(PAGES)) {
 }
 
 // Parity with pre-refactor: each existing namespace resolves to exactly today's role set.
-assert.deepEqual(rolesForPath("/mobo/dashboard").sort(),               ["ADMIN", "MOBO"].sort());
+assert.deepEqual(rolesForPath("/mobo/recon-overview").sort(),          ["ADMIN", "MOBO"].sort());
 assert.deepEqual(rolesForPath("/rm/onboarding-renewal").sort(),        ["ADMIN", "RM"].sort());
+assert.deepEqual(rolesForPath("/rm/client-info").sort(),               ["ADMIN", "RM"].sort());
+assert.deepEqual(rolesForPath("/rm/client-detail").sort(),             ["ADMIN", "RM"].sort());
 assert.deepEqual(rolesForPath("/pc/allocation-matrix").sort(),         ["ADMIN", "PC"].sort());
 assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/admin/enroll-user"),                   ["ADMIN"]);
+
+// Every page has a non-empty default name (its own label + icon) — used for breadcrumbs, dropdown children, titles.
+for (const p of Object.values(PAGES)) {
+  assert.ok(p.label && p.icon, `${p.id} missing label/icon`);
+}
 
 // Nav grouping: role's groups match its granted pages, deduped by home.
 assert.deepEqual(groupsFor(pagesForRole("PC")).map((g) => g.home),     ["/pc/model-management"]);

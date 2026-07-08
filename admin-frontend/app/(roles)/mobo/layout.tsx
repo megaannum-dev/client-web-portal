@@ -7,7 +7,7 @@ export default function MoboLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/mobo/dashboard")}>
+    <RoleGuard allowedRoles={rolesForPath("/mobo/recon-overview")}>
       {children}
     </RoleGuard>
   );
