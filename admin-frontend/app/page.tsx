@@ -3,25 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-
-/**
- * Maps each active role to its landing page.
- * Roles not listed here (PM, COMPLIANCE) have no pages yet — they
- * land on this page and see the "no access" state below.
- */
-const ROLE_BASE_ROUTES: Record<string, string> = {
-  ADMIN: "/mobo/dashboard",
-  MOBO:  "/mobo/dashboard",
-  RM:    "/rm/dashboard",
-  PC:    "/pc/model-management",
-};
+import { defaultPathFor } from "@/lib/pages-config";
 
 export default function RootPage() {
   const { user, portalUser, loading, backendSyncing } = useAuth();
   const router = useRouter();
 
   const isLoading   = loading || backendSyncing;
-  const destination = portalUser?.role ? ROLE_BASE_ROUTES[portalUser.role] : undefined;
+  const destination = portalUser?.role ? defaultPathFor(portalUser.role) : null;
 
   useEffect(() => {
     if (isLoading) return;

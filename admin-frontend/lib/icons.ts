@@ -118,4 +118,7 @@ export {
   Rows3,
   Columns3,
   Rocket,
+  LibraryBig,
+  UserPlus,
+  LayoutDashboardIcon
 } from "lucide-react";

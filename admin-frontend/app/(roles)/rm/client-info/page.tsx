@@ -35,7 +35,7 @@ export default function RmDashboardPage() {
   const filtered = filter === "All" ? RM_CLIENTS : RM_CLIENTS.filter((c) => c.status === filter);
 
   const openClient = (id: string) => {
-    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/clients/${id}`);
+    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/client-detail/${id}`);
   };
   const goSummary = (item: SummaryItem) => openClient(item.id);
 

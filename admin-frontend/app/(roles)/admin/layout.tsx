@@ -1,13 +1,9 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { rolesForPath } from "@/lib/pages-config";
 
-export default function MoboLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/mobo/recon-overview")}>
+    <RoleGuard allowedRoles={rolesForPath("/admin/enroll-user")}>
       {children}
     </RoleGuard>
   );
