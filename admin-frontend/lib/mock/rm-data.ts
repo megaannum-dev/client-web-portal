@@ -19,33 +19,34 @@ export type RmClient = {
   contact: string;
   title: string;
   email: string;
+  assignedRm: string;
 };
 
 export const RM_CLIENTS: RmClient[] = [
   { id: "ardent", name: "Ardent Capital", mandate: "Discretionary", status: "Active", tone: "active",
     aum: "$42.1M", renewal: "Jun 14, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 3,
-    contact: "Helena Voss", title: "Chief Investment Officer", email: "h.voss@ardentcap.com" },
+    contact: "Helena Voss", title: "Chief Investment Officer", email: "h.voss@ardentcap.com", assignedRm: "Dana Okafor" },
   { id: "northbridge", name: "Northbridge LP", mandate: "Advisory", status: "Pending", tone: "pending",
     aum: "$18.9M", renewal: "Aug 02, 2026", kyc: "Pending", kycTone: "pending", since: "2023", models: 2,
-    contact: "Marcus Lin", title: "Managing Partner", email: "m.lin@northbridge.lp" },
+    contact: "Marcus Lin", title: "Managing Partner", email: "m.lin@northbridge.lp", assignedRm: "Dana Okafor" },
   { id: "vela", name: "Vela Holdings", mandate: "Discretionary", status: "Active", tone: "active",
     aum: "$31.4M", renewal: "Jun 21, 2026", kyc: "Verified", kycTone: "active", since: "2020", models: 4,
-    contact: "Priya Anand", title: "Treasurer", email: "priya@velaholdings.com" },
+    contact: "Priya Anand", title: "Treasurer", email: "priya@velaholdings.com", assignedRm: "Jules Bennett" },
   { id: "meridian", name: "Meridian Trust", mandate: "Advisory", status: "In Review", tone: "review",
     aum: "$12.0M", renewal: "Jul 09, 2026", kyc: "In Review", kycTone: "review", since: "2024", models: 1,
-    contact: "Daniel Reyes", title: "Trustee", email: "d.reyes@meridiantrust.org" },
+    contact: "Daniel Reyes", title: "Trustee", email: "d.reyes@meridiantrust.org", assignedRm: "Sana Iqbal" },
   { id: "coalfield", name: "Coalfield & Co.", mandate: "Discretionary", status: "Overdue", tone: "overdue",
     aum: "$9.7M", renewal: "Overdue", kyc: "Expired", kycTone: "overdue", since: "2019", models: 2,
-    contact: "Susan Pike", title: "Finance Director", email: "spike@coalfield.co" },
+    contact: "Susan Pike", title: "Finance Director", email: "spike@coalfield.co", assignedRm: "Dana Okafor" },
   { id: "selwyn", name: "Selwyn Asset Mgmt", mandate: "Discretionary", status: "Active", tone: "active",
     aum: "$27.3M", renewal: "Sep 18, 2026", kyc: "Verified", kycTone: "active", since: "2022", models: 3,
-    contact: "Omar Haddad", title: "Head of Portfolios", email: "o.haddad@selwyn.am" },
+    contact: "Omar Haddad", title: "Head of Portfolios", email: "o.haddad@selwyn.am", assignedRm: "Jules Bennett" },
   { id: "harlow", name: "Harlow Family Office", mandate: "Advisory", status: "Pending", tone: "pending",
     aum: "$54.8M", renewal: "Oct 01, 2026", kyc: "Pending", kycTone: "pending", since: "2025", models: 0,
-    contact: "Lena Okonkwo", title: "Principal", email: "lena@harlowfo.com" },
+    contact: "Lena Okonkwo", title: "Principal", email: "lena@harlowfo.com", assignedRm: "Sana Iqbal" },
   { id: "pike", name: "Pike & Vance", mandate: "Discretionary", status: "Active", tone: "active",
     aum: "$22.6M", renewal: "Nov 12, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 2,
-    contact: "Greg Vance", title: "Partner", email: "g.vance@pikevance.com" },
+    contact: "Greg Vance", title: "Partner", email: "g.vance@pikevance.com", assignedRm: "Dana Okafor" },
 ];
 
 export type SummaryItem = { id: string; c: string; d?: string; s?: string; t: ChipTone };

@@ -120,5 +120,7 @@ export {
   Rocket,
   LibraryBig,
   UserPlus,
-  LayoutDashboardIcon
+  LayoutDashboardIcon,
+  // CRM — RM client book search
+  SearchX,
 } from "lucide-react";
