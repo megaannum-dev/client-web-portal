@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { accessLevel, type AccessLevel, type PageId } from "@/lib/pages";
+import { accessLevel, type AccessLevel, type PageId } from "@/lib/pages-config";
 
 /**
  * Access level of the current user for one page.

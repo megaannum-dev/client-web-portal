@@ -45,6 +45,7 @@ export type PageDef = {
   path: string;
   label: string;
   icon: LucideIcon;
+  hideFromNav?: boolean;
 };
 
 export const PAGES: Record<PageId, PageDef> = {
@@ -71,6 +72,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/rm/model-subscription",
     label: "Model Subscription",
     icon: Layers,
+  },
+  "rm.client-detail": {
+    id: "rm.client-detail",
+    path: "/rm/client-detail",
+    label: "Client Detail",
+    icon: Users,
+    hideFromNav: true,
   },
   "mobo.recon-overview": {
     id: "mobo.recon-overview",
@@ -107,6 +115,7 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/monthly-reports",
     label: "Monthly Reports",
     icon: CalendarDays,
+    hideFromNav: true,
   },
 };
 
@@ -201,7 +210,7 @@ export function groupsFor(role: string): NavGroup[] {
   if (!nav) return [];
   const pages = pagesForRole(role)
     .map((id) => PAGES[id])
-    .filter((p) => p.id != ROLE_DEFAULT_PAGE[role as Role])
+    .filter((p) => !p.hideFromNav)
     .map((p) => ({ label: p.label, href: p.path, icon: p.icon }));
   if (pages.length === 0) return [];
   return [

@@ -1,5 +1,5 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { rolesForPath } from "@/lib/pages";
+import { rolesForPath } from "@/lib/pages-config";
 
 export default function PcLayout({
   children,

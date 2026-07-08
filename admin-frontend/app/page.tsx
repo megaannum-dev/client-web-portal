@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { defaultPathFor } from "@/lib/pages";
+import { defaultPathFor } from "@/lib/pages-config";
 
 export default function RootPage() {
   const { user, portalUser, loading, backendSyncing } = useAuth();

@@ -3,7 +3,7 @@
 import { strict as assert } from "node:assert";
 import {
   PAGES, ROLE_PAGES, accessLevel, pagesForRole, defaultPathFor, rolesForPath, groupsFor,
-} from "./pages";
+} from "./pages-config";
 
 // D-7: default-deny for unrecognized roles.
 for (const bogus of ["BOGUS", "", "admin" /* case matters */, "undefined"]) {

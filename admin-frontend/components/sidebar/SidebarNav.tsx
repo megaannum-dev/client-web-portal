@@ -5,7 +5,7 @@ import { CalendarDays } from "@/lib/icons";
 import { NavItem } from "./NavItem";
 import { RoleGroup } from "./RoleGroup";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { groupsFor } from "@/lib/pages";
+import { groupsFor } from "@/lib/pages-config";
 
 interface SidebarNavProps {
   isOpen: boolean;
