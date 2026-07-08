@@ -1,4 +1,5 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { rolesForPath } from "@/lib/pages";
 
 export default function RmLayout({
   children,
@@ -6,7 +7,7 @@ export default function RmLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={["RM", "ADMIN"]}>
+    <RoleGuard allowedRoles={rolesForPath("/rm/dashboard")}>
       {children}
     </RoleGuard>
   );
