@@ -72,7 +72,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
 
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   RM: "rm.client-info", MOBO: "mobo.recon-overview", PC: "pc.model-management",
-  ADMIN: "mobo.recon-overview",
+  ADMIN: "admin.enroll-user",
   PM: null, COMPLIANCE: null,
 };
 
