@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
@@ -10,15 +10,21 @@ import {
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { useClient } from "@/hooks/api/useClient";
+import type { SubscriptionDTO } from "@/lib/rm/clients";
 import {
-  getClientDetail,
+  getMockOverlay,
   type ClientDoc,
   type HistoryEntry,
 } from "@/lib/mock/rm-data";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search };
+
+// Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
+const SUB_STATUS_LABEL: Record<string, string> = { live: "Active", draft: "In Review" };
+const SUB_STATUS_TONE: Record<string, ChipTone> = { live: "active", draft: "review" };
 
 const CHECK_TINT: Record<string, string> = {
   active:  "bg-success-container text-success-on-container",
@@ -101,13 +107,31 @@ function HistoryItem({ item, last }: { item: HistoryEntry; last: boolean }) {
   );
 }
 
-export default function ClientDetailPage({ params }: { params: { id: string } }) {
-  const result = getClientDetail(params.id);
+export default function ClientDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { data, loading, error, notFound: nf } = useClient(id);
   const [censored, setCensored] = useState(false);
-  if (!result) notFound();
 
-  const { client: c, detail: d } = result;
-  const verifiedCount = d.docs.filter((x) => x.tone === "active").length;
+  if (nf) notFound(); // Next.js 404
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] font-medium text-error">
+        {error}
+      </div>
+    );
+  }
+
+  if (loading || !data) {
+    return (
+      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] text-secondary">
+        Loading…
+      </div>
+    );
+  }
+
+  const overlay = getMockOverlay(data.id);
+  const verifiedCount = overlay.docs.filter((x) => x.tone === "active").length;
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -125,14 +149,14 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-[22px] font-bold"
             style={{ background: "linear-gradient(135deg,#ffd9b0,#cfd9d2)", color: "rgba(255,255,255,.92)" }}
           >
-            {c.name[0]}
+            {data.name?.[0] ?? "?"}
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="whitespace-nowrap text-[26px] font-bold tracking-[-0.01em] text-on-surface">{c.name}</h1>
-              <Chip tone={c.tone}>{c.status}</Chip>
+              <h1 className="whitespace-nowrap text-[26px] font-bold tracking-[-0.01em] text-on-surface">{data.name ?? "—"}</h1>
+              <Chip tone={overlay.tone}>{overlay.status}</Chip>
             </div>
-            <p className="mt-1 text-[14px] text-secondary">{c.mandate} mandate · Client since {c.since} · RM: Dana Okafor</p>
+            <p className="mt-1 text-[14px] text-secondary">{overlay.mandate} mandate · Client since {overlay.since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -159,24 +183,31 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
         <div className="mb-[18px] rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Account Balance</div>
           <div className="grid grid-cols-2 gap-7">
-            <BalanceItem label="Total Portfolio Value" value={d.portfolioValue} censored={censored} />
-            <BalanceItem label="Total Cash Value" value={d.cashValue} censored={censored} />
+            <BalanceItem label="Total Portfolio Value" value={overlay.portfolioValue ?? "—"} censored={censored} />
+            <BalanceItem label="Total Cash Value" value={overlay.cashValue} censored={censored} />
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="Registered Address" value={d.address} />
-          <InfoField label="Country of Residence" value={d.country} />
-          <InfoField label="Client Since / ID" value={`${c.since} · ${d.clientId}`} />
-          <InfoField label="Primary Contact" value={`${c.contact}\n${c.title}`} />
-          <InfoField label="Email" value={c.email} />
-          <InfoField label="Phone" value={d.phone} />
+
+        <div>
+          <h4 className="mb-3.5 text-[13px] font-bold uppercase tracking-[0.05em] text-secondary">Basic Info</h4>
+          <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField label="Name" value={data.name ?? "—"} />
+            <InfoField label="Primary Phone" value={data.phone ?? "—"} />
+            <InfoField label="Email" value={data.email ?? "—"} />
+            <InfoField label="Registered Address" value={data.address ?? "—"} />
+            <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
+            <InfoField label="ID Info" value="—" />
+            <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
+            <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
+            <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
+          </div>
         </div>
       </Card>
 
       {/* Subscribed models + KYC */}
       <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
         <Card title="Subscribed Models" action={<Button variant="secondary" icon={Plus}>Add</Button>}>
-          {d.models.length === 0 ? (
+          {data.subscriptions.length === 0 ? (
             <p className="py-1.5 text-[14px] text-secondary">No model subscriptions yet — onboarding in progress.</p>
           ) : (
             <table className="w-full border-collapse text-[14px]">
@@ -188,12 +219,14 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                 </tr>
               </thead>
               <tbody>
-                {d.models.map((m, i) => (
+                {data.subscriptions.map((s: SubscriptionDTO, i) => (
                   <tr key={i}>
-                    <td className="border-t border-outline-variant py-3 pr-3 font-semibold text-on-surface">{m.name}</td>
-                    <td className="border-t border-outline-variant py-3 pr-3"><Chip tone={m.tone}>{m.status}</Chip></td>
-                    <td className="border-t border-outline-variant py-3 pr-3 tabular-nums text-on-surface">{m.account}</td>
-                    <td className="border-t border-outline-variant py-3 text-secondary">{m.notes}</td>
+                    <td className="border-t border-outline-variant py-3 pr-3 font-semibold text-on-surface">{s.model}</td>
+                    <td className="border-t border-outline-variant py-3 pr-3">
+                      <Chip tone={SUB_STATUS_TONE[s.status] ?? "neutral"}>{SUB_STATUS_LABEL[s.status] ?? s.status}</Chip>
+                    </td>
+                    <td className="border-t border-outline-variant py-3 pr-3 tabular-nums text-on-surface">{s.account ?? "—"}</td>
+                    <td className="border-t border-outline-variant py-3 text-secondary">—</td>
                   </tr>
                 ))}
               </tbody>
@@ -204,27 +237,27 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
         <Card
           title="KYC & Documents"
           action={
-            <Chip tone={c.kyc === "Verified" ? "active" : c.tone === "overdue" ? "overdue" : "pending"} dot={false}>
-              {verifiedCount} of {d.docs.length} verified
+            <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
+              {verifiedCount} of {overlay.docs.length} verified
             </Chip>
           }
         >
-          {d.docs.map((doc, i) => (
-            <CheckRow key={i} doc={doc} last={i === d.docs.length - 1} />
+          {overlay.docs.map((doc, i) => (
+            <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
           ))}
           <div className="mt-[18px] flex gap-3">
             <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={c.kyc === "Verified"}>Approve KYC</Button>
+            <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
           </div>
         </Card>
       </div>
 
       {/* History */}
-      <Card title="History" action={<span className="text-[12px] text-secondary">{d.history.length} events</span>}>
+      <Card title="History" action={<span className="text-[12px] text-secondary">{overlay.history.length} events</span>}>
         <div className="relative max-h-[268px] overflow-y-auto pl-[22px] pr-1.5">
           <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
-          {d.history.map((item, i) => (
-            <HistoryItem key={i} item={item} last={i === d.history.length - 1} />
+          {overlay.history.map((item, i) => (
+            <HistoryItem key={i} item={item} last={i === overlay.history.length - 1} />
           ))}
         </div>
       </Card>

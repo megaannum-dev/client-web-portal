@@ -84,7 +84,8 @@ You **do not** edit source files yourself. You **do not** push, merge, or open w
 - **Additive & backward-compatible first:** new files are additive; the page-file edits (`client-info/page.tsx`, `client-info/[id]/page.tsx`) and `lib/mock/rm-data.ts` are edited in place but not restructured beyond what the impl doc specifies.
 - **Frozen seam:** the cross-layer contract in proposal §4.1 is fixed (reproduced verbatim in impl doc §7). If a unit's contract seems to conflict with the seam, **stop and report** — do not silently diverge.
 - **Role-based visibility is ADMIN-only, not COMPLIANCE.** The backend scopes `GET /api/rm/clients` by role (RM: own book; ADMIN: everything); COMPLIANCE gets a 403, unchanged from today. This layer does **not** add any COMPLIANCE-specific branching, copy, or UI.
-- **The canonical detail route is `/rm/client-info/[id]`, never `/rm/client-detail/[id]`.** `FE-9` deletes the old route entirely. After `FE-9` lands, no file in this layer may reference `/rm/client-detail` in any string, import path, or comment describing current behavior — that path is intentionally a 404. Two nav call sites were fixed by `FE-9` (`client-info/page.tsx`'s `openClient`, `components/rm/OnboardingBoard.tsx`'s `openProfile`); do not reintroduce a third hardcoded reference elsewhere.
+- **The canonical detail route is `/rm/client-info/[id]`, never `/rm/client-detail/[id]`.** `FE-9` deletes the old route directory entirely and repoints the **Client Book's** row-click (`client-info/page.tsx`'s `openClient`) to the new path. No *new* code this layer writes may target `/rm/client-detail`.
+- **`components/rm/OnboardingBoard.tsx` is OUT OF SCOPE — do not edit it for any reason.** It is the one pre-existing file that still references `/rm/client-detail` (in `openProfile`) and still imports `KNOWN_CLIENT_IDS`; both are left exactly as-is on purpose. Its "Open client profile →" becoming a 404 after `FE-9` deletes the route is a known, accepted regression (proposal §3 Non-Goals), owned by a future onboarding-board proposal — **not** a defect for this layer to "helpfully" fix. Because that board still imports `KNOWN_CLIENT_IDS`, `FE-8` must **not** remove that export (or any other) from `lib/mock/rm-data.ts` — `FE-8` is purely additive.
 - **"ID Info" on the detail page is always a blank placeholder** (`FE-10`) — never wire it to `clientId`, a UUID, or any other value. **"Assigned RM"** on the detail page is the resolved display name only (`ClientRow.assignedRm`) — no RM phone/email field exists in the DTO; do not fabricate one.
 
 ---
@@ -136,8 +137,13 @@ INVARIANTS (hold at every step):
   proposal's visibility grant; it will simply get an error/403 state like any
   other unauthorized caller, and this layer renders that generically.
 - The canonical detail route is /rm/client-info/[id], NEVER /rm/client-detail/[id]
-  — that route was deleted by FE-9. Do not write, link to, or reference the old
-  path anywhere, including in comments describing current behavior.
+  — FE-9 deletes the old route dir and repoints the Client Book's row-click.
+  Do not target /rm/client-detail in any NEW code you write.
+- components/rm/OnboardingBoard.tsx is OUT OF SCOPE — do NOT edit it for any
+  reason. It still references /rm/client-detail and still imports KNOWN_CLIENT_IDS,
+  both intentionally left as-is (its resulting 404 is an accepted, documented
+  regression owned by a future proposal). FE-8 therefore removes NO export from
+  lib/mock/rm-data.ts — it is purely additive.
 - "ID Info" on the detail page is always a blank placeholder — never wire it to
   any data source. "Assigned RM" is the resolved name only (ClientRow.assignedRm)
   — no RM contact fields exist; do not invent one.
@@ -173,15 +179,17 @@ FORBIDDEN:
 - Editing files in api-backend/ or any other sibling-layer directory.
 - Adding a new npm dependency (React Query, SWR, debounce library, etc.).
 - Adding any AdminRole.COMPLIANCE-specific branching or copy.
-- Writing, linking to, or referencing /rm/client-detail anywhere once FE-9
-  has landed (check whether FE-9 is in "already committed" above).
+- Targeting /rm/client-detail in any NEW code you write.
+- Editing components/rm/OnboardingBoard.tsx AT ALL (out of scope — its stale
+  /rm/client-detail link and KNOWN_CLIENT_IDS import are intentionally retained).
+- Removing any export from lib/mock/rm-data.ts (FE-8 is additive-only).
 - Wiring "ID Info" to any data source, or inventing an RM-contact field.
 - Reading the schedule doc or other unit specs — you own exactly <FE-9>.
 ```
 
 ### 7.2 W-final agents (validation + test)
 
-Dispatched once, in parallel, after `FE-10`'s gate is green. Use schedule doc §8.1 (validation) and §8.2 (test) as the sub-agent briefs verbatim, prefixed with the same CONTEXT block from §7.1 above (so those two agents also inherit env + invariants). The test agent runs the full manual-verification matrix from impl doc §8.2 (`FE-1`..`FE-10`), not an automated suite (none exists for this layer). The validation agent's checklist explicitly includes confirming `app/(roles)/rm/client-detail/` no longer exists anywhere in the tree and `pages.check.ts` passes.
+Dispatched once, in parallel, after `FE-10`'s gate is green. Use schedule doc §8.1 (validation) and §8.2 (test) as the sub-agent briefs verbatim, prefixed with the same CONTEXT block from §7.1 above (so those two agents also inherit env + invariants). The test agent runs the full manual-verification matrix from impl doc §8.2 (`FE-1`..`FE-10`), not an automated suite (none exists for this layer). The validation agent's checklist explicitly includes confirming: `app/(roles)/rm/client-detail/` no longer exists as a route directory; `pages.check.ts` passes; `components/rm/OnboardingBoard.tsx` is byte-unchanged from its pre-branch state (a diff touching it is a scope violation); and `lib/mock/rm-data.ts` still exports everything it did before plus `getMockOverlay` (FE-8 removed nothing).
 
 ---
 
@@ -212,7 +220,7 @@ STOP
 - [ ] Every wave gate (schedule §6) was green when crossed.
 - [ ] `FE-9` committed and gate-passed in W1, before `FE-6` (W4) and `FE-7` (W5) — confirm this ordering held, not just that all units eventually landed.
 - [ ] `npx tsx admin-frontend/lib/pages.check.ts` passes.
-- [ ] W-final validation agent: PASS — including confirming `client-detail/` no longer exists, no COMPLIANCE-specific code was added, and no new dependency was introduced.
+- [ ] W-final validation agent: PASS — including confirming `client-detail/` route dir is gone, `OnboardingBoard.tsx` is unchanged (out of scope), `lib/mock/rm-data.ts` had no export removed, no COMPLIANCE-specific code was added, and no new dependency was introduced.
 - [ ] W-final test agent: PASS (full manual-verification matrix from impl doc §8.2).
 - [ ] PR opened against `${PARENT_BRANCH}`.
 - [ ] Orchestrator has **not** pushed, force-pushed, merged, or opened a worktree.

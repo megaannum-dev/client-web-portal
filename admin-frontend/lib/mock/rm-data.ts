@@ -155,7 +155,7 @@ export const CLIENT_EXTRA: Record<string, ClientExtra> = {
 
 export type ClientDoc = { name: string; status: string; tone: ChipTone; icon: string };
 
-function clientDocs(c: RmClient): ClientDoc[] {
+function clientDocs(c: Pick<RmClient, "kyc" | "tone">): ClientDoc[] {
   const v = c.kyc === "Verified";
   const overdue = c.tone === "overdue";
   return [
@@ -169,7 +169,7 @@ function clientDocs(c: RmClient): ClientDoc[] {
 
 export type HistoryEntry = { t: string; d: string; accent?: boolean; detail?: string[] };
 
-function clientHistory(c: RmClient, models: ClientModel[]): HistoryEntry[] {
+function clientHistory(c: Pick<RmClient, "kyc" | "mandate">, models: ClientModel[]): HistoryEntry[] {
   const rm = "Dana Okafor";
   const m0 = models[0] ? models[0].name : null;
   const m1 = models[1] ? models[1].name : null;
@@ -459,3 +459,69 @@ export const SUB_CLIENTS: SubClient[] = [
 
 /** Ids that have a full Client Detail page (present in RM_CLIENTS). */
 export const KNOWN_CLIENT_IDS = new Set(RM_CLIENTS.map((c) => c.id));
+
+/* ============================================================
+   Client Book — hash-based mock overlay (FE-8)
+   Real client ids now come from the DB; these are the fields that
+   stay mock-only after the live-data cutover. Any real id hashes
+   deterministically onto one of today's 8 canned entries below.
+   ============================================================ */
+export interface MockOverlay {
+  status: string;
+  tone: ChipTone;
+  mandate: string;
+  aum: string;
+  renewal: string;
+  kyc: string;
+  kycTone: ChipTone;
+  since: string;
+  models: ClientModel[];
+  cashValue: string;
+  portfolioValue?: string;
+  contact: string;
+  title: string;
+  docs: ClientDoc[];
+  history: HistoryEntry[];
+}
+
+type OverlayCore = Omit<MockOverlay, "docs" | "history">;
+
+/** The 8 canned overlay entries — same content as today's RM_CLIENTS +
+ *  CLIENT_EXTRA combined, minus the DB-backed fields (name/phone/address/
+ *  country/etc). Order is stable — hashString(id) % length indexes into it. */
+const OVERLAY_ROTATION: readonly OverlayCore[] = RM_CLIENTS.map((c): OverlayCore => {
+  const x = CLIENT_EXTRA[c.id] ?? ({} as Partial<ClientExtra>);
+  return {
+    status: c.status,
+    tone: c.tone,
+    mandate: c.mandate,
+    aum: c.aum,
+    renewal: c.renewal,
+    kyc: c.kyc,
+    kycTone: c.kycTone,
+    since: c.since,
+    models: x.models ?? [],
+    cashValue: x.cashValue || "—",
+    portfolioValue: x.portfolioValue,
+    contact: c.contact,
+    title: c.title,
+  };
+});
+
+/** FNV-1a 32-bit — deterministic, browser-safe, no dependency. */
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/** Stable per-id mock overlay: a real client id always hashes onto the
+ *  same rotation entry, so repeated lookups for the same id are identical. */
+export function getMockOverlay(id: string): MockOverlay {
+  const core = OVERLAY_ROTATION[hashString(id) % OVERLAY_ROTATION.length];
+  return {
+    ...core,
+    docs: clientDocs(core),
+    history: clientHistory(core, core.models),
+  };
+}

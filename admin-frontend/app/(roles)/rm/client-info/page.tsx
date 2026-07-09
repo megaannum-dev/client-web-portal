@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
@@ -19,60 +19,60 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
-  RM_CLIENTS,
   RENEWALS_DUE,
   ONBOARDING_QUEUE,
   REQUEST_TICKETS,
-  KNOWN_CLIENT_IDS,
-  getClientDetail,
-  type RmClient,
+  getMockOverlay,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
+import { useClientBook } from "@/hooks/api/useClientBook";
+import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
+import type { ClientRow } from "@/lib/rm/clients";
 
 const RM_NAME = "Dana Okafor";
 
-/** Advanced-search field-level filters (name/phone/email/assignedRm/status/clientId). */
-const ADV_FIELDS: { key: string; label: string; placeholder: string; get: (c: RmClient) => string }[] = [
-  { key: "name", label: "Name", placeholder: "e.g. Ardent Capital", get: (c) => c.name },
-  { key: "phone", label: "Phone", placeholder: "e.g. +44 20 7946", get: (c) => getClientDetail(c.id)?.detail.phone ?? "" },
-  { key: "email", label: "Email", placeholder: "e.g. @harlowfo.com", get: (c) => c.email },
-  { key: "assignedRm", label: "Assigned RM", placeholder: `e.g. ${RM_NAME}`, get: (c) => c.assignedRm },
-  { key: "status", label: "Status", placeholder: "Active / Pending / In Review", get: (c) => c.status },
-  { key: "clientId", label: "Client ID", placeholder: "e.g. MEGA-0298", get: (c) => getClientDetail(c.id)?.detail.clientId ?? "" },
-];
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
-const norm = (s: string) => s.toLowerCase();
+// ponytail: case-sensitive by request — no .toLowerCase() here, trim only.
+const norm = (s: string) => s.trim();
 
-function matchClient(c: RmClient, needle: string) {
+function matchClient(c: ClientRow, needle: string): boolean {
   if (!needle) return true;
-  const d = getClientDetail(c.id)?.detail;
-  const hay = [c.name, c.mandate, c.status, c.aum, c.renewal, c.contact, c.title, c.email, d?.phone, d?.country, d?.clientId, d?.address]
-    .filter(Boolean)
-    .join(" | ");
+  const hay = ADV_FIELDS.map((f) => f.get(c)).join(" | ");
   return norm(hay).includes(needle);
+}
+
+function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
+  return Object.entries(active).every(([k, v]) => {
+    if (!norm(v ?? "")) return true;
+    const f = ADV_FIELDS.find((x) => x.key === k);
+    return f ? norm(f.get(c)).includes(norm(v)) : true;
+  });
 }
 
 export default function RmDashboardPage() {
   const router = useRouter();
+  const { data, loading, error } = useClientBook();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
+  const [submittedQ, setSubmittedQ] = useState(""); // only this drives results — set on Enter/search-icon click
   const [advOpen, setAdvOpen] = useState(false);
   const [advDraft, setAdvDraft] = useState<Record<string, string>>(emptyAdv());
   const [advActive, setAdvActive] = useState<Record<string, string>>(emptyAdv());
   const [draftFields, setDraftFields] = useState<string[]>([]);
 
-  const activeAdvKeys = ADV_FIELDS.map((f) => f.key).filter((k) => norm(advActive[k] ?? "").trim());
+  const activeAdvKeys = ADV_FIELDS.map((f) => f.key).filter((k) => norm(advActive[k] ?? ""));
   const hasAdv = activeAdvKeys.length > 0;
-  const needle = norm(q).trim();
+  const needle = norm(submittedQ);
+  const submitSearch = () => setSubmittedQ(q);
+  const clearSearch = () => { setQ(""); setSubmittedQ(""); };
 
-  const matchAdv = (c: RmClient) =>
-    !hasAdv ||
-    activeAdvKeys.every((k) => {
-      const f = ADV_FIELDS.find((x) => x.key === k)!;
-      return norm(f.get(c)).includes(norm(advActive[k]).trim());
-    });
+  const filtered: ClientRow[] = useMemo(() => {
+    if (!data) return [];
+    if (!needle && !hasAdv) return [];
+    return data.filter((c) => matchClient(c, needle) && matchAdv(c, advActive));
+  }, [data, needle, advActive, hasAdv]);
 
   const applyAdv = () => {
     const next = emptyAdv();
@@ -97,11 +97,7 @@ export default function RmDashboardPage() {
     setDraftFields((prev) => prev.filter((x) => x !== k));
   };
 
-  const filtered = (needle || hasAdv) ? RM_CLIENTS.filter((c) => matchClient(c, needle) && matchAdv(c)) : [];
-
-  const openClient = (id: string) => {
-    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/client-detail/${id}`);
-  };
+  const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
   return (
@@ -119,7 +115,7 @@ export default function RmDashboardPage() {
           <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
             <div className="flex items-baseline gap-2.5">
               <h3 className="text-[18px] font-semibold text-on-surface">Client Book</h3>
-              <span className="text-[13px] text-secondary">142 active mandates</span>
+              <span className="text-[13px] text-secondary">{data?.length ?? 0} clients</span>
             </div>
             <Link href="/rm/onboarding-renewal">
               <Button icon={UserRoundPlus}>Onboard new</Button>
@@ -132,18 +128,26 @@ export default function RmDashboardPage() {
               htmlFor="cb-search"
               className="flex items-center gap-3 rounded-md border border-outline-variant bg-white px-[18px] py-3.5 shadow-card transition-all duration-150 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15"
             >
-              <Search size={20} strokeWidth={2} className="shrink-0 text-primary/70" />
+              <button
+                type="button"
+                onClick={submitSearch}
+                title="Search"
+                className="flex shrink-0 items-center justify-center text-primary/70"
+              >
+                <Search size={20} strokeWidth={2} />
+              </button>
               <input
                 id="cb-search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); }}
                 placeholder='E.g. "Ardent Capital"'
                 className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-medium text-on-surface outline-none placeholder:text-secondary/70"
               />
               {q && (
                 <button
                   type="button"
-                  onClick={() => setQ("")}
+                  onClick={clearSearch}
                   title="Clear"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-container text-secondary"
                 >
@@ -157,7 +161,7 @@ export default function RmDashboardPage() {
                 {(needle || hasAdv) && (
                   <span>
                     <b className="font-semibold text-on-surface">{filtered.length}</b> match{filtered.length === 1 ? "" : "es"}
-                    {needle ? <> for &ldquo;{q}&rdquo;</> : null}
+                    {needle ? <> for &ldquo;{submittedQ}&rdquo;</> : null}
                     {hasAdv ? (
                       <>
                         {" "}with <b className="font-semibold text-on-surface">{activeAdvKeys.length}</b> filter{activeAdvKeys.length === 1 ? "" : "s"}
@@ -296,6 +300,16 @@ export default function RmDashboardPage() {
             )}
           </div>
 
+          {/* Loading state */}
+          {loading && !data && (
+            <div className="px-5 py-10 text-center text-[13px] text-secondary">Loading…</div>
+          )}
+
+          {/* Error state — rendered above the empty-state block */}
+          {error && (
+            <div className="px-5 py-3 text-[13px] font-medium text-error">{error}</div>
+          )}
+
           {/* Table */}
           <table className="w-full border-collapse text-[14px]">
             {filtered.length > 0 && (
@@ -329,7 +343,7 @@ export default function RmDashboardPage() {
                         <span className="flex h-11 w-11 items-center justify-center rounded-md bg-surface-container text-secondary">
                           <SearchX size={20} strokeWidth={1.75} />
                         </span>
-                        <div className="text-[15px] font-semibold text-on-surface">No matching client{needle ? <> for &ldquo;{q}&rdquo;</> : null}</div>
+                        <div className="text-[15px] font-semibold text-on-surface">No matching client{needle ? <> for &ldquo;{submittedQ}&rdquo;</> : null}</div>
                         <div className="max-w-[440px] text-[13px] leading-normal text-secondary">
                           Double-check the spelling, try fewer characters, or search another field — name, phone number, email, or client ID.
                         </div>
@@ -339,7 +353,7 @@ export default function RmDashboardPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const phone = getClientDetail(r.id)?.detail.phone;
+                  const overlay = getMockOverlay(r.id);
                   return (
                     <tr
                       key={r.id}
@@ -347,16 +361,16 @@ export default function RmDashboardPage() {
                       className="group cursor-pointer transition-colors duration-100 hover:bg-surface-container"
                     >
                       <td className="border-t border-outline-variant px-[18px] py-[13px] font-semibold text-on-surface">{r.name}</td>
-                      <td className="border-t border-outline-variant px-[18px] py-[13px] tabular-nums text-secondary">{phone || "—"}</td>
-                      <td className="border-t border-outline-variant px-[18px] py-[13px]"><Chip tone={r.tone}>{r.status}</Chip></td>
+                      <td className="border-t border-outline-variant px-[18px] py-[13px] tabular-nums text-secondary">{r.phone || "—"}</td>
+                      <td className="border-t border-outline-variant px-[18px] py-[13px]"><Chip tone={overlay.tone}>{overlay.status}</Chip></td>
                       <td className="border-t border-outline-variant px-[18px] py-[13px] text-secondary">{r.assignedRm || "Unassigned"}</td>
                       <td
                         className={clsx(
                           "border-t border-outline-variant px-[18px] py-[13px]",
-                          r.renewal === "Overdue" ? "font-semibold text-error" : "text-secondary",
+                          overlay.renewal === "Overdue" ? "font-semibold text-error" : "text-secondary",
                         )}
                       >
-                        {r.renewal.replace(", 2026", "")}
+                        {overlay.renewal.replace(", 2026", "")}
                       </td>
                       <td className="border-t border-outline-variant px-3.5 py-[13px] text-right text-secondary group-hover:text-primary">
                         <ChevronRight size={16} strokeWidth={2} className="ml-auto" />

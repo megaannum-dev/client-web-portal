@@ -32,10 +32,10 @@
 - **Read-first inventory:**
   - `admin-frontend/app/(roles)/rm/client-info/page.tsx` — currently the whole Client Book UI + inline `ADV_FIELDS` + `matchClient`/`matchAdv`. Refactored by FE-6; its `openClient` push target also fixed by FE-9.
   - `admin-frontend/app/(roles)/rm/client-detail/[id]/page.tsx` — calls `getClientDetail(params.id)` synchronously. **Moved** to `client-info/[id]/page.tsx` by FE-9 (pure move, no data change); live-data-wired by FE-7; restructured into Basic Info/Subscription Info by FE-10.
-  - `admin-frontend/lib/mock/rm-data.ts` — `RM_CLIENTS`, `CLIENT_EXTRA`, `getClientDetail`, `KNOWN_CLIENT_IDS`. Re-keyed by FE-8; `clientId` dropped by FE-10.
+  - `admin-frontend/lib/mock/rm-data.ts` — `RM_CLIENTS`, `CLIENT_EXTRA`, `getClientDetail`, `KNOWN_CLIENT_IDS`. FE-8 **adds** `getMockOverlay` alongside these and removes **none** of them (see FE-8); FE-10 drops only the `clientId` field from the new `MockOverlay`. `KNOWN_CLIENT_IDS` is retained for the lifetime of this proposal — it is still consumed by the out-of-scope `OnboardingBoard`.
   - `admin-frontend/lib/pages-config.ts` — `PAGES`/`ROLE_PAGES` route registry; the `rm.client-detail` PageId is deleted by FE-9 (dead once `/rm/client-info`'s existing prefix-match covers the sub-path).
   - `admin-frontend/lib/pages.check.ts` — assertion script for `pages-config.ts`; two `/rm/client-detail` assertions updated by FE-9.
-  - `admin-frontend/components/rm/OnboardingBoard.tsx` — `openProfile()` hardcodes `/rm/client-detail/${id}`; fixed by FE-9.
+  - `admin-frontend/components/rm/OnboardingBoard.tsx` — `openProfile()` hardcodes `/rm/client-detail/${id}` and imports `KNOWN_CLIENT_IDS`. **OUT OF SCOPE — not modified by this proposal.** Its link is deliberately left pointing at the route FE-9 removes, so "Open client profile →" becomes a known, accepted 404, deferred to a future onboarding-board proposal. No FE-* unit may touch this file.
   - `admin-frontend/server/api-client.ts` — `apiClient<T>` fetch wrapper + `APIResult` shape. Reused, not modified.
   - `admin-frontend/server/endpoints.ts` — `ENDPOINTS` const. Extended by FE-2.
   - `admin-frontend/server/pc/index.ts` — reference for the new `server/rm/index.ts`.
@@ -94,15 +94,15 @@ admin-frontend/
 │   │   ├── client-search-fields.ts           # NEW: ADV_FIELDS config, single source of truth
 │   │   └── clients.ts                        # NEW: DTO ↔ UI mapper
 │   ├── mock/
-│   │   └── rm-data.ts                        # MODIFY: hash-based overlay, drop slug ids + clientId
+│   │   └── rm-data.ts                        # MODIFY: ADD getMockOverlay (removes no exports); FE-10 drops clientId field
 │   └── pages-config.ts                       # MODIFY (FE-9): delete rm.client-detail PageId
 ├── hooks/api/
 │   ├── useClientBook.ts                      # NEW ("use client"): once-per-session list fetch
 │   └── useClient.ts                          # NEW ("use client"): cache-first, sibling-endpoint fallback
-├── components/rm/
-│   └── OnboardingBoard.tsx                   # MODIFY (FE-9): fix hardcoded nav push target
 └── types/
     └── portal.ts                              # MODIFY (if needed): expose firebase_uid on PortalUser
+# NOTE: components/rm/OnboardingBoard.tsx is intentionally ABSENT here — out of scope,
+#       not modified by any FE-* unit (its stale /rm/client-detail link is a known 404).
 ```
 
 **Dependency direction:**
@@ -110,7 +110,7 @@ admin-frontend/
 - `hooks/api/*` may also read `lib/rm/clients.ts` for the DTO → UI mapper.
 - `app/(roles)/rm/**/page.tsx` → `hooks/api/*` + `lib/rm/client-search-fields.ts` + `lib/mock/rm-data.ts` (for the overlay only).
 - No file in `lib/`, `hooks/api/`, or `server/` imports from `app/(roles)/…` — one-way dependency out.
-- `lib/pages-config.ts` and `components/rm/OnboardingBoard.tsx` are edited only by FE-9 (one line / one config entry each) — neither is otherwise part of this proposal's dependency chain.
+- `lib/pages-config.ts` is edited only by FE-9 (one config entry). `components/rm/OnboardingBoard.tsx` is **not** edited by this proposal at all — it is out of scope; its stale `/rm/client-detail` link is a known, accepted 404 (see FE-9 and §3 Non-Goals of the proposal).
 
 **External seams:** Backend routes `GET /api/rm/clients` and `GET /api/rm/clients/{id}` per §7; Firebase-issued `id_token` cookie for auth (already handled by `server/api-client.ts`).
 
@@ -154,14 +154,14 @@ admin-frontend/
 - **Owns features:** FE-6 (list), FE-7 (detail, live data).
 
 ### 5.7 Mock overlay
-- **Responsibility:** hash-based lookup of the non-DB fields (status, mandate, aum, renewal, kyc, since, models, contact, title, cashValue, portfolioValue) off the real backend id. `clientId` is dropped (FE-10) — nothing renders it once "ID Info" is a hardcoded blank.
+- **Responsibility:** hash-based lookup of the non-DB fields (status, mandate, aum, renewal, kyc, since, models, contact, title, cashValue, portfolioValue) off the real backend id. `clientId` is dropped (FE-10) — nothing renders it once "ID Info" is a hardcoded blank. **FE-8 is purely additive — it introduces `getMockOverlay` and removes no existing exports** (see FE-8's rationale); the pre-existing mock exports stay in place.
 - **Files:** `admin-frontend/lib/mock/rm-data.ts`.
-- **Public surface:** `getMockOverlay(id): OverlayShape`.
+- **Public surface:** `getMockOverlay(id): MockOverlay` (added); all existing exports retained.
 - **Owns features:** FE-8 (initial overlay), FE-10 (drops `clientId`).
 
 ### 5.8 Route consolidation
-- **Responsibility:** relocate the detail page under `client-info/`, fix every hardcoded nav-push target, and delete the now-dead `rm.client-detail` page-access entry. A pure move — no data-source change.
-- **Files:** `admin-frontend/app/(roles)/rm/client-detail/[id]/page.tsx` (delete), `admin-frontend/app/(roles)/rm/client-info/[id]/page.tsx` (create, content = the deleted file verbatim), `admin-frontend/app/(roles)/rm/client-info/page.tsx` (one-line push-target fix), `admin-frontend/components/rm/OnboardingBoard.tsx` (one-line push-target fix), `admin-frontend/lib/pages-config.ts` (delete `rm.client-detail`), `admin-frontend/lib/pages.check.ts` (update two assertions).
+- **Responsibility:** relocate the detail page under `client-info/`, fix the **Client Book's** nav-push target, and delete the now-dead `rm.client-detail` page-access entry. A pure move — no data-source change. OnboardingBoard is deliberately **not** included (out of scope; its stale link left as a known 404).
+- **Files:** `admin-frontend/app/(roles)/rm/client-detail/[id]/page.tsx` (delete), `admin-frontend/app/(roles)/rm/client-info/[id]/page.tsx` (create, content = the deleted file verbatim), `admin-frontend/app/(roles)/rm/client-info/page.tsx` (one-line push-target fix), `admin-frontend/lib/pages-config.ts` (delete `rm.client-detail`), `admin-frontend/lib/pages.check.ts` (update two assertions).
 - **Owns features:** FE-9.
 
 ### 5.9 Detail sub-page field presentation
@@ -601,9 +601,9 @@ export default function RmDashboardPage() {
 - All existing markup (search bar, popover, chips, empty states, table columns, pagination) stays exactly as-is; only the data source changes.
 - `RM_NAME` in the header stays hardcoded to "Dana Okafor" for now — auth-derived RM name is out of scope for this proposal (still-mock overlay per D-1).
 - The "142 active mandates" subtitle at `header` becomes `${data?.length ?? 0} clients` — deliberately role-agnostic wording, not "clients in your book": for an RM that count is their own book, but for ADMIN (D-4) it's the entire firm-wide roster, so "your book" would misdescribe what they're looking at.
-- `KNOWN_CLIENT_IDS`-based gating in `openClient` is dropped (also see FE-8).
+- `KNOWN_CLIENT_IDS`-based gating in `openClient` is dropped — every live-search row is a real, openable client. This removes **this file's own import** of `KNOWN_CLIENT_IDS`; the export itself stays in `rm-data.ts` (still consumed by the out-of-scope OnboardingBoard — this unit does not touch that file).
 - Loading state: a skeleton or "Loading…" indicator above the table while `loading && !data`. Error state: render the error above the empty-state block.
-- The `RM_CLIENTS` / `getClientDetail` / `KNOWN_CLIENT_IDS` imports from `@/lib/mock/rm-data` are removed from this file.
+- The `RM_CLIENTS` / `getClientDetail` / `KNOWN_CLIENT_IDS` imports from `@/lib/mock/rm-data` are removed **from this file** (page.tsx). The exports remain defined in `rm-data.ts` — FE-8 does not remove them.
 
 **Done when:** the page renders live data end-to-end against a mocked `getClients`; both empty states still fire (`data && filtered.length === 0` behaviour unchanged); no unused mock imports remain in this file; `tsc --noEmit` + `next lint` pass.
 
@@ -661,7 +661,7 @@ export default function ClientDetailPage() {
 - **Proposal ref:** § Layer 2 A-3, § D-1
 - **Module:** §5.7
 - **Files:** `modify: admin-frontend/lib/mock/rm-data.ts`
-- **Dependencies:** none — parallel-safe (FE-6/FE-7 consume its output but this can be written first).
+- **Dependencies:** none — parallel-safe (FE-6/FE-7 consume its output but this can be written first). **Purely additive** — see the "no removals" invariant below; this is what makes W1 placement safe.
 
 **Contract:**
 ```ts
@@ -705,20 +705,22 @@ export function getMockOverlay(id: string): MockOverlay {
   };
 }
 
-// EXPORTS TO REMOVE (unused after FE-6/FE-7):
-//   RM_CLIENTS, CLIENT_EXTRA, KNOWN_CLIENT_IDS, getClientDetail
-// The other RM-page exports (RENEWALS_DUE, ONBOARDING_QUEUE, REQUEST_TICKETS,
-// KYC_DOCS, KYC_COLS, VERIFIED_COUNT, TONE_FOR, SUB_CLIENTS) STAY — they drive
-// sibling pages that this proposal does not touch.
+// NO EXPORTS ARE REMOVED BY THIS UNIT. getMockOverlay is added alongside the
+// existing exports. RM_CLIENTS / CLIENT_EXTRA / getClientDetail become
+// unused-by-the-client-book after FE-6/FE-7 stop importing them, but they are
+// LEFT IN PLACE (harmless dead exports — an unused *export* trips neither tsc nor
+// `next lint`). KNOWN_CLIENT_IDS is NOT dead: the out-of-scope OnboardingBoard
+// still imports it. Retiring these dead exports (and OnboardingBoard's live wiring)
+// is a follow-up proposal's job — see §3 Non-Goals.
 ```
 
 **Behavior / invariants:**
 - **Determinism:** the same `id` always maps to the same overlay entry — for a given `OVERLAY_ROTATION`, `hashString(id) % ROTATION.length` is stable.
 - **Same content as today:** the 8 rotation entries are literally today's `RM_CLIENTS` + `CLIENT_EXTRA` combined, minus the DB-backed columns (name/phone/address/country/authorizedPerson/initiateMethod/ibAccount/email/assignedRm). The overlay records the *rest*: status/tone/mandate/aum/renewal/kyc/since/models/cashValue/portfolioValue/clientId/contact/title, plus the synthesized docs+history.
-- `RM_CLIENTS`, `CLIENT_EXTRA`, `KNOWN_CLIENT_IDS`, `getClientDetail` are **removed** from exports at the end of this unit — every consumer either uses `useClientBook`/`useClient` (real data) or `getMockOverlay` (mock data).
-- Non-Client-Book exports (`RENEWALS_DUE`, `ONBOARDING_QUEUE`, `REQUEST_TICKETS`, KYC pipeline, subscription mock) stay intact.
+- **No removals (the reason this unit is W1-safe).** This unit deletes **no** export. Earlier drafts bundled a removal of `RM_CLIENTS`/`CLIENT_EXTRA`/`KNOWN_CLIENT_IDS`/`getClientDetail` here — that was a defect: those symbols are still imported by `page.tsx` (until FE-6, W4) and the detail page (until FE-7, W5), so removing them in W1 would red-line `tsc` for four waves. Removal is a *contract* step and this proposal simply doesn't do it (§3.2: "schedule the contract/removal step last"; here, last = never — deferred to a follow-up). `KNOWN_CLIENT_IDS` in particular must never be removed while OnboardingBoard (out of scope) still consumes it.
+- Non-Client-Book exports (`RENEWALS_DUE`, `ONBOARDING_QUEUE`, `REQUEST_TICKETS`, KYC pipeline, subscription mock) are likewise untouched.
 
-**Done when:** `getMockOverlay(someUuid)` returns a stable value on repeated calls; `RM_CLIENTS`/`getClientDetail`/`KNOWN_CLIENT_IDS` no longer exported (or grep clean of unused-export warnings); `tsc --noEmit` passes with the sibling RM pages unchanged.
+**Done when:** `getMockOverlay(someUuid)` returns a stable value on repeated calls; the module still exports everything it did before plus `getMockOverlay`; `tsc --noEmit` + `next lint` pass with every existing consumer (client book, detail page, OnboardingBoard, sibling RM pages) still compiling.
 
 ---
 
@@ -730,7 +732,6 @@ export function getMockOverlay(id: string): MockOverlay {
   - `delete: admin-frontend/app/(roles)/rm/client-detail/[id]/page.tsx`
   - `create: admin-frontend/app/(roles)/rm/client-info/[id]/page.tsx` (byte-identical content to the deleted file — this unit does not change what the page reads or renders, only where it lives)
   - `modify: admin-frontend/app/(roles)/rm/client-info/page.tsx` (one line — `openClient`'s push target)
-  - `modify: admin-frontend/components/rm/OnboardingBoard.tsx` (one line — `openProfile`'s push target)
   - `modify: admin-frontend/lib/pages-config.ts` (delete the `rm.client-detail` PageId, its `PageId` union member, and its `ROLE_PAGES.RM` grant)
   - `modify: admin-frontend/lib/pages.check.ts` (update two assertions)
 - **Dependencies:** none — parallel-safe, and deliberately dispatched in the **first** wave (before FE-6/FE-7's live-data wiring), per the explicit user instruction that the route split gets fixed before the data-wiring work. This unit makes **no** data-source change — the relocated page still calls the old mock `getClientDetail()` at the end of this unit; FE-7 wires live data afterward, on the new path.
@@ -748,16 +749,7 @@ export function getMockOverlay(id: string): MockOverlay {
 +  const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
 ```
 
-```diff
---- admin-frontend/components/rm/OnboardingBoard.tsx
-   const openProfile = (id: string) => {
-     if (KNOWN_CLIENT_IDS.has(id)) {
-       setSelected(null);
--      router.push(`/rm/client-detail/${id}`);
-+      router.push(`/rm/client-info/${id}`);
-     }
-   };
-```
+> **OnboardingBoard is deliberately NOT in this diff.** `components/rm/OnboardingBoard.tsx:151` still pushes to `/rm/client-detail/${id}` and still imports `KNOWN_CLIENT_IDS`. Both are left untouched: the board is an onboarding-pipeline component whose cards are *prospects* (not necessarily rows in `client_profiles`), so its `KNOWN_CLIENT_IDS`-gated navigation is a different data model that this proposal does not own. The consequence — clicking "Open client profile →" for a known onboarding client now hits the removed route and 404s — is an accepted, documented regression (proposal §3 Non-Goals), to be resolved by the future onboarding-board proposal that wires that board to live data. Leaving the link stale (rather than repointing it) is the intended state, per the option chosen for this revision.
 
 ```diff
 --- admin-frontend/lib/pages-config.ts
@@ -807,12 +799,13 @@ export function getMockOverlay(id: string): MockOverlay {
 ```
 
 **Behavior / invariants:**
-- This is a **pure move + link fix** — no data source, no rendering logic, no auth-guard behavior changes anywhere in this unit's diff. It is independently revertible from FE-7/FE-10.
+- This is a **pure move + one link fix** — no data source, no rendering logic, no auth-guard behavior changes anywhere in this unit's diff. It is independently revertible from FE-7/FE-10.
+- **OnboardingBoard is out of scope and must not be touched by this unit.** Its stale `/rm/client-detail` link becoming a 404 is intended (see the callout above and §3 Non-Goals) — do not "fix" it, and do not touch its `KNOWN_CLIENT_IDS` import (which is why FE-8 retains that export).
 - Next.js App Router supports a route segment having both its own `page.tsx` and a `[id]/page.tsx` child in the same directory — `/rm/client-info` and `/rm/client-info/{id}` coexist without conflict; no `next.config.js` change is needed.
 - Deleting `rm.client-detail` from `pages-config.ts` is safe because `rolesForPath()`'s existing `pathname.startsWith(p.path + "/")` rule (`lib/pages-config.ts:194`) already matches `/rm/client-info/{id}` against the pre-existing `rm.client-info` PageDef — no replacement PageId is needed.
 - After this unit, `/rm/client-detail/<anything>` is a genuine 404 (the route no longer exists on disk) — this is intended, not a regression to patch.
 
-**Done when:** `npx tsx admin-frontend/lib/pages.check.ts` passes; `/rm/client-info/<any-mock-id>` renders the (still-mock) detail page exactly as `/rm/client-detail/<any-mock-id>` did before this unit; both hardcoded push call sites updated; `tsc --noEmit` + `next lint` pass.
+**Done when:** `npx tsx admin-frontend/lib/pages.check.ts` passes; `/rm/client-info/<any-mock-id>` renders the (still-mock) detail page exactly as `/rm/client-detail/<any-mock-id>` did before this unit; the Client Book's push call site (`client-info/page.tsx`) now targets `/rm/client-info/${id}`; `OnboardingBoard.tsx` is unchanged (still targets `/rm/client-detail`, intentionally); `tsc --noEmit` + `next lint` pass.
 
 ---
 
@@ -948,8 +941,8 @@ Errors: same envelope as the list endpoint.
 | FE-5 | Preview: click a row vs. hard refresh | In-app row click → zero network; hard refresh on `/rm/client-info/<uuid>` → exactly one `GET .../clients/{id}`. |
 | FE-6 | Preview: type in search, add advanced filter chips; also log in as ADMIN vs. RM | All filtering is client-side (no network calls per keystroke); both empty states fire; the "N clients" subtitle updates from `data.length`; an ADMIN login shows the full roster, an RM login shows only their own book; row click navigates to `/rm/client-info/<id>`. |
 | FE-7 | Preview: navigate list → detail; also hard-refresh a foreign RM's uuid as that RM vs. as ADMIN | Detail renders at `/rm/client-info/<uuid>`; foreign uuid as the non-owning RM → Next.js 404 page; the same uuid as ADMIN → 200 (D-4). |
-| FE-8 | Preview: same client id renders same overlay across reloads | `getMockOverlay(id)` is stable; no `RM_CLIENTS` import warnings from tsc. |
-| FE-9 | Preview: visit `/rm/client-detail/<any-id>` and `/rm/client-info/<any-id>`; click a Client Book row; click an OnboardingBoard card; run `pages.check.ts` | Old route 404s; new route renders the (still-mock) detail page; both nav call sites land on `/rm/client-info/...`; `npx tsx admin-frontend/lib/pages.check.ts` exits 0. |
+| FE-8 | Preview: same client id renders same overlay across reloads; `tsc`/`lint` after the commit | `getMockOverlay(id)` is stable; the module still exports everything it did before (nothing removed); `tsc --noEmit` + `next lint` clean with client book, detail page, OnboardingBoard, and sibling pages all still compiling. |
+| FE-9 | Preview: visit `/rm/client-detail/<any-id>` and `/rm/client-info/<any-id>`; click a Client Book row; run `pages.check.ts` | Old route 404s; new route renders the (still-mock) detail page; the Client Book row-click lands on `/rm/client-info/...`; `npx tsx admin-frontend/lib/pages.check.ts` exits 0. **OnboardingBoard is untouched** — its "Open client profile →" now 404s (known, accepted, out of scope); do not treat that 404 as a FE-9 failure. |
 | FE-10 | Preview: open any client's detail sub-page | Basic Info shows all 9 fields with "ID Info" always blank; Subscription Info shows IB Account + the unchanged Subscribed Models table; no "Primary Contact" field remains. |
 
 ### 8.3 Tests

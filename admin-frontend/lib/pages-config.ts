@@ -21,7 +21,6 @@ export type PageId =
   | "rm.client-info"
   | "rm.onboarding-renewal"
   | "rm.model-subscription"
-  | "rm.client-detail"
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
   | "mobo.daily-exception-report"
@@ -72,13 +71,6 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/rm/model-subscription",
     label: "Model Subscription",
     icon: Layers,
-  },
-  "rm.client-detail": {
-    id: "rm.client-detail",
-    path: "/rm/client-detail",
-    label: "Client Detail",
-    icon: Users,
-    hideFromNav: true,
   },
   "mobo.recon-overview": {
     id: "mobo.recon-overview",
@@ -138,7 +130,6 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
     "rm.client-info": "OPERATE",
     "rm.onboarding-renewal": "OPERATE",
     "rm.model-subscription": "OPERATE",
-    "rm.client-detail": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
   MOBO: {

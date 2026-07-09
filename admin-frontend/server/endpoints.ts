@@ -1,4 +1,5 @@
 const PC = "/api/pc";
+const RM = "/api/rm";
 
 export const ENDPOINTS = {
   PC: {
@@ -15,5 +16,9 @@ export const ENDPOINTS = {
     // PERIODS removed — periods are embedded in GET /allocation (D-2)
     // CONFIRM removed — use PATCH_PERIOD(id) with {status:'confirmed'} (D-3)
     PATCH_PERIOD:        (id: string) => `${PC}/allocation/periods/${id}`,
+  },
+  RM: {
+    CLIENTS: `${RM}/clients`,
+    CLIENT:  (id: string) => `${RM}/clients/${encodeURIComponent(id)}`,
   },
 } as const;
