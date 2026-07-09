@@ -3,6 +3,15 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class SubscriptionOut(BaseModel):
+    """One client_subscriptions row joined to its model. status is the raw
+    ModelStatus value ("live" | "draft") — the frontend maps it to a label."""
+
+    model: str
+    status: str
+    account: str | None
+
+
 class ClientListItemOut(BaseModel):
     """One client_profiles row, joined + shaped per §7.1 of the proposal."""
 
@@ -17,6 +26,7 @@ class ClientListItemOut(BaseModel):
     initiate_method: str | None
     ib_account: str | None
     email: str | None  # users.email (client's user, not RM's)
+    subscriptions: list[SubscriptionOut] = []  # only populated on the single-client route
 
 
 class ClientListOut(BaseModel):

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
+from app.models.pc import ClientSubscription, Model, ModelStatus
 from app.models.users import AdminProfile, AdminRole, ClientProfile, User
 
 # D-4: roles in this set see every client_profiles row, unfiltered. Every other
@@ -32,6 +33,16 @@ class ClientRow:
     initiate_method: str | None
     ib_account: str | None
     email: str | None
+
+
+@dataclass(frozen=True)
+class SubscriptionRow:
+    """One client_subscriptions row joined to its model — account is the
+    client's single ib_account (client_profiles.ib_account), repeated per row."""
+
+    model: str
+    status: str
+    account: str | None
 
 
 class ClientRepository:
@@ -86,6 +97,21 @@ class ClientRepository:
         query = self._base_query().filter(ClientProfile.user_id == client_id)
         row = self._scoped(query, role, rm_firebase_uid).one_or_none()
         return self._row(row) if row else None
+
+    def list_subscriptions(self, client_id: uuid.UUID, ib_account: str | None) -> list[SubscriptionRow]:
+        rows = (
+            self.db.query(Model.name, Model.status)
+            .join(ClientSubscription, ClientSubscription.model_id == Model.id)
+            .filter(
+                ClientSubscription.user_id == client_id,
+                Model.status != ModelStatus.DELETED,
+            )
+            .all()
+        )
+        return [
+            SubscriptionRow(model=r.name, status=r.status.value, account=ib_account)
+            for r in rows
+        ]
 
     @staticmethod
     def _row(r) -> ClientRow:

@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.libs.clients.repository import ClientRepository, ClientRow
-from app.libs.clients.schemas import ClientListItemOut, ClientListOut
+from app.libs.clients.schemas import ClientListItemOut, ClientListOut, SubscriptionOut
 from app.models.users import AdminRole
 
 
@@ -30,7 +30,12 @@ class ClientService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
             )
-        return self._to_dto(row)
+        dto = self._to_dto(row)
+        subs = self.repo.list_subscriptions(client_id, row.ib_account)
+        dto.subscriptions = [
+            SubscriptionOut(model=s.model, status=s.status, account=s.account) for s in subs
+        ]
+        return dto
 
     @staticmethod
     def _to_dto(r: ClientRow) -> ClientListItemOut:
