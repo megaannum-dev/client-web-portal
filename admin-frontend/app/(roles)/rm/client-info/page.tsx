@@ -100,7 +100,7 @@ export default function RmDashboardPage() {
   const filtered = (needle || hasAdv) ? RM_CLIENTS.filter((c) => matchClient(c, needle) && matchAdv(c)) : [];
 
   const openClient = (id: string) => {
-    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/client-detail/${id}`);
+    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/client-info/${id}`);
   };
   const goSummary = (item: SummaryItem) => openClient(item.id);
 

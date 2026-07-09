@@ -26,7 +26,9 @@ for (const p of Object.values(PAGES)) {
 assert.deepEqual(rolesForPath("/mobo/recon-overview").sort(),          ["ADMIN", "MOBO"].sort());
 assert.deepEqual(rolesForPath("/rm/onboarding-renewal").sort(),        ["ADMIN", "RM"].sort());
 assert.deepEqual(rolesForPath("/rm/client-info").sort(),               ["ADMIN", "RM"].sort());
-assert.deepEqual(rolesForPath("/rm/client-detail").sort(),             ["ADMIN", "RM"].sort());
+// rm.client-detail PageId removed (010, A-6/D-6) — /rm/client-info/{id} now resolves
+// via the prefix-match rule against rm.client-info itself, not a dedicated PageId.
+assert.deepEqual(rolesForPath("/rm/client-info/some-uuid").sort(),     ["ADMIN", "RM"].sort());
 assert.deepEqual(rolesForPath("/pc/allocation-matrix").sort(),         ["ADMIN", "PC"].sort());
 assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/admin/enroll-user"),                   ["ADMIN"]);
@@ -55,7 +57,7 @@ assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/rm/onboarding-renewal",
 ].sort(), "ADMIN's single group must list every non-hidden page across every domain");
 // hideFromNav pages never appear as a nav child, even for ADMIN.
-assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/rm/client-detail" || p.href === "/monthly-reports"));
+assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/monthly-reports"));
 // Roles with no grants and roles with no ROLE_NAV entry both render zero groups.
 assert.deepEqual(groupsFor("PM"), []);
 assert.deepEqual(groupsFor("COMPLIANCE"), []);
