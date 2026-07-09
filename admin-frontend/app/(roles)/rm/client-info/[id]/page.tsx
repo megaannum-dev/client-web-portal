@@ -182,21 +182,27 @@ export default function ClientDetailPage() {
             <BalanceItem label="Total Cash Value" value={overlay.cashValue} censored={censored} />
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="Registered Address" value={data.address ?? "—"} />
-          <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
-          <InfoField label="Client Since" value={overlay.since} />
-          <InfoField label="Primary Contact" value={`${overlay.contact}\n${overlay.title}`} />
-          <InfoField label="Email" value={data.email ?? "—"} />
-          <InfoField label="Phone" value={data.phone ?? "—"} />
-          <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
-          <InfoField label="IB Account" value={data.ibAccount ?? "—"} />
-        </div>
-      </Card>
 
-      {/* Subscribed models + KYC */}
-      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <Card title="Subscribed Models" action={<Button variant="secondary" icon={Plus}>Add</Button>}>
+        <div className="mb-5">
+          <h4 className="mb-3.5 text-[13px] font-bold uppercase tracking-[0.05em] text-secondary">Basic Info</h4>
+          <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField label="Name" value={data.name ?? "—"} />
+            <InfoField label="Primary Phone" value={data.phone ?? "—"} />
+            <InfoField label="Email" value={data.email ?? "—"} />
+            <InfoField label="Registered Address" value={data.address ?? "—"} />
+            <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
+            <InfoField label="ID Info" value="—" />
+            <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
+            <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
+            <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-3.5 text-[13px] font-bold uppercase tracking-[0.05em] text-secondary">Subscription Info</h4>
+          <div className="mb-[18px] grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoField label="IB Account" value={data.ibAccount ?? "—"} />
+          </div>
           {overlay.models.length === 0 ? (
             <p className="py-1.5 text-[14px] text-secondary">No model subscriptions yet — onboarding in progress.</p>
           ) : (
@@ -220,25 +226,27 @@ export default function ClientDetailPage() {
               </tbody>
             </table>
           )}
-        </Card>
+        </div>
+      </Card>
 
-        <Card
-          title="KYC & Documents"
-          action={
-            <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
-              {verifiedCount} of {overlay.docs.length} verified
-            </Chip>
-          }
-        >
-          {overlay.docs.map((doc, i) => (
-            <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
-          ))}
-          <div className="mt-[18px] flex gap-3">
-            <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
-          </div>
-        </Card>
-      </div>
+      {/* KYC */}
+      <Card
+        title="KYC & Documents"
+        className="mb-5"
+        action={
+          <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
+            {verifiedCount} of {overlay.docs.length} verified
+          </Chip>
+        }
+      >
+        {overlay.docs.map((doc, i) => (
+          <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
+        ))}
+        <div className="mt-[18px] flex gap-3">
+          <Button variant="secondary" icon={Bell}>Request</Button>
+          <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
+        </div>
+      </Card>
 
       {/* History */}
       <Card title="History" action={<span className="text-[12px] text-secondary">{overlay.history.length} events</span>}>

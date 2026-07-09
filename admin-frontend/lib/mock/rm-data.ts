@@ -478,7 +478,6 @@ export interface MockOverlay {
   models: ClientModel[];
   cashValue: string;
   portfolioValue?: string;
-  clientId: string;
   contact: string;
   title: string;
   docs: ClientDoc[];
@@ -504,7 +503,6 @@ const OVERLAY_ROTATION: readonly OverlayCore[] = RM_CLIENTS.map((c): OverlayCore
     models: x.models ?? [],
     cashValue: x.cashValue || "—",
     portfolioValue: x.portfolioValue,
-    clientId: x.clientId || "MEGA-" + c.id.slice(0, 4).toUpperCase(),
     contact: c.contact,
     title: c.title,
   };
