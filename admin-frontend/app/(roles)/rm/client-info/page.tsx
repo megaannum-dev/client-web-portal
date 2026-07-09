@@ -33,7 +33,8 @@ const RM_NAME = "Dana Okafor";
 
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
-const norm = (s: string) => s.toLowerCase();
+// ponytail: case-sensitive by request — no .toLowerCase() here, trim only.
+const norm = (s: string) => s.trim();
 
 function matchClient(c: ClientRow, needle: string): boolean {
   if (!needle) return true;
@@ -43,9 +44,9 @@ function matchClient(c: ClientRow, needle: string): boolean {
 
 function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
   return Object.entries(active).every(([k, v]) => {
-    if (!norm(v ?? "").trim()) return true;
+    if (!norm(v ?? "")) return true;
     const f = ADV_FIELDS.find((x) => x.key === k);
-    return f ? norm(f.get(c)).includes(norm(v).trim()) : true;
+    return f ? norm(f.get(c)).includes(norm(v)) : true;
   });
 }
 
@@ -55,14 +56,17 @@ export default function RmDashboardPage() {
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
+  const [submittedQ, setSubmittedQ] = useState(""); // only this drives results — set on Enter/search-icon click
   const [advOpen, setAdvOpen] = useState(false);
   const [advDraft, setAdvDraft] = useState<Record<string, string>>(emptyAdv());
   const [advActive, setAdvActive] = useState<Record<string, string>>(emptyAdv());
   const [draftFields, setDraftFields] = useState<string[]>([]);
 
-  const activeAdvKeys = ADV_FIELDS.map((f) => f.key).filter((k) => norm(advActive[k] ?? "").trim());
+  const activeAdvKeys = ADV_FIELDS.map((f) => f.key).filter((k) => norm(advActive[k] ?? ""));
   const hasAdv = activeAdvKeys.length > 0;
-  const needle = norm(q).trim();
+  const needle = norm(submittedQ);
+  const submitSearch = () => setSubmittedQ(q);
+  const clearSearch = () => { setQ(""); setSubmittedQ(""); };
 
   const filtered: ClientRow[] = useMemo(() => {
     if (!data) return [];
@@ -124,18 +128,26 @@ export default function RmDashboardPage() {
               htmlFor="cb-search"
               className="flex items-center gap-3 rounded-md border border-outline-variant bg-white px-[18px] py-3.5 shadow-card transition-all duration-150 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15"
             >
-              <Search size={20} strokeWidth={2} className="shrink-0 text-primary/70" />
+              <button
+                type="button"
+                onClick={submitSearch}
+                title="Search"
+                className="flex shrink-0 items-center justify-center text-primary/70"
+              >
+                <Search size={20} strokeWidth={2} />
+              </button>
               <input
                 id="cb-search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); }}
                 placeholder='E.g. "Ardent Capital"'
                 className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-medium text-on-surface outline-none placeholder:text-secondary/70"
               />
               {q && (
                 <button
                   type="button"
-                  onClick={() => setQ("")}
+                  onClick={clearSearch}
                   title="Clear"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-container text-secondary"
                 >
@@ -149,7 +161,7 @@ export default function RmDashboardPage() {
                 {(needle || hasAdv) && (
                   <span>
                     <b className="font-semibold text-on-surface">{filtered.length}</b> match{filtered.length === 1 ? "" : "es"}
-                    {needle ? <> for &ldquo;{q}&rdquo;</> : null}
+                    {needle ? <> for &ldquo;{submittedQ}&rdquo;</> : null}
                     {hasAdv ? (
                       <>
                         {" "}with <b className="font-semibold text-on-surface">{activeAdvKeys.length}</b> filter{activeAdvKeys.length === 1 ? "" : "s"}
@@ -331,7 +343,7 @@ export default function RmDashboardPage() {
                         <span className="flex h-11 w-11 items-center justify-center rounded-md bg-surface-container text-secondary">
                           <SearchX size={20} strokeWidth={1.75} />
                         </span>
-                        <div className="text-[15px] font-semibold text-on-surface">No matching client{needle ? <> for &ldquo;{q}&rdquo;</> : null}</div>
+                        <div className="text-[15px] font-semibold text-on-surface">No matching client{needle ? <> for &ldquo;{submittedQ}&rdquo;</> : null}</div>
                         <div className="max-w-[440px] text-[13px] leading-normal text-secondary">
                           Double-check the spelling, try fewer characters, or search another field — name, phone number, email, or client ID.
                         </div>
