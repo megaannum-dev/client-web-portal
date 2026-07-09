@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
-from app.libs.clients.schemas import ClientListOut
+from app.libs.clients.schemas import ClientListItemOut, ClientListOut
 from app.libs.clients.service import ClientService
 from app.libs.users.repository import AdminProfileRepository
 from app.models.users import AdminRole, User
@@ -40,3 +41,13 @@ def list_clients(
     role: Annotated[AdminRole, Depends(_get_caller_role)],
 ) -> ClientListOut:
     return service.list_visible(role, user.firebase_uid)
+
+
+@router.get("/clients/{client_id}", response_model=ClientListItemOut)
+def get_client(
+    client_id: uuid.UUID,
+    service: Annotated[ClientService, Depends(_get_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_caller_role)],
+) -> ClientListItemOut:
+    return service.get_visible(role, user.firebase_uid, client_id)
