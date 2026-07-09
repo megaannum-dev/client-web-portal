@@ -11,6 +11,7 @@ from app.libs.trade_models.router import router as trade_models_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.users.router import router as users_router
+from app.libs.clients.router import router as clients_router
 
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
@@ -43,6 +44,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(trade_models_router, prefix="/api")
 app.include_router(allocation_matrix_router, prefix="/api")
+app.include_router(clients_router, prefix="/api")
 
 
 @app.get("/health")
