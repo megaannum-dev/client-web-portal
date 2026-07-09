@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
@@ -19,42 +19,39 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
-  RM_CLIENTS,
   RENEWALS_DUE,
   ONBOARDING_QUEUE,
   REQUEST_TICKETS,
-  KNOWN_CLIENT_IDS,
-  getClientDetail,
-  type RmClient,
+  getMockOverlay,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
+import { useClientBook } from "@/hooks/api/useClientBook";
+import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
+import type { ClientRow } from "@/lib/rm/clients";
 
 const RM_NAME = "Dana Okafor";
 
-/** Advanced-search field-level filters (name/phone/email/assignedRm/status/clientId). */
-const ADV_FIELDS: { key: string; label: string; placeholder: string; get: (c: RmClient) => string }[] = [
-  { key: "name", label: "Name", placeholder: "e.g. Ardent Capital", get: (c) => c.name },
-  { key: "phone", label: "Phone", placeholder: "e.g. +44 20 7946", get: (c) => getClientDetail(c.id)?.detail.phone ?? "" },
-  { key: "email", label: "Email", placeholder: "e.g. @harlowfo.com", get: (c) => c.email },
-  { key: "assignedRm", label: "Assigned RM", placeholder: `e.g. ${RM_NAME}`, get: (c) => c.assignedRm },
-  { key: "status", label: "Status", placeholder: "Active / Pending / In Review", get: (c) => c.status },
-  { key: "clientId", label: "Client ID", placeholder: "e.g. MEGA-0298", get: (c) => getClientDetail(c.id)?.detail.clientId ?? "" },
-];
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
 const norm = (s: string) => s.toLowerCase();
 
-function matchClient(c: RmClient, needle: string) {
+function matchClient(c: ClientRow, needle: string): boolean {
   if (!needle) return true;
-  const d = getClientDetail(c.id)?.detail;
-  const hay = [c.name, c.mandate, c.status, c.aum, c.renewal, c.contact, c.title, c.email, d?.phone, d?.country, d?.clientId, d?.address]
-    .filter(Boolean)
-    .join(" | ");
+  const hay = ADV_FIELDS.map((f) => f.get(c)).join(" | ");
   return norm(hay).includes(needle);
+}
+
+function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
+  return Object.entries(active).every(([k, v]) => {
+    if (!norm(v ?? "").trim()) return true;
+    const f = ADV_FIELDS.find((x) => x.key === k);
+    return f ? norm(f.get(c)).includes(norm(v).trim()) : true;
+  });
 }
 
 export default function RmDashboardPage() {
   const router = useRouter();
+  const { data, loading, error } = useClientBook();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -67,12 +64,11 @@ export default function RmDashboardPage() {
   const hasAdv = activeAdvKeys.length > 0;
   const needle = norm(q).trim();
 
-  const matchAdv = (c: RmClient) =>
-    !hasAdv ||
-    activeAdvKeys.every((k) => {
-      const f = ADV_FIELDS.find((x) => x.key === k)!;
-      return norm(f.get(c)).includes(norm(advActive[k]).trim());
-    });
+  const filtered: ClientRow[] = useMemo(() => {
+    if (!data) return [];
+    if (!needle && !hasAdv) return [];
+    return data.filter((c) => matchClient(c, needle) && matchAdv(c, advActive));
+  }, [data, needle, advActive, hasAdv]);
 
   const applyAdv = () => {
     const next = emptyAdv();
@@ -97,11 +93,7 @@ export default function RmDashboardPage() {
     setDraftFields((prev) => prev.filter((x) => x !== k));
   };
 
-  const filtered = (needle || hasAdv) ? RM_CLIENTS.filter((c) => matchClient(c, needle) && matchAdv(c)) : [];
-
-  const openClient = (id: string) => {
-    if (KNOWN_CLIENT_IDS.has(id)) router.push(`/rm/client-info/${id}`);
-  };
+  const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
   return (
@@ -119,7 +111,7 @@ export default function RmDashboardPage() {
           <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
             <div className="flex items-baseline gap-2.5">
               <h3 className="text-[18px] font-semibold text-on-surface">Client Book</h3>
-              <span className="text-[13px] text-secondary">142 active mandates</span>
+              <span className="text-[13px] text-secondary">{data?.length ?? 0} clients</span>
             </div>
             <Link href="/rm/onboarding-renewal">
               <Button icon={UserRoundPlus}>Onboard new</Button>
@@ -296,6 +288,16 @@ export default function RmDashboardPage() {
             )}
           </div>
 
+          {/* Loading state */}
+          {loading && !data && (
+            <div className="px-5 py-10 text-center text-[13px] text-secondary">Loading…</div>
+          )}
+
+          {/* Error state — rendered above the empty-state block */}
+          {error && (
+            <div className="px-5 py-3 text-[13px] font-medium text-error">{error}</div>
+          )}
+
           {/* Table */}
           <table className="w-full border-collapse text-[14px]">
             {filtered.length > 0 && (
@@ -339,7 +341,7 @@ export default function RmDashboardPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const phone = getClientDetail(r.id)?.detail.phone;
+                  const overlay = getMockOverlay(r.id);
                   return (
                     <tr
                       key={r.id}
@@ -347,16 +349,16 @@ export default function RmDashboardPage() {
                       className="group cursor-pointer transition-colors duration-100 hover:bg-surface-container"
                     >
                       <td className="border-t border-outline-variant px-[18px] py-[13px] font-semibold text-on-surface">{r.name}</td>
-                      <td className="border-t border-outline-variant px-[18px] py-[13px] tabular-nums text-secondary">{phone || "—"}</td>
-                      <td className="border-t border-outline-variant px-[18px] py-[13px]"><Chip tone={r.tone}>{r.status}</Chip></td>
+                      <td className="border-t border-outline-variant px-[18px] py-[13px] tabular-nums text-secondary">{r.phone || "—"}</td>
+                      <td className="border-t border-outline-variant px-[18px] py-[13px]"><Chip tone={overlay.tone}>{overlay.status}</Chip></td>
                       <td className="border-t border-outline-variant px-[18px] py-[13px] text-secondary">{r.assignedRm || "Unassigned"}</td>
                       <td
                         className={clsx(
                           "border-t border-outline-variant px-[18px] py-[13px]",
-                          r.renewal === "Overdue" ? "font-semibold text-error" : "text-secondary",
+                          overlay.renewal === "Overdue" ? "font-semibold text-error" : "text-secondary",
                         )}
                       >
-                        {r.renewal.replace(", 2026", "")}
+                        {overlay.renewal.replace(", 2026", "")}
                       </td>
                       <td className="border-t border-outline-variant px-3.5 py-[13px] text-right text-secondary group-hover:text-primary">
                         <ChevronRight size={16} strokeWidth={2} className="ml-auto" />
