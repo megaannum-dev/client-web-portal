@@ -10,9 +10,10 @@ import {
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { useClient } from "@/hooks/api/useClient";
+import type { SubscriptionDTO } from "@/lib/rm/clients";
 import {
   getMockOverlay,
   type ClientDoc,
@@ -20,6 +21,10 @@ import {
 } from "@/lib/mock/rm-data";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search };
+
+// Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
+const SUB_STATUS_LABEL: Record<string, string> = { live: "Active", draft: "In Review" };
+const SUB_STATUS_TONE: Record<string, ChipTone> = { live: "active", draft: "review" };
 
 const CHECK_TINT: Record<string, string> = {
   active:  "bg-success-container text-success-on-container",
@@ -183,7 +188,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        <div className="mb-5">
+        <div>
           <h4 className="mb-3.5 text-[13px] font-bold uppercase tracking-[0.05em] text-secondary">Basic Info</h4>
           <div className="grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             <InfoField label="Name" value={data.name ?? "—"} />
@@ -197,13 +202,12 @@ export default function ClientDetailPage() {
             <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
           </div>
         </div>
+      </Card>
 
-        <div>
-          <h4 className="mb-3.5 text-[13px] font-bold uppercase tracking-[0.05em] text-secondary">Subscription Info</h4>
-          <div className="mb-[18px] grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoField label="IB Account" value={data.ibAccount ?? "—"} />
-          </div>
-          {overlay.models.length === 0 ? (
+      {/* Subscribed models + KYC */}
+      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
+        <Card title="Subscribed Models" action={<Button variant="secondary" icon={Plus}>Add</Button>}>
+          {data.subscriptions.length === 0 ? (
             <p className="py-1.5 text-[14px] text-secondary">No model subscriptions yet — onboarding in progress.</p>
           ) : (
             <table className="w-full border-collapse text-[14px]">
@@ -215,38 +219,38 @@ export default function ClientDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {overlay.models.map((m, i) => (
+                {data.subscriptions.map((s: SubscriptionDTO, i) => (
                   <tr key={i}>
-                    <td className="border-t border-outline-variant py-3 pr-3 font-semibold text-on-surface">{m.name}</td>
-                    <td className="border-t border-outline-variant py-3 pr-3"><Chip tone={m.tone}>{m.status}</Chip></td>
-                    <td className="border-t border-outline-variant py-3 pr-3 tabular-nums text-on-surface">{m.account}</td>
-                    <td className="border-t border-outline-variant py-3 text-secondary">{m.notes}</td>
+                    <td className="border-t border-outline-variant py-3 pr-3 font-semibold text-on-surface">{s.model}</td>
+                    <td className="border-t border-outline-variant py-3 pr-3">
+                      <Chip tone={SUB_STATUS_TONE[s.status] ?? "neutral"}>{SUB_STATUS_LABEL[s.status] ?? s.status}</Chip>
+                    </td>
+                    <td className="border-t border-outline-variant py-3 pr-3 tabular-nums text-on-surface">{s.account ?? "—"}</td>
+                    <td className="border-t border-outline-variant py-3 text-secondary">—</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-        </div>
-      </Card>
+        </Card>
 
-      {/* KYC */}
-      <Card
-        title="KYC & Documents"
-        className="mb-5"
-        action={
-          <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
-            {verifiedCount} of {overlay.docs.length} verified
-          </Chip>
-        }
-      >
-        {overlay.docs.map((doc, i) => (
-          <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
-        ))}
-        <div className="mt-[18px] flex gap-3">
-          <Button variant="secondary" icon={Bell}>Request</Button>
-          <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
-        </div>
-      </Card>
+        <Card
+          title="KYC & Documents"
+          action={
+            <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
+              {verifiedCount} of {overlay.docs.length} verified
+            </Chip>
+          }
+        >
+          {overlay.docs.map((doc, i) => (
+            <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
+          ))}
+          <div className="mt-[18px] flex gap-3">
+            <Button variant="secondary" icon={Bell}>Request</Button>
+            <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
+          </div>
+        </Card>
+      </div>
 
       {/* History */}
       <Card title="History" action={<span className="text-[12px] text-secondary">{overlay.history.length} events</span>}>

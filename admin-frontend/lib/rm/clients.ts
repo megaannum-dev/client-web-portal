@@ -1,3 +1,9 @@
+export interface SubscriptionDTO {
+  model: string;
+  status: string; // raw ModelStatus value from the backend: "live" | "draft"
+  account: string | null;
+}
+
 export interface ClientListItemDTO {
   id: string;
   name: string | null;
@@ -9,6 +15,7 @@ export interface ClientListItemDTO {
   initiate_method: string | null;
   ib_account: string | null;
   email: string | null;
+  subscriptions?: SubscriptionDTO[]; // only populated on the single-client route
 }
 
 export interface ClientListDTO {
@@ -27,6 +34,7 @@ export interface ClientRow {
   initiateMethod: string | null;
   ibAccount: string | null;
   email: string | null;
+  subscriptions: SubscriptionDTO[];
 }
 
 export function dtoToRow(d: ClientListItemDTO): ClientRow {
@@ -41,6 +49,7 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     initiateMethod: d.initiate_method,
     ibAccount: d.ib_account,
     email: d.email,
+    subscriptions: d.subscriptions ?? [],
   };
 }
 
