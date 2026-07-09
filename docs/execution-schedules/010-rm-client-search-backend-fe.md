@@ -43,7 +43,7 @@
 | `FE-1` | — | root — config module has no dependency on DTOs or hooks |
 | `FE-2` | — | root — DTO types + mapper + endpoints entry, self-contained |
 | `FE-8` | — | root — mock overlay rewrite touches only `lib/mock/rm-data.ts`, independent of the fetch chain |
-| `FE-9` | — | root — pure route move + link fixes + config cleanup; touches no file any other unit creates, and reads no DTO/hook. Deliberately a root so it lands in the **first** wave, ahead of the data-wiring units, per the explicit "fix routes first" instruction. |
+| `FE-9` | — | root — pure route move + the Client Book's one link fix + config cleanup (OnboardingBoard out of scope, not touched); touches no file any other unit creates, and reads no DTO/hook. Deliberately a root so it lands in the **first** wave, ahead of the data-wiring units, per the explicit "fix routes first" instruction. |
 | `FE-3` | `FE-2` | server fetchers import `ClientListDTO`/`ClientListItemDTO` and the new `ENDPOINTS.RM.*` entries from `FE-2`. **Not** dependent on `FE-9` — `FE-3` creates `client-info/[id]/actions.ts` directly at the final location (brand-new file, nothing to relocate); it shares that new directory with `FE-9`'s relocated `page.tsx` without needing to run after it. |
 | `FE-4` | `FE-2`, `FE-3` | hook imports `dtoListToRows` (`FE-2`) and calls the `getClients` action (`FE-3`) |
 | `FE-5` | `FE-2`, `FE-3`, `FE-4` | hook imports `dtoToRow` (`FE-2`), calls the `getClient` action (`FE-3`), and reads `getCachedById` exported from `useClientBook` (`FE-4`) |
@@ -91,7 +91,7 @@ open PR against parent branch
 | `FE-1` | impl §6 FE-1 — `client-search-fields.ts` config module | `create: lib/rm/client-search-fields.ts` | commit exists on layer branch |
 | `FE-2` | impl §6 FE-2 — DTO types, `ClientRow`, mapper, endpoints entry | `create: lib/rm/clients.ts`, `modify: server/endpoints.ts` | commit exists on layer branch |
 | `FE-8` | impl §6 FE-8 — mock overlay: hash-based lookup by real id | `modify: lib/mock/rm-data.ts` | commit exists on layer branch |
-| `FE-9` | impl §6 FE-9 — route consolidation: `client-detail/[id]` → `client-info/[id]` | `delete: app/(roles)/rm/client-detail/[id]/page.tsx`; `create: app/(roles)/rm/client-info/[id]/page.tsx`; `modify: app/(roles)/rm/client-info/page.tsx`; `modify: components/rm/OnboardingBoard.tsx`; `modify: lib/pages-config.ts`; `modify: lib/pages.check.ts` | commit exists on layer branch |
+| `FE-9` | impl §6 FE-9 — route consolidation: `client-detail/[id]` → `client-info/[id]` | `delete: app/(roles)/rm/client-detail/[id]/page.tsx`; `create: app/(roles)/rm/client-info/[id]/page.tsx`; `modify: app/(roles)/rm/client-info/page.tsx`; `modify: lib/pages-config.ts`; `modify: lib/pages.check.ts` (OnboardingBoard.tsx is **out of scope** — not touched; see impl §6 FE-9) | commit exists on layer branch |
 
 **Barrier before W2:** all four rows above show a commit on the layer branch AND wave-gate checks (§6) pass.
 
@@ -155,7 +155,7 @@ At the end of each feature wave, run in order — a failure blocks the next wave
 |---|---|---|---|
 | — | — | — | none found — see below |
 
-**The map is empty for every wave.** W1's four units (`FE-1`, `FE-2`, `FE-8`, `FE-9`) touch disjoint files — `FE-9`'s six files (`client-detail/[id]/page.tsx` delete, `client-info/[id]/page.tsx` create, `client-info/page.tsx` one-line, `OnboardingBoard.tsx` one-line, `pages-config.ts`, `pages.check.ts`) do not overlap with `FE-1`/`FE-2`/`FE-8`'s files. `FE-3` (W2) also lands in the new `client-info/[id]/` directory (`actions.ts`) but that is a different file from `FE-9`'s `page.tsx` in the same directory — still no collision, and they're in different waves regardless. W4's two units (`FE-5`, `FE-6`) touch `hooks/api/useClient.ts` and `app/(roles)/rm/client-info/page.tsx` respectively — disjoint. All units are truly parallel-safe within their waves.
+**The map is empty for every wave.** W1's four units (`FE-1`, `FE-2`, `FE-8`, `FE-9`) touch disjoint files — `FE-9`'s five files (`client-detail/[id]/page.tsx` delete, `client-info/[id]/page.tsx` create, `client-info/page.tsx` one-line, `pages-config.ts`, `pages.check.ts`) do not overlap with `FE-1`/`FE-2`/`FE-8`'s files. (`FE-8` and `FE-9` both would have contended on nothing regardless; note `FE-8` no longer removes any export, so there is no cross-unit coupling on `rm-data.ts` either.) `FE-3` (W2) also lands in the new `client-info/[id]/` directory (`actions.ts`) but that is a different file from `FE-9`'s `page.tsx` in the same directory — still no collision, and they're in different waves regardless. W4's two units (`FE-5`, `FE-6`) touch `hooks/api/useClient.ts` and `app/(roles)/rm/client-info/page.tsx` respectively — disjoint. All units are truly parallel-safe within their waves.
 
 ---
 
@@ -170,11 +170,11 @@ Verifies static properties of the finished layer against impl doc §6 / §9:
 - [ ] `lib/pages-config.ts` no longer defines `rm.client-detail` in `PageId`, `PAGES`, or `ROLE_PAGES.RM`.
 - [ ] `npx tsx admin-frontend/lib/pages.check.ts` exits 0.
 - [ ] `app/(roles)/rm/client-info/page.tsx` no longer imports `RM_CLIENTS`, `getClientDetail`, or `KNOWN_CLIENT_IDS` from `@/lib/mock/rm-data`; its `openClient` pushes to `/rm/client-info/${id}`.
-- [ ] `components/rm/OnboardingBoard.tsx`'s `openProfile` pushes to `/rm/client-info/${id}`, not `/rm/client-detail/${id}`.
+- [ ] `components/rm/OnboardingBoard.tsx` is **unchanged** from its `655b625` state (out of scope): it still imports `KNOWN_CLIENT_IDS` and still pushes to `/rm/client-detail/${id}`. Confirm the file was NOT modified — a diff touching it is a scope violation, not progress. (Its "Open client profile →" 404 is the accepted, documented consequence — proposal §3 Non-Goals.)
 - [ ] `app/(roles)/rm/client-info/[id]/page.tsx` calls `useClient(id)` and `getMockOverlay`, not `getClientDetail`; renders a "Basic Info" group (9 fields, "ID Info" always blank) and a "Subscription Info" group (IB Account + Subscribed Models).
-- [ ] `lib/mock/rm-data.ts` no longer exports `RM_CLIENTS`, `CLIENT_EXTRA`, `KNOWN_CLIENT_IDS`, `getClientDetail`, or `clientId` (on `MockOverlay`); `RENEWALS_DUE`/`ONBOARDING_QUEUE`/`REQUEST_TICKETS`/KYC pipeline/`SUB_CLIENTS` exports are untouched.
+- [ ] `lib/mock/rm-data.ts` **adds** `getMockOverlay` and drops only the `clientId` field from `MockOverlay` (FE-10); it **retains** `RM_CLIENTS`, `CLIENT_EXTRA`, `getClientDetail`, `KNOWN_CLIENT_IDS` (KNOWN_CLIENT_IDS still consumed by the out-of-scope OnboardingBoard; the rest are dead-but-kept, swept by a follow-up proposal). `RENEWALS_DUE`/`ONBOARDING_QUEUE`/`REQUEST_TICKETS`/KYC pipeline/`SUB_CLIENTS` untouched.
 - [ ] No `any` types introduced in the new files (`lib/rm/*.ts`, `hooks/api/useClient*.ts`).
-- [ ] `npx tsc --noEmit` reports zero errors across the whole project (confirms no dangling reference to a removed mock export or the deleted route elsewhere in the app).
+- [ ] `npx tsc --noEmit` reports zero errors across the whole project. (OnboardingBoard's `/rm/client-detail` push is a plain string, not a typed route reference — Next.js does not validate it at build time, so the deleted route does not cause a compile error. This is expected, not a dangling reference to chase.)
 
 Reports **PASS** or an explicit list of failures with file + line.
 
