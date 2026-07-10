@@ -60,9 +60,7 @@ function AllModelsCard({
         </div>
       </div>
       <div className="flex min-h-0 w-full flex-1 items-center">
-        <div className="w-full">
           <StackedBarChart models={models} orientation={orientation} onSelectModel={onSelectModel} />
-        </div>
       </div>
       <p className="mt-4 text-[12.5px] leading-[1.55] text-secondary">
         Each bar is one model&apos;s money traded that day (label = model total), segmented by the clients it was

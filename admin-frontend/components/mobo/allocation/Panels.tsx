@@ -56,9 +56,12 @@ export function clientColor(clientId: string): string {
 
 /* ============================================================
    Donut — SVG donut/pie built from stroked circle arcs, one client
-   per segment. Hover a segment for a floating tooltip (portaled to
+   per segment. Scales to fill its container (largest square that
+   fits). Hover a segment for a floating tooltip (portaled to
    <body>, positioned at the pointer).
    ============================================================ */
+const DONUT_VIEW = 200;
+
 interface DonutTip {
   x: number;
   y: number;
@@ -73,18 +76,16 @@ export function Donut({
   shares,
   centerVal,
   centerSub,
-  size = 200,
 }: {
   shares: PtaClientShare[];
   centerVal: string;
   centerSub: string;
-  size?: number;
 }) {
   const [tip, setTip] = useState<DonutTip | null>(null);
-  const r = size * 0.37;
-  const cx = size / 2;
-  const cy = size / 2;
-  const sw = size * 0.145;
+  const r = DONUT_VIEW * 0.37;
+  const cx = DONUT_VIEW / 2;
+  const cy = DONUT_VIEW / 2;
+  const sw = DONUT_VIEW * 0.145;
   const C = 2 * Math.PI * r;
 
   // Arc length uses the EXACT delegated-amount fraction, not `pct` (that's
@@ -114,8 +115,8 @@ export function Donut({
   };
 
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+    <div className="relative aspect-square h-[80%] w-auto max-w-full">
+      <svg viewBox={`0 0 ${DONUT_VIEW} ${DONUT_VIEW}`} className="block h-full w-full">
         {arcs.map((s) => {
           const len = Math.max(0, s.frac * C - 1.5);
           const hovered = tip?.name === s.name;
@@ -138,21 +139,31 @@ export function Donut({
             />
           );
         })}
-      </svg>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span
-          className="font-bold tabular-nums tracking-[-0.01em] text-on-surface"
-          style={{ fontSize: size * 0.135 }}
+        <text
+          x={cx}
+          y={cy - 6}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="var(--on-surface)"
+          fontSize={DONUT_VIEW * 0.135}
+          fontWeight={700}
+          style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}
         >
           {centerVal}
-        </span>
-        <span
-          className="mt-1 font-bold uppercase tracking-[0.04em] text-secondary"
-          style={{ fontSize: size * 0.06 }}
+        </text>
+        <text
+          x={cx}
+          y={cy + DONUT_VIEW * 0.08}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="var(--secondary)"
+          fontSize={DONUT_VIEW * 0.06}
+          fontWeight={700}
+          style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}
         >
           {centerSub}
-        </span>
-      </div>
+        </text>
+      </svg>
       {tip &&
         createPortal(
           <div
@@ -324,8 +335,8 @@ export function PerModelDetail({
           View model
         </Button>
       </div>
-      <div className="flex flex-1 items-center justify-center py-2">
-        <Donut shares={model.clientShares} centerVal={ptaMoney(model.traded)} centerSub="traded" size={260} />
+      <div className="flex min-h-0 flex-1 items-center justify-center py-2">
+        <Donut shares={model.clientShares} centerVal={ptaMoney(model.traded)} centerSub="traded" />
       </div>
       <p className="mt-4 text-center text-[12px] text-secondary">
         Hover a segment for its client, units, delegated amount and share.
