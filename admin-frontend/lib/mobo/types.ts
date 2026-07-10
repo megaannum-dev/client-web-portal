@@ -419,3 +419,72 @@ import type { ChipTone } from "@/components/ui/Chip";
 
 export const SEV_LABEL: Record<Severity, string> = { hi: "High", med: "Med", lo: "Low" };
 export const SEV_TONE: Record<Severity, ChipTone> = { hi: "failed", med: "pending", lo: "review" };
+
+/* ============================================================
+   POST-TRADE ALLOCATION (view layer)
+
+   How much was traded per allocation model on a settlement day,
+   and how that money is delegated (pro-rata by subscribed units)
+   to each subscribing client. DATA REALITY: this is mock-only
+   today — no backend, no stored subscription-units source — see
+   `lib/mobo/allocation.ts`'s header comment.
+   ============================================================ */
+
+/** An allocation model traded on the settlement day. */
+export interface PtaModel {
+  id: string;
+  name: string;
+  acct: string;
+  traded: number;
+}
+
+/** A client that may subscribe (by units) to one or more models. */
+export interface PtaClient {
+  id: string;
+  name: string;
+}
+
+/**
+ * One client's pro-rata slice of a model's traded amount.
+ *   units     — subscribed units backing the delegation
+ *   delegated — raw delegated amount (formatting is the component's job)
+ *   pct       — rounded 0-100 share of the model's units
+ */
+export interface PtaClientShare {
+  clientId: string;
+  name: string;
+  units: number;
+  delegated: number;
+  pct: number;
+}
+
+/** One point on the settlement-day trend line. */
+export interface PtaTrendPoint {
+  date: string;
+  total: number;
+}
+
+/**
+ * A model plus its precomputed client breakdown. `unitsTotal` and
+ * `clientShares` are derived once by the loader so consumers never
+ * re-derive the pro-rata split.
+ */
+export interface PtaModelAllocation extends PtaModel {
+  unitsTotal: number;
+  clientShares: PtaClientShare[];
+}
+
+/**
+ * The bundle `loadPostTradeAllocation()` returns — what both the
+ * "All models" and "Per model" screens bind to. Every model already
+ * carries its own `clientShares`, so a page component needs zero
+ * business-logic recomputation.
+ */
+export interface PostTradeAllocationView {
+  /** Settlement day label (reuses the same `SETTLE_DAY` as reconciliation). */
+  settleDay: string;
+  models: PtaModelAllocation[];
+  /** Sum of every model's `traded` (all-models chart total). */
+  grandTotal: number;
+  trend: PtaTrendPoint[];
+}
