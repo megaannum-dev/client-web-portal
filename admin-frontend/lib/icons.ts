@@ -123,4 +123,8 @@ export {
   LayoutDashboardIcon,
   // CRM — RM client book search
   SearchX,
+  // CRM — MOBO Post-Trade Allocation
+  BarChart3,
+  BarChartHorizontal,
+  Coins,
 } from "lucide-react";
