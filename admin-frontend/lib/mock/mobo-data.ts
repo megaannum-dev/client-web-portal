@@ -38,7 +38,6 @@ import type {
   Order,
   PtaClient,
   PtaModel,
-  PtaTrendPoint,
 } from "@/lib/mobo/types";
 
 /* ---- Settlement day label --------------------------------- */
@@ -695,11 +694,3 @@ export const PTA_UNITS: Record<string, Record<string, number>> = {
   mC: { cB: 4, cC: 1, cD: 3, cE: 1 }, // 9 units
 };
 
-/** Grand-total traded notional trend across recent settlement days. */
-export const PTA_TREND: PtaTrendPoint[] = [
-  { date: "28 May", total: 7200000 },
-  { date: "29 May", total: 8900000 },
-  { date: "30 May", total: 12300000 },
-  { date: "02 Jun", total: 9600000 },
-  { date: "03 Jun", total: 11450000 },
-];

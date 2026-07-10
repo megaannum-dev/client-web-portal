@@ -3,7 +3,7 @@
 /* ============================================================
    MOBO — Post-Trade Allocation supporting panels
    Donut · ScopeToggle · OrientationToggle · ModelRow ·
-   PerModelDetail · RangeCard · EmptyCard · DateControl
+   PerModelDetail · EmptyCard · DateControl
 
    Ported from the design handoff (MoboAllocation.jsx), re-styled
    to Tailwind + this codebase's component conventions. The
@@ -14,11 +14,11 @@
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import {
-  BarChart3, BarChartHorizontal, Layers, Coins, CalendarDays, Check, History, RefreshCw,
+  BarChart3, BarChartHorizontal, Layers, Coins, CalendarDays, Check, RefreshCw,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
-import type { PtaClientShare, PtaModelAllocation, PtaTrendPoint } from "@/lib/mobo/types";
+import type { PtaClientShare, PtaModelAllocation } from "@/lib/mobo/types";
 
 /* ============================================================
    Client → color
@@ -87,11 +87,18 @@ export function Donut({
   const sw = size * 0.145;
   const C = 2 * Math.PI * r;
 
+  // Arc length uses the EXACT delegated-amount fraction, not `pct` (that's
+  // pre-rounded to a whole percent for display and rarely sums to exactly
+  // 100 across a model's clients — using it for geometry left visible
+  // gaps or overlaps between segments). `pct` is still used for the
+  // tooltip's displayed share.
+  const total = shares.reduce((sum, s) => sum + s.delegated, 0) || 1;
   let off = 0;
   const arcs = shares.map((s) => {
+    const frac = s.delegated / total;
     const startOff = off;
-    off += (s.pct / 100) * C;
-    return { ...s, startOff, color: clientColor(s.clientId) };
+    off += frac * C;
+    return { ...s, frac, startOff, color: clientColor(s.clientId) };
   });
 
   const move = (e: ReactMouseEvent, s: (typeof arcs)[number]) => {
@@ -110,7 +117,7 @@ export function Donut({
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
         {arcs.map((s) => {
-          const len = Math.max(0, (s.pct / 100) * C - 1.5);
+          const len = Math.max(0, s.frac * C - 1.5);
           const hovered = tip?.name === s.name;
           return (
             <circle
@@ -304,7 +311,7 @@ export function PerModelDetail({
   settleDay: string;
 }) {
   return (
-    <div className="rounded-2xl border border-outline-variant bg-surface-lowest px-[22px] pb-[22px] pt-[18px] shadow-card">
+    <div className="flex h-full flex-col rounded-2xl border border-outline-variant bg-surface-lowest px-[22px] pb-[22px] pt-[18px] shadow-card">
       <div className="mb-[18px] flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[18px] font-semibold text-on-surface">{model.name} — client delegation</h3>
@@ -317,92 +324,11 @@ export function PerModelDetail({
           View model
         </Button>
       </div>
-      <div className="flex justify-center py-2">
+      <div className="flex flex-1 items-center justify-center py-2">
         <Donut shares={model.clientShares} centerVal={ptaMoney(model.traded)} centerSub="traded" size={260} />
       </div>
       <p className="mt-4 text-center text-[12px] text-secondary">
         Hover a segment for its client, units, delegated amount and share.
-      </p>
-    </div>
-  );
-}
-
-/* ============================================================
-   RangeCard — multi-day trend bar chart + date-range pill selector
-   ============================================================ */
-export function RangeCard({
-  trend,
-  onPickDate,
-  onPickRange,
-}: {
-  trend: PtaTrendPoint[];
-  onPickDate?: (label: string) => void;
-  onPickRange?: () => void;
-}) {
-  const max = Math.max(1, ...trend.map((d) => d.total));
-  const quickRanges = ["Last day", "Last 5 days", "Month to date"];
-  const activeIdx = 1; // "Last 5 days" — decorative default, matches the prototype
-
-  return (
-    <div className="rounded-2xl border border-outline-variant bg-surface-lowest px-[22px] pb-[22px] pt-[18px] shadow-card">
-      <h3 className="mb-3.5 text-[17px] font-semibold text-on-surface">Date range</h3>
-
-      <div className="mb-[18px] inline-flex flex-wrap items-center gap-0.5 rounded-md bg-surface-container p-[3px]">
-        {quickRanges.map((l, i) => (
-          <button
-            key={l}
-            type="button"
-            onClick={() => onPickDate?.(l)}
-            className={[
-              "rounded px-3.5 py-2 text-[13px] font-bold transition-all duration-150",
-              i === activeIdx ? "bg-white text-on-surface shadow-card" : "bg-transparent text-secondary",
-            ].join(" ")}
-          >
-            {l}
-          </button>
-        ))}
-        {/* ponytail: decorative affordance — no real date-range picker in this pass */}
-        <button
-          type="button"
-          onClick={() => onPickRange?.()}
-          className="flex items-center gap-1.5 rounded px-3.5 py-2 text-[13px] font-bold text-secondary"
-        >
-          <CalendarDays size={13} strokeWidth={2} /> Custom…
-        </button>
-      </div>
-
-      <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
-        Total traded · last {trend.length} settlement days
-      </div>
-
-      <div className="flex h-[220px] items-end gap-5 border-b border-outline px-1.5 pt-6">
-        {trend.map((d, i) => {
-          const isToday = i === trend.length - 1;
-          const hPct = Math.max(6, Math.round((d.total / max) * 100));
-          return (
-            <div key={d.date} className="flex h-full flex-1 flex-col items-center justify-end">
-              <div
-                className={`relative w-[56%] max-w-[90px] rounded-t-[7px] ${isToday ? "bg-primary" : "bg-outline"}`}
-                style={{ height: `${hPct}%` }}
-              >
-                <span className="absolute -top-[22px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[12.5px] font-bold tabular-nums text-on-surface">
-                  {ptaMoney(d.total)}
-                </span>
-              </div>
-              <div className="mt-2.5 text-center text-[12.5px] font-bold text-on-surface">
-                {d.date}
-                {isToday && (
-                  <div className="text-[10.5px] font-bold uppercase tracking-[0.04em] text-primary">today</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="mt-[18px] border-t border-outline-variant pt-3.5 text-[12.5px] leading-[1.55] text-secondary">
-        Default is the <b className="text-on-surface">last settlement day</b>. Widen the range to total the money
-        traded over several days — the charts and breakdown re-scale to the selected window.
       </p>
     </div>
   );
@@ -436,23 +362,16 @@ export function EmptyCard({ settleDay }: { settleDay: string }) {
 }
 
 /* ============================================================
-   DateControl — settlement-day dropdown (4 discrete dates, plus an
-   optional historical range option)
+   DateControl — settlement-day dropdown (4 discrete dates)
    ============================================================ */
 const PTA_DISCRETE_DATES = ["03 Jun 2026", "02 Jun 2026", "01 Jun 2026", "29 May 2026"];
 
 export function DateControl({
   dateLabel,
-  effectiveView,
-  allowDateRange,
   onPickDate,
-  onPickRange,
 }: {
   dateLabel: string;
-  effectiveView: "all" | "per" | "range" | "empty";
-  allowDateRange: boolean;
   onPickDate: (d: string) => void;
-  onPickRange: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -466,7 +385,7 @@ export function DateControl({
             Settlement day
           </div>
           {PTA_DISCRETE_DATES.map((d) => {
-            const on = effectiveView !== "range" && d === dateLabel;
+            const on = d === dateLabel;
             return (
               <button
                 key={d}
@@ -485,24 +404,6 @@ export function DateControl({
               </button>
             );
           })}
-          {allowDateRange && (
-            <>
-              <div className="mx-0.5 my-1 h-px bg-outline-variant" />
-              <button
-                type="button"
-                onClick={() => {
-                  onPickRange();
-                  setOpen(false);
-                }}
-                className={[
-                  "flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] font-bold text-primary",
-                  effectiveView === "range" ? "bg-surface-container" : "bg-transparent",
-                ].join(" ")}
-              >
-                <History size={14} strokeWidth={2} /> Last 5 days (historical)
-              </button>
-            </>
-          )}
         </div>
       )}
     </div>

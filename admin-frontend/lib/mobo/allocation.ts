@@ -29,7 +29,6 @@ import type {
 import {
   PTA_CLIENTS as MOCK_PTA_CLIENTS,
   PTA_MODELS as MOCK_PTA_MODELS,
-  PTA_TREND as MOCK_PTA_TREND,
   PTA_UNITS as MOCK_PTA_UNITS,
   SETTLE_DAY as MOCK_SETTLE_DAY,
 } from "../mock/mobo-data";
@@ -75,6 +74,5 @@ export function loadPostTradeAllocation(): PostTradeAllocationView {
     settleDay: MOCK_SETTLE_DAY,
     models,
     grandTotal,
-    trend: MOCK_PTA_TREND,
   };
 }

@@ -458,12 +458,6 @@ export interface PtaClientShare {
   pct: number;
 }
 
-/** One point on the settlement-day trend line. */
-export interface PtaTrendPoint {
-  date: string;
-  total: number;
-}
-
 /**
  * A model plus its precomputed client breakdown. `unitsTotal` and
  * `clientShares` are derived once by the loader so consumers never
@@ -486,5 +480,4 @@ export interface PostTradeAllocationView {
   models: PtaModelAllocation[];
   /** Sum of every model's `traded` (all-models chart total). */
   grandTotal: number;
-  trend: PtaTrendPoint[];
 }
