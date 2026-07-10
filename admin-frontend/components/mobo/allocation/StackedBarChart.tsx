@@ -195,7 +195,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
     // within whatever extra vertical space its card has.
     const height = Math.max(220, models.length * 64);
     return (
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer key="horizontal" width="100%" height={height}>
         <BarChart
           data={chartData}
           layout="vertical"
@@ -251,7 +251,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
   }
 
   return (
-    <ResponsiveContainer width="100%" height={340}>
+    <ResponsiveContainer key="vertical" width="100%" height={340}>
       <BarChart
         data={chartData}
         layout="horizontal"
