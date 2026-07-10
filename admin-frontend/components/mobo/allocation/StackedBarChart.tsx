@@ -52,13 +52,31 @@ function unionClientIds(models: PtaModelAllocation[]): string[] {
    client (delegated amount). Clients absent from a model are simply
    omitted — Recharts stacks the rest correctly. `shares` carries the
    already-computed PtaClientShare per client for the tooltip, so
-   nothing here is recomputed from scratch. ------------------------ */
+   nothing here is recomputed from scratch.
+
+   `TOTAL_LABEL_KEY` is a near-zero (not exactly zero — Recharts skips
+   rendering, and thus the label callback, for an exactly-0 stacked
+   value the same as a missing one) series stacked on top, present in
+   EVERY row (unlike any real client, who may not subscribe to every
+   model). Recharts only invokes a Bar's per-shape/label callback for
+   rows where that series has a value, and the `index` it hands back
+   is positional within THAT SERIES' rendered rows, not the row's
+   index in the full dataset — so a series missing from even one model
+   throws every later row's label off by however many rows it skipped.
+   Keeping one series that's never missing keeps the label's row
+   lookup aligned with `chartData` for every model. The epsilon is
+   ~8 orders of magnitude below a real traded amount, so it's invisible
+   both on screen and in the axis domain. ---------------------------- */
+const TOTAL_LABEL_KEY = "__total";
+const TOTAL_LABEL_EPSILON = 0.01;
+
 interface ChartRow {
   modelId: string;
   modelName: string;
   modelAcct: string;
   traded: number;
   shares: Record<string, PtaClientShare>;
+  [TOTAL_LABEL_KEY]: number;
   [clientId: string]: unknown;
 }
 
@@ -71,6 +89,7 @@ function buildChartData(models: PtaModelAllocation[]): ChartRow[] {
       modelAcct: m.acct,
       traded: m.traded,
       shares,
+      [TOTAL_LABEL_KEY]: TOTAL_LABEL_EPSILON,
     };
     for (const cs of m.clientShares) {
       shares[cs.clientId] = cs;
@@ -170,11 +189,10 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
     if (modelId) onSelectModel?.(modelId);
   };
 
-  // Label sits on the TOP-most stacked segment (the last client rendered),
-  // so its "top" position is the top of the whole stack, not one segment.
-  const topClientId = allClientIds[allClientIds.length - 1];
-
   if (orientation === "horizontal") {
+    // Height scales with row count so bars stay legible regardless of how
+    // many models there are; the caller centers this fixed-height chart
+    // within whatever extra vertical space its card has.
     const height = Math.max(220, models.length * 64);
     return (
       <ResponsiveContainer width="100%" height={height}>
@@ -203,28 +221,30 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
               maxBarSize={48}
               cursor={cursor}
               onClick={handleClick}
-              label={
-                clientId === topClientId
-                  ? (props: LabelProps) => {
-                      const { x, y, width, height: h, index = 0 } = numLabelProps(props);
-                      const row = chartData[index];
-                      if (!row) return <g />;
-                      return (
-                        <text
-                          x={x + width + 8}
-                          y={y + h / 2}
-                          dy={4}
-                          textAnchor="start"
-                          style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
-                        >
-                          {ptaMoney(row.traded)}
-                        </text>
-                      );
-                    }
-                  : undefined
-              }
             />
           ))}
+          <Bar
+            dataKey={TOTAL_LABEL_KEY}
+            stackId="traded"
+            fill="transparent"
+            maxBarSize={48}
+            label={(props: LabelProps) => {
+              const { x, y, height: h, index = 0 } = numLabelProps(props);
+              const row = chartData[index];
+              if (!row) return <g />;
+              return (
+                <text
+                  x={x + 8}
+                  y={y + h / 2}
+                  dy={4}
+                  textAnchor="start"
+                  style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+                >
+                  {ptaMoney(row.traded)}
+                </text>
+              );
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -257,27 +277,29 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
             maxBarSize={140}
             cursor={cursor}
             onClick={handleClick}
-            label={
-              clientId === topClientId
-                ? (props: LabelProps) => {
-                    const { x, y, width, index = 0 } = numLabelProps(props);
-                    const row = chartData[index];
-                    if (!row) return <g />;
-                    return (
-                      <text
-                        x={x + width / 2}
-                        y={y - 8}
-                        textAnchor="middle"
-                        style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
-                      >
-                        {ptaMoney(row.traded)}
-                      </text>
-                    );
-                  }
-                : undefined
-            }
           />
         ))}
+        <Bar
+          dataKey={TOTAL_LABEL_KEY}
+          stackId="traded"
+          fill="transparent"
+          maxBarSize={140}
+          label={(props: LabelProps) => {
+            const { x, y, width, index = 0 } = numLabelProps(props);
+            const row = chartData[index];
+            if (!row) return <g />;
+            return (
+              <text
+                x={x + width / 2}
+                y={y - 8}
+                textAnchor="middle"
+                style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+              >
+                {ptaMoney(row.traded)}
+              </text>
+            );
+          }}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
