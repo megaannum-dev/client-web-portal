@@ -1,633 +1,203 @@
 "use client";
 
 /* ============================================================
-   MOBO Trade Reconciliation — three-way, two-panel screen
-   Resting: TWO side-by-side match panels.
-     Left  — Trader vs IB   (ti leg — trader blotter ↔ stored IB)
-     Right — IB vs CRM       (ic leg — set-membership integrity)
-   Click any row → both panels compress into one severity queue
-   (290px) and the field-by-field triage panel slides in on the
-   right (TriageDetail). Column animation uses grid-template-columns
-   px→px (reliable; flex/fr width transitions glitch).
+   MOBO Trade Reconciliation — FLOW VIEW
+   Three-row flow: AlgoTrade Orders -> IB Client Allocations -> CRM Portfolio.
+   Click any card -> a side detail panel slides in; cross-layer
+   highlighting shows the flow relationship for a selected order's model.
 
-   DATA REALITY (001 §6): consumed ONLY through loadReconciliation().
-   The stored-IB column is the populated source; trader & fetched-IB
-   columns render empty ("awaiting source"), NOT as breaks. Identifiers
-   are the real ibOrderID / orderID. Counters are re-based to
-   single-source counts from ReconCounters.
-   Ported faithfully from the design handoff (MoboRecon.jsx).
+   Ported from the design handoff (mobo/mobo-app/MoboRecon.jsx), replacing
+   the old two-panel triage screen. The triage data model/seam (`lib/mobo/
+   types.ts` + `lib/mobo/reconciliation.ts`) is untouched — recon-overview
+   and daily-exception-report still depend on it. This page uses the new,
+   separate flow model (`lib/mobo/flow-types.ts` + `lib/mobo/
+   reconciliation-flow.ts` + `lib/mock/mobo-flow-data.ts`).
+
+   PANEL-HEIGHT FIX (vs. the prototype): the prototype capped the side
+   detail panel to two different, unrelated `calc(100vh - Npx)` constants
+   (one on the sticky wrapper, a different one inside FlowDetail) with no
+   connection to the actual rendered height of the three flow rows — so
+   the panel visibly stopped short of the row column's real bottom edge
+   once a row grew taller (e.g. a client with more model allocations).
+   Here the flow column's height is measured (ResizeObserver) and the
+   detail wrapper is sized to `min(measured flow height, viewport budget)`
+   via a single CSS `min()` — the two always agree, and FlowDetail (which
+   now renders at `h-full`) just fills whatever height it's given.
    ============================================================ */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  SlidersHorizontal, Link2, Unlink, X, ChevronRight, Check,
-} from "@/lib/icons";
-import type { LucideIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BarChart3, Users, Database, Link2 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip, type ChipTone } from "@/components/ui/Chip";
-import {
-  MetricStat, SegBar, TriageDetail, richSub, ExecCompare, INTEG,
-} from "@/components/mobo/Shared";
-import { loadReconciliation, AWAITING_SOURCE } from "@/lib/mobo/reconciliation";
-import type {
-  MatchState, ReconLeg, ReconTrade,
-} from "@/lib/mobo/types";
+import { MetricStat } from "@/components/mobo/Shared";
+import { OrderCard, AllocCard, PortfolioCard, FlowRow, FlowConnector } from "@/components/mobo/recon-flow/Cards";
+import { FlowDetail } from "@/components/mobo/recon-flow/Detail";
+import { loadReconciliationFlow } from "@/lib/mobo/reconciliation-flow";
 
-/* ---- match gutter glyph ------------------------------------ */
-const GUT: Record<MatchState, { icon: LucideIcon; bg: string; fg: string }> = {
-  ok:   { icon: Link2, bg: "#e3f1e7", fg: "#2f7a47" },
-  brk:  { icon: Unlink, bg: "#fdeccd", fg: "#b9741f" },
-  miss: { icon: X, bg: "#f7ddd6", fg: "#b1402f" },
-};
-const ROW_TINT: Record<MatchState, string> = {
-  ok: "transparent",
-  brk: "rgba(242,116,5,0.05)",
-  miss: "rgba(186,26,26,0.045)",
-};
-const RC_PANEL_H = 560;
-const QW = 290;
+type Sel = { type: "order" | "alloc" | "port"; id: string } | null;
+
+const DW = 380; // detail panel width
 const GAP = 18;
-
-/* Layout/animation tweaks (handoff "Tweaks" panel — baked to the approved
-   values; the design's panel is a design-time control, not shipped):
-     Direction   : swapped     → Trader↔IB compresses RIGHT (detail slides
-                                 from the left) · IB↔CRM compresses LEFT.
-     Panel header: encapsulated → the title sits INSIDE the card.
-     Legend      : external     → the legend sits BELOW the card. */
-const SLIDE_MS = 340;
-const SLIDE_SWAP = true;
-const HEADER_MODE: "inside" | "outside" = "inside";
-const LEGEND_MODE: "inside" | "outside" = "outside";
-
-const STATE_TONE: Record<MatchState, ChipTone> = { ok: "active", brk: "warm", miss: "failed" };
-const STATE_LABEL: Record<MatchState, string> = { ok: "Matched", brk: "Break", miss: "Unmatched" };
-
-/* ---- flat leg list -----------------------------------------
-   Each trade yields two legs (ti — Trader↔IB, ic — IB↔CRM). A leg
-   is the unit the panels render and the triage panel inspects; it
-   carries its parent trade so it drops straight into TriageDetail. */
-type LegKind = "ti" | "ic";
-interface FlatLeg {
-  key: string;
-  lineId: string;
-  kind: LegKind;
-  inst: string;
-  pair: string;
-  /** Left column ref + summary. ti: Trader (awaiting). ic: IB · live. */
-  leftRef: string | null;
-  leftSub: string | null;
-  /** Right column ref + summary. ti: stored IB (populated). ic: CRM · stored. */
-  rightRef: string | null;
-  rightSub: string | null;
-  leg: ReconLeg;
-  trade: ReconTrade;
-}
-
-function buildLegs(trades: ReconTrade[]): FlatLeg[] {
-  const out: FlatLeg[] = [];
-  trades.forEach((t) => {
-    // Trader vs IB — IB is the populated right side; trader awaits source (left).
-    out.push({
-      key: `${t.id}-ti`, lineId: t.id, kind: "ti", inst: t.inst,
-      pair: "Trader vs IB",
-      leftRef: t.trader, leftSub: t.ti.ls,   // trader — awaiting source
-      rightRef: t.ib, rightSub: t.ti.rs,     // stored IB — populated
-      leg: t.ti, trade: t,
-    });
-    // IB vs CRM — live IB (left) vs stored copy (right). One side is absent on
-    // orphaned (no live) / missingDb (not stored).
-    const orphaned = t.ic.integrity === "orphaned";
-    const missingDb = t.ic.integrity === "missingDb";
-    out.push({
-      key: `${t.id}-ic`, lineId: t.id, kind: "ic", inst: t.inst,
-      pair: "IB vs CRM",
-      leftRef: orphaned ? null : t.ib, leftSub: t.ic.ls,      // live IB
-      rightRef: missingDb ? null : t.crm, rightSub: t.ic.rs,  // stored CRM copy
-      leg: t.ic, trade: t,
-    });
-  });
-  return out;
-}
-
-/* ---- two-sided match row (one leg) -------------------------
-   Both columns share this layout. The populated stored-IB side
-   is the LEFT cell; the counterpart (trader / crm) renders empty
-   ("awaiting source") in today's data reality — NOT a break. The
-   chevron expands the row into a per-execution comparison. */
-function MatchRow({
-  leg, first, onClick, defaultExpanded,
-}: {
-  leg: FlatLeg;
-  first: boolean;
-  onClick: () => void;
-  defaultExpanded?: boolean;
-}) {
-  const [open, setOpen] = useState(!!defaultExpanded);
-  const g = GUT[leg.leg.state];
-  const Icon = g.icon;
-  const isIC = leg.kind === "ic";
-  const hasExecs = !!leg.leg.execs && leg.leg.execs.length > 0;
-
-  const cell = (ref: string | null, sub: string | null, right: boolean) => (
-    <div className={`min-w-0 px-4 py-3 ${right ? "text-right" : "text-left"}`}>
-      {ref ? (
-        <>
-          <div className="text-[13px] font-bold text-on-surface">{ref} · {leg.inst}</div>
-          <div className="mt-0.5 text-[12px] tabular-nums text-secondary">{richSub(sub)}</div>
-        </>
-      ) : (
-        <div className="text-[12px] italic text-secondary">awaiting source</div>
-      )}
-    </div>
-  );
-
-  return (
-    <div className={first ? "" : "border-t border-outline-variant"}>
-      <div
-        onClick={onClick}
-        title="Click to open the triage panel"
-        className="grid cursor-pointer items-center transition-colors duration-100 hover:bg-surface-container"
-        style={{ gridTemplateColumns: "28px 1fr 48px 1fr", background: ROW_TINT[leg.leg.state] }}
-      >
-        <div className="flex justify-center">
-          {hasExecs && (
-            <button
-              type="button"
-              title={open ? "Hide executions" : "Show executions"}
-              onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-              className="flex rounded-md p-0.5 text-secondary transition-transform duration-150"
-              style={{ transform: open ? "rotate(90deg)" : "none" }}
-            >
-              <ChevronRight size={15} strokeWidth={2.25} />
-            </button>
-          )}
-        </div>
-        {/* left column — ti: Trader (awaiting) · ic: IB live */}
-        {cell(leg.leftRef, leg.leftSub, false)}
-        <div className="flex justify-center">
-          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full" style={{ background: g.bg, color: g.fg }}>
-            <Icon size={13} strokeWidth={2} />
-          </span>
-        </div>
-        {/* right column — ti: stored IB (populated) · ic: CRM stored */}
-        {cell(leg.rightRef, leg.rightSub, true)}
-      </div>
-      {open && hasExecs && (
-        <div className="border-t border-outline-variant bg-surface-low px-4 pb-[14px] pl-11 pt-2.5">
-          <ExecCompare
-            execs={leg.leg.execs!}
-            leftLabel={isIC ? "IB · live" : "Trader"}
-            rightLabel={isIC ? "CRM · stored" : "IB"}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---- column shell + title ----------------------------------
-   Every column (resting book, compressed queue, triage detail) is
-   ONE full-height card (RC_PANEL_H) so the layout never changes
-   height between states and reads as the same object resizing.
-   The title is an in-card fixed header; the body below it scrolls.
-   The header / legend can each be encapsulated INSIDE the card or
-   pulled OUTSIDE it (header above, legend below) per the tweaks. */
-type PanelTerms = { clearLabel: string; resolveLabel: string };
-
-function PanelHeader({
-  title, breaks, terms, variant = "card",
-}: {
-  title: string;
-  breaks: number;
-  terms: PanelTerms;
-  variant?: "card" | "bare";
-}) {
-  const inCard = variant !== "bare";
-  return (
-    <div
-      className={[
-        "box-border flex h-10 flex-none items-center gap-2.5",
-        inCard ? "border-b border-outline-variant bg-surface-low px-4" : "px-0.5",
-      ].join(" ")}
-    >
-      <h3 className="text-[14px] font-bold text-on-surface">{title}</h3>
-      <Chip tone={breaks ? "warm" : "active"}>
-        {breaks ? `${breaks} ${terms.resolveLabel}` : terms.clearLabel}
-      </Chip>
-    </div>
-  );
-}
-
-function ColumnFrame({
-  title, breaks, terms, legend, anim, bodyPad = 0, children,
-}: {
-  title: string;
-  breaks: number;
-  terms: PanelTerms;
-  legend?: [MatchState, string][];
-  anim?: string;
-  bodyPad?: number;
-  children: ReactNode;
-}) {
-  const headerInside = HEADER_MODE !== "outside";
-  const legendInside = LEGEND_MODE !== "outside";
-  return (
-    <div
-      className={["box-border flex flex-1 flex-col", anim].filter(Boolean).join(" ")}
-      style={{ height: RC_PANEL_H }}
-    >
-      {!headerInside && (
-        <div className="mb-2.5 flex-none">
-          <PanelHeader title={title} breaks={breaks} terms={terms} variant="bare" />
-        </div>
-      )}
-      <div className="box-border flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest shadow-card">
-        {headerInside && <PanelHeader title={title} breaks={breaks} terms={terms} variant="card" />}
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={{ padding: bodyPad }}>
-          {children}
-        </div>
-        {legend && legendInside && (
-          <div className="flex-none border-t border-outline-variant px-3.5 pb-3">
-            <ReconLegend items={legend} />
-          </div>
-        )}
-      </div>
-      {legend && !legendInside && (
-        <div className="flex-none px-0.5">
-          <ReconLegend items={legend} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---- one comparison panel (resting book column) ----------- */
-function ReconPanel({
-  title, legs, onPick, expanded, terms, legend,
-}: {
-  title: string;
-  legs: FlatLeg[];
-  onPick: (key: string) => void;
-  expanded?: string[];
-  terms: PanelTerms;
-  legend: [MatchState, string][];
-}) {
-  const breaks = legs.filter((l) => l.leg.state !== "ok").length;
-  return (
-    <ColumnFrame title={title} breaks={breaks} terms={terms} legend={legend}>
-      {legs.map((l, i) => (
-        <MatchRow
-          key={l.key}
-          leg={l}
-          first={i === 0}
-          onClick={() => onPick(l.key)}
-          defaultExpanded={expanded?.includes(l.lineId)}
-        />
-      ))}
-      {legs.length === 0 && (
-        <div className="p-6 text-center text-[14px] text-secondary">No lines in this view.</div>
-      )}
-    </ColumnFrame>
-  );
-}
-
-/* ---- compressed column (the clicked book shrunk to a queue) -
-   Same card shell + title as the resting panel, so entering triage
-   reads as that column being compressed in place. */
-function QueueColumn({
-  title, terms, colLegs, queue, focusedKey, setFocusedKey, anim,
-}: {
-  title: string;
-  terms: PanelTerms;
-  colLegs: FlatLeg[];
-  queue: FlatLeg[];
-  focusedKey: string | null;
-  setFocusedKey: (k: string) => void;
-  anim?: string;
-}) {
-  const breaks = colLegs.filter((l) => l.leg.state !== "ok").length;
-  return (
-    <ColumnFrame title={title} breaks={breaks} terms={terms} anim={anim} bodyPad={8}>
-      <div className="flex flex-col gap-0.5">
-        {queue.map((l) => (
-          <QueueRow key={l.key} leg={l} selected={l.key === focusedKey} onClick={() => setFocusedKey(l.key)} />
-        ))}
-        {queue.length === 0 && (
-          <div className="p-6 text-center text-[14px] text-secondary">No lines in this view.</div>
-        )}
-      </div>
-    </ColumnFrame>
-  );
-}
-
-/* ---- triage detail (the expanded panel) -------------------
-   Anchored to the side opposite the compressed column and slides
-   in from that edge (rc-detail-left / rc-detail-right). */
-function DetailCell({
-  focused, onClose, side,
-}: {
-  focused: FlatLeg;
-  onClose: () => void;
-  side: "left" | "right";
-}) {
-  return (
-    <div
-      className={[
-        "box-border flex min-w-0 flex-col overflow-hidden rounded-[14px] border border-outline-variant bg-surface-lowest px-5 py-[18px] shadow-card",
-        side === "right" ? "rc-detail-right" : "rc-detail-left",
-      ].join(" ")}
-      style={{ height: RC_PANEL_H }}
-    >
-      <TriageDetail leg={focused.leg} trade={focused.trade} onClose={onClose} />
-    </div>
-  );
-}
-
-function ReconLegend({ items }: { items: [MatchState, string][] }) {
-  return (
-    <div className="mt-3.5 flex flex-wrap items-center gap-4 text-[12.5px] text-secondary">
-      {items.map(([state, label], i) => <LegendDot key={i} state={state} label={label} />)}
-    </div>
-  );
-}
-
-function LegendDot({ state, label }: { state: MatchState; label: string }) {
-  const g = GUT[state];
-  const Icon = g.icon;
-  return (
-    <span className="flex items-center gap-[7px]">
-      <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full" style={{ background: g.bg, color: g.fg }}>
-        <Icon size={11} strokeWidth={2} />
-      </span>
-      {label}
-    </span>
-  );
-}
-
-/* ---- compressed queue row (focused state) ------------------ */
-function QueueRow({
-  leg, selected, onClick,
-}: {
-  leg: FlatLeg;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const integ = leg.kind === "ic" && leg.leg.integrity ? INTEG[leg.leg.integrity] : null;
-  const dot = integ ? integ.fg : { ok: "#3f9d63", brk: "#e0922f", miss: "#d3654f" }[leg.leg.state];
-  return (
-    <div
-      onClick={onClick}
-      className={[
-        "flex cursor-pointer items-center gap-[11px] rounded-[10px] border px-3 py-2.5 transition-all duration-100",
-        selected ? "border-[rgba(242,116,5,0.35)] bg-[rgba(242,116,5,0.08)]" : "border-transparent hover:bg-surface-container",
-      ].join(" ")}
-    >
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: dot }} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-bold text-on-surface">
-          {leg.rightRef || leg.leftRef || AWAITING_SOURCE} · {leg.inst}
-        </div>
-        <div className="text-[11.5px] text-secondary">{leg.pair}</div>
-      </div>
-      {integ
-        ? <Chip tone={integ.tone} dot={false}>{integ.label}</Chip>
-        : <Chip tone={STATE_TONE[leg.leg.state]} dot={false}>{STATE_LABEL[leg.leg.state]}</Chip>}
-    </div>
-  );
-}
-
-/* ---- Filters dropdown (lives on the header "Filters" button) ---- */
-type Filter = "all" | MatchState;
-const RECON_FILTERS: { f: Filter; label: string }[] = [
-  { f: "all", label: "All" },
-  { f: "ok", label: "Matched" },
-  { f: "brk", label: "Breaks" },
-  { f: "miss", label: "Unmatched" },
-];
-
-function FilterMenu({
-  filter, setFilter, counts,
-}: {
-  filter: Filter;
-  setFilter: (f: Filter) => void;
-  counts: Record<Filter, number>;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-  const cur = RECON_FILTERS.find((x) => x.f === filter) ?? RECON_FILTERS[0];
-  const active = filter !== "all";
-  return (
-    <div ref={ref} className="relative">
-      <Button
-        variant={active || open ? "primary" : "secondary"}
-        icon={SlidersHorizontal}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {active ? `Filters · ${cur.label}` : "Filters"}
-      </Button>
-      {open && (
-        <div
-          className="absolute right-0 z-40 w-56 rounded-2xl border border-outline-variant bg-white p-2 shadow-overlay"
-          style={{ top: "calc(100% + 8px)" }}
-        >
-          <div className="px-2.5 pb-2 pt-1.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">
-            Show lines
-          </div>
-          {RECON_FILTERS.map(({ f, label }) => {
-            const on = filter === f;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => { setFilter(f); setOpen(false); }}
-                className={[
-                  "flex w-full items-center justify-between gap-2.5 rounded-[9px] px-2.5 py-[9px] text-left text-[13.5px] transition-colors duration-100",
-                  on ? "bg-primary-fixed font-bold text-primary" : "font-medium text-on-surface hover:bg-surface-container",
-                ].join(" ")}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="flex w-[15px] shrink-0">
-                    {on && <Check size={15} strokeWidth={2.5} />}
-                  </span>
-                  {label}
-                </span>
-                <span
-                  className="rounded-full px-[7px] py-px text-[12px] font-bold tabular-nums"
-                  style={{
-                    background: on ? "rgba(242,116,5,0.16)" : "#edeeef",
-                    color: on ? "#f27405" : "#5f5e5e",
-                  }}
-                >
-                  {counts[f]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+const DETAIL_TOP = 16; // sticky offset
+const DETAIL_BOTTOM_GAP = 24; // breathing room below the viewport-capped panel
 
 export default function TradeReconciliationPage() {
-  const view = useMemo(() => loadReconciliation(), []);
-  const legs = useMemo(() => buildLegs(view.trades), [view.trades]);
-  const { counters } = view;
+  const view = loadReconciliationFlow("breaks");
+  const { orders, allocs, ports, counts } = view;
 
-  const [filter, setFilter] = useState<Filter>("all");
-  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [sel, setSel] = useState<Sel>(null);
+  const toggle = (type: NonNullable<Sel>["type"], id: string) =>
+    setSel((prev) => (prev && prev.type === type && prev.id === id ? null : { type, id }));
 
-  /* leg slices + filtered views */
-  const tiLegs = useMemo(() => legs.filter((l) => l.kind === "ti"), [legs]);
-  const icLegs = useMemo(() => legs.filter((l) => l.kind === "ic"), [legs]);
-  const byFilter = (arr: FlatLeg[]) => (filter === "all" ? arr : arr.filter((l) => l.leg.state === filter));
-  const count = (f: Filter) => (f === "all" ? legs.length : legs.filter((l) => l.leg.state === f).length);
+  const selOrder = sel?.type === "order" ? orders.find((o) => o.id === sel.id) ?? null : null;
+  const selAlloc = sel?.type === "alloc" ? allocs.find((a) => a.cid === sel.id) ?? null : null;
+  const selPort = sel?.type === "port" ? ports.find((p) => p.cid === sel.id) ?? null : null;
+  const isSel = !!(selOrder || selAlloc || selPort);
+  const isCompact = isSel;
 
-  /* segmented bar from single-source counters (re-based) */
-  const total = counters.reconciled || 1;
-  const pct = (n: number) => Math.round((n / total) * 100);
+  /* cross-layer highlighting — selecting an order highlights every
+     client card downstream that shares its model */
+  const hlModel = selOrder?.m ?? null;
 
-  const focused = focusedKey ? legs.find((l) => l.key === focusedKey) ?? null : null;
-  const isFocused = !!focused;
-  const focusTi = focused?.kind === "ti";
+  /* grid width (for the flow-column <-> detail-panel column animation) */
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [gridW, setGridW] = useState(0);
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => {
+    const measure = () => { if (gridRef.current) setGridW(gridRef.current.clientWidth); };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  useEffect(() => {
+    if (gridW > 0 && !ready) {
+      const id = requestAnimationFrame(() => setReady(true));
+      return () => cancelAnimationFrame(id);
+    }
+  }, [gridW, ready]);
 
-  /* Which side the clicked column compresses to (Direction: swapped) —
-     Trader↔IB compresses RIGHT (detail slides from the left) · IB↔CRM
-     compresses LEFT (detail slides from the right). */
-  const queueOnLeft = focusTi ? !SLIDE_SWAP : SLIDE_SWAP;
-  const detailSide: "left" | "right" = queueOnLeft ? "right" : "left";
+  /* actual rendered height of the 3-row flow column — the detail panel
+     tracks this (capped by viewport budget) so the two always align */
+  const flowColRef = useRef<HTMLDivElement>(null);
+  const [flowH, setFlowH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = flowColRef.current;
+    if (!el) return;
+    const measure = () => setFlowH(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
-  /* the focused column's identity follows the leg, not the side it lands on */
-  const qTitle = focusTi ? "Trader vs IB" : "IB vs CRM";
-  const qTerms: PanelTerms = focusTi
-    ? { clearLabel: "All matched", resolveLabel: "to resolve" }
-    : { clearLabel: "All in sync", resolveLabel: "to re-sync" };
-  const qColLegs = focusTi ? byFilter(tiLegs) : byFilter(icLegs);
-
-  /* two-column stage geometry (flex, fluid): the cells fill the row — equal
-     halves when resting; on focus the clicked column fixes to the queue width
-     (QW) and the other grows to fill the rest. Widths are calc()-based off the
-     container so it tracks the full available width with no JS measurement,
-     and animate via `width` (reliable, unlike flex-basis transitions). */
-  const cellWidth = (isQueueCell: boolean): string =>
-    !isFocused
-      ? `calc((100% - ${GAP}px) / 2)`
-      : isQueueCell
-        ? `${QW}px`
-        : `calc(100% - ${QW}px - ${GAP}px)`;
-  const cellStyle = (isQueueCell: boolean) => ({
-    flex: "0 0 auto",
-    width: cellWidth(isQueueCell),
-    transition: `width ${SLIDE_MS}ms cubic-bezier(.4,0,.2,1)`,
-  });
-  const cell1Style = cellStyle(isFocused && queueOnLeft);   // CELL 1 holds the queue when it compresses left
-  const cell2Style = cellStyle(isFocused && !queueOnLeft);  // CELL 2 holds the queue when it compresses right
-
-  /* triage queue: only the focused column's legs, honoring the active
-     filter, breaks + unmatched first then matched */
-  const queue: FlatLeg[] = focused
-    ? byFilter(legs.filter((l) => l.kind === focused.kind)).slice().sort((a, b) => {
-        const rank: Record<MatchState, number> = { brk: 0, miss: 1, ok: 2 };
-        return rank[a.leg.state] - rank[b.leg.state];
-      })
-    : [];
+  const flowW = isSel ? Math.max(0, gridW - GAP - DW) : gridW;
+  const cols = isSel ? `${flowW}px ${DW}px` : `${gridW}px`;
 
   return (
     <div className="w-full">
-      <div className="mb-7">
+      <div className="mb-5">
         <PageHeader
           title="Trade Reconciliation"
-          subtitle={`Three-way match · Trader → IB → MegaCRM · ${view.settleDay}`}
-          actions={
-            <>
-              <FilterMenu
-                filter={filter}
-                setFilter={setFilter}
-                counts={{ all: count("all"), ok: count("ok"), brk: count("brk"), miss: count("miss") }}
-              />
-              <Button icon={Link2}>Auto-match</Button>
-            </>
-          }
+          subtitle={`Three-way flow · AlgoTrade → IB Allocations → CRM Portfolio · ${view.settleDay}`}
+          actions={<Button icon={Link2}>Auto-match</Button>}
         />
       </div>
 
-      {/* summary counters — single-source re-base from ReconCounters */}
-      <div className="mb-4 grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-5">
-        <MetricStat label="Trades reconciled" value={counters.reconciled.toLocaleString("en-US")} />
-        <MetricStat label="Auto-matched" value={counters.autoMatchedPct} tone="ok" />
-        <MetricStat label="Matched clean" value={counters.matched} tone="ok" />
-        <MetricStat label="Breaks" value={counters.breaks} tone="warn" />
-        <MetricStat label="Unmatched" value={counters.unmatched} tone="bad" />
-      </div>
-      <div className="mb-[22px]">
-        <SegBar ok={pct(counters.matched)} warn={pct(counters.breaks)} bad={pct(counters.unmatched)} height={10} />
+      <div className="mb-5 grid grid-cols-4 gap-3.5">
+        <MetricStat
+          label="Algo ↔ IB"
+          value={counts.algIbBrk}
+          sub={counts.algIbBrk ? `${counts.algIbBrk} break${counts.algIbBrk !== 1 ? "s" : ""}` : "all matched"}
+          tone={counts.algIbBrk ? "warn" : "ok"}
+        />
+        <MetricStat
+          label="IB ↔ CRM"
+          value={counts.ibCrmBrk}
+          sub={counts.ibCrmBrk ? `${counts.ibCrmBrk} break${counts.ibCrmBrk !== 1 ? "s" : ""}` : "all matched"}
+          tone={counts.ibCrmBrk ? "warn" : "ok"}
+        />
+        <MetricStat
+          label="Algo ↔ CRM"
+          value={counts.algCrmBrk}
+          sub={counts.algCrmBrk ? `${counts.algCrmBrk} break${counts.algCrmBrk !== 1 ? "s" : ""}` : "all matched"}
+          tone={counts.algCrmBrk ? "warn" : "ok"}
+        />
+        <MetricStat label="Total Breaks" value={counts.totalBrk} tone={counts.totalBrk ? "bad" : "ok"} />
       </div>
 
-      {/* two-column stage — each cell holds ONE full-height card so heights
-          never change between states. The clicked column compresses in place
-          into a queue while the triage detail expands into the opposite cell
-          (Direction: swapped). */}
-      <div className="flex items-start" style={{ columnGap: GAP }}>
-        {/* CELL 1 (left) */}
-        <div className="min-w-0 overflow-hidden" style={cell1Style}>
-          {!isFocused ? (
-            <ReconPanel
-              title="Trader vs IB"
-              legs={byFilter(tiLegs)}
-              onPick={setFocusedKey}
-              expanded={[]}
-              terms={{ clearLabel: "All matched", resolveLabel: "to resolve" }}
-              legend={[["ok", "Matched"], ["brk", "Field break"], ["miss", "Missing fill"]]}
-            />
-          ) : queueOnLeft ? (
-            <QueueColumn
-              anim="rc-queue-in"
-              title={qTitle}
-              terms={qTerms}
-              colLegs={qColLegs}
-              queue={queue}
-              focusedKey={focusedKey}
-              setFocusedKey={setFocusedKey}
-            />
-          ) : (
-            <DetailCell side={detailSide} focused={focused!} onClose={() => setFocusedKey(null)} />
-          )}
+      <div
+        ref={gridRef}
+        className="grid items-stretch"
+        style={{
+          gridTemplateColumns: cols,
+          columnGap: GAP,
+          transition: ready ? "grid-template-columns 340ms cubic-bezier(.4,0,.2,1)" : "none",
+        }}
+      >
+        {/* flow area */}
+        <div ref={flowColRef} className="flex min-w-0 flex-col gap-0">
+          <FlowRow label="AlgoTrade" icon={BarChart3} sub={`Orders + executions · ${view.algoTotal}`} labelMode="inline" hasBreaks={counts.algIbBrk > 0}>
+            {orders.map((o) => (
+              <OrderCard
+                key={o.id}
+                o={o}
+                compact={isCompact}
+                sel={sel?.type === "order" && sel.id === o.id}
+                hl={false}
+                onClick={() => toggle("order", o.id)}
+              />
+            ))}
+          </FlowRow>
+
+          <FlowConnector count={4} />
+
+          <FlowRow label="IB Clients" icon={Users} sub={`Allocation per client · ${view.ibTotal}`} labelMode="inline" hasBreaks={counts.ibCrmBrk > 0}>
+            {allocs.map((a) => (
+              <AllocCard
+                key={a.cid}
+                a={a}
+                compact={isCompact}
+                sel={sel?.type === "alloc" && sel.id === a.cid}
+                hl={(!!hlModel && a.models.some((ma) => ma.m === hlModel)) || (sel?.type === "port" && sel.id === a.cid)}
+                onClick={() => toggle("alloc", a.cid)}
+              />
+            ))}
+          </FlowRow>
+
+          <FlowConnector count={4} />
+
+          <FlowRow label="CRM" icon={Database} sub={`Post-trade portfolio · ${view.crmTotal}`} labelMode="inline" hasBreaks={counts.algCrmBrk > 0}>
+            {ports.map((p) => {
+              const ownAlloc = allocs.find((a) => a.cid === p.cid);
+              return (
+                <PortfolioCard
+                  key={p.cid}
+                  p={p}
+                  compact={isCompact}
+                  sel={sel?.type === "port" && sel.id === p.cid}
+                  hl={(!!hlModel && !!ownAlloc?.models.some((ma) => ma.m === hlModel)) || (sel?.type === "alloc" && sel.id === p.cid)}
+                  onClick={() => toggle("port", p.cid)}
+                />
+              );
+            })}
+          </FlowRow>
         </div>
 
-        {/* CELL 2 (right) */}
-        <div className="min-w-0 overflow-hidden" style={cell2Style}>
-          {!isFocused ? (
-            <ReconPanel
-              title="IB vs CRM"
-              legs={byFilter(icLegs)}
-              onPick={setFocusedKey}
-              expanded={[]}
-              terms={{ clearLabel: "All in sync", resolveLabel: "to re-sync" }}
-              legend={[["ok", "In sync"], ["brk", "Drifted"], ["miss", "Missing / orphaned"]]}
-            />
-          ) : !queueOnLeft ? (
-            <QueueColumn
-              anim="rc-queue-in"
-              title={qTitle}
-              terms={qTerms}
-              colLegs={qColLegs}
-              queue={queue}
-              focusedKey={focusedKey}
-              setFocusedKey={setFocusedKey}
-            />
-          ) : (
-            <DetailCell side={detailSide} focused={focused!} onClose={() => setFocusedKey(null)} />
-          )}
-        </div>
+        {/* detail panel — height tracks the flow column (capped to viewport) */}
+        {isSel && (
+          <div
+            className="min-w-0"
+            style={{
+              position: "sticky",
+              top: DETAIL_TOP,
+              height: flowH != null ? `min(${flowH}px, calc(100vh - ${DETAIL_TOP + DETAIL_BOTTOM_GAP}px))` : undefined,
+            }}
+          >
+            {selOrder && <FlowDetail type="order" item={selOrder} onClose={() => setSel(null)} />}
+            {selAlloc && <FlowDetail type="alloc" item={selAlloc} onClose={() => setSel(null)} />}
+            {selPort && <FlowDetail type="port" item={selPort} onClose={() => setSel(null)} />}
+          </div>
+        )}
       </div>
     </div>
   );
