@@ -135,7 +135,7 @@ export default function TradeReconciliationPage() {
         }}
       >
         {/* flow area */}
-        <div ref={flowColRef} className="flex min-w-0 flex-col gap-0 overflow-hidden">
+        <div ref={flowColRef} className="flex min-w-0 flex-col gap-0">
           <FlowRow label="AlgoTrade" icon={BarChart3} sub={`Orders + executions · ${view.algoTotal}`} labelMode="inline" hasBreaks={counts.algIbBrk > 0}>
             {orders.map((o) => (
               <OrderCard

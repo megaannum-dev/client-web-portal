@@ -225,7 +225,7 @@ export function FlowRow({
   }
 
   return (
-    <div className="rounded-[14px] px-4 py-3.5" style={{ background: rowBg, border: rowBorder }}>
+    <div className="flex-1 rounded-[14px] px-4 py-3.5" style={{ background: rowBg, border: rowBorder }}>
       <div className="flex items-start gap-4">
         <div className="w-[90px] flex-none pt-0.5">
           <div className="mb-[3px] flex items-center gap-1.5">
