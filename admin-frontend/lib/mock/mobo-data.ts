@@ -30,7 +30,15 @@
        reworked and must not leak into the screen.
    ============================================================ */
 
-import type { EOD as EODView, Exception, Feed, IntegrityState, Order } from "@/lib/mobo/types";
+import type {
+  EOD as EODView,
+  Exception,
+  Feed,
+  IntegrityState,
+  Order,
+  PtaClient,
+  PtaModel,
+} from "@/lib/mobo/types";
 
 /* ---- Settlement day label --------------------------------- */
 export const SETTLE_DAY = "Tue 03 Jun 2026";
@@ -653,3 +661,36 @@ export const EOD: EODView = {
   daysInMonth: 30,
   byType: [],
 };
+
+/* ============================================================
+   POST-TRADE ALLOCATION (purgeable mock)
+   Same settlement day as the rest of this file (`SETTLE_DAY`
+   above — reused, not duplicated). Shaped exactly as the design
+   prototype's PTA_* consts. The allocation seam
+   (`lib/mobo/allocation.ts`) is the ONLY module that imports this
+   data; components bind to `loadPostTradeAllocation()`, never here.
+   ============================================================ */
+
+/** Per-model traded notional for the settlement day. */
+export const PTA_MODELS: PtaModel[] = [
+  { id: "mA", name: "Model A", acct: "U-1011", traded: 3200000 },
+  { id: "mB", name: "Model B", acct: "U-2044", traded: 6800000 },
+  { id: "mC", name: "Model C", acct: "U-3077", traded: 1450000 },
+];
+
+/** Clients that may subscribe to one or more allocation models. */
+export const PTA_CLIENTS: PtaClient[] = [
+  { id: "cA", name: "Ardent Capital" },
+  { id: "cB", name: "Strathmore Fund" },
+  { id: "cC", name: "Vela Holdings" },
+  { id: "cD", name: "Northbridge LP" },
+  { id: "cE", name: "Selwyn Asset Mgmt" },
+];
+
+/** modelId -> clientId -> subscribed units (the pro-rata delegation basis). */
+export const PTA_UNITS: Record<string, Record<string, number>> = {
+  mA: { cA: 1, cB: 5, cD: 1, cE: 1 }, // 8 units
+  mB: { cA: 2, cB: 2, cC: 20, cE: 1 }, // 25 units
+  mC: { cB: 4, cC: 1, cD: 3, cE: 1 }, // 9 units
+};
+

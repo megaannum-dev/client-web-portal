@@ -10,6 +10,7 @@ import {
   UserPlus,
   ShieldCheck,
   LayoutDashboardIcon,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ export type PageId =
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
   | "mobo.daily-exception-report"
+  | "mobo.post-trade-allocation"
   | "pc.model-management"
   | "pc.allocation-matrix"
   | "shared.monthly-reports"
@@ -90,6 +92,12 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Daily Exceptions",
     icon: ShieldAlert,
   },
+  "mobo.post-trade-allocation": {
+    id: "mobo.post-trade-allocation",
+    path: "/mobo/post-trade-allocation",
+    label: "Post-Trade Allocation",
+    icon: Wallet,
+  },
   "pc.model-management": {
     id: "pc.model-management",
     path: "/pc/model-management",
@@ -136,6 +144,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
     "mobo.recon-overview": "OPERATE",
     "mobo.trade-reconciliation": "OPERATE",
     "mobo.daily-exception-report": "OPERATE",
+    "mobo.post-trade-allocation": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
   PC: {
