@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "n": "011",
+  "slug": "post-trade-allocation",
+  "date": "2026-07-13",
+  "repoRoot": "C:\Users\JohnQin\Desktop\John's Megaanuum working repository\client-web-portal",
+  "templatesDir": "C:\Users\JohnQin\Desktop\John's Megaanuum working repository\client-web-portal\templates",
+  "proposal": {
+    "path": "docs/proposals/011-2026-07-13-post-trade-allocation.md",
+    "layers": ["Database", "Backend", "Frontend"]
+  },
+  "implementations": [],
+  "schedules": [],
+  "prompts": []
+}
