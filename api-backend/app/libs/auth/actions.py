@@ -13,6 +13,9 @@ class Action(str, enum.Enum):
     MODEL_MANAGE = "pc:model_manage"
     ALLOCATION_VIEW = "pc:allocation_view"
     ALLOCATION_MANAGE = "pc:allocation_manage"
+    # Post-Trade Allocation — feature 011 (BE-4)
+    POST_TRADE_ALLOCATION_VIEW = "mobo:pta_view"
+    POST_TRADE_ALLOCATION_RUN = "mobo:pta_run"
 
 
 # Only RM and ADMIN carry actions at this point. MOBO/PM/PC/COMPLIANCE are
@@ -22,7 +25,7 @@ class Action(str, enum.Enum):
 # onboarding route — a deliberate forward-declaration, not dead code.
 ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
     AdminRole.RM: {Action.CLIENT_VIEW, Action.CLIENT_MANAGE},
-    AdminRole.MOBO: set(),
+    AdminRole.MOBO: {Action.POST_TRADE_ALLOCATION_VIEW, Action.POST_TRADE_ALLOCATION_RUN},
     AdminRole.PM: set(),
     AdminRole.PC: {
         Action.MODEL_VIEW,
