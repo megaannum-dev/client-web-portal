@@ -18,7 +18,7 @@ import {
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
-import type { PtaClientShare, PtaModelAllocation } from "@/lib/mobo/types";
+import type { PtaClientShare, PtaModelAllocation, PtaRun } from "@/lib/mobo/types";
 
 /* ============================================================
    Client → color
@@ -373,15 +373,15 @@ export function EmptyCard({ settleDay }: { settleDay: string }) {
 }
 
 /* ============================================================
-   DateControl — settlement-day dropdown (4 discrete dates)
+   DateControl — settlement-day dropdown (fed from /runs)
    ============================================================ */
-const PTA_DISCRETE_DATES = ["03 Jun 2026", "02 Jun 2026", "01 Jun 2026", "29 May 2026"];
-
 export function DateControl({
   dateLabel,
+  runs,
   onPickDate,
 }: {
   dateLabel: string;
+  runs: PtaRun[];
   onPickDate: (d: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -395,14 +395,14 @@ export function DateControl({
           <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-secondary">
             Settlement day
           </div>
-          {PTA_DISCRETE_DATES.map((d) => {
-            const on = d === dateLabel;
+          {runs.map((run) => {
+            const on = run.date === dateLabel;
             return (
               <button
-                key={d}
+                key={run.date}
                 type="button"
                 onClick={() => {
-                  onPickDate(d);
+                  onPickDate(run.date);
                   setOpen(false);
                 }}
                 className={[
@@ -410,7 +410,7 @@ export function DateControl({
                   on ? "bg-surface-container" : "bg-transparent",
                 ].join(" ")}
               >
-                {d}
+                {run.label}
                 {on && <Check size={14} strokeWidth={2} className="text-primary" />}
               </button>
             );
