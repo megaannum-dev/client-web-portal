@@ -15,9 +15,21 @@ from sqlalchemy.orm import Session
 
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.models.pc import AllocationModelSnapshot, Model
-from app.models.post_trade_allocation import PostTradeAllocationRun, RunStatus, RunTrigger
+from app.models.post_trade_allocation import (
+    PostTradeAllocation,
+    PostTradeAllocationRun,
+    RunStatus,
+    RunTrigger,
+)
 from app.models.reconciliation import Order
-from app.schemas.post_trade_allocation import PostTradeAllocationView, PtaRunListOut
+from app.models.users import ClientProfile, User
+from app.schemas.post_trade_allocation import (
+    PostTradeAllocationView,
+    PtaClientShareOut,
+    PtaModelOut,
+    PtaRunListEntryOut,
+    PtaRunListOut,
+)
 
 ZERO = Decimal("0")
 
@@ -164,9 +176,136 @@ class PostTradeAllocationService:
         return cell_rows, deltas
 
     def get_view(self, trade_date: str | None = None) -> PostTradeAllocationView | None:
-        """GET /post-trade-allocation view assembly — see BE-6."""
-        raise NotImplementedError
+        """GET /post-trade-allocation?date=. No `date` -> most recent tradeDate
+        with a non-empty run. Sums post_trade_allocations across every run of
+        the resolved date (D-9); reads exclusively from
+        post_trade_allocation_runs/post_trade_allocations, never `orders`.
+        """
+        if trade_date is None:
+            non_empty_runs = self.repo.list_run_dates(include_empty=False)
+            if not non_empty_runs:
+                return None
+            trade_date = max(r.trade_date for r in non_empty_runs)
+
+        run_ids = [r.id for r in self.repo.runs_for_trade_date(trade_date)]
+        cells = self.repo.cells_for_runs(run_ids)
+        if not cells:
+            return None
+        return self._assemble_view(trade_date, cells)
 
     def list_runs(self, include_empty: bool = False) -> PtaRunListOut:
-        """GET /post-trade-allocation/runs view assembly — see BE-6."""
-        raise NotImplementedError
+        """GET /post-trade-allocation/runs — feeds the DateControl dropdown.
+        One entry per distinct trade_date, grand_total summed across every
+        run of that date (empty runs carry grand_total=0, so they add
+        nothing even when included)."""
+        totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        for run in self.repo.list_run_dates(include_empty=include_empty):
+            totals[run.trade_date] += run.grand_total or ZERO
+
+        entries = [
+            PtaRunListEntryOut(
+                date=_format_date(trade_date),
+                label=_format_settle_day(trade_date),
+                grandTotal=float(total),
+            )
+            for trade_date, total in totals.items()
+        ]
+        entries.sort(key=lambda e: e.date, reverse=True)
+        return PtaRunListOut(runs=entries)
+
+    def _assemble_view(
+        self, trade_date: str, cells: list[PostTradeAllocation]
+    ) -> PostTradeAllocationView:
+        """Group frozen cell rows by model, then by client, summing across
+        every run so a late-arriving second run for the same (date, model)
+        folds into one model entry (D-9). Everything needed (model
+        name/acct/units_total) is already denormalized on each cell — no
+        Model/AllocationModelSnapshot re-fetch."""
+        seen_run_model: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        model_traded: dict[uuid.UUID, Decimal] = defaultdict(lambda: ZERO)
+        model_units_total: dict[uuid.UUID, Decimal] = {}
+        model_meta: dict[uuid.UUID, tuple[str, str | None]] = {}
+        shares: dict[uuid.UUID, dict[uuid.UUID, dict[str, Decimal]]] = defaultdict(dict)
+
+        for cell in cells:
+            run_model_key = (cell.run_id, cell.model_id)
+            if run_model_key not in seen_run_model:
+                seen_run_model.add(run_model_key)
+                model_traded[cell.model_id] += cell.model_traded
+            model_units_total[cell.model_id] = cell.units_total
+            model_meta[cell.model_id] = (cell.model_name, cell.model_acct)
+
+            client = shares[cell.model_id].setdefault(
+                cell.user_id, {"units": ZERO, "allocated": ZERO}
+            )
+            client["units"] += cell.units
+            client["allocated"] += cell.allocated
+
+        user_ids = {uid for per_model in shares.values() for uid in per_model}
+        names = self._client_names(user_ids)
+
+        models_out: list[PtaModelOut] = []
+        for model_id, (model_name, model_acct) in model_meta.items():
+            units_total = model_units_total[model_id]
+            client_shares = [
+                PtaClientShareOut(
+                    clientId=str(uid),
+                    name=names.get(uid, str(uid)),
+                    units=float(vals["units"]),
+                    allocated=float(vals["allocated"]),
+                    pct=_pct(vals["units"], units_total),
+                )
+                for uid, vals in shares[model_id].items()
+            ]
+            client_shares.sort(key=lambda c: c.name)
+            models_out.append(
+                PtaModelOut(
+                    id=str(model_id),
+                    name=model_name,
+                    acct=model_acct or "",
+                    traded=float(model_traded[model_id]),
+                    unitsTotal=float(units_total),
+                    clientShares=client_shares,
+                )
+            )
+        models_out.sort(key=lambda m: m.name)
+
+        grand_total = sum(model_traded.values(), ZERO)
+        return PostTradeAllocationView(
+            tradeDate=_format_date(trade_date),
+            settleDay=_format_settle_day(trade_date),
+            grandTotal=float(grand_total),
+            models=models_out,
+        )
+
+    def _client_names(self, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """Best available display name per client: ClientProfile.name, else
+        email, else the id itself. Not stored on the frozen cell rows, so
+        this is the one GET-path lookup outside post_trade_allocation(_run)s —
+        it never touches `orders`."""
+        if not user_ids:
+            return {}
+        rows = (
+            self.db.query(User.id, User.email, ClientProfile.name)
+            .outerjoin(ClientProfile, ClientProfile.user_id == User.id)
+            .filter(User.id.in_(user_ids))
+            .all()
+        )
+        return {uid: (name or email or str(uid)) for uid, email, name in rows}
+
+
+def _format_date(trade_date: str) -> str:
+    """YYYYMMDD -> YYYY-MM-DD wire format (D-6)."""
+    return f"{trade_date[0:4]}-{trade_date[4:6]}-{trade_date[6:8]}"
+
+
+def _format_settle_day(trade_date: str) -> str:
+    """Display label, e.g. 'Wed 03 Jun 2026' — currently == tradeDate
+    formatted (Q-3)."""
+    return datetime.strptime(trade_date, "%Y%m%d").strftime("%a %d %b %Y")
+
+
+def _pct(units: Decimal, units_total: Decimal) -> int:
+    if not units_total:
+        return 0
+    return int((units / units_total * 100).quantize(Decimal("1"), ROUND_HALF_UP))
