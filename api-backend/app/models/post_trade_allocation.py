@@ -106,3 +106,38 @@ class PostTradeAllocation(Base):
     __table_args__ = (
         Index("ix_post_trade_allocations_run_model", "run_id", "model_id"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-3 — client_portfolios (three-column balance)
+# ---------------------------------------------------------------------------
+
+
+class ClientPortfolio(Base):
+    __tablename__ = "client_portfolios"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    cash_deposit: Mapped[Decimal] = mapped_column(
+        Numeric(28, 10), nullable=False, server_default="0"
+    )  # static; NOT written by this proposal (see Behavior)
+    amount_in_trade: Mapped[Decimal] = mapped_column(
+        Numeric(28, 10), nullable=False, server_default="0"
+    )  # signed (D-3); updated by every non-empty run
+    previous_amount_in_trade: Mapped[Decimal] = mapped_column(
+        Numeric(28, 10), nullable=False, server_default="0"
+    )  # snapshot of amount_in_trade before the last run
+    last_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("post_trade_allocation_runs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
