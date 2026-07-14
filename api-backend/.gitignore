@@ -19,7 +19,6 @@ build/
 
 # Test artefacts
 .pytest_cache/
-tests/
 *.db
 *.sqlite
 
