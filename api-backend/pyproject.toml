@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 100
+exclude = ["alembic", ".venv", "pc_storage"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["app", "tests"]
+python_files = ["test_*.py"]
+
+[tool.mypy]
+files = ["app"]
+exclude = "alembic"
+ignore_missing_imports = true
