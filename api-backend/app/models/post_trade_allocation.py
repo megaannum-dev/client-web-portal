@@ -69,3 +69,40 @@ class PostTradeAllocationRun(Base):
     __table_args__ = (
         Index("ix_post_trade_allocation_runs_trade_date", "trade_date"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-2 — post_trade_allocations (per-cell records)
+# ---------------------------------------------------------------------------
+
+
+class PostTradeAllocation(Base):
+    __tablename__ = "post_trade_allocations"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("post_trade_allocation_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_traded: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)  # signed (D-3)
+    units: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)  # frozen multiplier
+    units_total: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
+    allocated: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)  # signed (D-3, D-7)
+    pct: Mapped[Decimal] = mapped_column(Numeric(6, 3), nullable=False)
+    ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    model_acct: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    __table_args__ = (
+        Index("ix_post_trade_allocations_run_model", "run_id", "model_id"),
+    )
