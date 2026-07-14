@@ -13,6 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.models.pc import AllocationModelSnapshot, Model
 from app.models.post_trade_allocation import (
@@ -87,8 +88,9 @@ class PostTradeAllocationService:
                 agg: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
                 model_acct: dict[str, str | None] = {}
                 orders_by_key: dict[tuple[str, str], list[Order]] = defaultdict(list)
+                default_model_name = get_settings().pta_default_model_name
                 for o in orders:
-                    key = (o.tradeDate or "", (o.model or "").strip())
+                    key = (o.tradeDate or "", (o.model or "").strip() or default_model_name)
                     agg[key] += o.proceeds or ZERO  # signed — no abs(), no |amount|
                     model_acct.setdefault(key[1], o.accountId)
                     orders_by_key[key].append(o)

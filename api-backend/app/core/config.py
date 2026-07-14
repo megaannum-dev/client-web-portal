@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     pc_storage_backend: str = "local"  # "local" | "nas"
     pc_storage_root: str = "./pc_storage"  # path for LocalStorage mount
 
+    # Post-trade allocation — orders with no model name are attributed to this model
+    pta_default_model_name: str = "Zero"
+
 
 @lru_cache
 def get_settings() -> Settings:
