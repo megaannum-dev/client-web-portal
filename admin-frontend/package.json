@@ -19,6 +19,7 @@
     "react-dom": "^18",
     "react-i18next": "^17.0.8",
     "recharts": "^3.9.2",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
