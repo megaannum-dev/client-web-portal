@@ -1,5 +1,6 @@
 const PC = "/api/pc";
 const RM = "/api/rm";
+const MOBO = "/api/mobo";
 
 export const ENDPOINTS = {
   PC: {
@@ -20,5 +21,10 @@ export const ENDPOINTS = {
   RM: {
     CLIENTS: `${RM}/clients`,
     CLIENT:  (id: string) => `${RM}/clients/${encodeURIComponent(id)}`,
+  },
+  MOBO: {
+    PTA:      `${MOBO}/post-trade-allocation`,
+    PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
+    PTA_RUN:  `${MOBO}/post-trade-allocation/run`,
   },
 } as const;
