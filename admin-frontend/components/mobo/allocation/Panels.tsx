@@ -93,10 +93,10 @@ export function Donut({
   // 100 across a model's clients — using it for geometry left visible
   // gaps or overlaps between segments). `pct` is still used for the
   // tooltip's displayed share.
-  const total = shares.reduce((sum, s) => sum + s.delegated, 0) || 1;
+  const total = shares.reduce((sum, s) => sum + s.allocated, 0) || 1;
   let off = 0;
   const arcs = shares.map((s) => {
-    const frac = s.delegated / total;
+    const frac = s.allocated / total;
     const startOff = off;
     off += frac * C;
     return { ...s, frac, startOff, color: clientColor(s.clientId) };
@@ -108,7 +108,7 @@ export function Donut({
       y: e.clientY,
       name: s.name,
       units: s.units,
-      amt: ptaMoney(s.delegated),
+      amt: ptaMoney(s.allocated),
       pct: s.pct,
       color: s.color,
     });
