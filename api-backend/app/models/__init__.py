@@ -31,6 +31,7 @@ from app.models.post_trade_allocation import (  # noqa: F401
     ClientPortfolio,
 )
 from app.models.recon import (  # noqa: F401
+    AlgoTradeOrder,
     ReconSession,
     SourceKind,
 )
