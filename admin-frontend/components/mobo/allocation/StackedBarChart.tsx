@@ -122,7 +122,7 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
         {row.modelName} · {row.modelAcct}
       </div>
       <div className="flex items-center justify-between gap-4 text-[11.5px]">
-        <span className="font-semibold text-secondary">Delegated</span>
+        <span className="font-semibold text-secondary">Allocated</span>
         <span className="font-bold tabular-nums text-on-surface">{ptaMoney(share.allocated)}</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-[11.5px]">
