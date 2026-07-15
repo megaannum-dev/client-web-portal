@@ -41,12 +41,8 @@ def to_wire(
         _build_order(db, algo, ib, o, order_breaks_by_id)
         for o in algo.orders_for_session(session.id)
     ]
-    allocs_out = [
-        _build_alloc(row, client_model_breaks) for row in _client_model_rows(db, session)
-    ]
-    ports_out = [
-        _build_port(row, crm_breaks_by_client) for row in _portfolio_rows(db, session)
-    ]
+    allocs_out = [_build_alloc(row, client_model_breaks) for row in _client_model_rows(db, session)]
+    ports_out = [_build_port(row, crm_breaks_by_client) for row in _portfolio_rows(db, session)]
 
     counts = RcBreakCountsOut(
         algIbBrk=len(result.order_breaks) + len(result.client_model_breaks),
@@ -77,28 +73,38 @@ def _build_order(
 ) -> RcOrderOut:
     model = db.query(Model).filter(Model.id == o.model_id).one()
     ib_order = ib.matching_order(
-        symbol=o.symbol, buy_sell=o.buy_sell,
-        trade_date_yyyymmdd=o.trade_date.strftime("%Y%m%d"), model_name=model.name,
+        symbol=o.symbol,
+        buy_sell=o.buy_sell,
+        trade_date_yyyymmdd=o.trade_date.strftime("%Y%m%d"),
+        model_name=model.name,
     )
     brk = order_breaks_by_id.get(o.id)
     execs = [
         RcExecOut(
-            id=str(e.id), qty=str(e.qty_filled), px=str(e.fill_price),
-            t=e.executed_at.isoformat(), st="ok",
+            id=str(e.id),
+            qty=str(e.qty_filled),
+            px=str(e.fill_price),
+            t=e.executed_at.isoformat(),
+            st="ok",
         )
         for e in algo.executions_for_order(o.id)
     ]
     return RcOrderOut(  # type: ignore[call-arg]  # not_ is the alias-populated field; runtime-valid, mypy misreads the alias
-        id=str(o.id), m=model.name, inst=o.symbol, cat=o.asset_class, side=o.buy_sell,
-        qty=str(o.qty_ordered), px=str(o.price), not_=fmt_usd(o.notional), notVal=float(o.notional),
+        id=str(o.id),
+        m=model.name,
+        inst=o.symbol,
+        cat=o.asset_class,
+        side=o.buy_sell,
+        qty=str(o.qty_ordered),
+        px=str(o.price),
+        not_=fmt_usd(o.notional),
+        notVal=float(o.notional),
         ref=str(o.id),
         ib=str(ib_order.id) if ib_order is not None else "",
         st="brk" if brk is not None else "ok",
         execs=execs,
         brk=(
-            f"{brk.field}: expected {brk.expected} actual {brk.actual}"
-            if brk is not None
-            else None
+            f"{brk.field}: expected {brk.expected} actual {brk.actual}" if brk is not None else None
         ),
     )
 
@@ -118,13 +124,20 @@ def _build_alloc(row, client_model_breaks: dict) -> RcAllocOut:
     brk = client_model_breaks.get((client.id, model.id))
     amt_val = float(sub.multiplier)
     line = RcAllocModelLineOut(
-        m=model.name, units=float(sub.multiplier), amt=fmt_usd(Decimal(amt_val)), amtVal=amt_val,
+        m=model.name,
+        units=float(sub.multiplier),
+        amt=fmt_usd(Decimal(amt_val)),
+        amtVal=amt_val,
         st="brk" if brk is not None else "ok",
         note=f"expected {brk.expected} actual {brk.actual}" if brk is not None else None,
     )
     return RcAllocOut(
-        cid=str(client.id), client=client.name or "", st=line.st,
-        total=line.amt, totalVal=line.amtVal, models=[line],
+        cid=str(client.id),
+        client=client.name or "",
+        st=line.st,
+        total=line.amt,
+        totalVal=line.amtVal,
+        models=[line],
     )
 
 
@@ -141,10 +154,14 @@ def _build_port(row, crm_breaks_by_client: dict) -> RcPortOut:
     brk = crm_breaks_by_client.get(client.id)
     chg = portfolio.amount_in_trade - portfolio.previous_amount_in_trade
     return RcPortOut(
-        cid=str(client.id), client=client.name or "",
+        cid=str(client.id),
+        client=client.name or "",
         st="brk" if brk is not None else "ok",
-        pre=fmt_usd(portfolio.previous_amount_in_trade), post=fmt_usd(portfolio.amount_in_trade),
-        chg=fmt_usd(chg), pct=pct_of(chg, portfolio.previous_amount_in_trade),
-        inTrade=float(portfolio.amount_in_trade), cash=float(portfolio.cash_deposit),
+        pre=fmt_usd(portfolio.previous_amount_in_trade),
+        post=fmt_usd(portfolio.amount_in_trade),
+        chg=fmt_usd(chg),
+        pct=pct_of(chg, portfolio.previous_amount_in_trade),
+        inTrade=float(portfolio.amount_in_trade),
+        cash=float(portfolio.cash_deposit),
         total=float(portfolio.amount_in_trade + portfolio.cash_deposit),
     )
