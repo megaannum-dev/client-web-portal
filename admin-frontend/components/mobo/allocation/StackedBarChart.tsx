@@ -83,18 +83,21 @@ interface ChartRow {
 function buildChartData(models: PtaModelAllocation[]): ChartRow[] {
   return models.map((m) => {
     const shares: Record<string, PtaClientShare> = {};
-    const row: ChartRow = {
+    const row = {
       modelId: m.id,
       modelName: m.name,
       modelAcct: m.acct,
       traded: m.traded,
       shares,
-      [TOTAL_LABEL_KEY]: TOTAL_LABEL_EPSILON,
-    };
+    } as ChartRow;
     for (const cs of m.clientShares) {
       shares[cs.clientId] = cs;
       row[cs.clientId] = cs.allocated;
     }
+    // Recharts stacks bars in the row object's KEY INSERTION ORDER, not JSX
+    // declaration order — __total must be set last so it lands on top of the
+    // real client segments (its <Bar> is also declared last, below).
+    row[TOTAL_LABEL_KEY] = TOTAL_LABEL_EPSILON;
     return row;
   });
 }
