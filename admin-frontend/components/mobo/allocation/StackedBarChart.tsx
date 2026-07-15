@@ -140,9 +140,10 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
   );
 }
 
-/* ---- custom axis tick — model name (bold) + account (secondary),
-   two lines. `align` controls horizontal text anchor (vertical mode
-   centers under the bar; horizontal mode right-aligns beside it). --- */
+/* ---- custom axis tick — model name only (account is an internal
+   identifier, not shown here). `align` controls horizontal text anchor
+   (vertical mode centers under the bar; horizontal mode right-aligns
+   beside it). --------------------------------------------------------- */
 function ModelTick({
   x, y, payload, rows, align,
 }: {
@@ -154,15 +155,11 @@ function ModelTick({
 }) {
   const row = rows.find((r) => r.modelId === payload?.value);
   if (!row || x == null || y == null) return null;
-  const dy1 = align === "middle" ? 12 : -4;
-  const dy2 = align === "middle" ? 26 : 11;
+  const dy = align === "middle" ? 16 : 4;
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={0} y={dy1} textAnchor={align} style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}>
+      <text x={0} y={dy} textAnchor={align} style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}>
         {row.modelName}
-      </text>
-      <text x={0} y={dy2} textAnchor={align} style={{ fill: "var(--secondary)", fontSize: 11, fontWeight: 600 }}>
-        {row.modelAcct}
       </text>
     </g>
   );
