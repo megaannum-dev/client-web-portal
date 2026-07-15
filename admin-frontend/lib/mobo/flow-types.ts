@@ -103,6 +103,9 @@ export interface ReconciliationFlowView {
 
 export type RcScenarioKey = "all-ok" | "breaks";
 
+/** Wire shape returned by the backend — kept as a distinct alias (FE-1) so it can diverge from the view type later without renaming call sites. */
+export type ReconciliationFlowViewDTO = ReconciliationFlowView;
+
 /* ---- shared formatting helpers (no mock data dependency) ---- */
 export function fmtUsd(n: number): string {
   const a = Math.abs(n);
