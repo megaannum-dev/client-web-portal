@@ -30,4 +30,8 @@ from app.models.post_trade_allocation import (  # noqa: F401
     PostTradeAllocation,
     ClientPortfolio,
 )
+from app.models.recon import (  # noqa: F401
+    ReconSession,
+    SourceKind,
+)
 from app.core.database import Base  # noqa: F401
