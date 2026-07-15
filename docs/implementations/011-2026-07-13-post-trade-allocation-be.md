@@ -226,7 +226,7 @@ class PostTradeAllocationRepository:
 
     # --- Step 4: persist ----------------------------------------------------
     def create_run(
-        self, *, trade_date: str, period_id: uuid.UUID | None, status: str,
+        self, *, trade_date: str, period_id: uuid.UUID, status: str,
         trigger: str, grand_total: Decimal | None, run_by: str | None,
     ) -> PostTradeAllocationRun: ...
 
@@ -303,14 +303,34 @@ class PostTradeAllocationService:
         must produce a negative `traded`, which flows unmodified through the
         pro-rata split into every client's `allocated` and into
         client_portfolios.amount_in_trade (which can therefore DECREASE).
+
+        Corrected during BE-2 implementation (2026-07-14): `post_trade_allocation_runs.period_id`
+        is NOT NULL at the DB layer (DB-1/DB-5) — a run row, empty or not, cannot be written
+        without a resolved period. The split-basis lookup therefore happens FIRST, before the
+        empty-order short-circuit; if no confirmed period exists at all, `run()` raises instead
+        of writing a run with a null period_id. This is a stricter reading of D-5/D-10, not a
+        contradiction — § 2's own precondition already assumes a confirmed period exists in any
+        real environment.
         """
         with self.db.begin_nested():
+            # --- Step 0: resolve split basis (latest confirmed, D-5) — required ---
+            period = self.repo.latest_confirmed_period()
+            if period is None:
+                raise RuntimeError(
+                    "No confirmed allocation period exists; cannot create a run "
+                    "(post_trade_allocation_runs.period_id is NOT NULL)"
+                )
+            snapshots = self.repo.snapshots_for_period(period.id)
+            by_model: dict[uuid.UUID, list] = defaultdict(list)
+            for s in snapshots:
+                by_model[s.model_id].append(s)
+
             # --- Step 1: pick up new orders ---------------------------------
             orders = self.repo.unallocated_orders()
             if not orders:
                 run = self.repo.create_run(
                     trade_date=datetime.now(timezone.utc).strftime("%Y%m%d"),
-                    period_id=None,
+                    period_id=period.id,
                     status=RunStatus.EMPTY.value,
                     trigger=trigger.value,
                     grand_total=ZERO,
@@ -330,19 +350,12 @@ class PostTradeAllocationService:
                 model_acct.setdefault(key[1], o.accountId)
                 orders_by_key[key].append(o)
 
-            # --- Step 3: resolve split basis (latest confirmed, D-5) ---------
-            period = self.repo.latest_confirmed_period()
-            snapshots = self.repo.snapshots_for_period(period.id) if period else []
-            by_model: dict[uuid.UUID, list] = defaultdict(list)
-            for s in snapshots:
-                by_model[s.model_id].append(s)
-
             newest_run: PostTradeAllocationRun | None = None
             for (trade_date, model_name), traded in agg.items():
                 model = self.repo.model_by_name(model_name)
                 run = self.repo.create_run(
                     trade_date=trade_date,
-                    period_id=period.id if period else None,
+                    period_id=period.id,
                     status=RunStatus.COMPLETED.value,
                     trigger=trigger.value,
                     grand_total=traded,
@@ -401,13 +414,14 @@ class PostTradeAllocationService:
 
 **Behavior / invariants:**
 - **D-3 (safety-critical):** the aggregation is `Σ orders.proceeds`, never `abs()`'d, never `Σ|amount|`. A negative `traded` must survive unmodified through `allocated` and into the portfolio delta.
-- **D-5:** the split basis is the *latest confirmed* `allocation_periods` row — never the live/open `client_subscriptions` used by the PC workspace (006).
+- **D-5:** the split basis is the *latest confirmed* `allocation_periods` row — never the live/open `client_subscriptions` used by the PC workspace (006). Resolved **first**, before the empty-order check (see correction note above) — `period_id` is required on every `post_trade_allocation_runs` row, empty or not.
 - **D-9:** `trade_date` is **not** unique on `post_trade_allocation_runs`; a late-arriving order for an already-processed day produces a fresh run row for that same `tradeDate`.
-- **D-10:** an empty unallocated-order set writes exactly one `status='empty'` run row, no cells, no portfolio touch, and returns immediately — steps 2–5 are skipped entirely.
+- **D-10:** an empty unallocated-order set writes exactly one `status='empty'` run row (with `period_id` = the resolved confirmed period), no cells, no portfolio touch, and returns immediately — steps 2–5 are skipped entirely.
+- **No confirmed period exists at all:** `run()` raises (`RuntimeError`) before writing anything — this is a harder precondition failure than the old "period_id nullable" design, consistent with § 2's own precondition that a confirmed period already exists in any real environment. The router (BE-7) and scheduler (BE-8) are responsible for translating/logging this, not the service.
 - A model name with no live `models` row is logged and its orders are still marked (so they don't block future runs), but it contributes no cells and no portfolio delta.
 - The entire method executes inside one transaction (`self.db.begin_nested()` → single `self.db.commit()` at the end); any exception before the commit leaves every order's `allocated_run_id` untouched (rollback), making retry safe (C-2 idempotency).
 
-**Done when:** running against a seeded day reproduces the mock's numbers for an identical dataset; a losing-day fixture produces a negative `traded`/`allocated`/portfolio delta; a re-run immediately after finds `unallocated_orders() == []` and writes an empty run, touching no existing cell or portfolio row.
+**Done when:** running against a seeded day reproduces the mock's numbers for an identical dataset; a losing-day fixture produces a negative `traded`/`allocated`/portfolio delta; a re-run immediately after finds `unallocated_orders() == []` and writes an empty run (with a valid `period_id`), touching no existing cell or portfolio row; calling `run()` with zero confirmed periods in the DB raises instead of writing a row with a null `period_id`.
 
 ---
 
@@ -859,8 +873,8 @@ Per-layer obligations table (verbatim from proposal § 4.2):
 
 #### BE-3
 - **Positive:** given seeded orders for one `(tradeDate, model)` with `Σ proceeds = +100`, a confirmed snapshot with two clients at multiplier 3/2, the run produces `allocated = 60 / 40` and marks both orders with the new `run_id`; `client_portfolios.amount_in_trade` increases by each client's `allocated`, `previous_amount_in_trade` captures the pre-run value.
-- **Negative:** a losing day (`Σ proceeds = -100`) produces negative `allocated` for every client and *decreases* `amount_in_trade`; an order whose `model` matches no `Model` row is still marked allocated but produces no cell and no portfolio delta.
-- **Invariants:** empty unallocated-order set ⇒ exactly one `status='empty'` run, zero cells, zero portfolio writes; calling `run()` twice with no new orders between calls is a no-op on cells/portfolios (idempotency, C-2); the whole method never calls `abs()` on `proceeds` or sums `amount` instead of `proceeds`.
+- **Negative:** a losing day (`Σ proceeds = -100`) produces negative `allocated` for every client and *decreases* `amount_in_trade`; an order whose `model` matches no `Model` row is still marked allocated but produces no cell and no portfolio delta; calling `run()` with zero confirmed `allocation_periods` rows raises (`RuntimeError`) and writes no row at all (`period_id` is NOT NULL — corrected 2026-07-14, see BE-3 contract note).
+- **Invariants:** empty unallocated-order set ⇒ exactly one `status='empty'` run (with a valid `period_id`), zero cells, zero portfolio writes; calling `run()` twice with no new orders between calls is a no-op on cells/portfolios (idempotency, C-2); the whole method never calls `abs()` on `proceeds` or sums `amount` instead of `proceeds`.
 - **Seam mocks:** none — direct DB fixtures stand in for the DB layer's schema (already a precondition).
 
 #### BE-4
