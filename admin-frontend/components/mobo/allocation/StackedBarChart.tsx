@@ -70,6 +70,11 @@ function unionClientIds(models: PtaModelAllocation[]): string[] {
 const TOTAL_LABEL_KEY = "__total";
 const TOTAL_LABEL_EPSILON = 0.01;
 
+/** Total label reads red on a gross-loss day, on-surface otherwise. */
+function labelColor(traded: number): string {
+  return traded < 0 ? "rgb(var(--color-error))" : "var(--on-surface)";
+}
+
 interface ChartRow {
   modelId: string;
   modelName: string;
@@ -243,7 +248,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
                   y={y + h / 2}
                   dy={4}
                   textAnchor="start"
-                  style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+                  style={{ fill: labelColor(row.traded), fontSize: 13, fontWeight: 700 }}
                 >
                   {ptaMoney(row.traded)}
                 </text>
@@ -298,7 +303,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
                 x={x + width / 2}
                 y={y - 8}
                 textAnchor="middle"
-                style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+                style={{ fill: labelColor(row.traded), fontSize: 13, fontWeight: 700 }}
               >
                 {ptaMoney(row.traded)}
               </text>

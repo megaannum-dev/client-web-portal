@@ -57,7 +57,9 @@ function AllModelsCard({
           <OrientationToggle value={orientation} onChange={onOrientationChange} />
         </div>
         <div className="text-right">
-          <div className="text-[20px] font-bold tabular-nums text-on-surface">{ptaMoney(grandTotal)}</div>
+          <div className={`text-[20px] font-bold tabular-nums ${grandTotal < 0 ? "text-error" : "text-on-surface"}`}>
+            {ptaMoney(grandTotal)}
+          </div>
           <div className="text-[11px] font-semibold text-secondary">total traded · {settleDay}</div>
         </div>
       </div>
