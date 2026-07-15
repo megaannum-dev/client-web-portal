@@ -188,6 +188,10 @@ class PostTradeAllocationService:
             if not non_empty_runs:
                 return None
             trade_date = max(r.trade_date for r in non_empty_runs)
+        else:
+            # /runs hands back dashed "YYYY-MM-DD" (D-6); the DB stores raw "YYYYMMDD" —
+            # undo the dash so a picked date round-trips into the same equality filter.
+            trade_date = trade_date.replace("-", "")
 
         run_ids = [r.id for r in self.repo.runs_for_trade_date(trade_date)]
         cells = self.repo.cells_for_runs(run_ids)
