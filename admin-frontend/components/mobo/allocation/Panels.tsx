@@ -18,7 +18,7 @@ import {
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
-import type { PtaClientShare, PtaModelAllocation } from "@/lib/mobo/types";
+import type { PtaClientShare, PtaModelAllocation, PtaRun } from "@/lib/mobo/types";
 
 /* ============================================================
    Client → color
@@ -93,10 +93,10 @@ export function Donut({
   // 100 across a model's clients — using it for geometry left visible
   // gaps or overlaps between segments). `pct` is still used for the
   // tooltip's displayed share.
-  const total = shares.reduce((sum, s) => sum + s.delegated, 0) || 1;
+  const total = shares.reduce((sum, s) => sum + s.allocated, 0) || 1;
   let off = 0;
   const arcs = shares.map((s) => {
-    const frac = s.delegated / total;
+    const frac = s.allocated / total;
     const startOff = off;
     off += frac * C;
     return { ...s, frac, startOff, color: clientColor(s.clientId) };
@@ -108,7 +108,7 @@ export function Donut({
       y: e.clientY,
       name: s.name,
       units: s.units,
-      amt: ptaMoney(s.delegated),
+      amt: ptaMoney(s.allocated),
       pct: s.pct,
       color: s.color,
     });
@@ -179,7 +179,7 @@ export function Donut({
               <span className="font-bold tabular-nums text-on-surface">{tip.units}×</span>
             </div>
             <div className="mb-0.5 flex justify-between gap-4 text-[11.5px]">
-              <span className="font-semibold text-secondary">Delegated</span>
+              <span className="font-semibold text-secondary">Allocated</span>
               <span className="font-bold tabular-nums text-on-surface">{tip.amt}</span>
             </div>
             <div className="flex justify-between gap-4 text-[11.5px]">
@@ -373,15 +373,15 @@ export function EmptyCard({ settleDay }: { settleDay: string }) {
 }
 
 /* ============================================================
-   DateControl — settlement-day dropdown (4 discrete dates)
+   DateControl — settlement-day dropdown (fed from /runs)
    ============================================================ */
-const PTA_DISCRETE_DATES = ["03 Jun 2026", "02 Jun 2026", "01 Jun 2026", "29 May 2026"];
-
 export function DateControl({
   dateLabel,
+  runs,
   onPickDate,
 }: {
   dateLabel: string;
+  runs: PtaRun[];
   onPickDate: (d: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -395,26 +395,28 @@ export function DateControl({
           <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-secondary">
             Settlement day
           </div>
-          {PTA_DISCRETE_DATES.map((d) => {
-            const on = d === dateLabel;
-            return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => {
-                  onPickDate(d);
-                  setOpen(false);
-                }}
-                className={[
-                  "flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-[13px] font-semibold text-on-surface",
-                  on ? "bg-surface-container" : "bg-transparent",
-                ].join(" ")}
-              >
-                {d}
-                {on && <Check size={14} strokeWidth={2} className="text-primary" />}
-              </button>
-            );
-          })}
+          <div className="max-h-[280px] overflow-y-auto">
+            {runs.map((run) => {
+              const on = run.date === dateLabel;
+              return (
+                <button
+                  key={run.date}
+                  type="button"
+                  onClick={() => {
+                    onPickDate(run.date);
+                    setOpen(false);
+                  }}
+                  className={[
+                    "flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-[13px] font-semibold text-on-surface",
+                    on ? "bg-surface-container" : "bg-transparent",
+                  ].join(" ")}
+                >
+                  {run.label}
+                  {on && <Check size={14} strokeWidth={2} className="text-primary" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

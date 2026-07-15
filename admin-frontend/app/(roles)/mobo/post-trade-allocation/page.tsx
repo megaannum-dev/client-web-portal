@@ -11,10 +11,12 @@
    ============================================================ */
 
 import { useState } from "react";
-import { Download } from "@/lib/icons";
+import { Download, RefreshCw } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { loadPostTradeAllocation, ptaMoney } from "@/lib/mobo/allocation";
+import { ptaMoney } from "@/lib/mobo/allocation";
+import { usePostTradeAllocation, usePostTradeAllocationRuns } from "@/hooks/api/usePostTradeAllocation";
+import { toast } from "sonner";
 import type { PtaModelAllocation } from "@/lib/mobo/types";
 import { StackedBarChart } from "@/components/mobo/allocation/StackedBarChart";
 import {
@@ -55,7 +57,9 @@ function AllModelsCard({
           <OrientationToggle value={orientation} onChange={onOrientationChange} />
         </div>
         <div className="text-right">
-          <div className="text-[20px] font-bold tabular-nums text-on-surface">{ptaMoney(grandTotal)}</div>
+          <div className={`text-[20px] font-bold tabular-nums ${grandTotal < 0 ? "text-error" : "text-on-surface"}`}>
+            {ptaMoney(grandTotal)}
+          </div>
           <div className="text-[11px] font-semibold text-secondary">total traded · {settleDay}</div>
         </div>
       </div>
@@ -72,13 +76,25 @@ function AllModelsCard({
 }
 
 export default function PostTradeAllocationPage() {
-  // Client-side mock read, same pattern as MoboDashboardPage → loadReconciliation().
-  const { settleDay, models, grandTotal } = loadPostTradeAllocation();
+  const [pickedDate, setPickedDate] = useState<string | undefined>(undefined); // undefined = latest
+  const { data, loading, sync } = usePostTradeAllocation(pickedDate);
+  const { runs } = usePostTradeAllocationRuns();
+  const { settleDay, models, grandTotal } = data ?? { settleDay: "", models: [], grandTotal: 0 };
+
+  const handleSync = async () => {
+    const result = await sync();
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if (result.empty) {
+      toast(`No new trades — checked at ${result.checkedAt ?? "—"} ET`);
+    }
+  };
 
   const [view, setView] = useState<View>("all");
   const [modelId, setModelId] = useState<string | undefined>(models[0]?.id);
   const [orientation, setOrientation] = useState<"vertical" | "horizontal">("vertical");
-  const [pickedDate, setPickedDate] = useState("03 Jun 2026");
 
   const scope: "all" | "per" = view === "per" ? "per" : "all";
   const selectedModel = models.find((m) => m.id === modelId) ?? models[0];
@@ -88,7 +104,7 @@ export default function PostTradeAllocationPage() {
       ? "One model's traded amount, split by client"
       : view === "empty"
       ? `No post-trade allocation posted for ${settleDay} yet`
-      : `Money traded per model — oversight across all models · ${pickedDate}`;
+      : `Money traded per model — oversight across all models · ${pickedDate ?? "Latest"}`;
 
   return (
     <div className="flex min-h-[calc(100vh-9rem)] w-full flex-col">
@@ -98,10 +114,13 @@ export default function PostTradeAllocationPage() {
           subtitle={subtitle}
           actions={
             <>
-              <DateControl dateLabel={pickedDate} onPickDate={setPickedDate} />
-              <Button icon={Download} onClick={() => {}}>
-                Export
+              <DateControl dateLabel={pickedDate ?? "Latest"} runs={runs} onPickDate={setPickedDate} />
+              <Button icon={RefreshCw} onClick={handleSync} disabled={loading}>
+                Sync
               </Button>
+              {/* <Button icon={Download} onClick={() => {}}>
+                Export
+              </Button> */}
             </>
           }
         />

@@ -70,6 +70,11 @@ function unionClientIds(models: PtaModelAllocation[]): string[] {
 const TOTAL_LABEL_KEY = "__total";
 const TOTAL_LABEL_EPSILON = 0.01;
 
+/** Total label reads red on a gross-loss day, on-surface otherwise. */
+function labelColor(traded: number): string {
+  return traded < 0 ? "rgb(var(--color-error))" : "var(--on-surface)";
+}
+
 interface ChartRow {
   modelId: string;
   modelName: string;
@@ -83,18 +88,23 @@ interface ChartRow {
 function buildChartData(models: PtaModelAllocation[]): ChartRow[] {
   return models.map((m) => {
     const shares: Record<string, PtaClientShare> = {};
-    const row: ChartRow = {
+    const row = {
       modelId: m.id,
       modelName: m.name,
       modelAcct: m.acct,
       traded: m.traded,
       shares,
-      [TOTAL_LABEL_KEY]: TOTAL_LABEL_EPSILON,
-    };
+    } as ChartRow;
     for (const cs of m.clientShares) {
       shares[cs.clientId] = cs;
-      row[cs.clientId] = cs.delegated;
+      // Bar geometry uses the magnitude only — sign (profit/loss) is conveyed by the
+      // total label's color instead, so a loss day doesn't flip bars below the axis.
+      row[cs.clientId] = Math.abs(cs.allocated);
     }
+    // Recharts stacks bars in the row object's KEY INSERTION ORDER, not JSX
+    // declaration order — __total must be set last so it lands on top of the
+    // real client segments (its <Bar> is also declared last, below).
+    row[TOTAL_LABEL_KEY] = TOTAL_LABEL_EPSILON;
     return row;
   });
 }
@@ -119,8 +129,8 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
         {row.modelName} · {row.modelAcct}
       </div>
       <div className="flex items-center justify-between gap-4 text-[11.5px]">
-        <span className="font-semibold text-secondary">Delegated</span>
-        <span className="font-bold tabular-nums text-on-surface">{ptaMoney(share.delegated)}</span>
+        <span className="font-semibold text-secondary">Allocated</span>
+        <span className="font-bold tabular-nums text-on-surface">{ptaMoney(share.allocated)}</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-[11.5px]">
         <span className="font-semibold text-secondary">Share</span>
@@ -130,9 +140,10 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
   );
 }
 
-/* ---- custom axis tick — model name (bold) + account (secondary),
-   two lines. `align` controls horizontal text anchor (vertical mode
-   centers under the bar; horizontal mode right-aligns beside it). --- */
+/* ---- custom axis tick — model name only (account is an internal
+   identifier, not shown here). `align` controls horizontal text anchor
+   (vertical mode centers under the bar; horizontal mode right-aligns
+   beside it). --------------------------------------------------------- */
 function ModelTick({
   x, y, payload, rows, align,
 }: {
@@ -144,15 +155,11 @@ function ModelTick({
 }) {
   const row = rows.find((r) => r.modelId === payload?.value);
   if (!row || x == null || y == null) return null;
-  const dy1 = align === "middle" ? 12 : -4;
-  const dy2 = align === "middle" ? 26 : 11;
+  const dy = align === "middle" ? 16 : 4;
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={0} y={dy1} textAnchor={align} style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}>
+      <text x={0} y={dy} textAnchor={align} style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}>
         {row.modelName}
-      </text>
-      <text x={0} y={dy2} textAnchor={align} style={{ fill: "var(--secondary)", fontSize: 11, fontWeight: 600 }}>
-        {row.modelAcct}
       </text>
     </g>
   );
@@ -238,7 +245,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
                   y={y + h / 2}
                   dy={4}
                   textAnchor="start"
-                  style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+                  style={{ fill: labelColor(row.traded), fontSize: 13, fontWeight: 700 }}
                 >
                   {ptaMoney(row.traded)}
                 </text>
@@ -293,7 +300,7 @@ export function StackedBarChart({ models, orientation, onSelectModel }: StackedB
                 x={x + width / 2}
                 y={y - 8}
                 textAnchor="middle"
-                style={{ fill: "var(--on-surface)", fontSize: 13, fontWeight: 700 }}
+                style={{ fill: labelColor(row.traded), fontSize: 13, fontWeight: 700 }}
               >
                 {ptaMoney(row.traded)}
               </text>

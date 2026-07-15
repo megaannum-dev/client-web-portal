@@ -446,17 +446,46 @@ export interface PtaClient {
 
 /**
  * One client's pro-rata slice of a model's traded amount.
- *   units     — subscribed units backing the delegation
- *   delegated — raw delegated amount (formatting is the component's job)
+ *   units     — subscribed units backing the allocation
+ *   allocated — raw allocated amount (was `delegated`; renamed D-7 to match
+ *               page semantics — "post-trade allocation")
  *   pct       — rounded 0-100 share of the model's units
  */
 export interface PtaClientShare {
   clientId: string;
   name: string;
   units: number;
-  delegated: number;
+  allocated: number; // was: delegated
   pct: number;
 }
+
+/** Wire shape of GET /api/mobo/post-trade-allocation (proposal §4.1). */
+export interface PtaClientShareDTO {
+  clientId: string;
+  name: string;
+  units: number;
+  allocated: number;
+  pct: number;
+}
+export interface PtaModelDTO {
+  id: string;
+  name: string;
+  acct: string;
+  traded: number;
+  unitsTotal: number;
+  clientShares: PtaClientShareDTO[];
+}
+export interface PtaViewDTO {
+  tradeDate: string;
+  settleDay: string;
+  grandTotal: number;
+  models: PtaModelDTO[];
+}
+export interface PtaRunDTO { date: string; label: string; grandTotal: number }
+export interface PtaRunsDTO { runs: PtaRunDTO[] }
+export interface PtaRunResultDTO { newRuns: PtaRunDTO[]; latest: PtaViewDTO; checkedAt: string }
+
+export interface PtaRun { date: string; label: string; grandTotal: number }
 
 /**
  * A model plus its precomputed client breakdown. `unitsTotal` and
