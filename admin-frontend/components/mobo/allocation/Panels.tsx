@@ -395,26 +395,28 @@ export function DateControl({
           <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-secondary">
             Settlement day
           </div>
-          {runs.map((run) => {
-            const on = run.date === dateLabel;
-            return (
-              <button
-                key={run.date}
-                type="button"
-                onClick={() => {
-                  onPickDate(run.date);
-                  setOpen(false);
-                }}
-                className={[
-                  "flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-[13px] font-semibold text-on-surface",
-                  on ? "bg-surface-container" : "bg-transparent",
-                ].join(" ")}
-              >
-                {run.label}
-                {on && <Check size={14} strokeWidth={2} className="text-primary" />}
-              </button>
-            );
-          })}
+          <div className="max-h-[280px] overflow-y-auto">
+            {runs.map((run) => {
+              const on = run.date === dateLabel;
+              return (
+                <button
+                  key={run.date}
+                  type="button"
+                  onClick={() => {
+                    onPickDate(run.date);
+                    setOpen(false);
+                  }}
+                  className={[
+                    "flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-[13px] font-semibold text-on-surface",
+                    on ? "bg-surface-container" : "bg-transparent",
+                  ].join(" ")}
+                >
+                  {run.label}
+                  {on && <Check size={14} strokeWidth={2} className="text-primary" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
