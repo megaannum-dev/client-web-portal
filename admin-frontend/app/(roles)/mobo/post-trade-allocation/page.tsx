@@ -118,9 +118,9 @@ export default function PostTradeAllocationPage() {
               <Button icon={RefreshCw} onClick={handleSync} disabled={loading}>
                 Sync
               </Button>
-              <Button icon={Download} onClick={() => {}}>
+              {/* <Button icon={Download} onClick={() => {}}>
                 Export
-              </Button>
+              </Button> */}
             </>
           }
         />
