@@ -92,7 +92,9 @@ function buildChartData(models: PtaModelAllocation[]): ChartRow[] {
     } as ChartRow;
     for (const cs of m.clientShares) {
       shares[cs.clientId] = cs;
-      row[cs.clientId] = cs.allocated;
+      // Bar geometry uses the magnitude only — sign (profit/loss) is conveyed by the
+      // total label's color instead, so a loss day doesn't flip bars below the axis.
+      row[cs.clientId] = Math.abs(cs.allocated);
     }
     // Recharts stacks bars in the row object's KEY INSERTION ORDER, not JSX
     // declaration order — __total must be set last so it lands on top of the
