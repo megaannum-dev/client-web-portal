@@ -149,7 +149,7 @@ function rcBuildScenario(algoOrders: RcOrder[], ibOrders: RcOrder[]): FlowScenar
   const orders: RcOrder[] = algoOrders.map((ao) => {
     const io = ibOrders.find((o) => o.id === ao.id);
     if (!io || Math.abs(ao.notVal - io.notVal) < 100) return ao;
-    return { ...ao, st: "brk", brk: `IB filled ${fmtUsd(io.notVal)} vs ${fmtUsd(ao.notVal)} ordered`, execs: io.execs };
+    return { ...ao, st: "brk", brk: `${fmtUsd(ao.notVal)} Ordered vs ${fmtUsd(io.notVal)} Confirmed by IB`, execs: io.execs };
   });
   const allocs = rcBuildAllocs(ibOrders, algoOrders);
   const ports = rcBuildPorts(allocs);
