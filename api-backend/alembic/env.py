@@ -12,6 +12,7 @@ from app.core.database import Base
 import app.models.users  # noqa: F401
 import app.models.reconciliation  # noqa: F401
 import app.models.pc  # noqa: F401
+import app.models.post_trade_allocation  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

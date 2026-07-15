@@ -23,4 +23,11 @@ from app.models.pc import (  # noqa: F401
     ModelSymbol,
     AllocationPeriodModel,
 )
+from app.models.post_trade_allocation import (  # noqa: F401
+    RunStatus,
+    RunTrigger,
+    PostTradeAllocationRun,
+    PostTradeAllocation,
+    ClientPortfolio,
+)
 from app.core.database import Base  # noqa: F401

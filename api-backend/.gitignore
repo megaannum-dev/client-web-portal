@@ -19,12 +19,12 @@ build/
 
 # Test artefacts
 .pytest_cache/
-tests/
 *.db
 *.sqlite
 
 # PC workspace uploaded marketing materials (local storage backend mount)
 /pc_storage/
+/tests/
 
 # IDE
 .idea/
