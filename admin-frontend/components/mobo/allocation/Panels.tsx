@@ -179,7 +179,7 @@ export function Donut({
               <span className="font-bold tabular-nums text-on-surface">{tip.units}×</span>
             </div>
             <div className="mb-0.5 flex justify-between gap-4 text-[11.5px]">
-              <span className="font-semibold text-secondary">Delegated</span>
+              <span className="font-semibold text-secondary">Allocated</span>
               <span className="font-bold tabular-nums text-on-surface">{tip.amt}</span>
             </div>
             <div className="flex justify-between gap-4 text-[11.5px]">
