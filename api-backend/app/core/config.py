@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
 
+    # Trade reconciliation — abs-delta tolerance for notional comparisons (BE-7)
+    recon_notional_epsilon: str = "0.01"
+
 
 @lru_cache
 def get_settings() -> Settings:
