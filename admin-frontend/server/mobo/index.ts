@@ -4,6 +4,8 @@ import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
 import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO } from "@/lib/mobo/types";
 
+export type { APIResult };
+
 /** GET the view for a trade date; omitted date = most recent run (§4.1). */
 export async function getPostTradeAllocation(date?: string): Promise<APIResult<PtaViewDTO>> {
   const path = date ? `${ENDPOINTS.MOBO.PTA}?date=${encodeURIComponent(date)}` : ENDPOINTS.MOBO.PTA;
