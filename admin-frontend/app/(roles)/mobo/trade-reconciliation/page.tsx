@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/Button";
 import { MetricStat } from "@/components/mobo/Shared";
 import { OrderCard, AllocCard, PortfolioCard, FlowRow, FlowConnector } from "@/components/mobo/recon-flow/Cards";
 import { FlowDetail } from "@/components/mobo/recon-flow/Detail";
-import { loadReconciliationFlow } from "@/lib/mobo/reconciliation-flow";
+import { useReconciliationFlow } from "@/hooks/api/useReconciliationFlow";
 
 type Sel = { type: "order" | "alloc" | "port"; id: string } | null;
 
@@ -42,22 +42,14 @@ const DETAIL_TOP = 16; // sticky offset
 const DETAIL_BOTTOM_GAP = 24; // breathing room below the viewport-capped panel
 
 export default function TradeReconciliationPage() {
-  const view = loadReconciliationFlow("breaks");
-  const { orders, allocs, ports, counts } = view;
+  const { data: view, loading, error, refetch } = useReconciliationFlow();
 
+  // Hooks below must stay unconditional (rules-of-hooks) — the loading/error/
+  // !view early returns are placed after every hook call, before anything
+  // that reads `view`. No hook logic changes vs. before the FE-5 cutover.
   const [sel, setSel] = useState<Sel>(null);
   const toggle = (type: NonNullable<Sel>["type"], id: string) =>
     setSel((prev) => (prev && prev.type === type && prev.id === id ? null : { type, id }));
-
-  const selOrder = sel?.type === "order" ? orders.find((o) => o.id === sel.id) ?? null : null;
-  const selAlloc = sel?.type === "alloc" ? allocs.find((a) => a.cid === sel.id) ?? null : null;
-  const selPort = sel?.type === "port" ? ports.find((p) => p.cid === sel.id) ?? null : null;
-  const isSel = !!(selOrder || selAlloc || selPort);
-  const isCompact = isSel;
-
-  /* cross-layer highlighting — selecting an order highlights every
-     client card downstream that shares its model */
-  const hlModel = selOrder?.m ?? null;
 
   /* grid width (for the flow-column <-> detail-panel column animation) */
   const gridRef = useRef<HTMLDivElement>(null);
@@ -89,6 +81,30 @@ export default function TradeReconciliationPage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  if (loading && !view) {
+    return <PageHeader title="Trade Reconciliation" />;
+  }
+  if (error) {
+    return (
+      <div role="alert">
+        <Button onClick={refetch}>Retry</Button>
+      </div>
+    );
+  }
+  if (!view) return null;
+
+  const { orders, allocs, ports, counts } = view;
+
+  const selOrder = sel?.type === "order" ? orders.find((o) => o.id === sel.id) ?? null : null;
+  const selAlloc = sel?.type === "alloc" ? allocs.find((a) => a.cid === sel.id) ?? null : null;
+  const selPort = sel?.type === "port" ? ports.find((p) => p.cid === sel.id) ?? null : null;
+  const isSel = !!(selOrder || selAlloc || selPort);
+  const isCompact = isSel;
+
+  /* cross-layer highlighting — selecting an order highlights every
+     client card downstream that shares its model */
+  const hlModel = selOrder?.m ?? null;
 
   const flowW = isSel ? Math.max(0, gridW - GAP - DW) : gridW;
   const cols = isSel ? `${flowW}px ${DW}px` : `${gridW}px`;
