@@ -102,3 +102,27 @@ class AlgoTradeOrder(Base):
     __table_args__ = (
         Index("ix_algotrade_orders_session_model_symbol", "session_id", "model_id", "symbol"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-3 — algotrade_executions
+# ---------------------------------------------------------------------------
+
+
+class AlgoTradeExecution(Base):
+    __tablename__ = "algotrade_executions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("algotrade_orders.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    qty_filled: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    fill_price: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    fill_notional: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_algotrade_executions_order", "order_id"),)
