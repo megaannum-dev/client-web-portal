@@ -18,9 +18,14 @@ import type {
   PtaViewDTO,
 } from "./types";
 
-/** Format money the way the design prototype does: $X.XXM above 1e6, else $Xk rounded. */
+/** Format money: $X.XXM at/above 1e6, $Xk rounded at/above 1e3, else the plain dollar amount
+ *  (small per-client allocations are common with real backend data and would otherwise all
+ *  round to "$0k"). */
 export function ptaMoney(v: number): string {
-  return v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${Math.round(v / 1e3)}k`;
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `$${Math.round(v / 1e3)}k`;
+  return `$${Math.round(v)}`;
 }
 
 /**
