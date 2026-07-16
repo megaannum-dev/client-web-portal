@@ -56,7 +56,10 @@ class IBAdapter:
     ) -> Order | None:
         """Join key: (symbol, side, trade_date, model) — implicit attribute join
         (proposal Q-3, resolved: keep this for now; revisit once a real
-        AlgoTrade API sample exists)."""
+        AlgoTrade API sample exists). Multiple orders can legitimately share
+        this 4-tuple (e.g. several fills of the same symbol/side/day/model),
+        so pick the earliest deterministically (ingested_at, then id as a
+        tiebreaker) instead of .one_or_none() raising MultipleResultsFound."""
         return (
             self.db.query(Order)
             .filter(
@@ -65,5 +68,6 @@ class IBAdapter:
                 Order.tradeDate == trade_date_yyyymmdd,
                 Order.model == model_name,
             )
-            .one_or_none()
+            .order_by(Order.ingested_at, Order.id)
+            .first()
         )
