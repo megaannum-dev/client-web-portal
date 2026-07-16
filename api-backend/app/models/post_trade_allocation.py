@@ -141,3 +141,29 @@ class ClientPortfolio(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-4 — client_portfolio_run_deltas (per-run delta ledger)
+# ---------------------------------------------------------------------------
+
+
+class ClientPortfolioRunDelta(Base):
+    __tablename__ = "client_portfolio_run_deltas"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("post_trade_allocation_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    # signed (D-3) — exact per-run delta applied to ClientPortfolio.amount_in_trade
+    # at write time; survives later runs overwriting previous_amount_in_trade
+    delta: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
