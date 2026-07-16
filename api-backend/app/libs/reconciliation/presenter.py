@@ -102,8 +102,9 @@ def _build_order(
         px=str(o.price),
         not_=fmt_usd(o.notional),
         notVal=float(o.notional),
-        ref=str(o.id),
-        ib=str(ib_order.id) if ib_order is not None else "",
+        multiplier=float(o.contract_multiplier),
+        ref=o.ib_order_id if o.ib_order_id is not None else str(o.id),
+        ib=(ib_order.orderID or "") if ib_order is not None else "",
         st="brk" if brk is not None else "ok",
         execs=execs,
         brk=(

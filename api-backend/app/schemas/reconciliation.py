@@ -23,6 +23,7 @@ class RcOrderOut(BaseModel):
     px: str
     not_: str = Field(alias="not")
     notVal: float
+    multiplier: float
     ref: str
     ib: str
     st: str
