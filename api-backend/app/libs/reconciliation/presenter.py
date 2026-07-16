@@ -9,6 +9,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.libs.reconciliation.adapters.algotrade import AlgoTradeAdapter
+from app.libs.reconciliation.adapters.crm import CRMAdapter
 from app.libs.reconciliation.adapters.ib import IBAdapter
 from app.libs.reconciliation.dtos import ReconciliationResult
 from app.libs.reconciliation.formatting import fmt_usd, pct_of
@@ -32,6 +33,7 @@ def to_wire(
 ) -> ReconciliationFlowViewOut:
     algo = AlgoTradeAdapter(db)
     ib = IBAdapter(db)
+    crm = CRMAdapter(db)
 
     order_breaks_by_id = {b.order_id: b for b in result.order_breaks}
     client_model_breaks = {(b.client_id, b.model_id): b for b in result.client_model_breaks}
@@ -45,7 +47,10 @@ def to_wire(
         _build_alloc(ib, session, row, client_model_breaks)
         for row in _client_model_rows(db, session)
     ]
-    ports_out = [_build_port(row, crm_breaks_by_client) for row in _portfolio_rows(db, session)]
+    ports_out = [
+        _build_port(crm, session, row, crm_breaks_by_client)
+        for row in _portfolio_rows(db, session)
+    ]
 
     counts = RcBreakCountsOut(
         algIbBrk=len(result.order_breaks) + len(result.client_model_breaks),
@@ -166,18 +171,22 @@ def _portfolio_rows(db: Session, session: ReconSession):
     )
 
 
-def _build_port(row, crm_breaks_by_client: dict) -> RcPortOut:
+def _build_port(
+    crm: CRMAdapter, session: ReconSession, row, crm_breaks_by_client: dict
+) -> RcPortOut:
     client, portfolio = row
     brk = crm_breaks_by_client.get(client.id)
-    chg = portfolio.amount_in_trade - portfolio.previous_amount_in_trade
+    chg = crm.portfolio_delta_for_run(session.ib_run_id, client.user_id)
+    post = portfolio.amount_in_trade
+    pre = post - chg
     return RcPortOut(
         cid=str(client.id),
         client=client.name or "",
         st="brk" if brk is not None else "ok",
-        pre=fmt_usd(portfolio.previous_amount_in_trade),
-        post=fmt_usd(portfolio.amount_in_trade),
+        pre=fmt_usd(pre),
+        post=fmt_usd(post),
         chg=fmt_usd(chg),
-        pct=pct_of(chg, portfolio.previous_amount_in_trade),
+        pct=pct_of(chg, pre),
         inTrade=float(portfolio.amount_in_trade),
         cash=float(portfolio.cash_deposit),
         total=float(portfolio.amount_in_trade + portfolio.cash_deposit),
