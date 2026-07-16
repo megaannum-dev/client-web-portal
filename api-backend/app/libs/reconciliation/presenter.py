@@ -41,7 +41,10 @@ def to_wire(
         _build_order(db, algo, ib, o, order_breaks_by_id)
         for o in algo.orders_for_session(session.id)
     ]
-    allocs_out = [_build_alloc(row, client_model_breaks) for row in _client_model_rows(db, session)]
+    allocs_out = [
+        _build_alloc(ib, session, row, client_model_breaks)
+        for row in _client_model_rows(db, session)
+    ]
     ports_out = [_build_port(row, crm_breaks_by_client) for row in _portfolio_rows(db, session)]
 
     counts = RcBreakCountsOut(
@@ -119,15 +122,17 @@ def _client_model_rows(db: Session, session: ReconSession):
     )
 
 
-def _build_alloc(row, client_model_breaks: dict) -> RcAllocOut:
+def _build_alloc(
+    ib: IBAdapter, session: ReconSession, row, client_model_breaks: dict
+) -> RcAllocOut:
     client, sub, model = row
     brk = client_model_breaks.get((client.id, model.id))
-    amt_val = float(sub.multiplier)
+    amt = ib.allocated_for_client_model(session.ib_run_id, client.id, model.id)
     line = RcAllocModelLineOut(
         m=model.name,
         units=float(sub.multiplier),
-        amt=fmt_usd(Decimal(amt_val)),
-        amtVal=amt_val,
+        amt=fmt_usd(amt),
+        amtVal=float(amt),
         st="brk" if brk is not None else "ok",
         note=f"expected {brk.expected} actual {brk.actual}" if brk is not None else None,
     )
