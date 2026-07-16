@@ -17,7 +17,7 @@ from app.libs.reconciliation.dtos import (
     OrderBreak,
     ReconciliationResult,
 )
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import AllocationModelSnapshot, Model
 from app.models.recon import AlgoTradeOrder, ReconSession
 from app.models.reconciliation import Order
 from app.models.users import ClientProfile
@@ -41,24 +41,37 @@ def _model_name(db: Session, model_id: uuid.UUID) -> str:
 def _client_model_expected_actual(
     db: Session, session: ReconSession, algo: AlgoTradeAdapter, ib: IBAdapter
 ) -> Iterator[tuple[int, uuid.UUID, Decimal, Decimal]]:
-    """For every client subscribed to the recon session's model, yield
-    (client_id, model_id, expected, actual) where expected is IB's allocation
-    for that (run, client, model) and actual is the client's pro-rata share
-    of the session's algo notional total (multiplier / sum of multipliers
-    for the model -- mirrors PostTradeAllocationService._split)."""
+    """For every client with a frozen allocation snapshot for the recon
+    session's period+model, yield (client_id, model_id, expected, actual)
+    where expected is IB's allocation for that (run, client, model) and
+    actual is the client's pro-rata share of the session's algo notional
+    total (multiplier / sum of multipliers -- mirrors
+    PostTradeAllocationService._split, which reads AllocationModelSnapshot
+    -- the FROZEN copy taken at confirm-time -- not live ClientSubscription;
+    a subscription edited after confirm must not change what this compares
+    against)."""
     model_id = session.allocation_model_id
-    subs = db.query(ClientSubscription).filter(ClientSubscription.model_id == model_id).all()
-    total_multiplier = sum((s.multiplier for s in subs), Decimal("0"))
+    snapshots = (
+        db.query(AllocationModelSnapshot)
+        .filter(
+            AllocationModelSnapshot.period_id == session.allocation_period_id,
+            AllocationModelSnapshot.model_id == model_id,
+        )
+        .all()
+    )
+    total_multiplier = sum((s.multiplier for s in snapshots), Decimal("0"))
     if total_multiplier == 0:
         return  # ponytail: no subscribers to split against, nothing to compare
     algo_total = algo.total_notional(session.id)
 
-    for sub in subs:
-        client = db.query(ClientProfile).filter(ClientProfile.user_id == sub.user_id).one_or_none()
+    for snapshot in snapshots:
+        client = (
+            db.query(ClientProfile).filter(ClientProfile.user_id == snapshot.user_id).one_or_none()
+        )
         if client is None:
             continue
         expected = ib.allocated_for_client_model(session.ib_run_id, client.id, model_id)
-        actual = (sub.multiplier / total_multiplier) * algo_total
+        actual = (snapshot.multiplier / total_multiplier) * algo_total
         yield client.id, model_id, expected, actual
 
 

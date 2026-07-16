@@ -12,7 +12,7 @@ from app.libs.reconciliation.adapters.algotrade import AlgoTradeAdapter
 from app.libs.reconciliation.adapters.ib import IBAdapter
 from app.libs.reconciliation.dtos import ReconciliationResult
 from app.libs.reconciliation.formatting import fmt_usd, pct_of
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import AllocationModelSnapshot, Model
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.recon import ReconSession
 from app.models.users import ClientProfile
@@ -115,10 +115,13 @@ def _build_order(
 
 def _client_model_rows(db: Session, session: ReconSession):
     return (
-        db.query(ClientProfile, ClientSubscription, Model)
-        .join(ClientSubscription, ClientSubscription.model_id == Model.id)
-        .join(ClientProfile, ClientProfile.user_id == ClientSubscription.user_id)
-        .filter(Model.id == session.allocation_model_id)
+        db.query(ClientProfile, AllocationModelSnapshot, Model)
+        .join(AllocationModelSnapshot, AllocationModelSnapshot.model_id == Model.id)
+        .join(ClientProfile, ClientProfile.user_id == AllocationModelSnapshot.user_id)
+        .filter(
+            Model.id == session.allocation_model_id,
+            AllocationModelSnapshot.period_id == session.allocation_period_id,
+        )
         .all()
     )
 
@@ -126,12 +129,12 @@ def _client_model_rows(db: Session, session: ReconSession):
 def _build_alloc(
     ib: IBAdapter, session: ReconSession, row, client_model_breaks: dict
 ) -> RcAllocOut:
-    client, sub, model = row
+    client, snapshot, model = row
     brk = client_model_breaks.get((client.id, model.id))
     amt = ib.allocated_for_client_model(session.ib_run_id, client.id, model.id)
     line = RcAllocModelLineOut(
         m=model.name,
-        units=float(sub.multiplier),
+        units=float(snapshot.multiplier),
         amt=fmt_usd(amt),
         amtVal=float(amt),
         st="brk" if brk is not None else "ok",
@@ -151,6 +154,14 @@ def _portfolio_rows(db: Session, session: ReconSession):
     return (
         db.query(ClientProfile, ClientPortfolio)
         .join(ClientPortfolio, ClientPortfolio.user_id == ClientProfile.user_id)
+        .join(
+            AllocationModelSnapshot,
+            AllocationModelSnapshot.user_id == ClientProfile.user_id,
+        )
+        .filter(
+            AllocationModelSnapshot.period_id == session.allocation_period_id,
+            AllocationModelSnapshot.model_id == session.allocation_model_id,
+        )
         .all()
     )
 
