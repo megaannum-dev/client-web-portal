@@ -60,7 +60,7 @@ export default function TradeReconciliationPage() {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, []);
+  }, [!!view]);
   useEffect(() => {
     if (gridW > 0 && !ready) {
       const id = requestAnimationFrame(() => setReady(true));
@@ -80,7 +80,7 @@ export default function TradeReconciliationPage() {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [!!view]);
 
   if (loading && !view) {
     return <PageHeader title="Trade Reconciliation" />;
