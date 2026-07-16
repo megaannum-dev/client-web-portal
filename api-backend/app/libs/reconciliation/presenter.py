@@ -4,7 +4,7 @@
 # swap only ever touches the adapters, never this file's row-shaping.
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,12 @@ from app.schemas.reconciliation import (
     RcPortOut,
     ReconciliationFlowViewOut,
 )
+
+
+def _q2(v: Decimal) -> Decimal:
+    """Round a Decimal to 2dp for a diagnostic note -- division results
+    (e.g. pro-rata splits) can otherwise repeat forever when interpolated."""
+    return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def to_wire(
@@ -143,7 +149,9 @@ def _build_alloc(
         amt=fmt_usd(amt),
         amtVal=float(amt),
         st="brk" if brk is not None else "ok",
-        note=f"expected {brk.expected} actual {brk.actual}" if brk is not None else None,
+        note=(
+            f"expected {_q2(brk.expected)} actual {_q2(brk.actual)}" if brk is not None else None
+        ),
     )
     return RcAllocOut(
         cid=str(client.id),
