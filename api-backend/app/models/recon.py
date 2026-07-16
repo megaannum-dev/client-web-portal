@@ -85,6 +85,10 @@ class AlgoTradeOrder(Base):
     qty_ordered: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
     notional: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+    ib_order_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contract_multiplier: Mapped[Decimal] = mapped_column(
+        Numeric(18, 6), nullable=False, server_default="1"
+    )
     trade_date: Mapped[date] = mapped_column(Date, nullable=False)
     currency: Mapped[str] = mapped_column(CHAR(3), nullable=False, server_default="USD")
     asset_class: Mapped[str] = mapped_column(String(32), nullable=False, server_default="OPT")
