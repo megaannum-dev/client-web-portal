@@ -122,7 +122,7 @@ def reconcile(db: Session, session_id: uuid.UUID) -> ReconciliationResult:
     crm_ok_by_client: dict[int, bool] = {}
     for client_id, user_id in _client_user_pairs(db):
         expected = ib.allocated_for_client_model_total(session.ib_run_id, client_id)
-        actual = crm.portfolio_delta(user_id)
+        actual = crm.portfolio_delta_for_run(session.ib_run_id, user_id)
         ok = abs(expected - actual) <= eps
         crm_ok_by_client[client_id] = ok
         if not ok:
