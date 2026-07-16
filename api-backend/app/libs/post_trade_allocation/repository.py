@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model, PeriodStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
+    ClientPortfolioRunDelta,
     PostTradeAllocation,
     PostTradeAllocationRun,
     RunStatus,
@@ -110,6 +111,10 @@ class PostTradeAllocationRepository:
             portfolio.previous_amount_in_trade = portfolio.amount_in_trade
             portfolio.amount_in_trade = portfolio.amount_in_trade + delta
             portfolio.last_run_id = run_id
+            # ponytail: run_id is a fresh uuid4 per create_run call (one per
+            # (trade_date, model) group), so (run_id, user_id) can never repeat
+            # within or across calls — plain insert, no upsert-on-conflict needed.
+            self.db.add(ClientPortfolioRunDelta(run_id=run_id, user_id=user_id, delta=delta))
         self.db.flush()
 
     # --- GET path ------------------------------------------------------------
