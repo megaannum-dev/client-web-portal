@@ -40,6 +40,7 @@ export interface RcOrder {
   px: string;
   not: string;
   notVal: number;
+  multiplier: number;
   ref: string;
   ib: string;
   st: FlowState;
