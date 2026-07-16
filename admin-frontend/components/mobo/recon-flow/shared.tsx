@@ -19,7 +19,7 @@ export const FG: Record<FlowState, { icon: LucideIcon; bg: string; fg: string; l
 
 /** Plain model display name (no pill styling) — for text contexts like KV rows. */
 export function modelName(mid: RcModelId): string {
-  return FM[mid].name;
+  return FM[mid]?.name ?? mid;
 }
 
 export function MPill({ mid }: { mid: RcModelId }) {
