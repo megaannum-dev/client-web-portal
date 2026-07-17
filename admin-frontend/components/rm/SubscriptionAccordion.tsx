@@ -13,7 +13,7 @@ export type OpenSubscriptionModal = (opts: {
   context: SubscriptionModalContext;
 }) => void;
 
-const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In", "Expected Redemption"];
+const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In / Out", "Status"];
 const TXN_RIGHT = new Set(["Cash Amt", "Model ×", "Notional"]);
 
 function FeePill({ label, accent }: { label: string; accent?: boolean }) {
@@ -52,9 +52,14 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
         <tbody>
           {rows.map((r, ri) => {
             const isNet = r[0] === "Net";
+            // r[7]/r[8] are the original "Expected Cash In" / "Expected Redemption"
+            // fields — only one is ever populated per row (the other is "—"),
+            // so the merged column just shows whichever one has a value.
+            const expected = r[7] === "—" ? r[8] : r[7];
+            const cells = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], expected];
             return (
               <tr key={ri} className={isNet ? "bg-surface-low" : undefined}>
-                {r.map((v, ci) => (
+                {cells.map((v, ci) => (
                   <td
                     key={ci}
                     className={clsx(
@@ -66,6 +71,9 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
                     {v}
                   </td>
                 ))}
+                <td className="whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 text-left">
+                  {!isNet && <Chip tone="active" dot={false}>Confirmed</Chip>}
+                </td>
               </tr>
             );
           })}
