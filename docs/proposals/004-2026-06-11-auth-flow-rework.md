@@ -83,7 +83,7 @@ All earlier open questions are now resolved (§7); no design forks remain outsta
 
 ```
 CLIENT
-  1. RM calls  POST /api/admin/clients          (authority: CLIENT_MANAGE / RM)
+  1. RM calls  POST /api/rm/clients             (authority: CLIENT_MANAGE / RM)
         → Admin SDK: create the Firebase identity (backend owns the uid)   (R6, Q-C)
         → create users(portal=client) + client_profiles(name, assigned_rm_uid=<rm>,
                                                           status='pending', …)
@@ -121,7 +121,7 @@ BOOTSTRAP (first super-admin)
 ### 4.4 RM client onboarding (R2, R6, G4) — new endpoint
 
 ```
-POST /api/admin/clients
+POST /api/rm/clients
   auth:  require_action(Action.CLIENT_MANAGE)        # RM and above
   body:  { email, name, primary_phone?, address?, country_of_residence?,
            authorized_person?, initiate_method?, assigned_rm_uid? }
@@ -264,11 +264,11 @@ We handle these in three layers:
 
 1. **Synchronous compensation (primary — class A).** Order: create the Firebase identity → open a DB transaction → insert `users` + profile → commit. If the commit fails, **best-effort `delete_user(uid)`** in the `except` path (treat `UserNotFoundError` as success; log email + reason at `WARNING`). This is a **saga compensation** — there is no cross-system transaction, so we emulate rollback; the local insert is itself one DB transaction, so the *local* side is truly atomic. Collapses the orphan window to "commit failed **and** compensation failed."
 2. **Idempotent provisioning (class A retries).** Keyed by **email** (no `uid` exists yet — `uid` is only the *login*-binding key, Q-D). Before creating, `get_user_by_email`: both exist → `409`; **Firebase identity exists but no `users` row → adopt its `uid`** and finish the local insert (the retry *self-heals* a prior class-A orphan — still authority-gated, so not auto-create); neither → normal path. The `users.firebase_uid` UNIQUE constraint backstops the concurrent race (second commit fails → compensation fires).
-3. **Periodic reconciliation sweep (backstop for all three).** A scheduled, idempotent job that **surfaces or quarantines, never auto-completes business data**:
-   - **Class A** past a grace window → **quarantine-before-delete**: first set the Firebase identity `disabled=True` (a live credential can't sit there even if a `users` row later appears), observe a second window, then delete. Respects Firebase-as-credential-authority by not casually destroying it.
-   - **Class B / C** → flag for the operator (re-invite for B; re-enrich-or-purge for C). Never reconstructed automatically, since the missing data carries authority/business context the sweep cannot infer.
+3. **On-demand drift report (backstop for all three), not a scheduled sweep.** Post-§4.3, a class-A orphan (bare Firebase identity, no `users` row) already cannot authenticate — the gate closes on the missing row, not on a quarantine flag — so there is nothing live to stage-and-observe. One idempotent, run-on-demand tool **classifies and surfaces, never auto-completes business data**:
+   - **Class A** past a simple age cutoff → delete directly (no `disabled=True` staging step; the identity was already unreachable without a DB row, so there is no window where deleting it early would revoke a working credential).
+   - **Class B / C** → always report-only, for the operator (re-invite for B; re-enrich-or-purge for C). Never reconstructed automatically, since the missing data carries authority/business context the tool cannot infer.
 
-> The sweep's mechanism (external-cron CLI vs. in-app scheduler) and the grace-window values are an open implementation fork tracked in the `user-account-sync` branch.
+> No scheduler is built. The tool is a CLI an operator runs by hand, or that an existing ops cron can point at — that's an infra decision, not an architectural one, and is out of scope here. Tracked in the `identity-drift-report` branch.
 
 ### 4.12 Dev-only self-registration module (R7) — keeps the legacy flow without the loophole
 
@@ -278,7 +278,7 @@ The legacy UX is **kept in dev**: a user self-registers (the frontend creates th
 
 | Provisioning surface | Mints Firebase identity | Mints local row | Mounted |
 |---|---|---|---|
-| `POST /api/admin/clients` (§4.4) | backend (Admin SDK) | backend | always |
+| `POST /api/rm/clients` (§4.4) | backend (Admin SDK) | backend | always |
 | `POST /api/admin/staff` (§4.9) | backend (Admin SDK) | backend | always |
 | `POST /api/dev/register` | **frontend (client SDK)** | backend | **iff `dev_mode`** |
 | `login_and_bind` / `_resolve_user` (§4.3) | — | **never** | always |
@@ -311,7 +311,7 @@ Because `_resolve_user` no longer auto-creates in any mode (§4.3), the dev **lo
 /api/auth/admin/login      bind existing internal user; 403 if disabled                  (was /auth/login)
 /api/auth/me               shared, portal-agnostic                                       (unchanged)
 /api/auth/logout           unchanged
-POST /api/admin/clients    RM onboards a client (Firebase identity + DB rows + invite)    (NEW, R2/R6)
+POST /api/rm/clients       RM onboards a client (Firebase identity + DB rows + invite)    (NEW, R2/R6)
 POST /api/admin/staff      super-admin ENROLLS an internal user                           (NEW, R3/R6)
                            (Firebase identity + users(portal=admin) + admin_profiles + invite)
 PATCH /api/admin/staff/{uid} super-admin manages any internal account                      (NEW, replaces /role)
@@ -364,8 +364,8 @@ No design forks remain open.
 | Unknown valid token → any authenticated route | `403` (no auto-create) |
 | `POST /api/auth/register` (prod) | `404` (route removed) |
 | `POST /api/auth/login {portal:"admin"}` for a new token | `404`/`403` — create branch removed (G7) |
-| RM `POST /api/admin/clients` | `201`; Firebase identity created; `users(portal=client)` + profile with `assigned_rm_uid` = RM, `status='pending'` |
-| Non-RM (e.g. MOBO) calls `POST /api/admin/clients` | `403` (lacks `CLIENT_MANAGE`) |
+| RM `POST /api/rm/clients` | `201`; Firebase identity created; `users(portal=client)` + profile with `assigned_rm_uid` = RM, `status='pending'` |
+| Non-RM (e.g. MOBO) calls `POST /api/rm/clients` | `403` (lacks `CLIENT_MANAGE`) |
 | Onboard with `assigned_rm_uid` pointing at a PM | `422` (RM invariant) |
 | Firebase create fails mid-onboard | no DB rows committed |
 | DB commit fails after Firebase create | compensating Firebase delete fires; orphan (if any) is inert — `403`, no local row (§4.11) |
