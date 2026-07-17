@@ -12,6 +12,8 @@ import { ArTabs } from "@/components/pc/allotment-redemption/Tabs";
 import { ArStatStrip } from "@/components/pc/allotment-redemption/StatStrip";
 import { AllotTable } from "@/components/pc/allotment-redemption/AllotTable";
 import { AllotDetailPanel } from "@/components/pc/allotment-redemption/AllotDetailPanel";
+import { RedeemTable } from "@/components/pc/allotment-redemption/RedeemTable";
+import { RedeemDetailPanel } from "@/components/pc/allotment-redemption/RedeemDetailPanel";
 import {
   AR_ALLOTMENTS_SEED,
   AR_REDEMPTIONS_SEED,
@@ -25,6 +27,7 @@ export default function AllotmentRedemptionPage() {
   const [allotments, setAllotments] = useState<Allotment[]>(AR_ALLOTMENTS_SEED);
   const [redemptions, setRedemptions] = useState<Redemption[]>(AR_REDEMPTIONS_SEED);
   const [openAllotId, setOpenAllotId] = useState<string | null>(null);
+  const [openRedeemId, setOpenRedeemId] = useState<string | null>(null);
 
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
   const pendRedeem = redemptions.filter((r) => r.status === "pending_pc").length;
@@ -34,10 +37,8 @@ export default function AllotmentRedemptionPage() {
   const decide = (id: string, status: RedeemStatus) =>
     setRedemptions((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
 
-  // Redemption mutation wired in the following commit; referenced so state is exercised.
-  void decide;
-
   const openAllot = allotments.find((a) => a.id === openAllotId);
+  const openRedeem = redemptions.find((r) => r.id === openRedeemId);
 
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
@@ -56,8 +57,10 @@ export default function AllotmentRedemptionPage() {
           <ArStatStrip allotments={allotments} redemptions={redemptions} />
           <ArTabs tab={tab} onTab={setTab} pendAllot={pendAllot} pendRedeem={pendRedeem} />
 
-          {tab === "allot" && (
+          {tab === "allot" ? (
             <AllotTable rows={allotments} onRowClick={setOpenAllotId} onAcknowledge={acknowledge} />
+          ) : (
+            <RedeemTable rows={redemptions} onRowClick={setOpenRedeemId} />
           )}
 
           <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
@@ -70,6 +73,9 @@ export default function AllotmentRedemptionPage() {
 
       {openAllot && (
         <AllotDetailPanel a={openAllot} onClose={() => setOpenAllotId(null)} onAcknowledge={acknowledge} />
+      )}
+      {openRedeem && (
+        <RedeemDetailPanel r={openRedeem} onClose={() => setOpenRedeemId(null)} onDecision={decide} />
       )}
     </div>
   );
