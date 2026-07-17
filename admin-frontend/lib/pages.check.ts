@@ -32,6 +32,8 @@ assert.deepEqual(rolesForPath("/rm/client-info/some-uuid").sort(),     ["ADMIN",
 assert.deepEqual(rolesForPath("/pc/allocation-matrix").sort(),         ["ADMIN", "PC"].sort());
 assert.deepEqual(rolesForPath("/pc/allotment-redemption").sort(),      ["ADMIN", "PC"].sort());
 assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "MOBO", "PC", "RM"].sort());
+assert.deepEqual(rolesForPath("/compliance/review").sort(),           ["ADMIN", "COMPLIANCE"].sort());
+assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "COMPLIANCE", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/admin/enroll-user"),                   ["ADMIN"]);
 
 // Every page has a non-empty default name (its own label + icon) — used for breadcrumbs, dropdown children, titles.
@@ -41,13 +43,15 @@ for (const p of Object.values(PAGES)) {
 
 // Nav grouping: every role gets exactly ONE parent, even ADMIN whose grants span
 // every domain — never a mix of other roles' parents (user-reported regression).
-for (const role of ["RM", "MOBO", "PC", "ADMIN"] as const) {
+for (const role of ["RM", "MOBO", "PC", "COMPLIANCE", "ADMIN"] as const) {
   const groups = groupsFor(role);
   assert.equal(groups.length, 1, `${role} must have exactly one nav group`);
 }
 assert.deepEqual(groupsFor("PC").map((g) => g.home), ["/pc/model-management"]);
+assert.deepEqual(groupsFor("COMPLIANCE").map((g) => g.home), ["/compliance/review"]);
 assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/admin/enroll-user",
+  "/compliance/review",
   "/mobo/daily-exception-report",
   "/mobo/post-trade-allocation",
   "/mobo/recon-overview",
@@ -64,11 +68,10 @@ assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
 assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/monthly-reports"));
 // Roles with no grants and roles with no ROLE_NAV entry both render zero groups.
 assert.deepEqual(groupsFor("PM"), []);
-assert.deepEqual(groupsFor("COMPLIANCE"), []);
 assert.deepEqual(groupsFor("BOGUS"), []);
 
 // Default landing page ↔ nav-group home coherence.
-for (const role of ["RM", "MOBO", "PC", "ADMIN"] as const) {
+for (const role of ["RM", "MOBO", "PC", "COMPLIANCE", "ADMIN"] as const) {
   const dp = defaultPathFor(role);
   assert.ok(dp && rolesForPath(dp).includes(role), `${role}'s default page must be a page it can reach`);
 }

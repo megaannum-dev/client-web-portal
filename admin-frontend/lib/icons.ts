@@ -136,4 +136,8 @@ export {
   Route,
   Send,
   Paperclip,
+  // CRM — Compliance workspace
+  Filter,
+  FileSearch,
+  User,
 } from "lucide-react";

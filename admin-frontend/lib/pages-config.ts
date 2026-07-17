@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   CalendarDays,
   UserPlus,
+  Shield,
   ShieldCheck,
   LayoutDashboardIcon,
   Wallet,
@@ -32,6 +33,7 @@ export type PageId =
   | "pc.model-management"
   | "pc.allocation-matrix"
   | "pc.allotment-redemption"
+  | "compliance.review"
   | "shared.monthly-reports"
   | "admin.enroll-user";
 
@@ -125,6 +127,11 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/pc/allotment-redemption",
     label: "Allotment & Redemption",
     icon: Inbox,
+  "compliance.review": {
+    id: "compliance.review",
+    path: "/compliance/review",
+    label: "Compliance Review",
+    icon: ShieldCheck,
   },
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
@@ -136,12 +143,13 @@ export const PAGES: Record<PageId, PageDef> = {
 };
 
 // One nav parent per role (Yes — user req.: a role sees exactly one workspace
-// parent, never a mix of other roles' domains). Roles with no grants (PM,
-// COMPLIANCE) are omitted — groupsFor returns [] for them regardless.
+// parent, never a mix of other roles' domains). Roles with no grants (PM) are
+// omitted — groupsFor returns [] for them regardless.
 const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
   RM: { label: "Relationship Manager", icon: Briefcase },
   MOBO: { label: "Middle / Back Office", icon: Building2 },
   PC: { label: "Portfolio Commander", icon: Layers },
+  COMPLIANCE: { label: "Compliance", icon: Shield },
   ADMIN: { label: "Admin", icon: ShieldCheck },
 };
 
@@ -171,7 +179,10 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
     "shared.monthly-reports": "OPERATE",
   },
   PM: {},
-  COMPLIANCE: {},
+  COMPLIANCE: {
+    "compliance.review": "OPERATE",
+    "shared.monthly-reports": "OPERATE",
+  },
   ADMIN: ALL_OPERATE, // reachable ONLY via this literal key — see D-7
 };
 
@@ -181,7 +192,7 @@ export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   PC: "pc.model-management",
   ADMIN: "admin.enroll-user",
   PM: null,
-  COMPLIANCE: null,
+  COMPLIANCE: "compliance.review",
 };
 
 // Default-deny gate. Every exported lookup routes through here. An unrecognized
