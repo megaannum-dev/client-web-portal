@@ -30,6 +30,8 @@ assert.deepEqual(rolesForPath("/rm/client-info").sort(),               ["ADMIN",
 // via the prefix-match rule against rm.client-info itself, not a dedicated PageId.
 assert.deepEqual(rolesForPath("/rm/client-info/some-uuid").sort(),     ["ADMIN", "RM"].sort());
 assert.deepEqual(rolesForPath("/pc/allocation-matrix").sort(),         ["ADMIN", "PC"].sort());
+assert.deepEqual(rolesForPath("/pc/allotment-redemption").sort(),      ["ADMIN", "PC"].sort());
+assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/compliance/review").sort(),           ["ADMIN", "COMPLIANCE"].sort());
 assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "COMPLIANCE", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/admin/enroll-user"),                   ["ADMIN"]);
@@ -55,6 +57,7 @@ assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/mobo/recon-overview",
   "/mobo/trade-reconciliation",
   "/pc/allocation-matrix",
+  "/pc/allotment-redemption",
   "/pc/model-management",
   "/rm/client-info",
   "/rm/model-subscription",
