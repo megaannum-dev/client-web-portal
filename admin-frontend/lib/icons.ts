@@ -35,6 +35,8 @@ export {
   Upload,
   Download,
   Plus,
+  Filter,
+  User,
   // Overview page
   TrendingUp,
   ShieldAlert,

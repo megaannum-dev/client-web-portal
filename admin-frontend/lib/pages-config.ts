@@ -4,6 +4,7 @@ import {
   Users,
   Layers,
   Grid3x3,
+  Inbox,
   ArrowLeftRight,
   ShieldAlert,
   CalendarDays,
@@ -30,6 +31,7 @@ export type PageId =
   | "mobo.post-trade-allocation"
   | "pc.model-management"
   | "pc.allocation-matrix"
+  | "pc.allotment-redemption"
   | "shared.monthly-reports"
   | "admin.enroll-user";
 
@@ -118,6 +120,12 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Allocation Matrix",
     icon: Grid3x3,
   },
+  "pc.allotment-redemption": {
+    id: "pc.allotment-redemption",
+    path: "/pc/allotment-redemption",
+    label: "Allotment & Redemption",
+    icon: Inbox,
+  },
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
     path: "/monthly-reports",
@@ -159,6 +167,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
   PC: {
     "pc.model-management": "OPERATE",
     "pc.allocation-matrix": "OPERATE",
+    "pc.allotment-redemption": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
   PM: {},
