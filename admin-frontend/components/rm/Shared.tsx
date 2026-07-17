@@ -32,7 +32,7 @@ export function Modal({
         style={{ background: "rgba(40,38,34,0.34)", backdropFilter: "blur(2px)" }}
       />
       <div
-        className="absolute left-1/2 z-[13] flex flex-col overflow-hidden rounded-[18px] bg-surface-lowest shadow-overlay"
+        className="absolute left-1/2 z-[13] flex flex-col overflow-hidden rounded-[18px] bg-surface-lowest shadow-overlay transition-transform duration-200 ease-out"
         style={{
           top: centered ? "50%" : 40,
           transform: centered ? "translate(-50%,-50%)" : "translateX(-50%)",

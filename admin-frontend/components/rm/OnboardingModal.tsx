@@ -96,6 +96,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
       title="Start Onboarding"
       subtitle="Create a client record and begin KYC verification."
       onClose={onClose}
+      centered
       footer={
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
