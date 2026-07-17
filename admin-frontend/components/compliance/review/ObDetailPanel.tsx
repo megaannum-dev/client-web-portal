@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, X, Download, Minus, FileSearch, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -62,6 +63,40 @@ function DocRow({
         <Chip tone="failed" dot={false}>Issue</Chip>
       ) : (
         <span className="text-[12px] italic text-secondary">Not reviewed</span>
+      )}
+    </div>
+  );
+}
+
+/* ---- approve button; tooltip only shows on hover while disabled ---- */
+function ApproveButton({
+  canApprove, allReviewed, onApprove,
+}: {
+  canApprove: boolean;
+  allReviewed: boolean;
+  onApprove: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <Button
+        icon={Check}
+        onClick={canApprove ? onApprove : undefined}
+        style={{ opacity: canApprove ? 1 : 0.45, cursor: canApprove ? "pointer" : "not-allowed" }}
+      >
+        Approve
+      </Button>
+      {!canApprove && hover && (
+        <div
+          className="pointer-events-none absolute right-0 whitespace-nowrap rounded-[7px] px-2.5 py-[5px] text-[11.5px] font-semibold text-white"
+          style={{ bottom: "calc(100% + 6px)", background: "var(--on-surface)" }}
+        >
+          {!allReviewed ? "Review all documents first" : "Resolve flagged documents"}
+        </div>
       )}
     </div>
   );
@@ -135,23 +170,7 @@ export function ObDetailPanel({
         {pending ? (
           <>
             {hasIssue && <Button variant="secondary" icon={X} onClick={() => onReject(o.id)}>Reject</Button>}
-            <div className="relative">
-              <Button
-                icon={Check}
-                onClick={canApprove ? () => onApprove(o.id) : undefined}
-                style={{ opacity: canApprove ? 1 : 0.45, cursor: canApprove ? "pointer" : "not-allowed" }}
-              >
-                Approve
-              </Button>
-              {!canApprove && (
-                <div
-                  className="pointer-events-none absolute right-0 whitespace-nowrap rounded-[7px] px-2.5 py-[5px] text-[11.5px] font-semibold text-white"
-                  style={{ bottom: "calc(100% + 6px)", background: "var(--on-surface)" }}
-                >
-                  {!allReviewed ? "Review all documents first" : "Resolve flagged documents"}
-                </div>
-              )}
-            </div>
+            <ApproveButton canApprove={canApprove} allReviewed={allReviewed} onApprove={() => onApprove(o.id)} />
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
