@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle } from "@/lib/icons";
@@ -145,6 +145,12 @@ export function OnboardingBoard() {
   const [selected, setSelected] = useState<KycClient | null>(null);
   const panelOpen = !!selected;
 
+  // Remember the last opened item so the floating panel can fade/slide out
+  // gracefully instead of unmounting its content mid-transition.
+  const lastItemRef = useRef<KycClient | null>(null);
+  if (selected) lastItemRef.current = selected;
+  const panelItem = selected ?? lastItemRef.current;
+
   const openProfile = (id: string) => {
     if (KNOWN_CLIENT_IDS.has(id)) {
       setSelected(null);
@@ -159,11 +165,15 @@ export function OnboardingBoard() {
         {panelOpen && <span className="text-[12px] text-secondary">Click × to close panel</span>}
       </div>
 
-      <div className="relative min-h-[420px]">
+      {/* Board squeezes left to make room for the floating panel */}
+      <div
+        className="transition-[padding-right] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        style={{ paddingRight: panelOpen ? 396 : 0 }}
+      >
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           {KYC_COLS.map((col) => (
-            <div key={col.label}>
-              <div className="mb-2.5 flex items-center justify-between">
+            <div key={col.label} className="flex flex-col gap-2.5 rounded-[14px] bg-surface-low p-3.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold uppercase tracking-[0.05em] text-secondary">{col.label}</span>
                 <span className="text-[12px] font-bold text-secondary">{col.clients.length}</span>
               </div>
@@ -182,16 +192,22 @@ export function OnboardingBoard() {
         </div>
       </div>
 
-      {/* Slide-in panel — fixed to viewport right edge */}
+      {/* Floating KYC panel — overlays the top-right, covering the Start
+          Onboarding action, same rounded/shadow-overlay treatment as the
+          client-details flow detail panel. */}
       <div
-        className="fixed bottom-0 right-0 top-16 z-40 overflow-hidden border-l border-outline-variant bg-white transition-[width,box-shadow] duration-200 ease-out"
+        className="fixed z-40 w-96 transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{
-          width: panelOpen ? 360 : 0,
-          boxShadow: panelOpen ? "-8px 0 32px rgba(0,0,0,.12)" : "none",
+          top: 80,
+          right: 24,
+          bottom: 24,
+          opacity: panelOpen ? 1 : 0,
+          transform: panelOpen ? "translateX(0)" : "translateX(28px)",
+          pointerEvents: panelOpen ? "auto" : "none",
         }}
       >
-        <div className="flex h-full w-[360px] flex-col">
-          {selected && <KycPanel item={selected} onClose={() => setSelected(null)} onOpenProfile={openProfile} />}
+        <div className="flex h-full flex-col overflow-hidden rounded-[20px] border border-outline-variant bg-white shadow-overlay">
+          {panelItem && <KycPanel item={panelItem} onClose={() => setSelected(null)} onOpenProfile={openProfile} />}
         </div>
       </div>
     </>

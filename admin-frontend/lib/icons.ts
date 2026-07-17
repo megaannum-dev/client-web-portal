@@ -127,4 +127,11 @@ export {
   BarChart3,
   BarChartHorizontal,
   Coins,
+  // CRM — RM request tickets & subscription forms
+  ArrowUpFromLine,
+  CheckCheck,
+  Printer,
+  Route,
+  Send,
+  Paperclip,
 } from "lucide-react";

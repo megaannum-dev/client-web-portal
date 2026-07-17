@@ -61,6 +61,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <Header />
         <main className="flex-1 p-8 px-16 h-{100%}">{children}</main>
       </div>
+
+      {/*
+        Stable overlay root — pinned to the viewport-visible content area
+        (excludes the sidebar and header), independent of how tall any given
+        page's own content grows. Modals (e.g. components/rm/Shared.tsx)
+        portal into this instead of positioning relative to their page's own
+        content wrapper, so they don't drift when accordions/tables expand
+        below them.
+      */}
+      <div
+        id="content-overlay-root"
+        className={["fixed bottom-0 right-0 top-header-h z-40", isDragging ? "" : "transition-[left] duration-300 ease-in-out"].join(" ")}
+        style={{ left: open ? width : COLLAPSED_GUTTER, pointerEvents: "none" }}
+      />
       {/* <FloatingActionButton /> */}
     </>
   );
