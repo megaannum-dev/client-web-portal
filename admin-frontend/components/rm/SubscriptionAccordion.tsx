@@ -6,8 +6,14 @@ import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLi
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { SUB_CLIENTS, type SubClient, type SubModel, type TxnRow } from "@/lib/mock/rm-data";
+import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 
-const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In", "Expected Redemption"];
+export type OpenSubscriptionModal = (opts: {
+  mode: "add-allotment" | "redemption";
+  context: SubscriptionModalContext;
+}) => void;
+
+const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In / Out", "Status"];
 const TXN_RIGHT = new Set(["Cash Amt", "Model ×", "Notional"]);
 
 function FeePill({ label, accent }: { label: string; accent?: boolean }) {
@@ -46,9 +52,14 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
         <tbody>
           {rows.map((r, ri) => {
             const isNet = r[0] === "Net";
+            // r[7]/r[8] are the original "Expected Cash In" / "Expected Redemption"
+            // fields — only one is ever populated per row (the other is "—"),
+            // so the merged column just shows whichever one has a value.
+            const expected = r[7] === "—" ? r[8] : r[7];
+            const cells = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], expected];
             return (
               <tr key={ri} className={isNet ? "bg-surface-low" : undefined}>
-                {r.map((v, ci) => (
+                {cells.map((v, ci) => (
                   <td
                     key={ci}
                     className={clsx(
@@ -60,6 +71,9 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
                     {v}
                   </td>
                 ))}
+                <td className="whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 text-left">
+                  {!isNet && <Chip tone="active" dot={false}>Confirmed</Chip>}
+                </td>
               </tr>
             );
           })}
@@ -69,7 +83,27 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
   );
 }
 
-function ModelAccordionItem({ model, open, onToggle }: { model: SubModel; open: boolean; onToggle: () => void }) {
+function ModelAccordionItem({
+  client,
+  model,
+  open,
+  onToggle,
+  onOpenModal,
+}: {
+  client: SubClient;
+  model: SubModel;
+  open: boolean;
+  onToggle: () => void;
+  onOpenModal: OpenSubscriptionModal;
+}) {
+  const context: SubscriptionModalContext = {
+    clientName: client.name,
+    clientId: client.id,
+    modelName: model.name,
+    modelAccount: model.account,
+    mgmtFee: model.mgmtFee,
+    incentiveFee: model.incentiveFee,
+  };
   return (
     <div className={clsx("overflow-hidden rounded-md border border-outline-variant", open ? "bg-surface-lowest" : "bg-white")}>
       <button
@@ -108,8 +142,8 @@ function ModelAccordionItem({ model, open, onToggle }: { model: SubModel; open: 
           </div>
           <TxnTable rows={model.rows} />
           <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
-            <Button icon={Plus}>Add allotment</Button>
-            <Button variant="secondary" icon={ArrowDownToLine}>Add redemption</Button>
+            <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
+            <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
           </div>
         </div>
       )}
@@ -121,12 +155,18 @@ function ClientAccordionItem({
   client,
   open,
   onToggle,
+  onOpenModal,
+  initialOpenModelKey,
 }: {
   client: SubClient;
   open: boolean;
   onToggle: () => void;
+  onOpenModal: OpenSubscriptionModal;
+  initialOpenModelKey?: string;
 }) {
-  const [openModels, setOpenModels] = useState<Record<string, boolean>>({});
+  const [openModels, setOpenModels] = useState<Record<string, boolean>>(() =>
+    initialOpenModelKey ? { [initialOpenModelKey]: true } : {},
+  );
   const toggleModel = (key: string) => setOpenModels((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const activeCount = client.models.filter((m) => m.tone === "active").length;
@@ -167,9 +207,11 @@ function ClientAccordionItem({
             return (
               <ModelAccordionItem
                 key={key}
+                client={client}
                 model={model}
                 open={!!openModels[key]}
                 onToggle={() => toggleModel(key)}
+                onOpenModal={onOpenModal}
               />
             );
           })}
@@ -179,8 +221,16 @@ function ClientAccordionItem({
   );
 }
 
-export function SubscriptionAccordion() {
-  const [openClient, setOpenClient] = useState<string | null>("ardent");
+export function SubscriptionAccordion({
+  onOpenModal,
+  initialOpenClient,
+  initialOpenModelKey,
+}: {
+  onOpenModal: OpenSubscriptionModal;
+  initialOpenClient?: string;
+  initialOpenModelKey?: string;
+}) {
+  const [openClient, setOpenClient] = useState<string | null>(initialOpenClient ?? "ardent");
   return (
     <div className="flex flex-col gap-3">
       {SUB_CLIENTS.map((client) => (
@@ -189,6 +239,8 @@ export function SubscriptionAccordion() {
           client={client}
           open={openClient === client.id}
           onToggle={() => setOpenClient(openClient === client.id ? null : client.id)}
+          onOpenModal={onOpenModal}
+          initialOpenModelKey={client.id === openClient ? initialOpenModelKey : undefined}
         />
       ))}
     </div>

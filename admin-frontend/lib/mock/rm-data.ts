@@ -460,6 +460,68 @@ export const SUB_CLIENTS: SubClient[] = [
 /** Ids that have a full Client Detail page (present in RM_CLIENTS). */
 export const KNOWN_CLIENT_IDS = new Set(RM_CLIENTS.map((c) => c.id));
 
+/* ---- Model size & fee catalog — subscription entry form / onboarding modal */
+export const MODEL_SIZES: Record<string, number> = {
+  "Global Balanced": 100000,
+  "Equity Growth": 150000,
+  "Income Core": 100000,
+  "ESG Tilt": 80000,
+  "Model A": 120000,
+};
+export const MODEL_SIZE_LIST = Object.entries(MODEL_SIZES).map(([name, size]) => ({ name, size }));
+
+export type ModelCatalogEntry = { name: string; mgmtFee: string; incentiveFee: string };
+export const OB_MODEL_CATALOG: ModelCatalogEntry[] = [
+  { name: "Global Balanced", mgmtFee: "1.0%", incentiveFee: "10%" },
+  { name: "Equity Growth", mgmtFee: "1.5%", incentiveFee: "20%" },
+  { name: "Income Core", mgmtFee: "0.75%", incentiveFee: "8%" },
+  { name: "ESG Tilt", mgmtFee: "0.8%", incentiveFee: "10%" },
+];
+
+/* ============================================================
+   Request Tickets — client-raised inbox (RM acts on the client's
+   behalf). NOTE: unrelated to REQUEST_TICKETS above (CountItem[],
+   feeds the dashboard rail card) — this is the full ticket list
+   behind the dedicated Request Tickets page.
+   ============================================================ */
+export type RequestTicket = {
+  ref: string;
+  client: string;
+  contact: string;
+  email: string;
+  model?: string;
+  account: string;
+  type: "Allotment" | "Redemption" | "Other";
+  ccy: string;
+  cash: string;
+  mult: string;
+  notional: string;
+  date: string;
+  status: string;
+  tone: ChipTone;
+  subject?: string;
+  message: string;
+};
+
+export const TICKET_QUEUE: RequestTicket[] = [
+  { ref: "REQ-2048", client: "Ardent Capital", contact: "Marcus Lindqvist", email: "m.lindqvist@ardentcap.com", model: "Global Balanced", account: "IB-4471", type: "Allotment", ccy: "USD", cash: "180,000", mult: "2×", notional: "360,000", date: "Jun 06", status: "New", tone: "warm",
+    message: "Please allot a further USD 180,000 to our Global Balanced model at the standard 2× multiple ahead of the quarterly rebalance. Target settlement by mid-June." },
+  { ref: "REQ-2047", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", model: "Equity Growth", account: "IB-2204", type: "Allotment", ccy: "USD", cash: "150,000", mult: "2×", notional: "300,000", date: "Jun 05", status: "New", tone: "warm",
+    message: "Top up Equity Growth by USD 150,000 from the cash we wired Tuesday." },
+  { ref: "REQ-2045", client: "Selwyn Asset Mgmt", contact: "Tom Brockway", email: "tbrockway@selwynam.ch", model: "Global Balanced", account: "IB-6620", type: "Redemption", ccy: "CHF", cash: "(50,000)", mult: "−0.5×", notional: "(100,000)", date: "Jun 04", status: "In Progress", tone: "review",
+    message: "Redeem CHF 50,000 from Global Balanced to fund an end-of-quarter distribution to our underlying client." },
+  { ref: "REQ-2044", client: "Northbridge LP", contact: "Helen Asari", email: "h.asari@northbridge.com", model: "Income Core", account: "IB-3310", type: "Allotment", ccy: "USD", cash: "200,000", mult: "2×", notional: "400,000", date: "Jun 04", status: "New", tone: "warm",
+    message: "New allotment of USD 200,000 to Income Core, please." },
+  { ref: "REQ-2041", client: "Coalfield & Co.", contact: "Derek Mwangi", email: "derek@coalfield.com.au", account: "IB-1190", type: "Other", subject: "Update authorised signatory", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 03", status: "In Progress", tone: "review",
+    message: "We've appointed a new CFO, Sarah Quinn, who should replace David Pell as authorised signatory across all our mandates. Could you advise what documentation you need from us to make the change?" },
+  { ref: "REQ-2038", client: "Pike & Vance", contact: "Owen Pike", email: "owen.pike@pikevance.com", model: "Income Core", account: "IB-9012", type: "Redemption", ccy: "USD", cash: "(80,000)", mult: "−1×", notional: "(80,000)", date: "Jun 02", status: "Closed", tone: "neutral",
+    message: "Redeem USD 80,000 from Income Core." },
+  { ref: "REQ-2035", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", account: "IB-2255", type: "Other", subject: "Fee schedule clarification", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 01", status: "Replied", tone: "active",
+    message: "Could you confirm whether the incentive fee on ESG Tilt is charged on a high-water-mark basis, and when it crystallises?" },
+  { ref: "REQ-2031", client: "Meridian Trust", contact: "Anita Cole", email: "acole@meridiantrust.ca", model: "Income Core", account: "IB-7781", type: "Allotment", ccy: "CAD", cash: "120,000", mult: "1×", notional: "120,000", date: "May 30", status: "Declined", tone: "overdue",
+    message: "Allot CAD 120,000 to Income Core." },
+];
+
 /* ============================================================
    Client Book — hash-based mock overlay (FE-8)
    Real client ids now come from the DB; these are the fields that
