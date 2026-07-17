@@ -56,27 +56,23 @@ function ModelSubscriptionContent() {
   const totalModels = SUB_CLIENTS.reduce((s, c) => s + c.models.length, 0);
 
   return (
-    <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
-      <div className="px-16 py-8">
-        <div className="mx-auto max-w-[1180px]">
-          <div className="mb-7">
-            <PageHeader
-              title="Model Subscription"
-              subtitle={`Client book → subscribed models → full transaction history. ${totalClients} clients · ${totalModels} subscriptions.`}
-              actions={
-                <Button icon={Plus} onClick={() => setModal({ mode: "new-subscription", context: {} })}>
-                  Subscribe Client
-                </Button>
-              }
-            />
-          </div>
-          <SubscriptionAccordion
-            onOpenModal={setModal}
-            initialOpenClient={deepLink?.openClient}
-            initialOpenModelKey={deepLink?.openModelKey}
-          />
-        </div>
+    <div className="mx-auto max-w-[1180px]">
+      <div className="mb-7">
+        <PageHeader
+          title="Model Subscription"
+          subtitle={`Client book → subscribed models → full transaction history. ${totalClients} clients · ${totalModels} subscriptions.`}
+          actions={
+            <Button icon={Plus} onClick={() => setModal({ mode: "new-subscription", context: {} })}>
+              Subscribe Client
+            </Button>
+          }
+        />
       </div>
+      <SubscriptionAccordion
+        onOpenModal={setModal}
+        initialOpenClient={deepLink?.openClient}
+        initialOpenModelKey={deepLink?.openModelKey}
+      />
       {modal && (
         <SubscriptionFormModal mode={modal.mode} context={modal.context} onClose={() => setModal(null)} />
       )}

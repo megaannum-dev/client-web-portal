@@ -7,12 +7,19 @@
    modals), following the components/pc/Shared.tsx Modal pattern.
    ============================================================ */
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "@/lib/icons";
 
 /* ---- Modal — shared modal shell -----------------------------
-   Positions ABSOLUTELY so it scopes to the page wrapper (the screens
-   render inside a `relative` container). */
+   Portals into DashboardShell's #content-overlay-root — a
+   viewport-pinned box that excludes the sidebar/header and, crucially,
+   does NOT grow with the calling page's own content. Positioning
+   `absolute` inside the page's own content wrapper instead (the
+   original approach) meant a modal's "50%" center point drifted
+   downward whenever an accordion/table on the page expanded below it.
+   Portaling here keeps the modal visually stable regardless of how
+   tall the rest of the page is. */
 export function Modal({
   title, subtitle, onClose, children, footer, width = 620, centered = false,
 }: {
@@ -24,15 +31,19 @@ export function Modal({
   width?: number;
   centered?: boolean;
 }) {
-  return (
+  const [root, setRoot] = useState<Element | null>(null);
+  useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
+  if (!root) return null;
+
+  return createPortal(
     <>
       <div
         onClick={onClose}
-        className="absolute inset-0 z-[12]"
+        className="pointer-events-auto absolute inset-0 z-[12]"
         style={{ background: "rgba(40,38,34,0.34)", backdropFilter: "blur(2px)" }}
       />
       <div
-        className="absolute left-1/2 z-[13] flex flex-col overflow-hidden rounded-[18px] bg-surface-lowest shadow-overlay transition-transform duration-200 ease-out"
+        className="pointer-events-auto absolute left-1/2 z-[13] flex flex-col overflow-hidden rounded-[18px] bg-surface-lowest shadow-overlay transition-transform duration-200 ease-out"
         style={{
           top: centered ? "50%" : 40,
           transform: centered ? "translate(-50%,-50%)" : "translateX(-50%)",
@@ -62,6 +73,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </>
+    </>,
+    root,
   );
 }
