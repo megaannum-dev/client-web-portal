@@ -460,6 +460,24 @@ export const SUB_CLIENTS: SubClient[] = [
 /** Ids that have a full Client Detail page (present in RM_CLIENTS). */
 export const KNOWN_CLIENT_IDS = new Set(RM_CLIENTS.map((c) => c.id));
 
+/* ---- Model size & fee catalog — subscription entry form / onboarding modal */
+export const MODEL_SIZES: Record<string, number> = {
+  "Global Balanced": 100000,
+  "Equity Growth": 150000,
+  "Income Core": 100000,
+  "ESG Tilt": 80000,
+  "Model A": 120000,
+};
+export const MODEL_SIZE_LIST = Object.entries(MODEL_SIZES).map(([name, size]) => ({ name, size }));
+
+export type ModelCatalogEntry = { name: string; mgmtFee: string; incentiveFee: string };
+export const OB_MODEL_CATALOG: ModelCatalogEntry[] = [
+  { name: "Global Balanced", mgmtFee: "1.0%", incentiveFee: "10%" },
+  { name: "Equity Growth", mgmtFee: "1.5%", incentiveFee: "20%" },
+  { name: "Income Core", mgmtFee: "0.75%", incentiveFee: "8%" },
+  { name: "ESG Tilt", mgmtFee: "0.8%", incentiveFee: "10%" },
+];
+
 /* ============================================================
    Client Book — hash-based mock overlay (FE-8)
    Real client ids now come from the DB; these are the fields that
