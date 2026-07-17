@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LayoutDashboardIcon,
   Wallet,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export type PageId =
   | "rm.client-info"
   | "rm.onboarding-renewal"
   | "rm.model-subscription"
+  | "rm.request-tickets"
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
   | "mobo.daily-exception-report"
@@ -73,6 +75,12 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/rm/model-subscription",
     label: "Model Subscription",
     icon: Layers,
+  },
+  "rm.request-tickets": {
+    id: "rm.request-tickets",
+    path: "/rm/requests",
+    label: "Request Tickets",
+    icon: Ticket,
   },
   "mobo.recon-overview": {
     id: "mobo.recon-overview",
@@ -138,6 +146,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
     "rm.client-info": "OPERATE",
     "rm.onboarding-renewal": "OPERATE",
     "rm.model-subscription": "OPERATE",
+    "rm.request-tickets": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
   MOBO: {
