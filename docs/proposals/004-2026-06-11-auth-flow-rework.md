@@ -1,6 +1,6 @@
 # 004 — Authentication Flow Rework (Client + Internal Users)
 
-**Date:** 2026-06-11 · **Updated:** 2026-06-12 (aligned to approved requirements)
+**Date:** 2026-06-11 · **Updated:** 2026-07-18 (R4 status model simplified to a single two-value `users.status` (`AccountStatus{active,disabled}`) column — one column, not per-profile-table — see §4.6/§6/§8; route-branch convention added to §3/§5; prior update 2026-06-12 aligned to approved requirements)
 **Branch:** TBD (`auth-flow-rework`, off the cleaned tree from 003)
 **Status:** Design complete (all forks resolved) — implementation decomposition pending
 **Author:** QinQipeng
@@ -46,11 +46,11 @@
 
 1. **No self-registration in production (R1).** No code path may create a user from a token alone — for either portal. This includes killing the `/auth/login` create branch (G7), not just `/register`.
 2. **One provisioning chokepoint per portal (R1, NFR).** Exactly one place decides "this identity may become a user," and it requires authority (an existing admin) — never an anonymous token.
-3. **RM onboards clients (R2).** A first-class endpoint lets an authorised internal user (RM, or higher) create a client record up front — profile fields + `assigned_rm_uid` + status `pending` — *before* the client ever logs in.
+3. **RM onboards clients (R2).** A first-class endpoint lets an authorised internal user (RM, or higher) create a client record up front — profile fields + `assigned_rm_uid` + `users.status='disabled'` (not yet activated) — *before* the client ever logs in.
 4. **Bind-on-first-login by `uid` (R2, R6).** A client's first authenticated request binds their Firebase UID to the pre-provisioned record; it never creates a new one. Unknown tokens are rejected.
 5. **Enforce the RM invariant (G5).** `assigned_rm_uid` may only point at an internal user whose `admin_profiles.role == 'RM'`, validated in the service layer at assignment time.
-6. **Admin enrollment is super-admin-only (R3).** A *required* `POST /api/admin/staff` chokepoint (gated `USER_MANAGE`) mints the internal user's Firebase identity (R6) + `users(portal=admin)` + `admin_profiles(role, is_active=true)`; the old `PATCH /users/{uid}/role` is **replaced** by a super-admin `PATCH /admin/staff/{uid}` (role + `is_active` + profile, with a last-ADMIN guard) and self-service `PATCH /me`. Provide an out-of-band **bootstrap** that seeds the first `ADMIN` **including its Firebase identity** (the Firebase project is empty on init).
-7. **Per-portal login status gate (R4).** Login is denied for non-active accounts even with valid credentials: clients gated on `client_profiles.status == active`, admins on `admin_profiles.is_active`.
+6. **Admin enrollment is super-admin-only (R3).** A *required* `POST /api/admin/staff` chokepoint (gated `USER_MANAGE`) mints the internal user's Firebase identity (R6) + `users(portal=admin, status='active')` + `admin_profiles(role)`; the old `PATCH /users/{uid}/role` is **replaced** by a super-admin `PATCH /admin/staff/{uid}` (role + `status` + profile, with a last-ADMIN guard) and self-service `PATCH /me`. Provide an out-of-band **bootstrap** that seeds the first `ADMIN` **including its Firebase identity** (the Firebase project is empty on init).
+7. **Per-portal login status gate (R4).** Login is denied for non-active accounts even with valid credentials: a single `users.status` column (`AccountStatus{active, disabled}`) is shared by both portals — clients and admins alike are gated on `users.status == active`. Status lives on `users`, not on `client_profiles`/`admin_profiles`, since it is one account-level concept, not two.
 8. **Backend is the sole Firebase-identity creator in prod (R6).** Onboarding creates the Firebase identity via the Admin SDK *and* the local rows atomically; remove the auto-create/auto-resync loophole (G3).
 9. **Unified, fail-closed dev-mode (R7, G2).** A single root-level flag governs frontend + backend; the dev bypass and self-registration are modular, dev-only, and impossible to leave enabled in prod (startup assertion).
 10. Keep the frozen `UserOut` contract intact.
@@ -59,10 +59,11 @@
 
 - A second Firebase project / second backend (unchanged from 002).
 - Portal transitions (a UID stays one portal — 002 §11 Q4 stands).
-- **The onboarding business logic itself** — RM intake form, document upload (contracts/ID/legal), and the compliance review workflow. 004 only provides the `client_profiles.status` field these will drive (R4a); it does not implement the review.
+- **The onboarding business logic itself** — RM intake form, document upload (contracts/ID/legal), and the compliance review workflow. 004 only provides the `users.status` field (the shared two-value `AccountStatus`) these will drive (R4a); it does not implement the review, and does not add a distinct "awaiting review" state — a staged client is simply `disabled` until activated.
 - Real `financial` / `documents` business logic (separate proposals).
 - Building the full admin-management console UI — backend endpoints only.
 - Self-service client *sign-up* as a production feature (excluded by R1; the dev-only self-registration of R7 is the sole exception and is slated to fade out).
+- **Client self-service endpoints** (e.g. viewing own trade models, submitting request tickets). 004 establishes the structural convention and extensibility point for client-portal routes (`/api/client/…` prefix, `app/libs/client_portal/` module directory, import-isolation rule — see §5) but does **not** add any client-facing routes beyond login and `/me`. Actual client self-service features are separate proposals that drop into the convention.
 
 ---
 
@@ -72,7 +73,7 @@
 
 The earlier draft's open questions are now settled by the approved requirements:
 
-- **Q-A — Auth surface shape → SEPARATE, portal-scoped surfaces (R5).** `/api/auth/client/*` and `/api/auth/admin/*` over a shared verification core. The portal becomes unforgeable (it's the route, not a body field); per-portal policy (rate-limits, audit, future MFA on the admin surface) attaches cleanly. The token-verification core stays shared (one Firebase project).
+- **Q-A — Auth surface shape → SEPARATE, portal-scoped surfaces (R5).** `/api/auth/client/*` and `/api/auth/admin/*` over a shared verification core. The portal becomes unforgeable (it's the route, not a body field); per-portal policy (rate-limits, audit, future MFA on the admin surface) attaches cleanly. The token-verification core stays shared (one Firebase project). This portal split extends beyond the auth gateway to the **entire route surface** — see the route-branch convention in §5.
 - **Q-B — "register" vs "provisioning" → RETIRE `/register` (R1).** Client creation is **RM onboarding**; admin creation is **super-admin provisioning**. The public `/register` is removed entirely (it survives only as the dev-only self-registration module of R7).
 - **Q-C — Firebase identity creation → BOTH (R6), and it extends to admins.** Neither a DB row *nor* a Firebase identity may exist without an authorising actor. RM onboarding creates the client's Firebase identity via the Admin SDK; the super-admin's `POST /api/admin/staff` likewise mints the internal user's Firebase identity (R6's principle applies to admins too — confirmed). "No self-registration" therefore means no Firebase identity without an authority — closing the path that would otherwise be hard to remove later. The sole exception is the **bootstrap** (§4.10), which seeds the first `ADMIN`'s Firebase identity out-of-band because the Firebase project starts empty.
 - **Q-D — bind strictness → BIND BY `uid` (R6).** Because the backend mints the identity, it owns the `firebase_uid` from creation; first login matches on `uid`, so email-drift reconciliation is moot.
@@ -83,33 +84,33 @@ All earlier open questions are now resolved (§7); no design forks remain outsta
 
 ```
 CLIENT
-  1. RM calls  POST /api/admin/clients          (authority: CLIENT_MANAGE / RM)
+  1. RM calls  POST /api/rm/clients             (authority: CLIENT_MANAGE / RM)
         → Admin SDK: create the Firebase identity (backend owns the uid)   (R6, Q-C)
-        → create users(portal=client) + client_profiles(name, assigned_rm_uid=<rm>,
-                                                          status='pending', …)
+        → create users(portal=client, status='disabled') + client_profiles(name,
+                                                          assigned_rm_uid=<rm>, …)
         → issue an invite / set-password link to the client                (R6)
-  2. (out of 004) Compliance approves → client_profiles.status = 'active'  (R4a)
+  2. (out of 004) Compliance approves → users.status = 'active'            (R4a)
   3. Client authenticates for the first time
         → POST /api/auth/client/login  (or first authenticated call)
         → BIND by uid to the pre-provisioned row; never create             (R2, Q-D)
-        → STATUS GATE: status != 'active' → 403 (not yet activated)         (R4a)
+        → STATUS GATE: status != 'active' → 403 (account disabled)          (R4a)
         → unknown/unmatched uid → 403 (no account staged for you)
 
 INTERNAL (admin)
   1. Super-admin calls  POST /api/admin/staff         (authority: USER_MANAGE / ADMIN only)
         → Admin SDK: create the Firebase identity (backend owns the uid)    (R6)
-        → create users(portal=admin) + admin_profiles(role, is_active=true) (R4b)
+        → create users(portal=admin, status='active') + admin_profiles(role) (R4b)
         → issue an invite / set-password link to the internal user          (R6)
-     (PATCH /api/admin/staff/{uid} manages an EXISTING admin's role/is_active/profile — not enrollment)
+     (PATCH /api/admin/staff/{uid} manages an EXISTING admin's role/status/profile — not enrollment)
   2. Internal user authenticates
         → POST /api/auth/admin/login  → BIND by uid, never create
-        → STATUS GATE: admin_profiles.is_active == false → 403 (suspended)  (R4b)
+        → STATUS GATE: users.status != 'active' → 403 (suspended)          (R4b)
 
 BOOTSTRAP (first super-admin)
   - Out-of-band, idempotent seed (CLI / management task, NOT an HTTP route — no authority
     exists yet to gate it): if no ADMIN exists, the Admin SDK creates the first ADMIN's
-    Firebase identity (the Firebase project is empty on init) + users(portal=admin) +
-    admin_profiles(role=ADMIN, is_active=true) + a set-password link. Never self-registerable (R3).
+    Firebase identity (the Firebase project is empty on init) + users(portal=admin,
+    status='active') + admin_profiles(role=ADMIN) + a set-password link. Never self-registerable (R3).
 ```
 
 ### 4.3 Kill implicit creation (G3, G6, G7)
@@ -121,15 +122,15 @@ BOOTSTRAP (first super-admin)
 ### 4.4 RM client onboarding (R2, R6, G4) — new endpoint
 
 ```
-POST /api/admin/clients
+POST /api/rm/clients
   auth:  require_action(Action.CLIENT_MANAGE)        # RM and above
   body:  { email, name, primary_phone?, address?, country_of_residence?,
            authorized_person?, initiate_method?, assigned_rm_uid? }
   logic: - assigned_rm_uid defaults to the calling RM's uid
          - VALIDATE assigned_rm_uid → target user is admin & role == 'RM'  (assert_is_rm, §4.5)
          - Admin SDK: create the Firebase identity → obtain firebase_uid   (R6, Q-C)
-         - create users(portal=client, firebase_uid=<from SDK>)
-                 + client_profiles(..., status='pending')                  (R4a)
+         - create users(portal=client, firebase_uid=<from SDK>, status='disabled')
+                 + client_profiles(...)                                    (R4a)
          - issue invite / set-password link                                (R6)
   returns: the staged client record
   failure: Firebase create fails → no DB rows; DB commit fails → compensating Firebase delete (§4.11)
@@ -159,17 +160,20 @@ A single gate concept, two sources. **Scope (Q-H resolved):** the gate runs on *
 
 ```python
 def assert_can_authenticate(user, db) -> None:
+    if user.status != AccountStatus.ACTIVE:
+        raise HTTPException(403, "Account disabled")            # not yet activated | suspended
     if user.portal == Portal.CLIENT:
-        if user.client_profile is None or user.client_profile.status != ClientStatus.ACTIVE:
-            raise HTTPException(403, "Account not active")          # pending | disabled
+        if user.client_profile is None:
+            raise HTTPException(403, "Account disabled")        # incomplete record (§4.11 class C)
     else:  # ADMIN
-        if user.admin_profile is None or not user.admin_profile.is_active:
-            raise HTTPException(403, "Account disabled")            # suspension / offboarding
+        if user.admin_profile is None:
+            raise HTTPException(403, "Account disabled")        # incomplete record (§4.11 class C)
 ```
 
-- Client states: `pending` (default at onboarding) → `active` (compliance-approved, set out of 004) / `disabled`.
-- Admin: `is_active` defaults `true` on provision; flipping it false suspends without deleting the row.
-- **Not enforced until the §6 migration lands** (the columns don't exist on the live DB yet).
+- **Simplified to one shared two-value enum, on `users`, not per-profile-table (revised 2026-07-18):** a single `users.status` column (`AccountStatus{active, disabled}`) replaces both the earlier three-value `client_profiles.status` (`pending`/`active`/`disabled`) and the separate `admin_profiles.is_active` boolean. Account status is an account-level concept (it's the same "can this identity log in" question for both portals), not a per-profile one — so it belongs on `users`, the one table both portals share, not duplicated across `client_profiles` and `admin_profiles`. There is no distinct "awaiting review" state; a newly-onboarded client is simply `disabled` until an admin/RM activates them, the same value that also represents suspension/offboarding for both portals. Profile presence (`client_profile`/`admin_profile is None`) is still checked per-portal — that's role/RM/compliance data the status column doesn't carry — but the status check itself is one column, checked once, before the portal branch.
+- Client states: `disabled` (default at onboarding — also covers suspension) → `active` (compliance-approved / activated, set out of 004).
+- Admin: `status` defaults `active` on provision; flipping it to `disabled` suspends without deleting the row.
+- **Not enforced until the §6 migration lands** (the column doesn't exist on the live DB yet).
 
 ### 4.7 Backend-sole Firebase-identity creation & invite (R6, G9)
 
@@ -200,8 +204,8 @@ POST /api/admin/staff
   body:  { email, name, role, phone_number? }
   logic: - VALIDATE role is a real AdminRole; whether ADMIN may be minted here is policy (Q-I)
          - Admin SDK: create the Firebase identity → obtain firebase_uid     (R6)
-         - create users(portal=admin)
-                 + admin_profiles(role, is_active=true)                       (R4b)
+         - create users(portal=admin, status='active')
+                 + admin_profiles(role)                                       (R4b)
          - issue invite / set-password link                                   (R6)
   returns: the enrolled internal-user record
   failure: Firebase create fails → no DB rows; DB commit fails → compensating Firebase delete (§4.11)
@@ -215,14 +219,14 @@ There is **no review/approval step**: provisioning by the super-admin *is* the a
 
 ```
 PATCH /api/admin/staff/{uid}     super-admin manages ANY internal account (USER_MANAGE)
-  partial-update: { role?, is_active?, name?, phone_number?, email? }
+  partial-update: { role?, status?, name?, phone_number?, email? }
   - role change  → re-stamp the Firebase claim; may promote TO ADMIN (peer super-admin, Q-I resolved)
-  - is_active    → suspend / reactivate (R4b), no row deletion
+  - status       → suspend / reactivate (R4b), no row deletion
   - cannot flip portal (409 if target not admin-portal); 404 if absent
   - GUARD: refuse to demote or disable the LAST active ADMIN (R3 ≥1-ADMIN invariant)
 
 PATCH /api/users/me              self-service, own BENIGN fields only
-  { name?, phone_number?, email? }   — never role, never is_active
+  { name?, phone_number?, email? }   — never role, never status
   (extends today's email-only /me; you cannot promote or un-suspend yourself)
 ```
 
@@ -238,7 +242,7 @@ A fresh deployment has an **empty Firebase project and an empty `users` table**,
 1. If any admin_profiles.role == ADMIN already exists → no-op (idempotent).
 2. Else: Admin SDK creates the first ADMIN's Firebase identity (the Firebase basis is empty
    on project init, so the seed must create it there too) → obtain firebase_uid.
-3. create users(portal=admin) + admin_profiles(role=ADMIN, is_active=true).
+3. create users(portal=admin, status='active') + admin_profiles(role=ADMIN).
 4. issue a set-password / invite link so the human operator can set their credential.
 ```
 
@@ -264,11 +268,11 @@ We handle these in three layers:
 
 1. **Synchronous compensation (primary — class A).** Order: create the Firebase identity → open a DB transaction → insert `users` + profile → commit. If the commit fails, **best-effort `delete_user(uid)`** in the `except` path (treat `UserNotFoundError` as success; log email + reason at `WARNING`). This is a **saga compensation** — there is no cross-system transaction, so we emulate rollback; the local insert is itself one DB transaction, so the *local* side is truly atomic. Collapses the orphan window to "commit failed **and** compensation failed."
 2. **Idempotent provisioning (class A retries).** Keyed by **email** (no `uid` exists yet — `uid` is only the *login*-binding key, Q-D). Before creating, `get_user_by_email`: both exist → `409`; **Firebase identity exists but no `users` row → adopt its `uid`** and finish the local insert (the retry *self-heals* a prior class-A orphan — still authority-gated, so not auto-create); neither → normal path. The `users.firebase_uid` UNIQUE constraint backstops the concurrent race (second commit fails → compensation fires).
-3. **Periodic reconciliation sweep (backstop for all three).** A scheduled, idempotent job that **surfaces or quarantines, never auto-completes business data**:
-   - **Class A** past a grace window → **quarantine-before-delete**: first set the Firebase identity `disabled=True` (a live credential can't sit there even if a `users` row later appears), observe a second window, then delete. Respects Firebase-as-credential-authority by not casually destroying it.
-   - **Class B / C** → flag for the operator (re-invite for B; re-enrich-or-purge for C). Never reconstructed automatically, since the missing data carries authority/business context the sweep cannot infer.
+3. **On-demand drift report (backstop for all three), not a scheduled sweep.** Post-§4.3, a class-A orphan (bare Firebase identity, no `users` row) already cannot authenticate — the gate closes on the missing row, not on a quarantine flag — so there is nothing live to stage-and-observe. One idempotent, run-on-demand tool **classifies and surfaces, never auto-completes business data**:
+   - **Class A** past a simple age cutoff → delete directly (no `disabled=True` staging step; the identity was already unreachable without a DB row, so there is no window where deleting it early would revoke a working credential).
+   - **Class B / C** → always report-only, for the operator (re-invite for B; re-enrich-or-purge for C). Never reconstructed automatically, since the missing data carries authority/business context the tool cannot infer.
 
-> The sweep's mechanism (external-cron CLI vs. in-app scheduler) and the grace-window values are an open implementation fork tracked in the `user-account-sync` branch.
+> No scheduler is built. The tool is a CLI an operator runs by hand, or that an existing ops cron can point at — that's an infra decision, not an architectural one, and is out of scope here. Tracked in the `identity-drift-report` branch.
 
 ### 4.12 Dev-only self-registration module (R7) — keeps the legacy flow without the loophole
 
@@ -278,7 +282,7 @@ The legacy UX is **kept in dev**: a user self-registers (the frontend creates th
 
 | Provisioning surface | Mints Firebase identity | Mints local row | Mounted |
 |---|---|---|---|
-| `POST /api/admin/clients` (§4.4) | backend (Admin SDK) | backend | always |
+| `POST /api/rm/clients` (§4.4) | backend (Admin SDK) | backend | always |
 | `POST /api/admin/staff` (§4.9) | backend (Admin SDK) | backend | always |
 | `POST /api/dev/register` | **frontend (client SDK)** | backend | **iff `dev_mode`** |
 | `login_and_bind` / `_resolve_user` (§4.3) | — | **never** | always |
@@ -291,7 +295,7 @@ POST /api/dev/register     (dev-only module app/libs/dev/, mounted iff settings.
          - create users(portal) + profile via the SAME ClientService / staff primitives
            as real onboarding, MINUS the FirebaseIdentityService.create_user call
            (the frontend already minted the identity)
-         - dev convenience: client_profiles.status='active', admin_profiles.is_active=true
+         - dev convenience: users.status='active' at creation, for either portal
            (the user reaches the dashboard immediately — no compliance/enrollment step in dev)
   returns: UserOut → frontend navigates to the dashboard (already holds the token; no re-login)
 ```
@@ -311,11 +315,11 @@ Because `_resolve_user` no longer auto-creates in any mode (§4.3), the dev **lo
 /api/auth/admin/login      bind existing internal user; 403 if disabled                  (was /auth/login)
 /api/auth/me               shared, portal-agnostic                                       (unchanged)
 /api/auth/logout           unchanged
-POST /api/admin/clients    RM onboards a client (Firebase identity + DB rows + invite)    (NEW, R2/R6)
+POST /api/rm/clients       RM onboards a client (Firebase identity + DB rows + invite)    (NEW, R2/R6)
 POST /api/admin/staff      super-admin ENROLLS an internal user                           (NEW, R3/R6)
                            (Firebase identity + users(portal=admin) + admin_profiles + invite)
 PATCH /api/admin/staff/{uid} super-admin manages any internal account                      (NEW, replaces /role)
-                           (role | is_active | name | phone | email; last-ADMIN guard)
+                           (role | status | name | phone | email; last-ADMIN guard)
 PATCH /api/users/me        self-service: own benign fields (name | phone | email)          (extends today's /me)
 (bootstrap)                first ADMIN seeded out-of-band via CLI, not an HTTP route       (NEW, R3 §4.10)
 — REMOVED: PATCH /api/users/{uid}/role  (role is now one field of PATCH /api/admin/staff/{uid})
@@ -325,16 +329,33 @@ PATCH /api/users/me        self-service: own benign fields (name | phone | email
 
 Separate `/api/auth/client` · `/api/auth/admin` prefixes are confirmed (R5/Q-A). `/register` is retired from the production surface.
 
+### Route-branch convention (two-branch split)
+
+The backend mirrors the two isolated frontend portals (`admin-frontend`, `client-frontend`). Every HTTP route — except the auth gateway and the shared `/users/me` — belongs to exactly one branch:
+
+| Branch | Prefix convention | Auth dependency | Audience | Modules (004 scope) |
+|---|---|---|---|---|
+| **Internal** | `/api/rm/…`, `/api/admin/…` | `get_current_admin_user` + admin-scoped actions | admin-frontend operators (RM, MOBO, ADMIN) | `clients/` (prefix `/rm`), `staff/` (prefix `/admin/staff`) |
+| **Client** | `/api/client/…` | `get_current_client_user` + client-scoped actions | client-frontend users | convention only in 004 — no routes yet (`app/libs/client_portal/`) |
+| **Shared** | `/api/auth/…`, `/api/users/…` | portal-scoped login or `get_current_user` | both portals | `auth/`, `users/` |
+| **Dev-only** | `/api/dev/…` | unauthenticated (mounted iff `dev_mode`) | local development | `dev/` |
+
+**Isolation rule:** no internal-branch module may be imported by a client-branch module, and vice versa. Shared modules (`auth`, `users`, `identity`) and read-only repositories are the only cross-branch dependencies. A client-portal route that needs client-record data reads from its own repository or a shared read-only query — never by importing `app.libs.clients.*` (which is the RM's internal write surface into those same tables).
+
+**`main.py` mount grouping:** routers are mounted in named groups (internal / client / shared / dev-only), enforced by code comments and mount ordering. Future proposals adding client-portal routes drop their `include_router` call into the marked "Client" section. See the BE impl doc (§4) for the concrete `main.py` snippet.
+
+**Why this convention lives in 004:** the portal-scoped auth split (Q-A / R5) is only half the separation if the non-auth routes remain ungrouped. Establishing the branch convention now — before client self-service proposals arrive — ensures those proposals inherit a clean extensibility point (`/api/client/…` prefix, `app/libs/client_portal/` directory, import boundary) rather than having to retrofit one.
+
 ---
 
 ## 6. Migration & Compatibility
 
-- **R4 schema change (NEW, required by this proposal):** add columns to existing tables —
-  - `client_profiles.status` (enum/string; `pending` | `active` | `disabled`; default `pending`)
-  - `admin_profiles.is_active` (boolean; default `true`)
+- **R4 schema change (NEW, required by this proposal; status model revised 2026-07-18):** add columns to `users` —
+  - `users.status` (enum/string; shared `AccountStatus`: `active` | `disabled`; default `disabled`) — **one column on `users`, shared by both portals**, replacing the originally-proposed three-value `client_profiles.status` (`pending`/`active`/`disabled`) *and* the separate `admin_profiles.is_active` boolean. Account status is one account-level concept, not a per-profile one, so it lives on the table both portals share rather than being duplicated across `client_profiles` and `admin_profiles`.
   - `users.authorized_by` (audit trail, Q-F resolved): nullable FK → `users.firebase_uid` recording **who authorised this account** — the onboarding RM for a client, the enrolling super-admin for an internal user, `NULL` for the bootstrap ADMIN and pre-rework rows. (Named `authorized_by`, not `provisioned_by`.)
-  - **Column placement:** every new column is added **before** the two timestamp columns (`created_at`, `updated_at`) of its table, to match the established layout.
-  - **Alembic migration with safe backfill** over the live 005 data (5 client / 10 admin rows): existing clients → `status = active` (so current users are not locked out), existing admins → `is_active = true`, all existing rows → `authorized_by = NULL` (provenance unknown pre-rework).
+  - **Column placement:** both new columns are added **before** the two timestamp columns (`created_at`, `updated_at`) on `users`, to match the established layout. `client_profiles` and `admin_profiles` get no new columns from this proposal.
+  - **Alembic migration with safe backfill** over the live data (row counts re-queried at migration time, not assumed from any prior figure): all existing users (both portals) → `status = active` (so current users are not locked out — a conscious grandfather decision, since new clients now default to `disabled`), all existing rows → `authorized_by = NULL` (provenance unknown pre-rework).
+  - **Dropped from this proposal:** the earlier three-value `pending`/`active`/`disabled` client status. There is no distinguishable "staged, awaiting compliance review" state — a newly-onboarded client is `disabled` (the same value used for suspension/offboarding) until an admin/RM activates them. If a future proposal needs to distinguish "never activated" from "suspended after being active," that is a new column/state, not a revival of `pending`.
   - The status gate (§4.6) **must not be enforced until this migration is applied.**
 - Otherwise **no schema change is strictly required** — `users` + `client_profiles` + `admin_profiles` from 002/005 already support the rest. (A future "invite token" column may be wanted; deferred.)
 - **Frontend impact:** both frontends stop calling `/register` and rely on provisioned accounts. The client-frontend's first-login flow changes from "register-or-login" to "login-and-bind." Both read the new root-level dev-mode flag (R7). Coordinate before merge.
@@ -364,8 +385,8 @@ No design forks remain open.
 | Unknown valid token → any authenticated route | `403` (no auto-create) |
 | `POST /api/auth/register` (prod) | `404` (route removed) |
 | `POST /api/auth/login {portal:"admin"}` for a new token | `404`/`403` — create branch removed (G7) |
-| RM `POST /api/admin/clients` | `201`; Firebase identity created; `users(portal=client)` + profile with `assigned_rm_uid` = RM, `status='pending'` |
-| Non-RM (e.g. MOBO) calls `POST /api/admin/clients` | `403` (lacks `CLIENT_MANAGE`) |
+| RM `POST /api/rm/clients` | `201`; Firebase identity created; `users(portal=client, status='disabled')` + profile with `assigned_rm_uid` = RM |
+| Non-RM (e.g. MOBO) calls `POST /api/rm/clients` | `403` (lacks `CLIENT_MANAGE`) |
 | Onboard with `assigned_rm_uid` pointing at a PM | `422` (RM invariant) |
 | Firebase create fails mid-onboard | no DB rows committed |
 | DB commit fails after Firebase create | compensating Firebase delete fires; orphan (if any) is inert — `403`, no local row (§4.11) |
@@ -373,16 +394,16 @@ No design forks remain open.
 | Profile row deleted out-of-band, `users` + Firebase identity remain (class C) | login `403`s (gate sees `profile is None`); sweep surfaces it for super-admin re-enrich/purge; never auto-reconstructed |
 | Retried onboard after a prior failed commit left a class-A orphan | idempotency adopts the existing Firebase `uid`, completes the local insert; no duplicate identity |
 | Super-admin promotes an internal user to `ADMIN` via `PATCH /staff/{uid}` | `200`; peer super-admin created (Q-I) |
-| Onboarded **pending** client's first `client/login` | `403` (status gate, not yet active) |
-| Same client after compliance sets `active` | `200`; binds by uid to staged row, no new row |
-| Suspended admin (`is_active=false`) login | `403` (status gate) |
-| Super-admin `POST /api/admin/staff` | `201`; Firebase identity created; `users(portal=admin)` + `admin_profiles(role, is_active=true)`; invite issued |
+| Onboarded client's first `client/login` (`status='disabled'`, not yet activated) | `403` (status gate) |
+| Same client after admin/RM sets `status='active'` | `200`; binds by uid to staged row, no new row |
+| Suspended admin (`status='disabled'`) login | `403` (status gate) |
+| Super-admin `POST /api/admin/staff` | `201`; Firebase identity created; `users(portal=admin, status='active')` + `admin_profiles(role)`; invite issued |
 | Non-super-admin (e.g. RM) calls `POST /api/admin/staff` | `403` (lacks `USER_MANAGE`) |
-| Super-admin `PATCH /api/admin/staff/{uid}` (role / is_active / profile) | `200`; partial update applied; claim re-stamped on role change |
+| Super-admin `PATCH /api/admin/staff/{uid}` (role / status / profile) | `200`; partial update applied; claim re-stamped on role change |
 | `PATCH /api/admin/staff/{uid}` demoting/disabling the last active `ADMIN` | `409` (last-ADMIN guard) |
 | `PATCH /api/admin/staff/{uid}` on unknown uid / a client | `404` / `409` (not admin-portal) |
 | Non-super-admin calls `PATCH /api/admin/staff/{uid}` | `403` (lacks `USER_MANAGE`) |
-| Internal user `PATCH /api/users/me` with `role`/`is_active` in body | those fields ignored/rejected (self cannot promote or un-suspend) |
+| Internal user `PATCH /api/users/me` with `role`/`status` in body | those fields ignored/rejected (self cannot promote or un-suspend) |
 | Bootstrap on empty Firebase + empty DB | seeds one `ADMIN` (Firebase identity + rows + link); re-run is a no-op (idempotent) |
 | Client token → admin route | `403` (portal gate, unchanged) |
 | `FIREBASE_AUTH_DISABLED=true` locally | dev-user admin resolves; prod marker absent |
