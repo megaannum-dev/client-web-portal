@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Trade reconciliation — abs-delta tolerance for notional comparisons (BE-7)
     recon_notional_epsilon: str = "0.01"
 
+    # Bootstrap CLI — pre-seeded Super Admin (BE-20)
+    bootstrap_admin_email: str | None = None
+    bootstrap_admin_name: str = "Bootstrap Admin"
+
 
 @lru_cache
 def get_settings() -> Settings:
