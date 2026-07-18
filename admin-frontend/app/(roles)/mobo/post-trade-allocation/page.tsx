@@ -11,7 +11,7 @@
    ============================================================ */
 
 import { useState } from "react";
-import { Download, RefreshCw } from "@/lib/icons";
+import { RefreshCw } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";

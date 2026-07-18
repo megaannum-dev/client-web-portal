@@ -127,6 +127,7 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/pc/allotment-redemption",
     label: "Allotment & Redemption",
     icon: Inbox,
+  },
   "compliance.review": {
     id: "compliance.review",
     path: "/compliance/review",
