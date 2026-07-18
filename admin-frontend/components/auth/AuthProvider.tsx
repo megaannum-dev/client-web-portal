@@ -12,7 +12,7 @@ import {
 } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
+import { BackendAuthError, postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { writeIdTokenCookie } from "@/lib/id-token";
 import type { PortalUser } from "@/types/portal";
@@ -26,7 +26,7 @@ type AuthContextValue = {
   firebaseReady: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
-  signUpWithEmailPassword: (email: string, password: string, role?: string) => Promise<void>;
+  signUpWithEmailPassword: (email: string, password: string, role: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   refreshPortalUser: () => Promise<void>;
@@ -82,16 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : "Could not sync with API";
-          setBackendSyncError(msg);
-          const unauthorized =
-            /\b401\b/.test(msg) || /\b403\b/.test(msg) || /Unauthorized/i.test(msg);
-          if (unauthorized) {
+          if (err instanceof BackendAuthError && err.status === 403) {
+            setBackendSyncError("No internal account found for this login, or your account is suspended.");
             try {
               await signOut(auth);
             } catch {
               /* noop */
             }
+          } else {
+            setBackendSyncError(err instanceof Error ? err.message : "Could not sync with API");
           }
         }
       } finally {
@@ -137,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   }, [firebaseReady]);
 
-  const signUpWithEmailPassword = useCallback(async (email: string, password: string, role?: string) => {
+  const signUpWithEmailPassword = useCallback(async (email: string, password: string, role: string) => {
     if (!firebaseReady) return;
     const auth = getFirebaseAuth();
     isRegistering.current = true;

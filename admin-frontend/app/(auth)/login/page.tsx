@@ -125,9 +125,9 @@ function LoginForm() {
       </button>
 
       <p className="mt-6 text-center text-sm text-corporate">
-        No account?{" "}
+        New internal account?{" "}
         <Link href="/register" className="font-semibold text-brand hover:underline">
-          Create one
+          Register (dev only) →
         </Link>
       </p>
     </div>

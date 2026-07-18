@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Building2, Eye, EyeClosed } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";

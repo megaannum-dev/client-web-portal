@@ -24,42 +24,56 @@ async function parseApiError(res: Response, methodPath: string): Promise<string>
   }
   const base = getApiBase();
   if (res.status === 404) {
+    if (methodPath.includes("/api/dev/register")) {
+      return "Self-registration is not available in this environment.";
+    }
     return `${detail} (${methodPath} → ${base}). If you recently added auth routes, restart the FastAPI server.`;
   }
   return `${detail} (${res.status} ${methodPath})`;
 }
 
-/** First-time portal row: returns 201, or 409 if already registered. */
-export async function postBackendRegister(idToken: string | null, role?: string): Promise<PortalUser> {
+export class BackendAuthError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = "BackendAuthError";
+  }
+}
+
+/** Bind-only — 403 means "no internal account staged for this uid, or account disabled". */
+export async function postBackendLogin(idToken: string | null): Promise<PortalUser> {
   const base = getApiBase();
-  const res = await fetch(`${base}/api/auth/register`, {
+  const res = await fetch(`${base}/api/auth/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "admin", role: role }),
+    body: JSON.stringify({ id_token: idToken }),
   });
   if (!res.ok) {
-    throw new Error(await parseApiError(res, "POST /api/auth/register"));
+    throw new BackendAuthError(await parseApiError(res, "POST /api/auth/admin/login"), res.status);
   }
   return (await res.json()) as PortalUser;
 }
 
-/** Returning user: upserts email from token and returns portal user. */
-export async function postBackendLogin(idToken: string | null): Promise<PortalUser> {
+// role is trusted by the backend ONLY when dev_mode is on (app/schemas/dev.py:
+// `role: AdminRole | None` — "trusted for admin portal in DEV ONLY"). The UI's
+// existing role dropdown (ADMIN/MOBO/RM/PM/PC/COMPLIANCE) is unchanged — it maps
+// 1:1 onto AdminRole and is safe to keep sending as-is.
+export async function postBackendRegister(idToken: string | null, role: string): Promise<PortalUser> {
   const base = getApiBase();
-  const res = await fetch(`${base}/api/auth/login`, {
+  const res = await fetch(`${base}/api/dev/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "admin" }),
+    body: JSON.stringify({ id_token: idToken, portal: "admin", role }),
   });
   if (!res.ok) {
-    throw new Error(await parseApiError(res, "POST /api/auth/login"));
+    throw new BackendAuthError(await parseApiError(res, "POST /api/dev/register"), res.status);
   }
   return (await res.json()) as PortalUser;
 }
 
 /**
  * After Firebase sign-in or app reload, sync portal profile via login only.
- * The backend login endpoint upserts missing users.
+ * Login binds an existing account only — it never creates one; `postBackendRegister`
+ * (dev-only) is the sole provisioning path from this frontend.
  */
 export async function syncPortalUserAfterFirebaseAuth(idToken: string | null): Promise<PortalUser> {
   return postBackendLogin(idToken);
