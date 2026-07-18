@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):  # type: ignore[type-arg]
+    settings = get_settings()
+    if settings.app_env == "production" and (settings.dev_mode or settings.firebase_auth_disabled):
+        raise RuntimeError(
+            "Fail-closed: dev_mode/firebase_auth_disabled cannot be enabled when "
+            "APP_ENV=production."
+        )
     Base.metadata.create_all(bind=engine)
     logger.info("Database metadata ensured (create_all).")
     scheduler_task = start_scheduler()

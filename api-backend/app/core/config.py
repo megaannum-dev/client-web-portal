@@ -4,9 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "mysql+pymysql://portal:portalsecret@localhost:3306/portal"
     firebase_project_id: str | None = None
@@ -17,7 +15,8 @@ class Settings(BaseSettings):
 
     # True (dev): register endpoint accepts `role` field for internal users.
     # False (prod): internal users cannot self-register; Super Admin must pre-create them.
-    dev_mode: bool = True
+    dev_mode: bool = False  # was: True (G2 — secure-by-default fix)
+    app_env: str = "development"
 
     # PC workspace — file storage (BE-1)
     pc_storage_backend: str = "local"  # "local" | "nas"
