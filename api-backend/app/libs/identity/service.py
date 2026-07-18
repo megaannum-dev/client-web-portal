@@ -21,6 +21,8 @@ class FirebaseIdentityService:
         return user.uid
 
     def get_user_by_email(self, email: str) -> str | None:
+        if self._settings.firebase_auth_disabled:
+            return None  # no real backing store to check under dev bypass
         _init_firebase(self._settings)
         try:
             return auth.get_user_by_email(email).uid
@@ -29,6 +31,8 @@ class FirebaseIdentityService:
 
     def delete_user(self, uid: str) -> None:
         """Best-effort compensation. UserNotFoundError is treated as success."""
+        if self._settings.firebase_auth_disabled:
+            return  # nothing real to clean up for a synthetic uid
         _init_firebase(self._settings)
         try:
             auth.delete_user(uid)
