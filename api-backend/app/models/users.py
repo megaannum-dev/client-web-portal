@@ -22,6 +22,11 @@ class AdminRole(str, enum.Enum):
     ADMIN = "ADMIN"
 
 
+class AccountStatus(str, enum.Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -46,6 +51,35 @@ class User(Base):
     # NOTE: `role` column is intentionally removed here. It is dropped in Section C
     # ONLY AFTER the backfill copies it into admin_profiles. Do not remove the
     # column from the live DB before the backfill runs (Section C ordering).
+
+    # Account-level login gate (proposal § 4.6, revised 2026-07-18): one shared
+    # two-value status for BOTH portals, not a per-profile-table concept. New
+    # clients default DISABLED (not yet activated); admin enrollment (Backend
+    # layer, BE-15) explicitly passes status=ACTIVE at insert time, overriding
+    # this column default — the default only ever governs an insert that omits
+    # the field, which in practice is only new client onboarding (BE-11).
+    status: Mapped[AccountStatus] = mapped_column(
+        SAEnum(
+            AccountStatus,
+            native_enum=False,
+            length=16,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+        default=AccountStatus.DISABLED,
+        server_default=AccountStatus.DISABLED.value,
+    )
+
+    # Nullable self-referential FK: who authorised this account's provisioning
+    # (the onboarding RM for a client, the enrolling super-admin for an internal
+    # user; NULL for the bootstrap ADMIN and all pre-rework rows). ON DELETE
+    # SET NULL, not the SQLAlchemy default RESTRICT — see Behavior/invariants.
+    authorized_by: Mapped[str | None] = mapped_column(
+        String(128),
+        ForeignKey("users.firebase_uid", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
