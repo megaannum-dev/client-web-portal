@@ -4,9 +4,10 @@
 > Implements: proposal `docs/proposals/004-2026-06-11-auth-flow-rework.md` § 4.1–4.12 (design), § 5 (API surface), § 7 (open questions — resolved), § 8 (verification table)
 > Layer: Backend — one layer per file.
 > Sibling layer docs: `docs/implementations/004-auth-flow-rework-db.md` (Database — status/audit columns + the pure `assert_can_authenticate` gate function this layer wires in)
+> **Proposal revision (2026-07-18):** the R4 status model is a single shared two-value `users.status` (`AccountStatus{active, disabled}`) column — **one column on `users`, not per-profile-table** — replacing the original three-value `client_profiles.status` (`pending`/`active`/`disabled`) and separate `admin_profiles.is_active` boolean. New clients are staged `disabled` (not `pending`) by onboarding and must be explicitly activated; new admins are created `active` directly on `users`. `client_profiles`/`admin_profiles` carry no status field at all — role/RM/compliance data only. This doc has been updated throughout (BE-6, BE-9, BE-11–BE-19, BE-23, § 7, § 8) to match the DB layer's `docs/implementations/004-auth-flow-rework-db.md` and the proposal's 2026-07-18 revision.
 > Execution schedule: `docs/execution-schedules/004-auth-flow-rework-be.md` (does not exist yet — unit ordering/wave grouping belongs there, not here)
 > Branch: `rework-authentication-module-be` — cut from the current branch `rework-authentication-module` (the real parent branch; not a placeholder)
-> Builds on / prerequisites: proposals 003 (refactor cleanup) and 005 (UUID keys + portal reorder) already merged — live DB is on Alembic head **`d06ece9f47be`** (`0016_recon_order_fields_and_run_delta_`), confirmed by walking the `down_revision` chain in `api-backend/alembic/versions/` (there is no migration file that lists any *other* file's revision as its own `down_revision`, i.e. `d06ece9f47be` is the only head). The DB layer's new migration (`client_profiles.status`, `admin_profiles.is_active`, `users.authorized_by`) must be authored on top of this head and applied before this layer's status-gate-wiring unit (BE-9) can be exercised end-to-end — the columns are an upstream precondition, not something this layer creates.
+> Builds on / prerequisites: proposals 003 (refactor cleanup) and 005 (UUID keys + portal reorder) already merged — live DB is on Alembic head **`d06ece9f47be`** (`0016_recon_order_fields_and_run_delta_`), confirmed by walking the `down_revision` chain in `api-backend/alembic/versions/` (there is no migration file that lists any *other* file's revision as its own `down_revision`, i.e. `d06ece9f47be` is the only head). The DB layer's new migration (`users.status`, `users.authorized_by`) must be authored on top of this head and applied before this layer's status-gate-wiring unit (BE-9) can be exercised end-to-end — the columns are an upstream precondition, not something this layer creates.
 
 <!-- Internal note (not for the template's benefit — for this doc's own honesty):
      the OLD doc `docs/implementations/004-2026-06-12-auth-flow-rework.md` assumed head
@@ -33,7 +34,7 @@
 - **Isolation:** implementable in a separate session, in parallel with a DB-layer session on `rework-authentication-module-db` and a frontend session on `rework-authentication-module-fe`, provided the preconditions below hold. This layer shares state with the DB layer **only** through the frozen seam in § 7 — it does not import, wait on, or inspect the DB layer's branch.
 - **Preconditions (must be true before starting):**
   - [ ] Alembic head is `d06ece9f47be` (0016) on the branch this is cut from.
-  - [ ] The DB layer's migration adding `client_profiles.status`, `admin_profiles.is_active`, `users.authorized_by` is merged (or its ORM column definitions are at least stubbed/mocked in tests) before BE-9 (status-gate wiring) is exercised against a real DB — BE-1 through BE-8 and BE-11 onward do **not** require it to be merged first, since they either don't touch those columns or can be developed against the § 7 frozen seam.
+  - [ ] The DB layer's migration adding `users.status` (the shared `AccountStatus` enum) and `users.authorized_by` is merged (or its ORM column definitions are at least stubbed/mocked in tests) before BE-9 (status-gate wiring) is exercised against a real DB — BE-1 through BE-8 and BE-11 onward do **not** require it to be merged first, since they either don't touch those columns or can be developed against the § 7 frozen seam.
   - [ ] The frozen seam in § 7 is agreed (verbatim copy from the proposal) — not renegotiated with the DB-layer session.
 - **Read-first inventory** (every existing file a unit touches):
   - `api-backend/app/libs/auth/router.py` — current `/auth/register`, `/auth/login`, `/auth/me`, `/auth/logout`; BE-5/BE-8 rewrite this.
@@ -46,8 +47,8 @@
   - `api-backend/app/core/security.py` — `_init_firebase`, `verify_firebase_id_token_string`, `verify_firebase_token`, `extract_uid_email`, `set_portal_claims`, `portal_from_claims`. Unchanged by this layer except as consumed.
   - `api-backend/app/schemas/auth.py` — `FirebaseLoginBody` (its `role`/body-trust dies with BE-8/moves to BE-24).
   - `api-backend/app/schemas/users.py` — `UserOut` (frozen, unchanged), `UserSelfUpdate`, `UserUpsert` (retired by BE-18).
-  - `api-backend/app/main.py` — router mounts; BE-13/BE-17/BE-24 add mounts, BE-24 mounts conditionally.
-  - `api-backend/app/models/users.py` — `User`, `ClientProfile`, `AdminProfile`, `Portal`, `AdminRole`. This layer does not alter columns (that's the DB layer); it reads the DB layer's added `status`/`is_active`/`authorized_by` fields once merged.
+  - `api-backend/app/main.py` — router mounts; BE-13/BE-17/BE-24 add mounts (grouped by route branch — internal / client / shared / dev-only per § 4), BE-24 mounts conditionally.
+  - `api-backend/app/models/users.py` — `User`, `ClientProfile`, `AdminProfile`, `Portal`, `AdminRole`. This layer does not alter columns (that's the DB layer); it reads the DB layer's added `User.status`/`User.authorized_by` fields once merged. `ClientProfile`/`AdminProfile` carry no status field — this layer never reads `client_profile.status` or `admin_profile.is_active`.
 - **Hand-off / exit signal:** all BE-* units committed on `rework-authentication-module-be`; `ruff check . && ruff format --check . && mypy app` green at every commit; `pytest -q` green (once `test-gen` has generated tests from § 8); PR opened against `rework-authentication-module`.
 
 ---
@@ -57,7 +58,7 @@
 ### 3.1 Codebase conventions
 - **Layering:** `router` (HTTP/validation, `require_action` gating) → `service` (business rules, cross-system orchestration, the one transaction boundary) → `repository` (persistence only, no `HTTPException`, no Firebase calls). Matches the existing `app/libs/users/` and `app/libs/clients/` split.
 - **Module layout:** `app/libs/<feature>/{router,service,repository}.py` + `app/schemas/<feature>.py`, mounted in `main.py` under `/api`. New modules this layer introduces: `app/libs/identity/`, `app/libs/staff/`, `app/libs/dev/`, `app/cli/`.
-- **Value-based enum persistence:** any new enum (e.g. a status enum used in service logic) follows the existing `SAEnum(..., values_callable=lambda enum_cls: [m.value for m in enum_cls])` convention seen on `User.portal` / `AdminProfile.role` — but the enum *definition* and *column* are DB-layer property; this layer only consumes `ClientStatus`/`is_active` values once the DB layer defines them.
+- **Value-based enum persistence:** any new enum (e.g. a status enum used in service logic) follows the existing `SAEnum(..., values_callable=lambda enum_cls: [m.value for m in enum_cls])` convention seen on `User.portal` / `AdminProfile.role` — but the enum *definition* and *column* are DB-layer property; this layer only consumes `AccountStatus` values via `User.status` (one column, shared by both portals) once the DB layer defines them.
 - **`UserOut` is frozen** (`firebase_uid`, `email`, `role`) — no unit in this layer changes its shape.
 - **RBAC is action-based, never role-string-based at the route:** every new mutating route is gated with `require_action(Action.<X>)` from `app/libs/auth/deps.py`; authority is the route, never a request-body field (mirrors the existing `require_action(Action.CLIENT_VIEW)` pattern in `app/libs/clients/router.py`).
 - **Coercion convention:** tolerate `str` at the boundary and coerce to the enum member before persistence (see existing "E-2 coercion" comments in `app/libs/users/repository.py`); this layer's new services follow the same pattern for `AdminRole`.
@@ -105,6 +106,12 @@ app/libs/users/              (MODIFIED — trim + extend)
   router.py                     PATCH /{firebase_uid}/role REMOVED; PATCH /me extended to name/phone/email
   service.py                     UserService gains update_self(user, patch)
 
+app/libs/client_portal/      ── client-portal route branch (NEW — convention only in 004; modules added
+                                by later proposals as client self-service features land)
+  (no files in 004)             future examples: GET /api/client/models, POST /api/client/tickets
+                                every route gated on get_current_client_user + client-scoped actions,
+                                never imports from clients/ (RM-internal) or staff/
+
 app/libs/dev/                dev-only self-registration (NEW, mounted iff dev_mode)
   router.py                     POST /api/dev/register
   service.py                     builds rows via ClientService/StaffService primitives minus identity.create_user
@@ -114,10 +121,40 @@ app/cli/                     out-of-band entry points (NEW)
   identity_drift.py              Recommend-tier CLI wrapper around app/libs/identity/drift.py
 
 app/core/config.py            (MODIFIED) dev_mode default False; app_env; BOOTSTRAP_ADMIN_EMAIL
-app/main.py                   (MODIFIED) mount clients/staff routers; conditional dev router mount; startup assertion
+app/main.py                   (MODIFIED) grouped router mounts (internal / client / shared / dev-only); conditional dev router mount; startup assertion
 ```
 
-**Dependency direction:** `identity` is a leaf module (no dependency on `clients`/`staff`/`auth`). `clients` and `staff` both depend on `identity` (via its DI provider) and on `auth.actions`/`auth.deps` (for `require_action`), never the reverse. `dev` depends on `clients`/`staff` service primitives (reuse, not duplication) and is the only module gated on a runtime mount condition. `auth` (gateway-core) depends on nothing new introduced here except the DB layer's `assert_can_authenticate` (§ 7) and the existing `users` repository — it must not import `clients`/`staff`/`dev`.
+**Dependency direction:** `identity` is a leaf module (no dependency on `clients`/`staff`/`auth`). `clients` and `staff` both depend on `identity` (via its DI provider) and on `auth.actions`/`auth.deps` (for `require_action`), never the reverse. `dev` depends on `clients`/`staff` service primitives (reuse, not duplication) and is the only module gated on a runtime mount condition. `auth` (gateway-core) depends on nothing new introduced here except the DB layer's `assert_can_authenticate` (§ 7) and the existing `users` repository — it must not import `clients`/`staff`/`dev`. Future `client_portal` modules depend on `auth.deps` (`get_current_client_user`, client-scoped `require_action`) and on read-only repositories — they must **never** import from `clients/` (RM-internal), `staff/`, or `dev/`.
+
+**Route-branch convention (two-branch split):** the backend mirrors the two isolated frontend portals. Every HTTP route (except `auth` gateway and `users/me` shared routes) belongs to exactly one branch:
+
+| Branch | Prefix convention | Auth dependency | Audience | Modules (004) |
+|---|---|---|---|---|
+| **Internal** | `/api/rm/…`, `/api/admin/…` | `get_current_admin_user` + admin-scoped actions | admin-frontend operators (RM, MOBO, ADMIN) | `clients/` (prefix `/rm`), `staff/` (prefix `/admin/staff`) |
+| **Client** | `/api/client/…` | `get_current_client_user` + client-scoped actions | client-frontend users | `client_portal/` (convention only in 004 — no routes yet) |
+| **Shared** | `/api/auth/…`, `/api/users/…` | portal-scoped login or `get_current_user` | both portals | `auth/`, `users/` |
+| **Dev-only** | `/api/dev/…` | unauthenticated (mounted iff `dev_mode`) | local development | `dev/` |
+
+**Isolation rule:** no internal-branch module may be imported by a client-branch module, and vice versa. Shared modules (`auth`, `users`, `identity`) and read-only repositories are the only cross-branch dependencies. This separation is structural (directory + import boundary), not just prefix-based — a client-portal route that needs client-record data reads from its own repository or from a shared read-only query, never by importing `app.libs.clients.*` (which is the RM's write surface into those same tables).
+
+**`main.py` mount grouping (target state after 004):**
+```python
+# --- Internal (admin-portal) routes ---
+app.include_router(clients_router, prefix="/api")    # /api/rm/…
+app.include_router(staff_router, prefix="/api")      # /api/admin/staff/…
+
+# --- Client (client-portal) routes ---
+# (future proposals mount client_portal routers here, same prefix="/api")
+
+# --- Shared routes ---
+app.include_router(auth_router, prefix="/api")       # /api/auth/…
+app.include_router(users_router, prefix="/api")      # /api/users/…
+
+# --- Dev-only (mounted iff dev_mode) ---
+if get_settings().dev_mode:
+    app.include_router(dev_router, prefix="/api")    # /api/dev/…
+```
+The grouping is enforced by code comments and mount ordering in `main.py` — no framework-level router nesting is introduced (that would be a structural change beyond 004's scope). Later proposals adding client-portal routes drop their `include_router` call into the marked section.
 
 **External seams:** tables read/written — `users`, `client_profiles`, `admin_profiles` (all three existing; the DB layer's new columns are consumed, not created, here). Routes exposed — see § 5's API surface in the proposal; enumerated per-unit in § 6. Sibling-layer contract consumed — the DB layer's `assert_can_authenticate(user, db)` pure function and the three new columns, frozen verbatim in § 7.
 
@@ -137,10 +174,11 @@ app/main.py                   (MODIFIED) mount clients/staff routers; conditiona
 - **Public surface:** `login_and_bind(id_token, portal, repo, settings) -> User`; `get_current_user`/`get_current_client_user`/`get_current_admin_user`/`require_action(action)` dependencies (the latter three unchanged in signature, changed in behavior via `_resolve_user`).
 - **Owns features:** BE-5, BE-6, BE-7, BE-8, BE-9, BE-10.
 
-### 5.3 `app/libs/clients/` (extended)
-- **Responsibility:** everything client-record-related — the existing RM read-only listing **plus** RM-driven client onboarding (this proposal's new scope).
+### 5.3 `app/libs/clients/` — internal / RM-facing (extended)
+- **Responsibility:** **internal-branch** management of client records — the existing RM read-only listing **plus** RM-driven client onboarding (this proposal's new scope). Every route in this module is mounted under prefix `/rm` and gated on admin-portal actions (`CLIENT_VIEW`/`CLIENT_MANAGE`). This module is **not** the client-portal's own route surface; clients never call these routes directly. See § 5.9 for the client-portal branch convention.
 - **Files:** `app/libs/clients/repository.py`, `app/libs/clients/service.py`, `app/libs/clients/router.py`, `app/libs/clients/schemas.py` (all four already exist and are extended, not created).
 - **Public surface (new):** `ClientRepository.create_with_profile(...)`, `.assign_rm(...)`; `ClientService.assert_is_rm(db, rm_uid)`, `.onboard(...)`; `POST /api/rm/clients`.
+- **Import boundary:** future `client_portal` modules must **not** import from this module — they read client data through their own repository or shared read-only queries, never through RM-internal write surfaces.
 - **Owns features:** BE-11, BE-12, BE-13, BE-14.
 
 ### 5.4 `app/libs/staff/` (new)
@@ -167,6 +205,15 @@ app/main.py                   (MODIFIED) mount clients/staff routers; conditiona
 - **Responsibility:** keeps the legacy "self-register then land on dashboard" UX in dev only, as a third named provisioning surface — never mounted in prod.
 - **Files:** `app/libs/dev/router.py`, `app/libs/dev/service.py`, `app/schemas/dev.py`.
 - **Owns features:** BE-23, BE-24.
+
+### 5.9 `app/libs/client_portal/` — client-portal route branch (convention only — no files in 004)
+- **Responsibility:** the **client-branch** counterpart to the internal modules (`clients/`, `staff/`). Every module under this directory serves the client-frontend portal: client self-service reads (e.g. viewing their own trade models, portfolio summaries) and client-initiated writes (e.g. submitting request tickets). All routes are mounted under prefix `/client` and gated on `get_current_client_user` + client-scoped `Action.*` values.
+- **Files (004):** none — this section establishes the convention. Later proposals create `app/libs/client_portal/<feature>/router.py`, `service.py`, `repository.py` per feature, mirroring the per-module layout of the internal branch.
+- **Import boundary (enforced from 004 onward):**
+  - **MAY** import: `app.libs.auth.deps` (`get_current_client_user`, `require_action`), `app.libs.auth.actions` (client-scoped `Action` values), `app.libs.identity.deps`, shared ORM models, shared read-only repositories.
+  - **MUST NOT** import: `app.libs.clients.*` (RM-internal write surface), `app.libs.staff.*`, `app.libs.dev.*`. If a client-portal feature needs to read from `client_profiles` or `users`, it queries through its own repository or a shared read-only query — never through the RM's `ClientRepository`/`ClientService`, which carry RM-specific write methods and authority assertions.
+- **Scalability intent:** each client-portal feature (models, tickets, documents, etc.) gets its own sub-module under `client_portal/`, with its own router mounted in `main.py`'s "Client (client-portal) routes" section. The branch grows independently of the internal branch — no merge conflicts, no shared mutable state, no cross-branch imports.
+- **Owns features:** none in 004 (convention-only). First consumer is whichever proposal adds client self-service endpoints.
 
 ---
 
@@ -418,7 +465,7 @@ def login_and_bind(
 
 **Behavior / invariants:** no branch of this function ever calls `repo.create_client`/`repo.create_admin`. Unknown uid → `403` (never `404` — do not leak whether an email is staged). Wrong-portal-for-account → `403` (mirrors the existing `get_current_client_user`/`get_current_admin_user` portal gate).
 
-**Done when:** an unknown token against either login route → `403`; a token for an existing `pending`/`disabled` account → `403` (via `assert_can_authenticate`); a token for an existing `active` account → `200` with `UserOut`.
+**Done when:** an unknown token against either login route → `403`; a token for an existing `disabled` account → `403` (via `assert_can_authenticate`); a token for an existing `active` account → `200` with `UserOut`.
 
 ---
 
@@ -492,7 +539,7 @@ class FirebaseLoginBody(BaseModel):
 - **Proposal ref:** § 4.6 (Q-H)
 - **Module:** `app/libs/auth/`
 - **Files:** `modify: app/libs/auth/deps.py`
-- **Dependencies:** the DB layer's migration (adds `client_profiles.status`, `admin_profiles.is_active`) must be merged before this unit is exercised against a real DB — see § 7.2. `assert_can_authenticate` itself (the pure function) is the DB layer's to define and export; this unit only calls it.
+- **Dependencies:** the DB layer's migration (adds `users.status`, the shared `AccountStatus` enum) must be merged before this unit is exercised against a real DB — see § 7.2. `assert_can_authenticate` itself (the pure function) is the DB layer's to define and export; this unit only calls it.
 
 **Contract:**
 
@@ -517,7 +564,7 @@ def get_current_admin_user(user: Annotated[User, Depends(_resolve_user)]) -> Use
 
 **Behavior / invariants:** the gate runs on **every** authenticated client/admin request (not only at login) — a client whose status flips to `disabled` mid-session is locked out on the very next call. Per proposal § 4.6: "**Not enforced until the § 6 migration lands**" — this unit's code may merge ahead of the migration, but must not be *activated* (i.e., this import/call wiring) until the DB layer's columns exist, or every request 500s on a missing attribute.
 
-**Done when:** a `pending` client's authenticated request (post-login, i.e. token already issued) → `403` on the very next call after status is set to non-active; an `is_active=false` admin's next call → `403`.
+**Done when:** a `disabled` client's authenticated request (post-login, i.e. token already issued) → `403` on the very next call after status is set to non-active; a `disabled` admin's next call → `403`.
 
 ---
 
@@ -557,20 +604,21 @@ def create_with_profile(
     **profile_fields: str | None,  # primary_phone, address, country_of_residence,
                                     # authorized_person, initiate_method
 ) -> None:
-    """Inserts users(portal=client) + client_profiles(status='pending', ...) in
-    the CALLER's transaction (no commit here — the service owns the txn boundary,
-    per § 3.1 layering; ClientService.onboard, BE-12, commits once)."""
+    """Inserts users(portal=client, status=AccountStatus.DISABLED) + client_profiles(...)
+    in the CALLER's transaction (no commit here — the service owns the txn boundary,
+    per § 3.1 layering; ClientService.onboard, BE-12, commits once). status is not
+    passed explicitly — the column's own default (AccountStatus.DISABLED, per the DB
+    layer's DB-1) is what stages new clients as not-yet-activated."""
     user = User(id=user_id, firebase_uid=firebase_uid, email=email, portal=Portal.CLIENT,
                 authorized_by=authorized_by)
     self.db.add(user)
     self.db.flush()
     self.db.add(ClientProfile(
-        user_id=user.id, name=name, assigned_rm_uid=assigned_rm_uid,
-        status=ClientStatus.PENDING, **profile_fields,
+        user_id=user.id, name=name, assigned_rm_uid=assigned_rm_uid, **profile_fields,
     ))
 ```
 
-**Behavior / invariants:** no `commit()` inside this method — unlike today's `UserRepository.create_client` (`users/repository.py:28-35`), which commits internally. `ClientService.onboard` (BE-12) owns the single transaction boundary so the Firebase-create-then-DB-insert saga (§ 4.11) can catch a commit failure and compensate. `ClientStatus`/`User.authorized_by` are the DB layer's columns (§ 7) — this method assumes they exist on the ORM model.
+**Behavior / invariants:** no `commit()` inside this method — unlike today's `UserRepository.create_client` (`users/repository.py:28-35`), which commits internally. `ClientService.onboard` (BE-12) owns the single transaction boundary so the Firebase-create-then-DB-insert saga (§ 4.11) can catch a commit failure and compensate. `User.status`/`User.authorized_by` are the DB layer's columns (§ 7) — this method assumes they exist on the ORM model. `ClientProfile` carries no status field — the account-status gate is entirely a `User`-level concern.
 
 **Done when:** calling this method followed by the caller's own `db.commit()` produces a fully-formed `users` + `client_profiles` row; calling it without a subsequent commit leaves no row (rollback-safe).
 
@@ -620,7 +668,7 @@ def onboard(
 
 **Behavior / invariants:** `assert_is_rm` is RM-literal (Q-E) — widening who may onboard is a `require_action`/role-matrix change at the route, never a loosening of this check. Compensation fires **iff `created is True`** (Risk A1). Portal claim is stamped at provisioning time, not deferred to first login (Risk A4, closes the "claimless first login" gap left by removing `login_or_register`'s claim-stamping).
 
-**Done when:** RM onboarding a client with a valid RM target → row created, `status='pending'`, claim stamped, invite link returned; target not an RM → `422`, no rows, no Firebase identity created (if `assert_is_rm` runs before `ensure_identity`, no Firebase call is even made); Firebase create fails → no DB rows; DB commit fails after a **newly created** identity → compensating delete fires; DB commit fails after an **adopted** identity → no delete (idempotent retry succeeds next time).
+**Done when:** RM onboarding a client with a valid RM target → row created, `user.status='disabled'`, claim stamped, invite link returned; target not an RM → `422`, no rows, no Firebase identity created (if `assert_is_rm` runs before `ensure_identity`, no Firebase call is even made); Firebase create fails → no DB rows; DB commit fails after a **newly created** identity → compensating delete fires; DB commit fails after an **adopted** identity → no delete (idempotent retry succeeds next time).
 
 ---
 
@@ -668,7 +716,7 @@ def onboard_client(
         country_of_residence=body.country_of_residence,
         authorized_person=body.authorized_person, initiate_method=body.initiate_method,
     )
-    return ClientOnboardOut(firebase_uid=staged.firebase_uid, status=staged.client_profile.status.value, invite_link=link)
+    return ClientOnboardOut(firebase_uid=staged.firebase_uid, status=staged.status.value, invite_link=link)
 ```
 
 **Behavior / invariants:** gated on `Action.CLIENT_MANAGE` — this action already exists (`app/libs/auth/actions.py`, granted to `AdminRole.RM`) and is currently unconsumed by any route ("pre-kept for 004", per its own comment) — this unit is the first consumer. **Resolved (2026-07-17):** the proposal's endpoint is `POST /api/rm/clients`, not `/api/admin/clients` — the existing module's router prefix is `/rm` (`clients/router.py:19`), and this unit mounts the new route on the **same router object** that already carries `GET /rm/clients`, rather than renaming the live prefix (which would break its existing frontend callers) or dual-mounting under a second prefix. The proposal (§4.2, §4.4, §5, §8) has been updated to match.
@@ -719,16 +767,22 @@ class StaffRepository:
         role: AdminRole, authorized_by: str, name: str | None = None,
         phone_number: str | None = None,
     ) -> None:
+        # status=ACTIVE is explicit here, not relied on as a default — the column
+        # default (DB layer's DB-1) is DISABLED (it exists for new clients); admin
+        # enrollment always overrides it, since there is no "pending admin" state.
         user = User(id=user_id, firebase_uid=firebase_uid, email=email,
-                    portal=Portal.ADMIN, authorized_by=authorized_by)
+                    portal=Portal.ADMIN, authorized_by=authorized_by,
+                    status=AccountStatus.ACTIVE)
         self.db.add(user)
         self.db.flush()
-        self.db.add(AdminProfile(user_id=user.id, role=role, is_active=True,
+        self.db.add(AdminProfile(user_id=user.id, role=role,
                                   name=name, phone_number=phone_number))
 
     def count_active_admins(self, *, for_update: bool = False) -> int:
-        q = self.db.query(AdminProfile).filter(
-            AdminProfile.role == AdminRole.ADMIN, AdminProfile.is_active.is_(True)
+        q = (
+            self.db.query(AdminProfile)
+            .join(User, User.id == AdminProfile.user_id)
+            .filter(AdminProfile.role == AdminRole.ADMIN, User.status == AccountStatus.ACTIVE)
         )
         if for_update:
             q = q.with_for_update()
@@ -760,9 +814,9 @@ class StaffService:
         return self.repo.db.query(User).filter(User.firebase_uid == uid).one(), identity.generate_invite_link(email)
 ```
 
-**Behavior / invariants:** `role == AdminRole.ADMIN` is permitted (Q-I resolved — a super-admin may enroll a peer). No `pending` state for admins — `is_active=True` at creation, unlike client onboarding's `pending`.
+**Behavior / invariants:** `role == AdminRole.ADMIN` is permitted (Q-I resolved — a super-admin may enroll a peer). No `pending`/staged state for admins — `user.status=AccountStatus.ACTIVE` at creation (explicitly passed, overriding the column's `DISABLED` default), unlike client onboarding which relies on that same default to land `disabled`.
 
-**Done when:** enroll with `role=ADMIN` → a second active ADMIN exists; Firebase-fail → no DB rows; commit-fail on a newly-created identity → compensating delete; commit-fail on an adopted identity → no delete.
+**Done when:** enroll with `role=ADMIN` → a second active ADMIN exists (`user.status='active'`); Firebase-fail → no DB rows; commit-fail on a newly-created identity → compensating delete; commit-fail on an adopted identity → no delete.
 
 ---
 
@@ -787,21 +841,21 @@ def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
     profile = AdminProfileRepository(self.repo.db).get_by_user_id(user.id)
     demoting_or_disabling = (
         (patch.role is not None and patch.role != AdminRole.ADMIN and profile.role == AdminRole.ADMIN)
-        or (patch.is_active is False and profile.is_active)
+        or (patch.status == AccountStatus.DISABLED and user.status == AccountStatus.ACTIVE)
     )
     if demoting_or_disabling:
         # Risk A2: count-and-write MUST be one transaction with SELECT ... FOR UPDATE
         # over the active-ADMIN rows, or two concurrent demotions of DIFFERENT admins
         # each observe count>=2 and both commit -> zero admins.
         active_admins = self.repo.count_active_admins(for_update=True)
-        if profile.role == AdminRole.ADMIN and profile.is_active and active_admins <= 1:
+        if profile.role == AdminRole.ADMIN and user.status == AccountStatus.ACTIVE and active_admins <= 1:
             self.repo.db.rollback()
             raise HTTPException(409, "Cannot demote/disable the last active ADMIN")
 
     if patch.role is not None:
         profile.role = patch.role
-    if patch.is_active is not None:
-        profile.is_active = patch.is_active
+    if patch.status is not None:
+        user.status = patch.status
     if patch.name is not None:
         profile.name = patch.name
     if patch.phone_number is not None:
@@ -816,7 +870,7 @@ def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
     return user
 ```
 
-**Behavior / invariants:** the `SELECT ... FOR UPDATE` must be issued **inside the same DB transaction** that performs the write, row-locking the active-ADMIN set for the duration — this is what closes Risk A2 (two concurrent demotions of *different* admins each seeing `count==2` and both committing, leaving zero admins). `email` edits are local-only (per proposal § 4.9 note) — they never call `identity.*`.
+**Behavior / invariants:** the `SELECT ... FOR UPDATE` must be issued **inside the same DB transaction** that performs the write — `count_active_admins` (BE-15) now joins `AdminProfile` to `User` (status moved off `AdminProfile`), so the lock spans both tables' rows for the duration; this is what closes Risk A2 (two concurrent demotions of *different* admins each seeing `count==2` and both committing, leaving zero admins). `status` lives on `User`, not `AdminProfile` — `StaffUpdateIn.status` (BE-17) is applied to `user.status`, not `profile.is_active` (retired). `email` edits are local-only (per proposal § 4.9 note) — they never call `identity.*`.
 
 **Done when:** demoting/disabling the sole active ADMIN → `409`; a simulated concurrent demotion of two *different* ADMINs (both starting from count=2) results in exactly one succeeding and one `409` — never both succeeding; unknown uid → `404`; client-portal target → `409`.
 
@@ -842,7 +896,7 @@ class StaffEnrollIn(BaseModel):
 
 class StaffUpdateIn(BaseModel):
     role: AdminRole | None = None
-    is_active: bool | None = None
+    status: AccountStatus | None = None
     name: str | None = None
     phone_number: str | None = None
     email: EmailStr | None = None
@@ -851,7 +905,7 @@ class StaffUpdateIn(BaseModel):
 class StaffOut(BaseModel):
     firebase_uid: str
     role: str
-    is_active: bool
+    status: str
     invite_link: str | None = None
 
 
@@ -921,7 +975,7 @@ class UserSelfUpdate(BaseModel):
     name: str | None = None
     phone_number: str | None = None
     email: EmailStr | None = None
-    # role / is_active deliberately absent — never accepted from this endpoint,
+    # role / status deliberately absent — never accepted from this endpoint,
     # not merely ignored: adding them to the model would silently start accepting
     # (and Pydantic-validating) fields this endpoint must always reject.
 
@@ -936,7 +990,7 @@ def update_self(self, user: User, patch: UserSelfUpdate) -> User:
     return user
 ```
 
-**Behavior / invariants:** today's `update_me` (`users/router.py:34-42`) only ever handled `email`; this unit extends it to `name`/`phone_number` while explicitly excluding `role`/`is_active` at the schema level (not just the handler level) — a body containing `role` is rejected by FastAPI/Pydantic at request parsing (`extra="forbid"` or simply absent field, per project convention) rather than silently dropped, whichever this codebase's existing schemas do (check `UserSelfUpdate`'s current `model_config`, none set today — inherits `BaseModel` default of ignoring unknown fields; document this in the PR since it means an internal user sending `{"role": "ADMIN"}` to `/me` gets a `200` with the role silently unchanged, not a `422` — matches proposal § 8's expectation "those fields ignored/rejected").
+**Behavior / invariants:** today's `update_me` (`users/router.py:34-42`) only ever handled `email`; this unit extends it to `name`/`phone_number` while explicitly excluding `role`/`status` at the schema level (not just the handler level) — a body containing `role` is rejected by FastAPI/Pydantic at request parsing (`extra="forbid"` or simply absent field, per project convention) rather than silently dropped, whichever this codebase's existing schemas do (check `UserSelfUpdate`'s current `model_config`, none set today — inherits `BaseModel` default of ignoring unknown fields; document this in the PR since it means an internal user sending `{"role": "ADMIN"}` to `/me` gets a `200` with the role silently unchanged, not a `422` — matches proposal § 8's expectation "those fields ignored/rejected").
 
 **Done when:** `PATCH /api/users/me {"name": "...", "phone_number": "..."}` → `200`, fields updated; `PATCH /api/users/me {"role": "ADMIN"}` → `200`, role unchanged (field ignored, self cannot promote).
 
@@ -1082,8 +1136,10 @@ def dev_register(body: DevRegisterIn, db: Session, settings: Settings) -> User:
             user_id=uuid.uuid4(), firebase_uid=uid, email=email, name=email or uid,
             assigned_rm_uid=uid, authorized_by=uid,  # dev: self-authorized, no real RM
         )
-        # dev convenience: status is set ACTIVE, not the prod default PENDING —
-        # see contract note below.
+        # dev convenience: flip to ACTIVE immediately — BE-11's create_with_profile
+        # relies on the column default (DISABLED) for real onboarding, but dev
+        # self-reg skips the activation step entirely (no compliance review in dev).
+        UserRepository(db).get_by_firebase_uid(uid).status = AccountStatus.ACTIVE
     else:
         StaffRepository(db).create_with_profile(
             user_id=uuid.uuid4(), firebase_uid=uid, email=email, name=email or uid,
@@ -1094,7 +1150,7 @@ def dev_register(body: DevRegisterIn, db: Session, settings: Settings) -> User:
     return UserRepository(db).get_by_firebase_uid(uid)
 ```
 
-**Behavior / invariants:** must-be-new semantics (`409` if a row already exists for this uid) — matches proposal § 4.12's table. Dev convenience: `client_profiles.status='active'`/`admin_profiles.is_active=true` at creation (both already default this way per the DB layer's column defaults, so no override is strictly needed here — call out explicitly in the PR if `create_with_profile`'s default status ever changes to something else). No `identity.create_user`/`ensure_identity` call anywhere in this function — the frontend already minted the Firebase identity via the client SDK before calling this endpoint.
+**Behavior / invariants:** must-be-new semantics (`409` if a row already exists for this uid) — matches proposal § 4.12's table. Dev convenience: `user.status='active'` at creation for **both** portals — admins already land `active` via `StaffRepository.create_with_profile`'s explicit override (BE-15); clients need an explicit post-create flip here, since `ClientRepository.create_with_profile` (BE-11) relies on the column's `DISABLED` default for real onboarding and dev self-reg has no compliance-review step to wait for. No `identity.create_user`/`ensure_identity` call anywhere in this function — the frontend already minted the Firebase identity via the client SDK before calling this endpoint.
 
 **Done when:** a fresh frontend-minted token → `201`, fully-formed active row, no re-login required; re-`POST` for the same uid → `409`.
 
@@ -1120,10 +1176,22 @@ def register(body: DevRegisterIn, db: Annotated[Session, Depends(get_db)],
     return dev_register(body, db, settings)
 
 
-# app/main.py — CONDITIONAL mount, not a runtime `if` inside a mounted route
+# app/main.py — grouped mounts per the route-branch convention (§ 4)
+# --- Internal (admin-portal) routes ---
+app.include_router(clients_router, prefix="/api")    # /api/rm/…  (existing, unchanged)
+app.include_router(staff_router, prefix="/api")      # /api/admin/staff/…  (BE-17)
+
+# --- Client (client-portal) routes ---
+# (future proposals mount client_portal routers here)
+
+# --- Shared routes ---
+app.include_router(auth_router, prefix="/api")       # /api/auth/…  (existing, modified by BE-5)
+app.include_router(users_router, prefix="/api")      # /api/users/…  (existing)
+
+# --- Dev-only (CONDITIONAL mount, not a runtime `if` inside a mounted route) ---
 if get_settings().dev_mode:
     from app.libs.dev.router import router as dev_router
-    app.include_router(dev_router, prefix="/api")
+    app.include_router(dev_router, prefix="/api")    # /api/dev/…
 ```
 
 **Behavior / invariants:** the module is **physically absent** from the route table when `dev_mode` is off (a 404 from FastAPI's router, not a guarded `403` inside a mounted handler) — matches proposal § 4.12's "unreachable in prod (module unmounted + fail-closed assertion, not a runtime `if`)".
@@ -1181,33 +1249,37 @@ def fix(db: Session, identity: FirebaseIdentityService, findings: list[DriftFind
 
 ## 7. Frozen seam (from the proposal — verbatim)
 
-### 7.1 The seam (verbatim from proposal § 4.6 and § 6)
+### 7.1 The seam (verbatim from proposal § 4.6 and § 6, as revised 2026-07-18)
 
 ```python
 def assert_can_authenticate(user, db) -> None:
+    if user.status != AccountStatus.ACTIVE:
+        raise HTTPException(403, "Account disabled")            # not yet activated | suspended
     if user.portal == Portal.CLIENT:
-        if user.client_profile is None or user.client_profile.status != ClientStatus.ACTIVE:
-            raise HTTPException(403, "Account not active")          # pending | disabled
+        if user.client_profile is None:
+            raise HTTPException(403, "Account disabled")        # incomplete record (§4.11 class C)
     else:  # ADMIN
-        if user.admin_profile is None or not user.admin_profile.is_active:
-            raise HTTPException(403, "Account disabled")            # suspension / offboarding
+        if user.admin_profile is None:
+            raise HTTPException(403, "Account disabled")        # incomplete record (§4.11 class C)
 ```
 
 ```
-R4 schema change (columns the DB layer adds, verbatim from proposal § 6):
-  - client_profiles.status      (enum/string; `pending` | `active` | `disabled`; default `pending`)
-  - admin_profiles.is_active    (boolean; default `true`)
-  - users.authorized_by         (audit trail): nullable FK -> users.firebase_uid recording
-                                 who authorised this account -- the onboarding RM for a
-                                 client, the enrolling super-admin for an internal user,
-                                 NULL for the bootstrap ADMIN and pre-rework rows.
-  Column placement: every new column is added BEFORE the two timestamp columns
-  (created_at, updated_at) of its table, to match the established layout.
+R4 schema change (columns the DB layer adds, verbatim from proposal § 6, revised 2026-07-18):
+  - users.status         (enum/string; shared AccountStatus: `active` | `disabled`;
+                           default `disabled`) -- ONE column on users, shared by both
+                           portals, not a per-profile-table column. client_profiles
+                           and admin_profiles get no status field.
+  - users.authorized_by   (audit trail): nullable FK -> users.firebase_uid recording
+                           who authorised this account -- the onboarding RM for a
+                           client, the enrolling super-admin for an internal user,
+                           NULL for the bootstrap ADMIN and pre-rework rows.
+  Column placement: both new columns are added BEFORE the two timestamp columns
+  (created_at, updated_at) on users, to match the established layout.
 ```
 
 ### 7.2 How this layer honours the seam
-- **What this layer contributes to the seam:** calls `assert_can_authenticate(user, db)` from the shared `get_current_client_user`/`get_current_admin_user` dependencies (BE-9) and from `login_and_bind` (BE-6) — it never redefines or reimplements the function; it consumes it from wherever the DB layer exports it (proposal names no specific module path for the function itself beyond showing it inline in § 4.6 — this layer imports it as `app.libs.auth.status.assert_can_authenticate` or wherever the DB layer's impl doc places it, to be confirmed against that doc once written).
-- **What this layer assumes from the other side:** before BE-9 is exercised against a real database, the three columns above must exist on `client_profiles`, `admin_profiles`, and `users` respectively, with the stated types/defaults, and the DB layer's migration backfill must have run (existing clients → `active`, existing admins → `is_active=true`, all existing rows → `authorized_by=NULL`) so that no currently-migrated user is locked out the moment the gate activates. This layer's own tests fake this function (per § 8) precisely so BE-1 through BE-8 and BE-11 through BE-25 can be developed and tested without the DB layer's migration being merged yet — only BE-9's *integration* exercise needs the real columns.
+- **What this layer contributes to the seam:** calls `assert_can_authenticate(user, db)` from the shared `get_current_client_user`/`get_current_admin_user` dependencies (BE-9) and from `login_and_bind` (BE-6) — it never redefines or reimplements the function; it consumes it from wherever the DB layer exports it (`app.libs.auth.status.assert_can_authenticate`, per the DB layer's impl doc `004-auth-flow-rework-db.md` § 5.3/§ 6).
+- **What this layer assumes from the other side:** before BE-9 is exercised against a real database, `users.status` and `users.authorized_by` must exist with the stated types/defaults, and the DB layer's migration backfill must have run (all existing users → `status='active'`, all existing rows → `authorized_by=NULL`) so that no currently-migrated user is locked out the moment the gate activates. This layer's own units read/write `user.status` directly — never `client_profile.status` or `admin_profile.is_active`, neither of which exist. This layer's own tests fake `assert_can_authenticate` (per § 8) precisely so BE-1 through BE-8 and BE-11 through BE-25 can be developed and tested without the DB layer's migration being merged yet — only BE-9's *integration* exercise needs the real columns.
 - **Change protocol:** any edit to § 7 requires editing the proposal first; this section is then re-copied. Never edit § 7 in isolation from the proposal.
 
 ---
@@ -1245,7 +1317,7 @@ R4 schema change (columns the DB layer adds, verbatim from proposal § 6):
 | BE-16 | last-ADMIN demote/disable 409; concurrent-demotion-of-different-admins race resolves to exactly one 409; unknown/client-target 404/409 | none (pure DB-layer concurrency test against SQLite/threaded session) |
 | BE-17 | enroll/update routes gate on `USER_MANAGE`; non-super-admin 403 | fake identity service |
 | BE-18 | old role route 404; equivalent behavior reachable via staff PATCH | none |
-| BE-19 | benign fields update; role/is_active in body ignored, no promotion | none |
+| BE-19 | benign fields update; role/status in body ignored, no promotion | none |
 | BE-20 | env var readable via Settings | none |
 | BE-21 | empty-state seeds one ADMIN; re-run no-op; dev seed produces `dev-user` under `firebase_auth_disabled` | fake identity service |
 | BE-22 | prod+bypass → refuses to boot; prod without bypass → boots; default `dev_mode` is False | none |
@@ -1304,8 +1376,8 @@ R4 schema change (columns the DB layer adds, verbatim from proposal § 6):
 - **Seam mocks:** none.
 
 #### BE-9
-- **Positive:** an `active` client's authenticated request passes through; a `false`→`true` flip on `is_active` for an admin re-enables their next request.
-- **Negative:** a `pending`/`disabled` client's request → 403 on the very next call after status changes (not only at login); a suspended admin (`is_active=False`) → 403.
+- **Positive:** an `active` client's authenticated request passes through; a `disabled`→`active` flip on `user.status` for an admin re-enables their next request.
+- **Negative:** a `disabled` client's request → 403 on the very next call after status changes (not only at login); a suspended admin (`user.status='disabled'`) → 403.
 - **Invariants:** the gate is evaluated fresh on every request (not cached from a prior request/token) — a status flip takes effect on the immediately following call.
 - **Seam mocks:** `assert_can_authenticate` faked both ways (raising and pass-through) to isolate this unit from the DB layer's real implementation/migration.
 
@@ -1316,13 +1388,13 @@ R4 schema change (columns the DB layer adds, verbatim from proposal § 6):
 - **Seam mocks:** none.
 
 #### BE-11
-- **Positive:** `create_with_profile` followed by the caller's `commit()` produces one `users` row (portal=client) and one `client_profiles` row with `status` defaulted per the DB layer's column default and `assigned_rm_uid` set as passed.
+- **Positive:** `create_with_profile` followed by the caller's `commit()` produces one `users` row (portal=client, `status` defaulted per the DB layer's column default — `DISABLED`) and one `client_profiles` row with `assigned_rm_uid` set as passed.
 - **Negative:** raising inside the caller's transaction before commit (e.g. a simulated failure) leaves zero rows after rollback.
 - **Invariants:** never calls `commit()` itself — a test asserts the session is still "dirty"/uncommitted immediately after calling this method.
 - **Seam mocks:** none.
 
 #### BE-12
-- **Positive:** RM-valid onboard → row created with `status='pending'`, invite link returned, portal claim stamped exactly once.
+- **Positive:** RM-valid onboard → row created with `user.status='disabled'`, invite link returned, portal claim stamped exactly once.
 - **Negative:** `assigned_rm_uid` pointing at a non-RM (e.g. a PM) → 422, and — since `assert_is_rm` runs before any identity call — zero Firebase interactions and zero DB rows; Firebase identity creation raising → no DB rows exist afterward.
 - **Invariants:** compensation (`identity.delete_user`) is called if and only if `created is True` from `ensure_identity` — a fixture that forces `created=False` (adopted identity) followed by a forced commit failure must show `delete_user` NEVER called.
 - **Seam mocks:** fake `FirebaseIdentityService` with both a "fresh email" and a "pre-existing orphan email" fixture case.

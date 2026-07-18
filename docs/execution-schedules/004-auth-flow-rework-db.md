@@ -13,7 +13,7 @@
 | Reference | Location |
 |---|---|
 | Implementation doc (this layer) | `docs/implementations/004-auth-flow-rework-db.md` |
-| Proposal | `docs/proposals/004-2026-06-11-auth-flow-rework.md` § 4.6, § 4.11, § 6 |
+| Proposal | `docs/proposals/004-2026-06-11-auth-flow-rework.md` § 4.6, § 4.11, § 6 (2026-07-18 revision: single `users.status` column, not per-profile-table) |
 | Sibling layer schedules | `docs/execution-schedules/004-auth-flow-rework-be.md` (Backend) |
 | Prompt (dispatch harness) | `docs/prompts/004-auth-flow-rework-db.md` (not yet authored) |
 
@@ -40,9 +40,9 @@
 
 | Unit | Depends on | Reason for the edge |
 |---|---|---|
-| `DB-1` | — | root — ORM column additions on `app/models/users.py`, no upstream dependency |
+| `DB-1` | — | root — ORM column additions (`AccountStatus` enum, `User.status`, `User.authorized_by`) on `app/models/users.py`, no upstream dependency |
 | `DB-2` | `DB-1` | the migration's DDL encodes the exact same column shapes `DB-1` declares on the ORM; authoring the migration first would risk drift between DDL and ORM |
-| `DB-3` | `DB-1` | `assert_can_authenticate` reads `ClientProfile.status` / `AdminProfile.is_active`, which only exist on the ORM once `DB-1` lands — parallel-safe with `DB-2` (no shared file, no shared runtime dependency between the migration and the pure gate function) |
+| `DB-3` | `DB-1` | `assert_can_authenticate` reads `User.status` (single shared column, not `ClientProfile.status`/`AdminProfile.is_active`), which only exists on the ORM once `DB-1` lands — parallel-safe with `DB-2` (no shared file, no shared runtime dependency between the migration and the pure gate function) |
 
 **Graph invariants:** acyclic; both edges terminate at `DB-1`; `DB-2` and `DB-3` have no edge between each other.
 
@@ -75,7 +75,7 @@ open PR against rework-authentication-module
 ### Wave W1
 | Unit | Brief | Files touched | Done when |
 |---|---|---|---|
-| `DB-1` | impl § 6 DB-1 — `ClientStatus` enum + `ClientProfile.status` / `AdminProfile.is_active` / `User.authorized_by` columns | `modify: api-backend/app/models/users.py` | commit exists on layer branch; `mypy app` + `ruff check .` pass; SQLite `create_all` builds clean |
+| `DB-1` | impl § 6 DB-1 — `AccountStatus` enum + `User.status` / `User.authorized_by` columns (single shared column, `client_profiles`/`admin_profiles` untouched) | `modify: api-backend/app/models/users.py` | commit exists on layer branch; `mypy app` + `ruff check .` pass; SQLite `create_all` builds clean |
 
 **Barrier before W2:** the row above must show a commit on the layer branch AND wave-gate checks (§ 6) pass.
 
@@ -121,7 +121,7 @@ At the end of each feature wave, run in order — a failure blocks the next wave
 
 Verifies static properties of the finished layer against impl doc § 6 / § 9:
 - [ ] `DB-1`, `DB-2`, `DB-3` each have at least one commit on the layer branch.
-- [ ] `app/models/users.py` matches impl § 6 DB-1's contract: `ClientStatus` enum, `ClientProfile.status`, `AdminProfile.is_active`, `User.authorized_by` (with `ON DELETE SET NULL`) all present with the stated types/defaults.
+- [ ] `app/models/users.py` matches impl § 6 DB-1's contract: `AccountStatus` enum, `User.status` (default `disabled`), `User.authorized_by` (with `ON DELETE SET NULL`) all present with the stated types/defaults; `ClientProfile`/`AdminProfile` carry no status field.
 - [ ] The migration file exists at `api-backend/alembic/versions/<new_rev>_0017_auth_status_columns.py`, `down_revision == "d06ece9f47be"`, and both `upgrade()`/`downgrade()` are defined.
 - [ ] `api-backend/app/libs/auth/status.py` exists, exports `assert_can_authenticate(user, db) -> None` matching impl § 6 DB-3's signature.
 - [ ] Migration head invariant: exactly one Alembic head after this branch's migration lands (no branch split).
@@ -131,7 +131,7 @@ Reports **PASS** or an explicit list of failures with file + line.
 
 ### 8.2 Test agent
 
-- Runs `pytest -q` (impl doc § 8): covers `DB-1` (ORM/enum shape tests) and `DB-3` (`assert_can_authenticate` coverage matrix — active/pending/disabled/missing-profile × client/admin).
+- Runs `pytest -q` (impl doc § 8): covers `DB-1` (ORM/enum shape tests) and `DB-3` (`assert_can_authenticate` coverage matrix — active/disabled/missing-profile × client/admin).
 - Confirms `DB-2`'s MariaDB rehearsal (§ 6 human gate) was performed and signed off — this agent does not itself have MariaDB access; it checks for the rehearsal sign-off artifact/confirmation rather than re-running it.
 - Reports pass/fail counts and any failing test's first traceback frame.
 - Does **not** modify code.
@@ -148,7 +148,7 @@ Both agents must return **PASS**, AND the `DB-2` human rehearsal sign-off must b
 
 - **Red gate → stop.** Do not attempt fixes across waves; a red gate halts the algorithm at that wave.
 - **New units mid-run:** add to the impl doc first (e.g. `DB-4`), then extend § 3/§ 4/§ 5 of this file.
-- **Scope change:** any edit to the impl doc's § 7 seam suspends this run — the Backend layer must acknowledge the seam change before resuming, since it consumes `assert_can_authenticate` and the three new columns.
+- **Scope change:** any edit to the impl doc's § 7 seam suspends this run — the Backend layer must acknowledge the seam change before resuming, since it consumes `assert_can_authenticate` and the two new `users` columns (`status`, `authorized_by`).
 
 ---
 

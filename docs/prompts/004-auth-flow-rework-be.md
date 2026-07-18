@@ -91,7 +91,8 @@ You **do not** edit source files yourself. You **do not** push, merge, or open w
 - **RBAC is action-based, never role-string-based at the route:** every new mutating route is gated with `require_action(Action.<X>)`; authority is the route, never a request-body field.
 - **Coercion convention:** tolerate `str` at the boundary, coerce to the enum member before persistence (see existing "E-2 coercion" pattern in `app/libs/users/repository.py`).
 - **Additive & backward-compatible first:** the new provisioning surfaces (client onboarding, staff enrollment, bootstrap, dev-reg) land *before* the kill-switch units that delete the old create branches — this is why W6 (`BE-6`/`BE-7`) comes after W1-W5, not because of raw file dependency.
-- **Frozen seam:** the cross-layer contract in proposal § 4 / impl doc § 7 is fixed — it names the DB layer's three new columns and the `assert_can_authenticate(user, db)` signature this layer's `BE-9` wires in. If a unit's contract seems to conflict with the seam, **stop and report** — do not silently diverge.
+- **Frozen seam:** the cross-layer contract in proposal § 4 / impl doc § 7 is fixed — it names the DB layer's two new `users` columns (`status`, single shared `AccountStatus` column — not per-profile-table; `authorized_by`) and the `assert_can_authenticate(user, db)` signature this layer's `BE-9` wires in. If a unit's contract seems to conflict with the seam, **stop and report** — do not silently diverge.
+- **Route-branch isolation:** every route belongs to exactly one branch — internal (`/api/rm/…`, `/api/admin/…`), client (`/api/client/…`, convention only in 004), shared (`/api/auth/…`, `/api/users/…`), or dev-only (`/api/dev/…`, mounted iff `dev_mode`). No internal-branch module may import a client-branch module or vice versa; `app/libs/clients/` is internal/RM-facing despite its name. Detail: impl doc § 4, § 5.9.
 
 ---
 
@@ -105,6 +106,7 @@ You **do not** edit source files yourself. You **do not** push, merge, or open w
 - **Do not read every impl feature up front.** Load feature bodies lazily per dispatch.
 - **Red gate = stop.** Report the failure and wait for the human; do not attempt cross-wave fixes or invent new units.
 - **Never modify sibling-layer files.** This session is scoped to `api-backend/app/libs/`, `api-backend/app/schemas/`, `api-backend/app/cli/`, `api-backend/app/main.py`, `api-backend/app/core/config.py`. It must **not** touch `api-backend/app/models/users.py` (that's the DB layer) or any file under `client-frontend/`/`admin-frontend/`. If a unit seems to require it, the impl doc is wrong — stop and report.
+- **Route-branch mount discipline.** Units that modify `app/main.py` (`BE-13`, `BE-17`, `BE-22`, `BE-24`) must add their `include_router` call under the correct grouped section (internal / client / shared / dev-only) per impl doc § 4 — never a new ungrouped mount. No unit may add an import crossing the internal/client branch boundary.
 - **`BE-25` (identity-drift-report) is Recommend-tier, not required for this layer's DoD.** Dispatch it in W3 if the human wants it built this pass; skip it without blocking any other wave if not — its absence does not fail the layer's Definition of Done (impl doc § 9).
 - **Tests live in `api-backend/tests/`.** Mirror the source path; never co-locate next to source.
 - **Tests are NEVER committed.** `tests/` is git-ignored; sub-agents write and run tests but never stage or commit them.
@@ -142,6 +144,9 @@ INVARIANTS (hold at every step):
 - Coercion convention: tolerate str at the boundary, coerce to enum before persistence.
 - Additive & backward-compatible first.
 - Frozen seam (impl doc § 7) is fixed — stop and report on any apparent conflict.
+- Route-branch isolation: routes are internal/client/shared/dev-only branches; no
+  internal<->client cross-imports; app/libs/clients/ is internal/RM-facing despite
+  its name (impl doc § 4, § 5.9).
 
 TASK:
 - Feature ID: <e.g. BE-13>
@@ -154,7 +159,9 @@ TASK:
 STEPS:
 1. Read every file listed above (create or modify).
 2. Read the frozen seam in impl doc § 7 if this unit touches it (e.g. BE-9 consuming
-   assert_can_authenticate, or any unit reading the DB layer's status/is_active columns).
+   assert_can_authenticate, or any unit reading/writing the DB layer's single
+   user.status column — never client_profiles.status/admin_profiles.is_active,
+   which do not exist).
 3. Implement the contract from impl doc § 6 <unit ID>.
 4. If test-gen has already generated tests for this unit in api-backend/tests/, make
    them pass without editing test files.

@@ -29,7 +29,7 @@
 - [ ] Impl doc § 2 preconditions green: Alembic head `d06ece9f47be` (0016) on the branch this is cut from; the frozen seam in impl doc § 7 agreed verbatim against the proposal.
 - [ ] Layer branch `rework-authentication-module-be` cut from `rework-authentication-module` and checked out.
 - [ ] Working tree clean; no other schedule dispatching on this branch.
-- [ ] **Layer-specific precondition for BE-9 only** (not for the whole layer): the DB layer's migration adding `client_profiles.status`, `admin_profiles.is_active`, `users.authorized_by`, and its exported `assert_can_authenticate(user, db)` function at `api-backend/app/libs/auth/status.py` (per `docs/execution-schedules/004-auth-flow-rework-db.md` and impl doc § 7.2), must be merged **before BE-9's wiring is exercised against a real DB**. BE-1 through BE-8, BE-9's *code* (against a faked seam), and BE-11 through BE-25 do not need this — impl doc § 8.1 fakes `assert_can_authenticate` for all unit tests in this layer.
+- [ ] **Layer-specific precondition for BE-9 only** (not for the whole layer): the DB layer's migration adding `users.status` (single shared `AccountStatus` column — not `client_profiles.status`/`admin_profiles.is_active`, retired), `users.authorized_by`, and its exported `assert_can_authenticate(user, db)` function at `api-backend/app/libs/auth/status.py` (per `docs/execution-schedules/004-auth-flow-rework-db.md` and impl doc § 7.2), must be merged **before BE-9's wiring is exercised against a real DB**. BE-1 through BE-8, BE-9's *code* (against a faked seam), and BE-11 through BE-25 do not need this — impl doc § 8.1 fakes `assert_can_authenticate` for all unit tests in this layer.
 
 **Layer independence.** This schedule does **not** wait on the DB layer's schedule to complete. The cross-layer seam is frozen in the proposal and re-pinned in impl doc § 7; the DB layer may run before, after, or concurrent with this one. The one exception is the real-DB integration exercise of BE-9 noted above, which is a precondition on that specific unit's live verification, not on this schedule's dispatch order.
 
@@ -156,6 +156,8 @@ open PR against rework-authentication-module
 | `BE-21` | impl § 6 BE-21 — idempotent bootstrap seed (incl. dev-user) | create `app/cli/bootstrap_admin.py` | commit exists on layer branch |
 | `BE-23` | impl § 6 BE-23 — dev-only self-registration service | create `app/libs/dev/service.py`, `app/schemas/dev.py` | commit exists on layer branch |
 
+**Route-branch grouping note:** `BE-13`'s `app/main.py` edit lands its mount in the correct grouped section (Internal) per impl doc § 4's route-branch convention / § 5.9 — see impl doc for the exact grouped snippet, not restated here.
+
 **Barrier before W5:** all rows above committed AND wave-gate checks pass.
 
 ### Wave W5
@@ -166,6 +168,8 @@ open PR against rework-authentication-module
 | `BE-24` | impl § 6 BE-24 — `POST /api/dev/register` route, mounted iff `dev_mode` | create `app/libs/dev/router.py`; modify `api-backend/app/main.py` | commit exists on layer branch |
 
 **Shared-file note for this wave:** see § 7 — `BE-17` and `BE-24` both touch `app/main.py`; serialize per § 7's protocol.
+
+**Route-branch grouping note:** both `BE-17`'s and `BE-24`'s `app/main.py` edits must land their mounts in the correct grouped section (Internal / Dev-only respectively) per impl doc § 4's route-branch convention / § 5.9 — see impl doc for the exact grouped snippet, not restated here.
 
 **Barrier before W6:** all rows above committed AND wave-gate checks pass.
 

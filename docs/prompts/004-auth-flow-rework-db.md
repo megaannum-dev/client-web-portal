@@ -80,7 +80,7 @@ You **do not** edit source files yourself. You **do not** push, merge, or open w
 - **Column placement:** every new column goes **before** `created_at`/`updated_at` on its table, matching migration `8f2a1c9d4b6e`'s precedent.
 - **Migration style:** MariaDB-targeted via `op.execute` (not dialect-agnostic `op.add_column`, since column *position* — `AFTER <col>` — matters), with a module-level `_require(condition, message)` self-assertion helper, and pre/post row-count checks re-queried at run time — never hardcoded to a prior design doc's row-count figure.
 - **Self-referential FK:** `users.authorized_by` uses `ON DELETE SET NULL`, not the default `RESTRICT` — a relationship built over it must pass explicit `foreign_keys=`.
-- **Additive & backward-compatible first:** all three new columns are nullable-or-defaulted additions; nothing existing is renamed or dropped.
+- **Additive & backward-compatible first:** both new columns (`users.status`, `users.authorized_by`) are nullable-or-defaulted additions; nothing existing is renamed or dropped.
 - **Frozen seam:** the cross-layer contract in proposal § 4.6/§ 6 is fixed. If a unit's contract seems to conflict with the seam, **stop and report** — do not silently diverge.
 
 ---
