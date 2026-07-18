@@ -145,6 +145,13 @@ class ClientRepository:
             )
         )
 
+    def assign_rm(self, client_user_id: uuid.UUID, rm_uid: str) -> None:
+        """Updates assigned_rm_uid on the target profile. No commit here (caller's
+        txn boundary) -- exists so `assert_is_rm` (BE-12) has a second caller per
+        § 4.5; BE-14, no route wired in 004 (YAGNI)."""
+        profile = self.db.query(ClientProfile).filter(ClientProfile.user_id == client_user_id).one()
+        profile.assigned_rm_uid = rm_uid
+
     @staticmethod
     def _row(r) -> ClientRow:
         return ClientRow(
