@@ -1,10 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.database import get_db
 from app.libs.auth.deps import get_current_user
-from app.libs.auth.service import login_or_register
+from app.libs.auth.service import login_and_bind
 from app.libs.users.repository import UserRepository, get_user_repo
 from app.models.users import User
 from app.schemas.auth import FirebaseLoginBody
@@ -13,39 +15,24 @@ from app.schemas.users import UserOut
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register_with_firebase(
+@router.post("/client/login", response_model=UserOut)
+def client_login(
     body: FirebaseLoginBody,
     settings: Annotated[Settings, Depends(get_settings)],
     repo: Annotated[UserRepository, Depends(get_user_repo)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    if body.portal == "admin" and not settings.dev_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Internal user self-registration is disabled. Contact a Super Admin.",
-        )
-    # Role selection is only trusted in dev_mode for admin-portal registrations;
-    # in production, a Super Admin must pre-provision internal users instead.
-    requested_role = body.role if settings.dev_mode and body.portal == "admin" else None
-    return login_or_register(
-        body.id_token,
-        body.portal,
-        repo,
-        settings,
-        must_be_new=True,
-        requested_role=requested_role,
-    )
+    return login_and_bind(body.id_token, "client", repo, settings, db)
 
 
-@router.post("/login", response_model=UserOut)
-def login_with_firebase(
+@router.post("/admin/login", response_model=UserOut)
+def admin_login(
     body: FirebaseLoginBody,
     settings: Annotated[Settings, Depends(get_settings)],
     repo: Annotated[UserRepository, Depends(get_user_repo)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    return login_or_register(
-        body.id_token, body.portal, repo, settings, must_be_new=False
-    )
+    return login_and_bind(body.id_token, "admin", repo, settings, db)
 
 
 @router.get("/me", response_model=UserOut)

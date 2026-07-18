@@ -15,6 +15,7 @@ from app.libs.clients.router import router as clients_router
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
 from app.libs.post_trade_allocation.scheduler import start_scheduler as start_pta_scheduler
 from app.libs.reconciliation.router import router as reconciliation_router
+from app.libs.staff.router import router as staff_router
 from app.libs.trade_models.router import router as trade_models_router
 from app.libs.users.router import router as users_router
 
@@ -24,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):  # type: ignore[type-arg]
+    settings = get_settings()
+    if settings.app_env == "production" and (settings.dev_mode or settings.firebase_auth_disabled):
+        raise RuntimeError(
+            "Fail-closed: dev_mode/firebase_auth_disabled cannot be enabled when "
+            "APP_ENV=production."
+        )
     Base.metadata.create_all(bind=engine)
     logger.info("Database metadata ensured (create_all).")
     scheduler_task = start_scheduler()
@@ -50,8 +57,16 @@ app.include_router(users_router, prefix="/api")
 app.include_router(trade_models_router, prefix="/api")
 app.include_router(allocation_matrix_router, prefix="/api")
 app.include_router(post_trade_allocation_router, prefix="/api")
-app.include_router(clients_router, prefix="/api")
+# --- Internal (admin-portal) routes ---
+app.include_router(clients_router, prefix="/api")  # /api/rm/…
+app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
+
+# --- Dev-only (mounted iff dev_mode) ---
+if get_settings().dev_mode:
+    from app.libs.dev.router import router as dev_router
+
+    app.include_router(dev_router, prefix="/api")
 
 
 @app.get("/health")

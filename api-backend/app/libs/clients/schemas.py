@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class SubscriptionOut(BaseModel):
@@ -31,3 +31,20 @@ class ClientListItemOut(BaseModel):
 
 class ClientListOut(BaseModel):
     items: list[ClientListItemOut]
+
+
+class ClientOnboardIn(BaseModel):
+    email: EmailStr
+    name: str
+    primary_phone: str | None = None
+    address: str | None = None
+    country_of_residence: str | None = None
+    authorized_person: str | None = None
+    initiate_method: str | None = None
+    assigned_rm_uid: str | None = None
+
+
+class ClientOnboardOut(BaseModel):
+    firebase_uid: str
+    status: str
+    invite_link: str

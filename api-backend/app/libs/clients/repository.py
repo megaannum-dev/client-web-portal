@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
 from app.models.pc import ClientSubscription, Model, ModelStatus
-from app.models.users import AdminProfile, AdminRole, ClientProfile, User
+from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
 # D-4: roles in this set see every client_profiles row, unfiltered. Every other
 # role with CLIENT_VIEW (today: only RM) is scoped to their own book. Written as
@@ -112,6 +112,45 @@ class ClientRepository:
             SubscriptionRow(model=r.name, status=r.status.value, account=ib_account)
             for r in rows
         ]
+
+    def create_with_profile(
+        self,
+        *,
+        user_id: uuid.UUID,
+        firebase_uid: str,
+        email: str | None,
+        name: str | None,
+        assigned_rm_uid: str,
+        authorized_by: str,
+        **profile_fields: str | None,  # primary_phone, address, country_of_residence,
+        # authorized_person, initiate_method
+    ) -> None:
+        """Inserts users(portal=client, status=AccountStatus.DISABLED) + client_profiles(...)
+        in the CALLER's transaction (no commit here — the service owns the txn boundary,
+        per § 3.1 layering; ClientService.onboard, BE-12, commits once). status is not
+        passed explicitly — the column's own default (AccountStatus.DISABLED, per the DB
+        layer's DB-1) is what stages new clients as not-yet-activated."""
+        user = User(
+            id=user_id,
+            firebase_uid=firebase_uid,
+            email=email,
+            portal=Portal.CLIENT,
+            authorized_by=authorized_by,
+        )
+        self.db.add(user)
+        self.db.flush()
+        self.db.add(
+            ClientProfile(
+                user_id=user.id, name=name, assigned_rm_uid=assigned_rm_uid, **profile_fields,
+            )
+        )
+
+    def assign_rm(self, client_user_id: uuid.UUID, rm_uid: str) -> None:
+        """Updates assigned_rm_uid on the target profile. No commit here (caller's
+        txn boundary) -- exists so `assert_is_rm` (BE-12) has a second caller per
+        § 4.5; BE-14, no route wired in 004 (YAGNI)."""
+        profile = self.db.query(ClientProfile).filter(ClientProfile.user_id == client_user_id).one()
+        profile.assigned_rm_uid = rm_uid
 
     @staticmethod
     def _row(r) -> ClientRow:
