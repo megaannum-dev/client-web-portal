@@ -15,6 +15,7 @@ from app.libs.clients.router import router as clients_router
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
 from app.libs.post_trade_allocation.scheduler import start_scheduler as start_pta_scheduler
 from app.libs.reconciliation.router import router as reconciliation_router
+from app.libs.staff.router import router as staff_router
 from app.libs.trade_models.router import router as trade_models_router
 from app.libs.users.router import router as users_router
 
@@ -56,7 +57,9 @@ app.include_router(users_router, prefix="/api")
 app.include_router(trade_models_router, prefix="/api")
 app.include_router(allocation_matrix_router, prefix="/api")
 app.include_router(post_trade_allocation_router, prefix="/api")
-app.include_router(clients_router, prefix="/api")
+# --- Internal (admin-portal) routes ---
+app.include_router(clients_router, prefix="/api")  # /api/rm/…
+app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
 
 
