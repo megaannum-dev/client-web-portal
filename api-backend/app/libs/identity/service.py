@@ -36,3 +36,18 @@ class FirebaseIdentityService:
     def generate_invite_link(self, email: str) -> str:
         _init_firebase(self._settings)
         return auth.generate_password_reset_link(email)
+
+    def ensure_identity(self, email: str) -> tuple[str, bool]:
+        """Returns (uid, created). If an identity already exists for `email`
+        (a prior failed commit left a class-A orphan), ADOPTS its uid instead
+        of creating a new one -- `created=False` in that case.
+
+        The `created` flag is load-bearing: it is the ONLY signal that lets a
+        caller's compensation step distinguish "this request minted the identity"
+        from "this request adopted someone else's" -- an adopted identity must
+        NEVER be deleted on compensation (Risk A1).
+        """
+        existing_uid = self.get_user_by_email(email)
+        if existing_uid is not None:
+            return existing_uid, False
+        return self.create_user(email), True
