@@ -37,9 +37,7 @@ def update_me(
     service: Annotated[UserService, Depends(_get_service)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    if body.email is not None:
-        return service.update_email(user, str(body.email))
-    return user
+    return service.update_self(user, body)
 
 
 @router.patch("/{firebase_uid}/role", response_model=UserOut)
@@ -52,9 +50,7 @@ def update_user_role(
 ) -> User:
     user = UserRepository(db).get_by_firebase_uid(firebase_uid)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user.portal != Portal.ADMIN:
         # Proposal §11 Q4: a UID is permanently one portal; this endpoint does
         # not flip portal (portal transitions are out of scope).
@@ -77,7 +73,5 @@ def read_user_by_uid(
 ) -> User:
     row = service.repo.get_by_firebase_uid(firebase_uid)
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return row

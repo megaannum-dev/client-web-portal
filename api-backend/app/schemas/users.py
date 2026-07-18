@@ -14,7 +14,13 @@ class UserOut(BaseModel):
 
 
 class UserSelfUpdate(BaseModel):
+    name: str | None = None
+    phone_number: str | None = None
     email: EmailStr | None = None
+    # role / status deliberately absent -- never accepted from this endpoint,
+    # not merely ignored: adding them to the model would silently start
+    # accepting (and Pydantic-validating) fields this endpoint must always
+    # reject (BE-19, impl doc §6).
 
 
 class UserUpsert(BaseModel):
