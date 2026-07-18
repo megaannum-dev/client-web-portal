@@ -12,7 +12,7 @@ import {
 } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
+import { BackendAuthError, postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { writeIdTokenCookie } from "@/lib/id-token";
 import type { PortalUser } from "@/types/portal";
@@ -82,16 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : "Could not sync with API";
-          setBackendSyncError(msg);
-          const unauthorized =
-            /\b401\b/.test(msg) || /\b403\b/.test(msg) || /Unauthorized/i.test(msg);
-          if (unauthorized) {
+          if (err instanceof BackendAuthError && err.status === 403) {
+            setBackendSyncError("No internal account found for this login, or your account is suspended.");
             try {
               await signOut(auth);
             } catch {
               /* noop */
             }
+          } else {
+            setBackendSyncError(err instanceof Error ? err.message : "Could not sync with API");
           }
         }
       } finally {
