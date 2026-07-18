@@ -55,21 +55,21 @@ const CLIENT_META = [
 
 /* ---- base order data (AlgoTrade view) ----------------------- */
 const ORDERS_CLEAN: RcOrder[] = [
-  { id: "o1", m: "mA", inst: "AAPL US", cat: "Equity", side: "Buy", qty: "12,000", px: "$187.40", not: "$2.25M", notVal: 2_250_000, ref: "TRD-88142", ib: "IB-40118", st: "ok",
+  { id: "o1", m: "mA", inst: "AAPL US", cat: "Equity", side: "Buy", qty: "12,000", px: "$187.40", not: "$2.25M", notVal: 2_250_000, multiplier: 1, ref: "TRD-88142", ib: "IB-40118", st: "ok",
     execs: [{ id: "x1", qty: "5,000", px: "$187.36", t: "09:31:02", st: "ok" }, { id: "x2", qty: "4,000", px: "$187.41", t: "09:33:48", st: "ok" }, { id: "x3", qty: "3,000", px: "$187.44", t: "09:36:15", st: "ok" }] },
-  { id: "o2", m: "mA", inst: "MSFT US", cat: "Equity", side: "Sell", qty: "8,000", px: "$410.20", not: "$3.28M", notVal: 3_280_000, ref: "TRD-88150", ib: "IB-40126", st: "ok",
+  { id: "o2", m: "mA", inst: "MSFT US", cat: "Equity", side: "Sell", qty: "8,000", px: "$410.20", not: "$3.28M", notVal: 3_280_000, multiplier: 1, ref: "TRD-88150", ib: "IB-40126", st: "ok",
     execs: [{ id: "x1", qty: "3,000", px: "$410.20", t: "10:02:11", st: "ok" }, { id: "x2", qty: "3,500", px: "$410.20", t: "10:05:39", st: "ok" }, { id: "x3", qty: "1,500", px: "$410.20", t: "10:09:02", st: "ok" }] },
-  { id: "o3", m: "mA", inst: "EUR/USD", cat: "FX", side: "Buy", qty: "€2.0M", px: "1.0842", not: "$2.17M", notVal: 2_170_000, ref: "FX-2098", ib: "IB-40205", st: "ok",
+  { id: "o3", m: "mA", inst: "EUR/USD", cat: "FX", side: "Buy", qty: "€2.0M", px: "1.0842", not: "$2.17M", notVal: 2_170_000, multiplier: 1, ref: "FX-2098", ib: "IB-40205", st: "ok",
     execs: [{ id: "x1", qty: "€2.0M", px: "1.0842", t: "08:15:30", st: "ok" }] },
-  { id: "o4", m: "mB", inst: "NVDA US", cat: "Equity", side: "Buy", qty: "1,200", px: "$121.85", not: "$146.2k", notVal: 146_200, ref: "TRD-88163", ib: "IB-40139", st: "ok",
+  { id: "o4", m: "mB", inst: "NVDA US", cat: "Equity", side: "Buy", qty: "1,200", px: "$121.85", not: "$146.2k", notVal: 146_200, multiplier: 1, ref: "TRD-88163", ib: "IB-40139", st: "ok",
     execs: [{ id: "x1", qty: "700", px: "$121.85", t: "11:14:20", st: "ok" }, { id: "x2", qty: "500", px: "$121.85", t: "11:16:58", st: "ok" }] },
-  { id: "o5", m: "mB", inst: "TSLA US", cat: "Equity", side: "Buy", qty: "3,400", px: "$178.90", not: "$608.3k", notVal: 608_300, ref: "TRD-88170", ib: "IB-40145", st: "ok",
+  { id: "o5", m: "mB", inst: "TSLA US", cat: "Equity", side: "Buy", qty: "3,400", px: "$178.90", not: "$608.3k", notVal: 608_300, multiplier: 1, ref: "TRD-88170", ib: "IB-40145", st: "ok",
     execs: [{ id: "x1", qty: "3,400", px: "$178.90", t: "11:42:18", st: "ok" }] },
-  { id: "o6", m: "mB", inst: "GOOGL US", cat: "Equity", side: "Buy", qty: "2,100", px: "$176.30", not: "$370.2k", notVal: 370_200, ref: "TRD-88192", ib: "IB-40161", st: "ok",
+  { id: "o6", m: "mB", inst: "GOOGL US", cat: "Equity", side: "Buy", qty: "2,100", px: "$176.30", not: "$370.2k", notVal: 370_200, multiplier: 1, ref: "TRD-88192", ib: "IB-40161", st: "ok",
     execs: [{ id: "x1", qty: "2,100", px: "$176.30", t: "12:45:03", st: "ok" }] },
-  { id: "o7", m: "mC", inst: "V US", cat: "Equity", side: "Buy", qty: "3,000", px: "$289.15", not: "$867.5k", notVal: 867_500, ref: "TRD-88224", ib: "IB-40217", st: "ok",
+  { id: "o7", m: "mC", inst: "V US", cat: "Equity", side: "Buy", qty: "3,000", px: "$289.15", not: "$867.5k", notVal: 867_500, multiplier: 1, ref: "TRD-88224", ib: "IB-40217", st: "ok",
     execs: [{ id: "x1", qty: "3,000", px: "$289.15", t: "14:22:10", st: "ok" }] },
-  { id: "o8", m: "mC", inst: "HSBC LN", cat: "Equity", side: "Buy", qty: "40,000", px: "GBP 6.82", not: "£272.8k", notVal: 346_500, ref: "TRD-88190", ib: "IB-40170", st: "ok",
+  { id: "o8", m: "mC", inst: "HSBC LN", cat: "Equity", side: "Buy", qty: "40,000", px: "GBP 6.82", not: "£272.8k", notVal: 346_500, multiplier: 1, ref: "TRD-88190", ib: "IB-40170", st: "ok",
     execs: [{ id: "x1", qty: "40,000", px: "GBP 6.82", t: "13:10:45", st: "ok" }] },
 ];
 
