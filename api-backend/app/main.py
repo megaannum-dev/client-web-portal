@@ -62,6 +62,12 @@ app.include_router(clients_router, prefix="/api")  # /api/rm/…
 app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
 
+# --- Dev-only (mounted iff dev_mode) ---
+if get_settings().dev_mode:
+    from app.libs.dev.router import router as dev_router
+
+    app.include_router(dev_router, prefix="/api")
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
