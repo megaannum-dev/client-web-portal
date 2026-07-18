@@ -14,6 +14,8 @@ class FirebaseIdentityService:
 
     def create_user(self, email: str) -> str:
         """Admin SDK create; returns the new uid. Raises on failure (caller catches)."""
+        if self._settings.firebase_auth_disabled:
+            return f"dev-{email}"  # deterministic synthetic uid, no Firebase call
         _init_firebase(self._settings)
         user = auth.create_user(email=email)
         return user.uid
@@ -34,6 +36,8 @@ class FirebaseIdentityService:
             return
 
     def generate_invite_link(self, email: str) -> str:
+        if self._settings.firebase_auth_disabled:
+            return f"https://dev.invalid/set-password?email={email}"
         _init_firebase(self._settings)
         return auth.generate_password_reset_link(email)
 
