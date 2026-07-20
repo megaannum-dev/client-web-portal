@@ -16,8 +16,9 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
-import { RM_CLIENTS, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import { RM_CLIENTS } from "@/lib/mock/rm-data";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { useModels } from "@/hooks/api/useModels";
 import { parseFeePercent } from "@/lib/onboarding/fee";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
@@ -73,6 +74,8 @@ function ObField({ label, required, children }: { label: string; required?: bool
 
 export function OnboardingModal({ onClose }: { onClose: () => void }) {
   const { startOnboarding } = useOnboardingBoard();
+  const { data: models } = useModels();
+  const liveModels = (models ?? []).filter((m) => m.status === "live");
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
@@ -85,8 +88,13 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const onModel = (e: ChangeEvent<HTMLSelectElement>) => {
-    const m = OB_MODEL_CATALOG.find((x) => x.name === e.target.value);
-    setForm((f) => ({ ...f, model: e.target.value, mgmtFee: m?.mgmtFee ?? f.mgmtFee, incentiveFee: m?.incentiveFee ?? f.incentiveFee }));
+    const m = liveModels.find((x) => x.id === e.target.value);
+    setForm((f) => ({
+      ...f,
+      model: e.target.value,
+      mgmtFee: m ? `${m.mgmt}%` : f.mgmtFee,
+      incentiveFee: m ? `${m.incentive}%` : f.incentiveFee,
+    }));
   };
   const onDoc = (name: string) => (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,7 +115,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
   const canSubmit = page1Valid && page2Valid;
 
   async function handleSubmit() {
-    const model = OB_MODEL_CATALOG.find((m) => m.name === form.model);
+    const model = liveModels.find((m) => m.id === form.model);
     if (!model) return;
     try {
       const result = await startOnboarding({
@@ -115,7 +123,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
         address: form.address, country_of_residence: form.country,
         id_type: form.idType, id_number: form.idNumber,
         ibhk_account: form.ibhkId, sw_account: form.swId,
-        model_id: model.model_id,
+        model_id: model.id,
         units: Number(form.modelUnit),
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
@@ -191,9 +199,6 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
               <input className={inputCls} value={form.address} onChange={set("address")} placeholder="Registered address" />
             </ObField>
           </div>
-          <ObField label="Country of Residence" required>
-            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
-          </ObField>
           <ObField label="ID Type" required>
             <select className={selectCls} value={form.idType} onChange={set("idType")}>
               {OB_ID_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -201,6 +206,9 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
           </ObField>
           <ObField label="ID Number" required>
             <input className={inputCls} value={form.idNumber} onChange={set("idNumber")} placeholder="e.g. A1234567" />
+          </ObField>
+          <ObField label="Country of Residence" required>
+            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
           </ObField>
           <ObField label="Assigned RM">
             <select className={clsx(inputCls, "cursor-not-allowed opacity-60")} value={form.assignedRm} onChange={set("assignedRm")} disabled>
@@ -222,7 +230,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
             <ObField label="Initial Model to Subscribe" required>
               <select className={selectCls} value={form.model} onChange={onModel}>
                 <option value="" disabled>Select a model…</option>
-                {OB_MODEL_CATALOG.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+                {liveModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </ObField>
           </div>
