@@ -484,8 +484,11 @@ export interface PtaViewDTO {
 export interface PtaRunDTO { date: string; label: string; grandTotal: number }
 export interface PtaRunsDTO { runs: PtaRunDTO[] }
 export interface PtaRunResultDTO { newRuns: PtaRunDTO[]; latest: PtaViewDTO; checkedAt: string }
+export interface PtaHistoryEntryDTO { date: string; pnl: number }
+export interface PtaHistoryDTO { series: PtaHistoryEntryDTO[] }
 
 export interface PtaRun { date: string; label: string; grandTotal: number }
+export interface PtaHistoryEntry { date: string; pnl: number }
 
 /**
  * A model plus its precomputed client breakdown. `unitsTotal` and

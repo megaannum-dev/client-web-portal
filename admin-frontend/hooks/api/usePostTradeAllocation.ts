@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getView, getRuns, runSync } from "@/app/(roles)/mobo/post-trade-allocation/actions";
+import { getView, getRuns, runSync, getHistory } from "@/app/(roles)/mobo/post-trade-allocation/actions";
 import { mapDtoToPostTradeAllocation, mapDtoToRuns } from "@/lib/mobo/allocation";
-import type { PostTradeAllocationView, PtaRun } from "@/lib/mobo/types";
+import type { PostTradeAllocationView, PtaRun, PtaHistoryEntry } from "@/lib/mobo/types";
 
 export interface UsePostTradeAllocationResult {
   data: PostTradeAllocationView | null;
@@ -89,4 +89,22 @@ export function usePostTradeAllocationRuns(): { runs: PtaRun[]; loading: boolean
     });
   }, []);
   return { runs, loading };
+}
+
+export function usePostTradeAllocationHistory(
+  fromDate: string | null,
+  toDate: string | null,
+  modelId?: string,
+): { series: PtaHistoryEntry[]; loading: boolean } {
+  const [series, setSeries] = useState<PtaHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!fromDate || !toDate) return;
+    setLoading(true);
+    getHistory(fromDate, toDate, modelId).then((result) => {
+      if (result.success) setSeries(result.data.series);
+      setLoading(false);
+    });
+  }, [fromDate, toDate, modelId]);
+  return { series, loading };
 }

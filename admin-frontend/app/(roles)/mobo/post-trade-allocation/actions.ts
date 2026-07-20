@@ -4,9 +4,10 @@ import {
   getPostTradeAllocation as _getPostTradeAllocation,
   getPostTradeAllocationRuns as _getPostTradeAllocationRuns,
   runPostTradeAllocation as _runPostTradeAllocation,
+  getPostTradeAllocationHistory as _getPostTradeAllocationHistory,
   type APIResult,
 } from "@/server/mobo";
-import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO } from "@/lib/mobo/types";
+import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO, PtaHistoryDTO } from "@/lib/mobo/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -49,6 +50,19 @@ export async function runSync(): Promise<APIResult<PtaRunResultDTO>> {
     return response;
   } catch (error) {
     console.error("❌ Error running PTA sync:", { error });
+    return toErrorResult(error);
+  }
+}
+
+export async function getHistory(
+  fromDate: string,
+  toDate: string,
+  modelId?: string,
+): Promise<APIResult<PtaHistoryDTO>> {
+  try {
+    return await _getPostTradeAllocationHistory(fromDate, toDate, modelId);
+  } catch (error) {
+    console.error("❌ Error fetching PTA history:", { error, fromDate, toDate, modelId });
     return toErrorResult(error);
   }
 }
