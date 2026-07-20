@@ -84,12 +84,14 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
   // Server pre-scopes this list to what the caller may assign: every RM for
   // ADMIN, just the caller's own row for anyone else -- so the same always-
   // enabled select naturally has "only yourself" to pick when you're an RM.
+  // Always preselect the first option: an unmatched value="" on a controlled
+  // <select> renders the first <option> as selected in the DOM regardless,
+  // so leaving form state empty just desyncs it from what's visibly shown.
   useEffect(() => {
     fetchRmOptions().then((r) => {
-      if (!r.success || !r.data) return;
+      if (!r.success || !r.data || r.data.length === 0) return;
       setRmOptions(r.data);
-      // Non-ADMIN gets exactly one option back — preselect it.
-      if (r.data.length === 1) setForm((f) => ({ ...f, assignedRm: r.data![0].uid }));
+      setForm((f) => (f.assignedRm ? f : { ...f, assignedRm: r.data![0].uid }));
     });
   }, [fetchRmOptions]);
 
