@@ -1,6 +1,7 @@
 const PC = "/api/pc";
 const RM = "/api/rm";
 const MOBO = "/api/mobo";
+const COMPLIANCE = "/api/compliance";
 
 export const ENDPOINTS = {
   PC: {
@@ -17,15 +18,28 @@ export const ENDPOINTS = {
     // PERIODS removed — periods are embedded in GET /allocation (D-2)
     // CONFIRM removed — use PATCH_PERIOD(id) with {status:'confirmed'} (D-3)
     PATCH_PERIOD:        (id: string) => `${PC}/allocation/periods/${id}`,
+    ALLOTMENTS:      `${PC}/allotments`,
+    ALLOTMENT_ACK:   (id: string) => `${PC}/allotments/${id}/acknowledge`,
   },
   RM: {
     CLIENTS: `${RM}/clients`,
     CLIENT:  (id: string) => `${RM}/clients/${encodeURIComponent(id)}`,
+    ONBOARDINGS:      `${RM}/onboardings`,
+    ONBOARDING:       (id: string) => `${RM}/onboardings/${id}`,
+    ONBOARDING_DOC:   (id: string, docType: string) => `${RM}/onboardings/${id}/documents/${encodeURIComponent(docType)}`,
+    ONBOARDING_SUBMIT:(id: string) => `${RM}/onboardings/${id}/submit`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,
     PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
     PTA_RUN:  `${MOBO}/post-trade-allocation/run`,
     RECONCILIATION: `${MOBO}/reconciliation`,
+  },
+  COMPLIANCE: {
+    ONBOARDINGS:        `${COMPLIANCE}/onboardings`,
+    ONBOARDING_DOWNLOAD:(id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/download`,
+    ONBOARDING_VERDICT: (id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/verdict`,
+    ONBOARDING_APPROVE: (id: string) => `${COMPLIANCE}/onboardings/${id}/approve`,
+    ONBOARDING_REJECT:  (id: string) => `${COMPLIANCE}/onboardings/${id}/reject`,
   },
 } as const;

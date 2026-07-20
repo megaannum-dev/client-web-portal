@@ -1,0 +1,75 @@
+"use server";
+
+import { apiClient, apiClientFormData, type APIResult } from "@/server/api-client";
+import { ENDPOINTS } from "@/server/endpoints";
+import { cookies } from "next/headers";
+import { getApiBase } from "@/lib/auth-api";
+import type {
+  AllotRdmptDTO, BoardDTO, DocumentDTO, OnboardingDTO,
+  RejectReq, StartOnboardingReq, VerdictReq,
+} from "@/lib/onboarding/types";
+
+export type { APIResult };
+
+/* ---- RM ---- */
+export async function fetchBoard(): Promise<APIResult<BoardDTO>> {
+  return apiClient<BoardDTO>(ENDPOINTS.RM.ONBOARDINGS);
+}
+export async function startOnboarding(body: StartOnboardingReq): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDINGS, { method: "POST", body: JSON.stringify(body) });
+}
+export async function uploadDocument(
+  onboardingId: string, docType: string, formData: FormData,
+): Promise<APIResult<DocumentDTO>> {
+  return apiClientFormData<DocumentDTO>(ENDPOINTS.RM.ONBOARDING_DOC(onboardingId, docType), formData);
+}
+export async function submitAll(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDING_SUBMIT(onboardingId), { method: "POST" });
+}
+
+/* ---- Compliance ---- */
+export async function fetchComplianceQueue(): Promise<APIResult<OnboardingDTO[]>> {
+  return apiClient<OnboardingDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDINGS);
+}
+export async function submitVerdict(
+  onboardingId: string, docType: string, body: VerdictReq,
+): Promise<APIResult<DocumentDTO>> {
+  return apiClient<DocumentDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICT(onboardingId, docType), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+export async function approveOnboarding(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_APPROVE(onboardingId), { method: "POST" });
+}
+export async function rejectOnboarding(onboardingId: string, body: RejectReq): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_REJECT(onboardingId), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+/** Base64 proxy — mirrors server/pc/index.ts's downloadMaterial (cookie token can't ride a plain <a href>). */
+export async function downloadDocument(
+  onboardingId: string, docType: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  const token = (await cookies()).get("id_token")?.value ?? "";
+  const url = `${getApiBase()}${ENDPOINTS.COMPLIANCE.ONBOARDING_DOWNLOAD(onboardingId, docType)}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
+    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? docType;
+    const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { success: true, data: { filename, contentType, base64: buf.toString("base64") } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };
+  }
+}
+
+/* ---- PC ---- */
+export async function fetchAllotments(): Promise<APIResult<AllotRdmptDTO[]>> {
+  return apiClient<AllotRdmptDTO[]>(ENDPOINTS.PC.ALLOTMENTS);
+}
+export async function acknowledgeAllotment(id: string): Promise<APIResult<AllotRdmptDTO>> {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.ALLOTMENT_ACK(id), { method: "POST" });
+}
