@@ -131,6 +131,12 @@ export const MOCK_ALLOTMENT_REQUESTS: AllotmentRequest[] = [
 
 export type RiskLevel = "High" | "Medium" | "Low";
 
+// ponytail: kept, not a deferred cleanup — components/ui/RaiseTicketModal.tsx's Redemption
+// form uses selectedModel.amount as the actual redemption amount (not just a display string),
+// and SubscriptionDTO is deliberately unwidened (no amount/symbol/country/sector — see proposal
+// 013's D-9). Wiring this picker to useSubscriptions() would submit "—" as a redemption amount.
+// Stays mock until a separate proposal gives SubscriptionDTO real amount/symbol data.
+// portfolio/page.tsx no longer reads this (cut over to useSubscriptions).
 export interface SubscribedModel {
   name: string;
   symbol: string;

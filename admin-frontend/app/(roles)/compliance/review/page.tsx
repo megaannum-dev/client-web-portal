@@ -1,10 +1,11 @@
 "use client";
 
 // Compliance Review — two work types split by tabs:
-//   · Onboarding — review client packages + 7 required docs, approve/reject.
+//   · Onboarding — review client packages + required docs, approve/reject.
 //   · Redemptions — second gate on large ( > US$300K ) PC-approved redemptions.
 // Thin orchestrator holding UI state; queue tables + slide-in detail panels.
-// FRONTEND ONLY — backed by local mock data (@/lib/compliance/mock).
+// Onboarding is wired to live data via useComplianceQueue; Redemptions stays
+// FRONTEND ONLY — backed by local mock data (@/lib/compliance/mock) — out of scope.
 
 import { useState } from "react";
 import { Filter, Download, Eye, Check, Shield, ShieldCheck, User } from "@/lib/icons";
@@ -19,39 +20,26 @@ import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
 import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
-import {
-  CO_ONBOARDING, CR_REDEMPTIONS, COMPLIANCE_THRESHOLD, DOC_NAMES,
-  type CrStatus, type DocVerdict, type Onboarding, type Redemption,
-} from "@/lib/compliance/mock";
+import { CR_REDEMPTIONS, COMPLIANCE_THRESHOLD, type CrStatus, type Redemption } from "@/lib/compliance/mock";
+import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 
-// Seed per-onboarding doc verdicts so approved/rejected rows show realistic
-// state: approved → all valid; rejected → per docs array; pending → unreviewed.
-function seedVerdicts(rows: Onboarding[]): Record<string, DocVerdict[]> {
-  const m: Record<string, DocVerdict[]> = {};
-  rows.forEach((o) => {
-    if (o.status === "approved") m[o.id] = o.docs.map(() => "valid");
-    else if (o.status === "rejected") m[o.id] = o.docs.map((d) => (d ? "valid" : "issue"));
-    else m[o.id] = o.docs.map(() => null);
-  });
-  return m;
+// Rehydrate a base64 download payload into a Blob and trigger a save dialog
+// (mirrors app/(roles)/pc/model-management/page.tsx's saveBase64File).
+function saveBase64File(filename: string, contentType: string, base64: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 export default function ComplianceReviewPage() {
   const [tab, setTab] = useState<CoTab>("onboarding");
-  const [onboarding, setOnboarding] = useState<Onboarding[]>(CO_ONBOARDING);
+  const { data: onboardingData, submitVerdict, approve, reject, download } = useComplianceQueue();
+  const onboarding = onboardingData ?? [];
   const [redemptions, setRedemptions] = useState<Redemption[]>(CR_REDEMPTIONS);
   const [openObId, setOpenObId] = useState<string | null>(null);
   const [openCrId, setOpenCrId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
-  const [docVerdicts, setDocVerdicts] = useState<Record<string, DocVerdict[]>>(() => seedVerdicts(CO_ONBOARDING));
-
-  const setVerdict = (obId: string, idx: number, v: DocVerdict) =>
-    setDocVerdicts((prev) => {
-      const arr = [...(prev[obId] || DOC_NAMES.map(() => null))];
-      arr[idx] = v;
-      return { ...prev, [obId]: arr };
-    });
-  const getVerdicts = (obId: string): DocVerdict[] => docVerdicts[obId] || DOC_NAMES.map(() => null);
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
   const pendCr = redemptions.filter((r) => r.status === "pending_co").length;
@@ -59,14 +47,24 @@ export default function ComplianceReviewPage() {
   const openOb = onboarding.find((o) => o.id === openObId);
   const openCr = redemptions.find((r) => r.id === openCrId);
 
-  const approveOb = (id: string) =>
-    setOnboarding((rows) => rows.map((o) => (o.id === id ? { ...o, status: "approved" } : o)));
-  const confirmReject = (id: string, reason: string) => {
-    setOnboarding((rows) =>
-      rows.map((o) => (o.id === id ? { ...o, status: "rejected", rejectReason: reason || "Documents flagged as invalid." } : o)),
-    );
-    setRejecting(false);
+  const doVerdict = (docType: string, v: "valid" | "issue") => {
+    if (!openOb) return;
+    void submitVerdict(openOb.id, docType, v).then((r) => {
+      if (!r.success) alert(`Could not submit verdict: ${r.error}`);
+    });
   };
+  const doDownload = (docType: string) => {
+    if (!openOb) return;
+    void download(openOb.id, docType).then((r) =>
+      r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`),
+    );
+  };
+  const approveOb = (id: string) =>
+    void approve(id).then((r) => { if (r.success) setOpenObId(null); else alert(`Could not approve: ${r.error}`); });
+  const confirmReject = (id: string, reason: string) =>
+    void reject(id, reason).then((r) => {
+      if (r.success) { setRejecting(false); setOpenObId(null); } else alert(`Could not reject: ${r.error}`);
+    });
   const decideCr = (id: string, status: CrStatus) =>
     setRedemptions((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
 
@@ -127,12 +125,12 @@ export default function ComplianceReviewPage() {
           onClose={() => setOpenObId(null)}
           onApprove={approveOb}
           onReject={() => setRejecting(true)}
-          verdicts={getVerdicts(openOb.id)}
-          onVerdict={(idx, v) => setVerdict(openOb.id, idx, v)}
+          onVerdict={doVerdict}
+          onDownload={doDownload}
         />
       )}
       {openOb && rejecting && (
-        <RejectModal o={openOb} onCancel={() => setRejecting(false)} onConfirm={confirmReject} verdicts={getVerdicts(openOb.id)} />
+        <RejectModal o={openOb} onCancel={() => setRejecting(false)} onConfirm={confirmReject} />
       )}
       {openCr && <CrDetailPanel r={openCr} onClose={() => setOpenCrId(null)} onDecision={decideCr} />}
     </div>

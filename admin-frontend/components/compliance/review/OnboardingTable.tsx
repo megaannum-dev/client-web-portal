@@ -3,7 +3,7 @@
 import { ChevronRight } from "@/lib/icons";
 import { Card } from "@/components/ui/Card";
 import { ClientAvatar, DocProgress, ObStatusChip, ObTypeChip } from "@/components/compliance/Shared";
-import type { Onboarding } from "@/lib/compliance/mock";
+import type { AdminOnboardingRow } from "@/lib/onboarding/types";
 
 const thBase =
   "bg-surface-low px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap";
@@ -12,7 +12,7 @@ const tdBase = "border-t border-outline-variant px-4 py-[13px] text-[14px] text-
 export function OnboardingTable({
   rows, onRowClick, openId,
 }: {
-  rows: Onboarding[];
+  rows: AdminOnboardingRow[];
   onRowClick: (id: string) => void;
   openId: string | null;
 }) {
@@ -53,7 +53,7 @@ export function OnboardingTable({
                   <td className={`${tdBase} text-secondary`}>{o.rm}</td>
                   <td className={`${tdBase} whitespace-nowrap text-secondary`}>{o.submitted}</td>
                   <td className={tdBase}><ObTypeChip type={o.type} /></td>
-                  <td className={`${tdBase} text-center`}><DocProgress docs={o.docs} /></td>
+                  <td className={`${tdBase} text-center`}><DocProgress documents={o.documents} /></td>
                   <td className={tdBase}><ObStatusChip status={o.status} /></td>
                   <td className={`${tdBase} text-right text-secondary`}>
                     <ChevronRight size={16} strokeWidth={2} className="inline" />

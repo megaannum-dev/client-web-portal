@@ -4,9 +4,11 @@
    RM — "Start Onboarding" modal: 3-step form (Basic Info → Trade
    Info → Documents) an RM fills out to create a client record and
    kick off KYC. Ported faithfully from the design handoff prototype
-   (Screens.jsx `OnboardingModal`, ~L1563-1738). Decorative only —
-   no submit target yet, matching this prototype's fidelity level
-   elsewhere (see OnboardingBoard's KYC panel).
+   (Screens.jsx `OnboardingModal`, ~L1563-1738). "Onboard Client" now
+   calls the real POST /api/rm/onboardings route (FE-3) — the
+   Documents step stays a local preview only (no onboarding id exists
+   to attach uploads to until after submit; docs are added afterward
+   from the KYC panel, same as the FE-3 board's upload affordance).
    ============================================================ */
 
 import { Fragment, useState, type ChangeEvent, type ReactNode } from "react";
@@ -14,10 +16,22 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
-import { RM_CLIENTS, OB_MODEL_CATALOG, KYC_DOCS } from "@/lib/mock/rm-data";
+import { RM_CLIENTS, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { parseFeePercent } from "@/lib/onboarding/fee";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
-const OB_DOC_NAMES = KYC_DOCS.none.map(([name]) => name);
+// Fixed catalog of the 7 KYC/compliance doc names this modal's Documents
+// step previews — mirrors the doc-type config the backend now owns.
+const OB_DOC_NAMES = [
+  "Discretionary PMS Service Agreement",
+  "Investment Policy Statement",
+  "Financial & Investment Fact Finder Questionnaire",
+  "Financial Health Check – Derivatives Knowledge Form",
+  "Fee Schedule",
+  "Risk Disclosure Statement",
+  "Other — ID / Passport / Proof of Address",
+];
 const OB_STEPS = ["Basic Info", "Trade Info", "Documents"];
 // No compliance/admin privilege distinction in this app yet — locked to the
 // current demo user, same as the prototype's `canAssignRm=false` default.
@@ -58,6 +72,7 @@ function ObField({ label, required, children }: { label: string; required?: bool
 }
 
 export function OnboardingModal({ onClose }: { onClose: () => void }) {
+  const { startOnboarding } = useOnboardingBoard();
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
@@ -91,6 +106,29 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
   const stepValid = [page1Valid, page2Valid, true];
   const canSubmit = page1Valid && page2Valid;
 
+  async function handleSubmit() {
+    const model = OB_MODEL_CATALOG.find((m) => m.name === form.model);
+    if (!model) return;
+    try {
+      const result = await startOnboarding({
+        client_name: form.clientName, email: form.email, primary_phone: form.phone,
+        address: form.address, country_of_residence: form.country,
+        id_type: form.idType, id_number: form.idNumber,
+        ibhk_account: form.ibhkId, sw_account: form.swId,
+        model_id: model.model_id,
+        units: Number(form.modelUnit),
+        mgmt_fee: parseFeePercent(form.mgmtFee),
+        incentive_fee: parseFeePercent(form.incentiveFee),
+      });
+      if (result.success) onClose();
+      // else surface result.error inline — same disabled-button + inline-error
+      // pattern already used elsewhere in this file family, no new UI chrome.
+      else alert(`Could not start onboarding: ${result.error}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Invalid fee value");
+    }
+  }
+
   return (
     <Modal
       title="Start Onboarding"
@@ -104,7 +142,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
           {page < 3 ? (
             <Button onClick={() => setPage(page + 1)}>Next</Button>
           ) : (
-            <Button icon={UserRoundPlus} disabled={!canSubmit}>Onboard Client</Button>
+            <Button icon={UserRoundPlus} disabled={!canSubmit} onClick={handleSubmit}>Onboard Client</Button>
           )}
         </>
       }
