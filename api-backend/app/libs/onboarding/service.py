@@ -21,11 +21,13 @@ from app.libs.onboarding.schemas import (
     DocumentDTO,
     OnboardingDTO,
     RejectReq,
+    RmOptionDTO,
     StartOnboardingReq,
     SubscriptionDTO,
     VerdictReq,
 )
 from app.libs.trade_models.storage import get_storage
+from app.libs.users.repository import AdminProfileRepository
 from app.models.onboarding import (
     AllotRdmpStatus,
     ClientAllotmentRedemption,
@@ -36,7 +38,7 @@ from app.models.onboarding import (
     OnboardingStatus,
 )
 from app.models.pc import Model
-from app.models.users import AccountStatus, ClientProfile, User
+from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
 
@@ -68,7 +70,7 @@ class OnboardingService:
             caller_uid=caller_uid,
             email=req.email,
             name=req.client_name,
-            assigned_rm_uid=caller_uid,
+            assigned_rm_uid=self._resolve_rm_override(req.assigned_rm_uid, caller_uid=caller_uid),
             identity=identity,
             settings=settings,
             primary_phone=req.primary_phone,
@@ -96,6 +98,21 @@ class OnboardingService:
             self.db.rollback()
             raise
         return self._to_dto(onboarding, with_documents=True)
+
+    def _resolve_rm_override(self, requested_rm_uid: str | None, *, caller_uid: str) -> str:
+        """ADMIN-only "Assigned RM" override: any other role gets pinned to
+        itself no matter what the request body claims (defence in depth --
+        the FE only shows the picker to ADMIN, but the API can't trust that)."""
+        if not requested_rm_uid:
+            return caller_uid
+        caller = self.db.query(User).filter(User.firebase_uid == caller_uid).one_or_none()
+        profile = AdminProfileRepository(self.db).get_by_user_id(caller.id) if caller else None
+        if profile is None or profile.role != AdminRole.ADMIN:
+            return caller_uid
+        return requested_rm_uid
+
+    def rm_options(self) -> list[RmOptionDTO]:
+        return [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
 
     def upload_document(
         self,

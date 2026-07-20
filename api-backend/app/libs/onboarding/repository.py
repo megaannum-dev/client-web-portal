@@ -286,6 +286,19 @@ class OnboardingRepository:
         self.db.add(allotment)
         return allotment
 
+    def list_rm_options(self) -> list[tuple[str, str]]:
+        """(firebase_uid, display name) for every RM-role admin -- feeds the
+        ADMIN-only "Assigned RM" override picker. Same name-resolution
+        coalesce as display_fields()."""
+        rows = (
+            self.db.query(User.firebase_uid, func.coalesce(AdminProfile.name, User.email))
+            .join(AdminProfile, AdminProfile.user_id == User.id)
+            .filter(AdminProfile.role == "RM")
+            .order_by(func.coalesce(AdminProfile.name, User.email))
+            .all()
+        )
+        return [(uid, name or uid) for uid, name in rows]
+
     def list_allotments(self) -> list[ClientAllotmentRedemption]:
         return (
             self.db.query(ClientAllotmentRedemption)

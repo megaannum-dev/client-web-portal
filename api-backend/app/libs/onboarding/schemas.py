@@ -33,6 +33,14 @@ class StartOnboardingReq(BaseModel):
     mgmt_fee: Decimal
     incentive_fee: Decimal
     kind: OnboardingKind = "initial"
+    # ADMIN-only override (BE-4 follow-up): non-ADMIN callers always land on
+    # themselves regardless of what's sent here -- see OnboardingService.start.
+    assigned_rm_uid: str | None = None
+
+
+class RmOptionDTO(BaseModel):
+    uid: str  # firebase_uid -- what ClientProfile.assigned_rm_uid stores
+    name: str
 
 
 class DocumentDTO(BaseModel):
