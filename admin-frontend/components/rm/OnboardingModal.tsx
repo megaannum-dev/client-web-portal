@@ -16,7 +16,6 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
-import { useAuth } from "@/components/auth/AuthProvider";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
 import { parseFeePercent } from "@/lib/onboarding/fee";
@@ -70,8 +69,6 @@ function ObField({ label, required, children }: { label: string; required?: bool
 }
 
 export function OnboardingModal({ onClose }: { onClose: () => void }) {
-  const { portalUser } = useAuth();
-  const isAdmin = portalUser?.role === "ADMIN";
   const { startOnboarding, fetchRmOptions } = useOnboardingBoard();
   const { data: models } = useModels();
   const liveModels = (models ?? []).filter((m) => m.status === "live");
@@ -84,15 +81,17 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
   });
   const [docs, setDocs] = useState<Record<string, string>>({});
 
-  // rm-options feeds both branches: ADMIN gets a real picker, everyone else
-  // just needs their own name resolved to show in the locked field below.
+  // Server pre-scopes this list to what the caller may assign: every RM for
+  // ADMIN, just the caller's own row for anyone else -- so the same always-
+  // enabled select naturally has "only yourself" to pick when you're an RM.
   useEffect(() => {
-    fetchRmOptions().then((r) => { if (r.success && r.data) setRmOptions(r.data); });
+    fetchRmOptions().then((r) => {
+      if (!r.success || !r.data) return;
+      setRmOptions(r.data);
+      // Non-ADMIN gets exactly one option back — preselect it.
+      if (r.data.length === 1) setForm((f) => ({ ...f, assignedRm: r.data![0].uid }));
+    });
   }, [fetchRmOptions]);
-
-  useEffect(() => {
-    if (!isAdmin && portalUser) setForm((f) => (f.assignedRm ? f : { ...f, assignedRm: portalUser.firebase_uid }));
-  }, [isAdmin, portalUser]);
 
   const set = (k: keyof ObForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -137,7 +136,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
         units: Number(form.modelUnit),
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
-        ...(isAdmin && form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
+        ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
       });
       if (result.success) onClose();
       // else surface result.error inline — same disabled-button + inline-error
@@ -222,18 +221,9 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
             <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
           </ObField>
           <ObField label="Assigned RM">
-            {isAdmin ? (
-              <select className={selectCls} value={form.assignedRm} onChange={set("assignedRm")}>
-                <option value="">Default — yourself</option>
-                {rmOptions.map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
-              </select>
-            ) : (
-              <select className={clsx(inputCls, "cursor-not-allowed opacity-60")} value={form.assignedRm} disabled>
-                {rmOptions
-                  .filter((rm) => rm.uid === form.assignedRm)
-                  .map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
-              </select>
-            )}
+            <select className={selectCls} value={form.assignedRm} onChange={set("assignedRm")}>
+              {rmOptions.map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
+            </select>
           </ObField>
         </div>
       )}
