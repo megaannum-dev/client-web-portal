@@ -1,10 +1,12 @@
 // DTO -> view mappers. Pure functions only, no fetch logic — called by hooks.
 // See docs/implementations/013-client-onboarding-integration-fe.md §6.
 //
-// NOTE: this file is stitched together from three worktrees (FE-3 board half,
-// FE-4 compliance half, FE-5 PC half); this copy holds ONLY the compliance half.
+// Stitched together from three worktrees (FE-3 board half, FE-4 compliance
+// half, FE-5 PC half) — each unit owns a distinct section of this file.
 
-import type { AdminOnboardingRow, DocStatus, ObStatus, OnboardingDTO } from "./types";
+import type {
+  AdminOnboardingRow, AllotRdmptDTO, AllotmentView, DocStatus, ObStatus, OnboardingDTO,
+} from "./types";
 
 /** §4.2's frozen status projection: DB OnboardingStatus → Compliance's own ObStatus. */
 const OB_STATUS_MAP: Partial<Record<OnboardingDTO["status"], ObStatus>> = {
@@ -34,4 +36,20 @@ export function docStatusToVerdict(status: DocStatus): "valid" | "issue" | null 
   if (status === "verified") return "valid";
   if (status === "rejected") return "issue";
   return null;
+}
+
+/**
+ * AllotRdmptDTO[] → AllotmentView[]. Widened 2026-07-20 (D-9): the per-model
+ * aggregate multiplier (aggBefore/aggAfter) and expected-cash-in date are now
+ * read straight off the DTO — both are snapshotted server-side at insert
+ * time (DB B-3, Backend C-2), never recomputed here. This mapper does zero
+ * aggregate computation of its own.
+ */
+export function mapAllotmentsToView(dtos: AllotRdmptDTO[]): AllotmentView[] {
+  return dtos.map((d) => ({
+    id: d.id, ref: d.reference, modelName: d.model_name, mult: d.units, amount: d.amount,
+    status: d.status, rm: d.rm, date: d.created_at, acknowledgedAt: d.acknowledged_at,
+    expectedCashIn: d.expected_cash_in,
+    aggBefore: d.agg_before, aggAfter: d.agg_after,
+  }));
 }

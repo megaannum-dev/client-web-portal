@@ -6,23 +6,22 @@
 import { Check, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { fmtMoney } from "@/lib/pc/format";
-import { arAllotAmt, arModelById, type Allotment } from "@/lib/pc/allotment-redemption-mock";
+import type { AllotmentView } from "@/lib/onboarding/types";
 import { ArDetailShell, ArFact, arLabelCls } from "./parts";
 import { AggBar } from "./AggBar";
 
 export function AllotDetailPanel({
   a, onClose, onAcknowledge,
 }: {
-  a: Allotment;
+  a: AllotmentView;
   onClose: () => void;
   onAcknowledge: (id: string) => void;
 }) {
-  const m = arModelById(a.mid);
   const pending = a.status === "pending";
   return (
     <ArDetailShell
       eyebrow="Allotment"
-      title={m.name}
+      title={a.modelName}
       meta={`${a.ref} · ${a.date}`}
       onClose={onClose}
       statusSlot={
@@ -37,10 +36,10 @@ export function AllotDetailPanel({
         <User size={13} strokeWidth={2} />Client anonymized · {a.ref}
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-[11px]">
-        <ArFact label="Model" value={m.name} />
+        <ArFact label="Model" value={a.modelName} />
         <ArFact label="Multiplier" value={`${a.mult}×`} />
-        <ArFact label="Allotment amount" value={fmtMoney(arAllotAmt(a))} />
-        <ArFact label="Expected cash-in" value={a.cashIn} />
+        <ArFact label="Allotment amount" value={fmtMoney(a.amount)} />
+        <ArFact label="Expected cash-in" value={a.expectedCashIn ?? "—"} />
         <ArFact label="Initiated by" value={a.rm} />
         <ArFact label="Date submitted" value={a.date} />
       </div>
@@ -48,7 +47,7 @@ export function AllotDetailPanel({
         <div className={`${arLabelCls} mb-2`}>Aggregated multiplier impact</div>
         <AggBar before={a.aggBefore} after={a.aggAfter} />
         <p className="mt-2 text-[12.5px] leading-[1.55] text-secondary">
-          Total units allocated to {m.name} across all clients:{" "}
+          Total units allocated to {a.modelName} across all clients:{" "}
           <b className="text-on-surface">{a.aggBefore}×</b> currently →{" "}
           <b className="text-on-surface">{a.aggAfter}×</b> after this allotment (+{a.mult}).
         </p>
