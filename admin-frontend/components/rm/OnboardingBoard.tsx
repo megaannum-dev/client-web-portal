@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle } from "@/lib/icons";
@@ -177,7 +177,7 @@ function KycPanel({
 
 export function OnboardingBoard() {
   const router = useRouter();
-  const { data: columns, loading, error, uploadDocument, submitAll } = useOnboardingBoard();
+  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding } = useOnboardingBoard();
   // Track by id, not by a snapshot object — a refetch after upload/submit
   // must be reflected in the open panel, not the stale item captured at
   // selection time.
@@ -185,11 +185,41 @@ export function OnboardingBoard() {
   const panelOpen = !!selectedId;
   const selectedItem = (selectedId && columns?.flatMap((c) => c.clients).find((c) => c.id === selectedId)) || null;
 
+  // Board rows never carry documents (perf) -- fetch the real doc rows for
+  // whichever onboarding is open, and refresh it after any upload/submit.
+  const [detail, setDetail] = useState<KycBoardClient | null>(null);
+  const loadDetail = useCallback((id: string) => {
+    fetchOnboarding(id).then((r) => { if (r.success && r.data) setDetail(r.data); });
+  }, [fetchOnboarding]);
+  useEffect(() => {
+    if (selectedId) loadDetail(selectedId); else setDetail(null);
+  }, [selectedId, loadDetail]);
+
   // Remember the last opened item so the floating panel can fade/slide out
   // gracefully instead of unmounting its content mid-transition.
   const lastItemRef = useRef<KycBoardClient | null>(null);
   if (selectedItem) lastItemRef.current = selectedItem;
   const panelItem = selectedItem ?? lastItemRef.current;
+  const panelItemWithDocs = panelItem && detail?.id === panelItem.id
+    ? { ...panelItem, documents: detail.documents, verifiedCount: detail.verifiedCount, requiredCount: detail.requiredCount }
+    : panelItem;
+
+  const uploadAndRefreshDetail = useCallback(
+    async (onboardingId: string, docType: string, file: File) => {
+      const r = await uploadDocument(onboardingId, docType, file);
+      if (r.success) loadDetail(onboardingId);
+      return r;
+    },
+    [uploadDocument, loadDetail],
+  );
+  const submitAndRefreshDetail = useCallback(
+    async (onboardingId: string) => {
+      const r = await submitAll(onboardingId);
+      if (r.success) loadDetail(onboardingId);
+      return r;
+    },
+    [submitAll, loadDetail],
+  );
 
   const openProfile = (id: string) => {
     if (KNOWN_CLIENT_IDS.has(id)) {
@@ -253,13 +283,13 @@ export function OnboardingBoard() {
         }}
       >
         <div className="flex h-full flex-col overflow-hidden rounded-[20px] border border-outline-variant bg-white shadow-overlay">
-          {panelItem && (
+          {panelItemWithDocs && (
             <KycPanel
-              item={panelItem}
+              item={panelItemWithDocs}
               onClose={() => setSelectedId(null)}
               onOpenProfile={openProfile}
-              onUploadDoc={uploadDocument}
-              onSubmitAll={submitAll}
+              onUploadDoc={uploadAndRefreshDetail}
+              onSubmitAll={submitAndRefreshDetail}
             />
           )}
         </div>

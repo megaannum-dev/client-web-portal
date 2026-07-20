@@ -6,6 +6,7 @@ import {
   uploadDocument as _uploadDocument,
   submitAll as _submitAll,
   fetchRmOptions as _fetchRmOptions,
+  fetchOnboarding as _fetchOnboarding,
   type APIResult,
 } from "@/server/onboarding";
 import type { BoardDTO, DocumentDTO, OnboardingDTO, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
@@ -61,6 +62,18 @@ export async function submitAll(onboardingId: string): Promise<APIResult<Onboard
     return response;
   } catch (error) {
     console.error("❌ Error submitting onboarding:", { error, onboardingId });
+    return toErrorResult(error);
+  }
+}
+
+export async function fetchOnboarding(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
+  try {
+    logger.log("🔄 Fetching onboarding detail:", onboardingId);
+    const response = await _fetchOnboarding(onboardingId);
+    logger.json("✅ Get onboarding detail response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error fetching onboarding detail:", { error, onboardingId });
     return toErrorResult(error);
   }
 }

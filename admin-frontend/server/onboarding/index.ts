@@ -18,6 +18,10 @@ export async function fetchBoard(): Promise<APIResult<BoardDTO>> {
 export async function startOnboarding(body: StartOnboardingReq): Promise<APIResult<OnboardingDTO>> {
   return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDINGS, { method: "POST", body: JSON.stringify(body) });
 }
+/** Board rows omit `documents` (perf) -- the KYC panel calls this on open to get the real doc rows. */
+export async function fetchOnboarding(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDING(onboardingId));
+}
 export async function uploadDocument(
   onboardingId: string, docType: string, formData: FormData,
 ): Promise<APIResult<DocumentDTO>> {
