@@ -250,3 +250,25 @@ class ClientAllotmentRedemption(Base):
         Index("ix_client_allotment_redemptions_status", "status"),
         Index("ix_client_allotment_redemptions_kind", "kind"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-4 — client_events
+# ---------------------------------------------------------------------------
+
+
+class ClientEvent(Base):
+    __tablename__ = "client_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("users.id"), nullable=False, index=True
+    )
+    category: Mapped[str] = mapped_column(String(64), nullable=False)  # e.g. "Account Notification"
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
