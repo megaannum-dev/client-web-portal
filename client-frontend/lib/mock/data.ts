@@ -131,6 +131,11 @@ export const MOCK_ALLOTMENT_REQUESTS: AllotmentRequest[] = [
 
 export type RiskLevel = "High" | "Medium" | "Low";
 
+// ponytail: kept (not deleted per the FE-7 contract) — components/ui/RaiseTicketModal.tsx
+// (outside this unit's allowed-file list) still reads this for its Redemption-ticket model
+// picker; deleting it breaks that file's build. portfolio/page.tsx no longer reads this
+// (cut over to useSubscriptions), so removing it is unused-but-safe here — deferred to
+// whichever unit wires RaiseTicketModal to live data. See FE-7 completion report.
 export interface SubscribedModel {
   name: string;
   symbol: string;
