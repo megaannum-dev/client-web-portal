@@ -9,6 +9,7 @@ called from the service in BE-3/BE-6.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -30,8 +31,11 @@ class PostTradeAllocationRepository:
         self.db = db
 
     # --- Step 1: pick up new orders --------------------------------------
-    def unallocated_orders(self) -> list[Order]:
-        return self.db.query(Order).filter(Order.allocated_run_id.is_(None)).all()
+    def unallocated_orders(self, *, after: datetime | None = None) -> list[Order]:
+        q = self.db.query(Order).filter(Order.allocated_run_id.is_(None))
+        if after is not None:
+            q = q.filter(Order.ingested_at > after)
+        return q.all()
 
     # --- Step 3: split basis ----------------------------------------------
     def latest_confirmed_period(self) -> AllocationPeriod | None:
