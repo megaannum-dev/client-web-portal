@@ -15,25 +15,23 @@ import { AllotDetailPanel } from "@/components/pc/allotment-redemption/AllotDeta
 import { RedeemTable } from "@/components/pc/allotment-redemption/RedeemTable";
 import { RedeemDetailPanel } from "@/components/pc/allotment-redemption/RedeemDetailPanel";
 import {
-  AR_ALLOTMENTS_SEED,
   AR_REDEMPTIONS_SEED,
-  type Allotment,
   type Redemption,
   type RedeemStatus,
 } from "@/lib/pc/allotment-redemption-mock";
+import { useAllotments } from "@/hooks/api/useAllotments";
 
 export default function AllotmentRedemptionPage() {
   const [tab, setTab] = useState<"allot" | "redeem">("allot");
-  const [allotments, setAllotments] = useState<Allotment[]>(AR_ALLOTMENTS_SEED);
+  const { data: allotmentsData, acknowledge } = useAllotments();
   const [redemptions, setRedemptions] = useState<Redemption[]>(AR_REDEMPTIONS_SEED);
   const [openAllotId, setOpenAllotId] = useState<string | null>(null);
   const [openRedeemId, setOpenRedeemId] = useState<string | null>(null);
 
+  const allotments = allotmentsData ?? [];
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
   const pendRedeem = redemptions.filter((r) => r.status === "pending_pc").length;
 
-  const acknowledge = (id: string) =>
-    setAllotments((rows) => rows.map((a) => (a.id === id ? { ...a, status: "acknowledged" } : a)));
   const decide = (id: string, status: RedeemStatus) =>
     setRedemptions((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
 

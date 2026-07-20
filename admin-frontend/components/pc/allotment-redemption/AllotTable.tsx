@@ -7,7 +7,7 @@ import { Check } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { fmtMoney } from "@/lib/pc/format";
-import { arAllotAmt, arModelById, type Allotment } from "@/lib/pc/allotment-redemption-mock";
+import type { AllotmentView } from "@/lib/onboarding/types";
 
 const TH = "whitespace-nowrap bg-surface-low px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.05em] text-secondary";
 const TD = "border-t border-outline-variant px-4 py-[13px] text-[14px] text-on-surface";
@@ -15,7 +15,7 @@ const TD = "border-t border-outline-variant px-4 py-[13px] text-[14px] text-on-s
 export function AllotTable({
   rows, onRowClick, onAcknowledge,
 }: {
-  rows: Allotment[];
+  rows: AllotmentView[];
   onRowClick: (id: string) => void;
   onAcknowledge: (id: string) => void;
 }) {
@@ -37,16 +37,15 @@ export function AllotTable({
           </thead>
           <tbody>
             {rows.map((a) => {
-              const m = arModelById(a.mid);
               const pending = a.status === "pending";
               return (
                 <tr key={a.id}>
                   <td className={`${TD} cursor-pointer font-bold`} onClick={() => onRowClick(a.id)}>{a.ref}</td>
-                  <td className={`${TD} cursor-pointer`} onClick={() => onRowClick(a.id)}>{m.name}</td>
+                  <td className={`${TD} cursor-pointer`} onClick={() => onRowClick(a.id)}>{a.modelName}</td>
                   <td className={`${TD} text-right font-bold tabular-nums`}>{a.mult}×</td>
-                  <td className={`${TD} text-right tabular-nums`}>{fmtMoney(arAllotAmt(a))}</td>
+                  <td className={`${TD} text-right tabular-nums`}>{fmtMoney(a.amount)}</td>
                   <td className={`${TD} text-secondary`}>{a.aggBefore}× → {a.aggAfter}×</td>
-                  <td className={`${TD} whitespace-nowrap`}>{a.cashIn}</td>
+                  <td className={`${TD} whitespace-nowrap`}>{a.expectedCashIn ?? "—"}</td>
                   <td className={`${TD} text-secondary`}>{a.rm}</td>
                   <td className={`${TD} text-right`}>
                     {pending ? (

@@ -6,15 +6,15 @@ import { fmtMoneyShort } from "@/lib/pc/format";
 import {
   arNeedsCompliance,
   arRedeemAmt,
-  type Allotment,
   type Redemption,
 } from "@/lib/pc/allotment-redemption-mock";
+import type { AllotmentView } from "@/lib/onboarding/types";
 import { arLabelCls } from "./parts";
 
 export function ArStatStrip({
   allotments, redemptions,
 }: {
-  allotments: Allotment[];
+  allotments: AllotmentView[];
   redemptions: Redemption[];
 }) {
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
