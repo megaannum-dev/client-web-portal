@@ -15,7 +15,10 @@ export interface StartOnboardingReq {
   model_id: string; units: number;
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
+  assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
 }
+
+export interface RmOptionDTO { uid: string; name: string; }
 
 export interface DocumentDTO {
   doc_type: string; label: string; status: DocStatus;

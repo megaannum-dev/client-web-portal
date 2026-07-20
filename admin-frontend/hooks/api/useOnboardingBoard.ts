@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchBoard, startOnboarding, uploadDocument, submitAll } from "@/app/(roles)/rm/onboarding-renewal/actions";
+import { fetchBoard, startOnboarding, uploadDocument, submitAll, fetchRmOptions } from "@/app/(roles)/rm/onboarding-renewal/actions";
 import { mapBoardToColumns } from "@/lib/onboarding/mappers";
-import type { KycBoardColumn, StartOnboardingReq } from "@/lib/onboarding/types";
+import type { KycBoardColumn, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 
 export interface UseOnboardingBoardResult {
   data: KycBoardColumn[] | null;
@@ -13,6 +13,7 @@ export interface UseOnboardingBoardResult {
   startOnboarding: (body: StartOnboardingReq) => Promise<{ success: boolean; error?: string; id?: string }>;
   uploadDocument: (onboardingId: string, docType: string, file: File) => Promise<{ success: boolean; error?: string }>;
   submitAll: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
+  fetchRmOptions: () => Promise<{ success: boolean; error?: string; data?: RmOptionDTO[] }>;
 }
 
 export function useOnboardingBoard(): UseOnboardingBoardResult {
@@ -61,5 +62,13 @@ export function useOnboardingBoard(): UseOnboardingBoardResult {
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);
 
-  return { data, loading, error, refetch: fetch_, startOnboarding: start, uploadDocument: upload, submitAll: submit };
+  const rmOptions = useCallback(async () => {
+    const result = await fetchRmOptions();
+    return result.success ? { success: true, data: result.data } : { success: false, error: result.error };
+  }, []);
+
+  return {
+    data, loading, error, refetch: fetch_, startOnboarding: start, uploadDocument: upload, submitAll: submit,
+    fetchRmOptions: rmOptions,
+  };
 }

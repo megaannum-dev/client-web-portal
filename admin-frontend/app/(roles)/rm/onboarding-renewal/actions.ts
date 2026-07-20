@@ -5,9 +5,10 @@ import {
   startOnboarding as _startOnboarding,
   uploadDocument as _uploadDocument,
   submitAll as _submitAll,
+  fetchRmOptions as _fetchRmOptions,
   type APIResult,
 } from "@/server/onboarding";
-import type { BoardDTO, DocumentDTO, OnboardingDTO, StartOnboardingReq } from "@/lib/onboarding/types";
+import type { BoardDTO, DocumentDTO, OnboardingDTO, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -60,6 +61,18 @@ export async function submitAll(onboardingId: string): Promise<APIResult<Onboard
     return response;
   } catch (error) {
     console.error("❌ Error submitting onboarding:", { error, onboardingId });
+    return toErrorResult(error);
+  }
+}
+
+export async function fetchRmOptions(): Promise<APIResult<RmOptionDTO[]>> {
+  try {
+    logger.log("🔄 Fetching RM options...");
+    const response = await _fetchRmOptions();
+    logger.json("✅ Get RM options response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error fetching RM options:", { error });
     return toErrorResult(error);
   }
 }

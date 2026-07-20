@@ -28,6 +28,7 @@ export const ENDPOINTS = {
     ONBOARDING:       (id: string) => `${RM}/onboardings/${id}`,
     ONBOARDING_DOC:   (id: string, docType: string) => `${RM}/onboardings/${id}/documents/${encodeURIComponent(docType)}`,
     ONBOARDING_SUBMIT:(id: string) => `${RM}/onboardings/${id}/submit`,
+    ONBOARDING_RM_OPTIONS: `${RM}/onboardings/rm-options`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,

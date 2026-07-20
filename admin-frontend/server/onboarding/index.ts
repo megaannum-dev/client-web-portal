@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllotRdmptDTO, BoardDTO, DocumentDTO, OnboardingDTO,
-  RejectReq, StartOnboardingReq, VerdictReq,
+  RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
 export type { APIResult };
@@ -25,6 +25,12 @@ export async function uploadDocument(
 }
 export async function submitAll(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
   return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDING_SUBMIT(onboardingId), { method: "POST" });
+}
+/** RM name list for the "Assigned RM" picker. The FE only renders the picker
+ * for ADMIN callers; the backend independently pins non-ADMIN overrides back
+ * to the caller regardless of what's submitted. */
+export async function fetchRmOptions(): Promise<APIResult<RmOptionDTO[]>> {
+  return apiClient<RmOptionDTO[]>(ENDPOINTS.RM.ONBOARDING_RM_OPTIONS);
 }
 
 /* ---- Compliance ---- */
