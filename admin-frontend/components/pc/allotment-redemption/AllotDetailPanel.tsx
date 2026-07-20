@@ -5,7 +5,7 @@
 
 import { Check, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
-import { fmtMoney } from "@/lib/pc/format";
+import { fmtMoney, fmtTimestamp } from "@/lib/pc/format";
 import type { AllotmentView } from "@/lib/onboarding/types";
 import { ArDetailShell, ArFact, arLabelCls } from "./parts";
 import { AggBar } from "./AggBar";
@@ -22,7 +22,7 @@ export function AllotDetailPanel({
     <ArDetailShell
       eyebrow="Allotment"
       title={a.modelName}
-      meta={`${a.ref} · ${a.date}`}
+      meta={`${a.ref} · ${fmtTimestamp(a.date)}`}
       onClose={onClose}
       statusSlot={
         pending ? (
@@ -39,9 +39,9 @@ export function AllotDetailPanel({
         <ArFact label="Model" value={a.modelName} />
         <ArFact label="Multiplier" value={`${a.mult}×`} />
         <ArFact label="Allotment amount" value={fmtMoney(a.amount)} />
-        <ArFact label="Expected cash-in" value={a.expectedCashIn ?? "—"} />
+        <ArFact label="Expected cash-in" value={a.expectedCashIn ? fmtTimestamp(a.expectedCashIn) : "—"} />
         <ArFact label="Initiated by" value={a.rm} />
-        <ArFact label="Date submitted" value={a.date} />
+        <ArFact label="Date submitted" value={fmtTimestamp(a.date)} />
       </div>
       <div className="mt-5">
         <div className={`${arLabelCls} mb-2`}>Aggregated multiplier impact</div>

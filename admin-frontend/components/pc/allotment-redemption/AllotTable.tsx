@@ -6,7 +6,7 @@
 import { Check } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { fmtMoney } from "@/lib/pc/format";
+import { fmtMoney, fmtTimestamp } from "@/lib/pc/format";
 import type { AllotmentView } from "@/lib/onboarding/types";
 
 const TH = "whitespace-nowrap bg-surface-low px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.05em] text-secondary";
@@ -45,7 +45,7 @@ export function AllotTable({
                   <td className={`${TD} text-right font-bold tabular-nums`}>{a.mult}×</td>
                   <td className={`${TD} text-right tabular-nums`}>{fmtMoney(a.amount)}</td>
                   <td className={`${TD} text-secondary`}>{a.aggBefore}× → {a.aggAfter}×</td>
-                  <td className={`${TD} whitespace-nowrap`}>{a.expectedCashIn ?? "—"}</td>
+                  <td className={`${TD} whitespace-nowrap`}>{a.expectedCashIn ? fmtTimestamp(a.expectedCashIn) : "—"}</td>
                   <td className={`${TD} text-secondary`}>{a.rm}</td>
                   <td className={`${TD} text-right`}>
                     {pending ? (
