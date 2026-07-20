@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchBoard, startOnboarding, uploadDocument, submitAll, fetchRmOptions, fetchOnboarding } from "@/app/(roles)/rm/onboarding-renewal/actions";
+import { fetchBoard, startOnboarding, uploadDocument, submitAll, fetchRmOptions, fetchDocSpecs, fetchOnboarding } from "@/app/(roles)/rm/onboarding-renewal/actions";
 import { mapBoardToColumns, mapRow } from "@/lib/onboarding/mappers";
-import type { KycBoardClient, KycBoardColumn, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
+import type { DocSpecDTO, KycBoardClient, KycBoardColumn, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 
 export interface UseOnboardingBoardResult {
   data: KycBoardColumn[] | null;
@@ -14,6 +14,7 @@ export interface UseOnboardingBoardResult {
   uploadDocument: (onboardingId: string, docType: string, file: File) => Promise<{ success: boolean; error?: string }>;
   submitAll: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
   fetchRmOptions: () => Promise<{ success: boolean; error?: string; data?: RmOptionDTO[] }>;
+  fetchDocSpecs: () => Promise<{ success: boolean; error?: string; data?: DocSpecDTO[] }>;
   fetchOnboarding: (onboardingId: string) => Promise<{ success: boolean; error?: string; data?: KycBoardClient }>;
 }
 
@@ -68,6 +69,11 @@ export function useOnboardingBoard(): UseOnboardingBoardResult {
     return result.success ? { success: true, data: result.data } : { success: false, error: result.error };
   }, []);
 
+  const docSpecs = useCallback(async () => {
+    const result = await fetchDocSpecs();
+    return result.success ? { success: true, data: result.data } : { success: false, error: result.error };
+  }, []);
+
   const onboarding = useCallback(async (onboardingId: string) => {
     const result = await fetchOnboarding(onboardingId);
     return result.success ? { success: true, data: mapRow(result.data) } : { success: false, error: result.error };
@@ -75,6 +81,6 @@ export function useOnboardingBoard(): UseOnboardingBoardResult {
 
   return {
     data, loading, error, refetch: fetch_, startOnboarding: start, uploadDocument: upload, submitAll: submit,
-    fetchRmOptions: rmOptions, fetchOnboarding: onboarding,
+    fetchRmOptions: rmOptions, fetchDocSpecs: docSpecs, fetchOnboarding: onboarding,
   };
 }

@@ -6,10 +6,11 @@ import {
   uploadDocument as _uploadDocument,
   submitAll as _submitAll,
   fetchRmOptions as _fetchRmOptions,
+  fetchDocSpecs as _fetchDocSpecs,
   fetchOnboarding as _fetchOnboarding,
   type APIResult,
 } from "@/server/onboarding";
-import type { BoardDTO, DocumentDTO, OnboardingDTO, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
+import type { BoardDTO, DocSpecDTO, DocumentDTO, OnboardingDTO, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -86,6 +87,18 @@ export async function fetchRmOptions(): Promise<APIResult<RmOptionDTO[]>> {
     return response;
   } catch (error) {
     console.error("❌ Error fetching RM options:", { error });
+    return toErrorResult(error);
+  }
+}
+
+export async function fetchDocSpecs(): Promise<APIResult<DocSpecDTO[]>> {
+  try {
+    logger.log("🔄 Fetching doc specs...");
+    const response = await _fetchDocSpecs();
+    logger.json("✅ Get doc specs response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error fetching doc specs:", { error });
     return toErrorResult(error);
   }
 }

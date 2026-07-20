@@ -19,6 +19,7 @@ export interface StartOnboardingReq {
 }
 
 export interface RmOptionDTO { uid: string; name: string; }
+export interface DocSpecDTO { doc_type: string; label: string; required: boolean; }
 
 export interface DocumentDTO {
   doc_type: string; label: string; status: DocStatus;

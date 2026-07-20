@@ -5,7 +5,7 @@ import { ENDPOINTS } from "@/server/endpoints";
 import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
-  AllotRdmptDTO, BoardDTO, DocumentDTO, OnboardingDTO,
+  AllotRdmptDTO, BoardDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
   RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
@@ -35,6 +35,12 @@ export async function submitAll(onboardingId: string): Promise<APIResult<Onboard
  * to the caller regardless of what's submitted. */
 export async function fetchRmOptions(): Promise<APIResult<RmOptionDTO[]>> {
   return apiClient<RmOptionDTO[]>(ENDPOINTS.RM.ONBOARDING_RM_OPTIONS);
+}
+/** The 7 required-doc catalog, server-authoritative -- same list the KYC
+ * panel renders, fetched here so the "Start Onboarding" wizard's Documents
+ * step never hardcodes its own (divergent) copy. */
+export async function fetchDocSpecs(): Promise<APIResult<DocSpecDTO[]>> {
+  return apiClient<DocSpecDTO[]>(ENDPOINTS.RM.ONBOARDING_DOC_SPECS);
 }
 
 /* ---- Compliance ---- */
