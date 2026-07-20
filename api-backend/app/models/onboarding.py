@@ -4,12 +4,15 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -104,3 +107,65 @@ class ClientOnboarding(Base):
     )
 
     __table_args__ = (Index("ix_client_onboardings_status", "status"),)
+
+
+# ---------------------------------------------------------------------------
+# DB-2 — onboarding_documents
+# ---------------------------------------------------------------------------
+
+
+class DocStatus(str, enum.Enum):
+    NOT_STARTED = "not_started"
+    UPLOADED = "uploaded"
+    IN_REVIEW = "in_review"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class OnboardingDocument(Base):
+    __tablename__ = "onboarding_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    onboarding_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("client_onboardings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    doc_type: Mapped[str] = mapped_column(String(64), nullable=False)  # stable config KEY
+    status: Mapped[DocStatus] = mapped_column(
+        SAEnum(
+            DocStatus,
+            native_enum=False,
+            length=16,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        server_default=DocStatus.NOT_STARTED.value,
+    )
+    storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    version_no: Mapped[int] = mapped_column(Integer(), nullable=False, server_default="0")
+    # compliance firebase_uid
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    issue_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("onboarding_id", "doc_type", name="uq_onboarding_documents_cycle_type"),
+    )
