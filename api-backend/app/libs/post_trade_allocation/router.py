@@ -22,6 +22,7 @@ from app.models.post_trade_allocation import RunTrigger
 from app.models.users import User
 from app.schemas.post_trade_allocation import (
     PostTradeAllocationView,
+    PtaHistoryOut,
     PtaRunListEntryOut,
     PtaRunListOut,
     PtaRunResultOut,
@@ -53,6 +54,18 @@ def list_post_trade_allocation_runs(
     includeEmpty: bool = False,
 ) -> object:
     return service.list_runs(include_empty=includeEmpty)
+
+
+@router.get("/post-trade-allocation/history", response_model=PtaHistoryOut)
+def get_post_trade_allocation_history(
+    service: Annotated[PostTradeAllocationService, Depends(_get_service)],
+    _: Annotated[User, Depends(require_action(Action.POST_TRADE_ALLOCATION_VIEW))],
+    *,
+    from_date: str,
+    to_date: str,
+    model_id: str | None = None,
+) -> object:
+    return service.get_history(from_date, to_date, model_id)
 
 
 @router.post("/post-trade-allocation/run", response_model=PtaRunResultOut)

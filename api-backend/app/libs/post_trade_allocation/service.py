@@ -28,6 +28,8 @@ from app.models.users import ClientProfile, User
 from app.schemas.post_trade_allocation import (
     PostTradeAllocationView,
     PtaClientShareOut,
+    PtaHistoryEntryOut,
+    PtaHistoryOut,
     PtaModelOut,
     PtaRunListEntryOut,
     PtaRunListOut,
@@ -299,6 +301,27 @@ class PostTradeAllocationService:
             grandTotal=float(grand_total),
             models=models_out,
         )
+
+    def get_history(
+        self, from_date: str, to_date: str, model_id: str | None = None
+    ) -> PtaHistoryOut:
+        raw_from = from_date.replace("-", "")
+        raw_to = to_date.replace("-", "")
+
+        runs = self.repo.runs_in_date_range(raw_from, raw_to)
+        if model_id is not None:
+            model_run_ids = set(self.repo.run_ids_for_model(uuid.UUID(model_id)))
+            runs = [r for r in runs if r.id in model_run_ids]
+
+        totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        for run in runs:
+            totals[run.trade_date] += run.grand_total or ZERO
+
+        series = [
+            PtaHistoryEntryOut(date=_format_date(td), pnl=float(total))
+            for td, total in sorted(totals.items())
+        ]
+        return PtaHistoryOut(series=series)
 
     def _client_names(self, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
         """Best available display name per client: ClientProfile.name, else
