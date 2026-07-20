@@ -46,6 +46,7 @@ class PostTradeAllocationRun(Base):
         Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
     )
     trade_date: Mapped[str] = mapped_column(String(8), nullable=False)  # IB ET YYYYMMDD token (B-4)
+    settle_date: Mapped[str | None] = mapped_column(String(8), nullable=True)  # max(orders.settleDate) in the group; NULL if IB never supplied one
     period_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(native_uuid=False),
         ForeignKey("allocation_periods.id", ondelete="CASCADE"),
