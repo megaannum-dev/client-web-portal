@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useEventItems } from "@/lib/hooks/useEventItems";
+import { useOnboardingEvents } from "@/lib/hooks/useOnboardingEvents";
 import { LEVEL_CONFIG } from "@/lib/levelConfig";
 import {
   MOCK_EVENT_ITEMS,
@@ -52,8 +53,9 @@ export default function EventsPage() {
   const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("All Types");
   const dynamicItems = useEventItems();
+  const onboardingItems = useOnboardingEvents();
 
-  const allItems = [...dynamicItems, ...MOCK_EVENT_ITEMS].map((d) => ({
+  const allItems = [...dynamicItems, ...onboardingItems, ...MOCK_EVENT_ITEMS].map((d) => ({
     id:             d.id,
     icon:           ICON_MAP[d.iconType] ?? Briefcase,
     iconCls:        (LEVEL_CONFIG[d.level] ?? LEVEL_CONFIG.neutral).icon,
