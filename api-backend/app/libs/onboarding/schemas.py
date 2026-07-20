@@ -89,9 +89,9 @@ class OnboardingDTO(BaseModel):
     kind: OnboardingKind
     model_id: uuid.UUID
     model_name: str
-    units: Decimal
-    mgmt_fee: Decimal  # the agreed fee as captured at onboarding, echoed back
-    incentive_fee: Decimal
+    units: float
+    mgmt_fee: float  # the agreed fee as captured at onboarding, echoed back
+    incentive_fee: float
     verified_count: int
     required_count: int
     reject_reason: str | None
@@ -124,15 +124,15 @@ class AllotRdmptDTO(BaseModel):
     reference: str  # "AL-3F9A2C" -- UUID-derived, no sequence
     model_id: uuid.UUID
     model_name: str
-    units: Decimal
-    amount: Decimal  # units * model.model_size
+    units: float
+    amount: float  # units * model.model_size
     kind: AllotRdmpKind
     status: AllotRdmpStatus
     note: str | None
     agg_before: (
-        Decimal  # snapshot: sum(client_subscriptions.multiplier) for this model_id, before this row
+        float  # snapshot: sum(client_subscriptions.multiplier) for this model_id, before this row
     )
-    agg_after: Decimal  # snapshot: agg_before + units
+    agg_after: float  # snapshot: agg_before + units
     expected_cash_in: datetime | None  # snapshot: created_at + ONBOARDING_SETTLEMENT_DAYS
     rm: str
     created_at: datetime
@@ -142,7 +142,7 @@ class AllotRdmptDTO(BaseModel):
 class SubscriptionDTO(BaseModel):
     model_id: uuid.UUID
     model_name: str
-    units: Decimal
+    units: float
     ib_account: str | None
 
 
