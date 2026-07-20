@@ -13,42 +13,41 @@ class DocSpec:
     review_interval_days: int | None = None  # only meaningful when periodic_review=True
 
 
-# The 7 seed docs. `identity_proof` unifies the RM's "Other -- ID / Passport /
-# Proof of Address" and Compliance's "ID / Passport / Proof of Address" labels
-# (proposal § Layer 3 A-1 / Additional findings) -- both pages now render this
-# one canonical label from the server.
+# The 7 seed docs -- single canonical list; every surface (RM's "Start
+# Onboarding" wizard, the KYC panel, Compliance's review queue) renders these
+# labels from the server, never a local copy.
 REQUIRED_DOCS: tuple[DocSpec, ...] = (
     DocSpec(
+        key="pms_service_agreement",
+        label="Discretionary PMS Service Agreement",
+        required=True,
+        periodic_review=False,
+    ),
+    DocSpec(
+        key="investment_policy_statement",
+        label="Investment Policy Statement",
+        required=True,
+        periodic_review=False,
+    ),
+    DocSpec(
+        key="fact_finder_questionnaire",
+        label="Financial & Investment Fact Finder Questionnaire",
+        required=True,
+        periodic_review=False,
+    ),
+    DocSpec(key="derivatives_knowledge_form", label="Financial Health Check - Derivatives Knowledge Form", required=True, periodic_review=False),
+    DocSpec(
+        key="fee_schedule",
+        label="Fee Schedule",
+        required=True,
+        periodic_review=False,
+    ),
+    DocSpec(
+        key="risk_disclosure", label="Risk Disclosure Statement", required=True, periodic_review=False
+    ),
+    DocSpec(
         key="identity_proof",
-        label="ID / Passport / Proof of Address",
-        required=True,
-        periodic_review=False,
-    ),
-    DocSpec(
-        key="account_opening_form",
-        label="Account Opening Form",
-        required=True,
-        periodic_review=False,
-    ),
-    DocSpec(
-        key="risk_disclosure",
-        label="Risk Disclosure Statement",
-        required=True,
-        periodic_review=False,
-    ),
-    DocSpec(key="fatca_crs", label="FATCA / CRS Declaration", required=True, periodic_review=False),
-    DocSpec(
-        key="source_of_wealth",
-        label="Source of Wealth Declaration",
-        required=True,
-        periodic_review=False,
-    ),
-    DocSpec(
-        key="bank_reference", label="Bank Reference Letter", required=True, periodic_review=False
-    ),
-    DocSpec(
-        key="signed_agreement",
-        label="Signed Client Agreement",
+        label="Other - ID / Passport / Proof of Address",
         required=True,
         periodic_review=False,
     ),
