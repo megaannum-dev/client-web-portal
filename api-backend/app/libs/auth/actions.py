@@ -18,6 +18,10 @@ class Action(str, enum.Enum):
     POST_TRADE_ALLOCATION_RUN = "mobo:pta_run"
     # Trade Reconciliation — feature 012 (BE-1)
     RECON_VIEW = "mobo:recon_view"
+    # Client Onboarding — feature 013 (BE-4)
+    ONBOARDING_MANAGE = "onboarding:manage"  # RM: start / upload / submit
+    ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
+    ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: view + acknowledge allotments
 
 
 # Only RM and ADMIN carry actions at this point. MOBO/PM/PC/COMPLIANCE are
@@ -26,7 +30,7 @@ class Action(str, enum.Enum):
 # are declared but not consumed by any endpoint until 004 mounts the RM client
 # onboarding route — a deliberate forward-declaration, not dead code.
 ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
-    AdminRole.RM: {Action.CLIENT_VIEW, Action.CLIENT_MANAGE},
+    AdminRole.RM: {Action.CLIENT_VIEW, Action.CLIENT_MANAGE, Action.ONBOARDING_MANAGE},
     AdminRole.MOBO: {
         Action.POST_TRADE_ALLOCATION_VIEW,
         Action.POST_TRADE_ALLOCATION_RUN,
@@ -38,8 +42,9 @@ ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
         Action.MODEL_MANAGE,
         Action.ALLOCATION_VIEW,
         Action.ALLOCATION_MANAGE,
+        Action.ALLOTMENT_ACKNOWLEDGE,
     },
-    AdminRole.COMPLIANCE: set(),
+    AdminRole.COMPLIANCE: {Action.ONBOARDING_REVIEW},
     AdminRole.ADMIN: set(Action),
 }
 
