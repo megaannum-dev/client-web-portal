@@ -34,8 +34,8 @@ class PostTradeAllocationView(BaseModel):
     """The frozen wire contract — see § 7. Money crosses as JSON numbers in
     MAJOR units, not Decimal strings (contrast the reconciliation DTOs)."""
 
-    tradeDate: str  # YYYY-MM-DD, ET token (D-6)
-    settleDay: str  # display label; == tradeDate formatted today (Q-3)
+    tradeDate: str  # YYYY-MM-DD, ET token (D-6) — the sole anchor for query/group/filter
+    settleDay: str  # referential display label from orders.settleDate; "—" if IB never supplied one
     grandTotal: float
     models: list[PtaModelOut]
 

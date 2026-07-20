@@ -66,10 +66,12 @@ class PostTradeAllocationRepository:
         trigger: str,
         grand_total: Decimal | None,
         run_by: str | None,
+        settle_date: str | None = None,
     ) -> PostTradeAllocationRun:
         run = PostTradeAllocationRun(
             id=uuid.uuid4(),
             trade_date=trade_date,
+            settle_date=settle_date,
             period_id=period_id,
             status=status,
             trigger=trigger,

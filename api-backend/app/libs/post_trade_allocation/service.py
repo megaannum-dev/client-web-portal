@@ -99,6 +99,10 @@ class PostTradeAllocationService:
                 newest_run = None
                 for (trade_date, model_name), traded in agg.items():
                     model = self.repo.model_by_name(model_name)
+                    group_orders = orders_by_key[(trade_date, model_name)]
+                    settle_date = max(
+                        (o.settleDate for o in group_orders if o.settleDate), default=None
+                    )
                     run = self.repo.create_run(
                         trade_date=trade_date,
                         period_id=period.id,
@@ -106,6 +110,7 @@ class PostTradeAllocationService:
                         trigger=trigger.value,
                         grand_total=traded,
                         run_by=actor,
+                        settle_date=settle_date,
                     )
                     if model is None:
                         # unresolvable model name — logged, orders still marked so
@@ -209,11 +214,12 @@ class PostTradeAllocationService:
             # undo the dash so a picked date round-trips into the same equality filter.
             trade_date = trade_date.replace("-", "")
 
-        run_ids = [r.id for r in self.repo.runs_for_trade_date(trade_date)]
-        cells = self.repo.cells_for_runs(run_ids)
+        run_rows = self.repo.runs_for_trade_date(trade_date)
+        cells = self.repo.cells_for_runs([r.id for r in run_rows])
         if not cells:
             return None
-        return self._assemble_view(trade_date, cells)
+        settle_date = max((r.settle_date for r in run_rows if r.settle_date), default=None)
+        return self._assemble_view(trade_date, cells, settle_date)
 
     def list_runs(self, include_empty: bool = False) -> PtaRunListOut:
         """GET /post-trade-allocation/runs — feeds the DateControl dropdown.
@@ -221,13 +227,18 @@ class PostTradeAllocationService:
         run of that date (empty runs carry grand_total=0, so they add
         nothing even when included)."""
         totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        settle_dates: dict[str, str | None] = {}
         for run in self.repo.list_run_dates(include_empty=include_empty):
             totals[run.trade_date] += run.grand_total or ZERO
+            if run.settle_date:
+                settle_dates[run.trade_date] = max(
+                    settle_dates.get(run.trade_date) or run.settle_date, run.settle_date
+                )
 
         entries = [
             PtaRunListEntryOut(
                 date=_format_date(trade_date),
-                label=_format_settle_day(trade_date),
+                label=_format_settle_day(settle_dates.get(trade_date)),
                 grandTotal=float(total),
             )
             for trade_date, total in totals.items()
@@ -236,7 +247,7 @@ class PostTradeAllocationService:
         return PtaRunListOut(runs=entries)
 
     def _assemble_view(
-        self, trade_date: str, cells: list[PostTradeAllocation]
+        self, trade_date: str, cells: list[PostTradeAllocation], settle_date: str | None
     ) -> PostTradeAllocationView:
         """Group frozen cell rows by model, then by client, summing across
         every run so a late-arriving second run for the same (date, model)
@@ -295,7 +306,7 @@ class PostTradeAllocationService:
         grand_total = sum(model_traded.values(), ZERO)
         return PostTradeAllocationView(
             tradeDate=_format_date(trade_date),
-            settleDay=_format_settle_day(trade_date),
+            settleDay=_format_settle_day(settle_date),
             grandTotal=float(grand_total),
             models=models_out,
         )
@@ -321,10 +332,13 @@ def _format_date(trade_date: str) -> str:
     return f"{trade_date[0:4]}-{trade_date[4:6]}-{trade_date[6:8]}"
 
 
-def _format_settle_day(trade_date: str) -> str:
-    """Display label, e.g. 'Wed 03 Jun 2026' — currently == tradeDate
-    formatted (Q-3)."""
-    return datetime.strptime(trade_date, "%Y%m%d").strftime("%a %d %b %Y")
+def _format_settle_day(settle_date: str | None) -> str:
+    """Display label, e.g. 'Wed 05 Jun 2026' — from orders.settleDate (IB),
+    never from tradeDate. Referential only: no query/grouping/filter path
+    uses this value, so a genuine gap is shown as "—" rather than faked."""
+    if not settle_date:
+        return "—"
+    return datetime.strptime(settle_date, "%Y%m%d").strftime("%a %d %b %Y")
 
 
 def _pct(units: Decimal, units_total: Decimal) -> int:

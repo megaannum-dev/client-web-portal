@@ -68,7 +68,7 @@ def run_post_trade_allocation(
         # so synthesize the empty view instead (BE-7 invariant).
         latest = PostTradeAllocationView(
             tradeDate=_format_date(run.trade_date),
-            settleDay=_format_settle_day(run.trade_date),
+            settleDay=_format_settle_day(run.settle_date),
             grandTotal=0.0,
             models=[],
         )
