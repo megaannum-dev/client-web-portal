@@ -227,83 +227,6 @@ export function getClientDetail(id: string): { client: RmClient; detail: ClientD
 }
 
 /* ============================================================
-   Onboarding & Renewal — KYC pipeline board
-   ============================================================ */
-export const KYC_DOCS: Record<string, [string, string, ChipTone, string][]> = {
-  none: [
-    ["Discretionary PMS Service Agreement",                  "Not started", "neutral", "clock"],
-    ["Investment Policy Statement",                          "Not started", "neutral", "clock"],
-    ["Financial & Investment Fact Finder Questionnaire",     "Not started", "neutral", "clock"],
-    ["Financial Health Check – Derivatives Knowledge Form", "Not started", "neutral", "clock"],
-    ["Fee Schedule",                                         "Not started", "neutral", "clock"],
-    ["Risk Disclosure Statement",                            "Not started", "neutral", "clock"],
-    ["Other — ID / Passport / Proof of Address",        "Not started", "neutral", "clock"],
-  ],
-  partial: [
-    ["Discretionary PMS Service Agreement",                  "Verified",    "active",  "check"],
-    ["Investment Policy Statement",                          "Verified",    "active",  "check"],
-    ["Financial & Investment Fact Finder Questionnaire",     "Pending",     "pending", "clock"],
-    ["Financial Health Check – Derivatives Knowledge Form", "Pending", "pending", "clock"],
-    ["Fee Schedule",                                         "Verified",    "active",  "check"],
-    ["Risk Disclosure Statement",                            "Verified",    "active",  "check"],
-    ["Other — ID / Passport / Proof of Address",        "Pending",     "pending", "clock"],
-  ],
-  missing: [
-    ["Discretionary PMS Service Agreement",                  "Verified",    "active",  "check"],
-    ["Investment Policy Statement",                          "Verified",    "active",  "check"],
-    ["Financial & Investment Fact Finder Questionnaire",     "Not started", "neutral", "clock"],
-    ["Financial Health Check – Derivatives Knowledge Form", "Expired", "overdue", "alert-triangle"],
-    ["Fee Schedule",                                         "Rejected",    "failed",  "x"],
-    ["Risk Disclosure Statement",                            "Verified",    "active",  "check"],
-    ["Other — ID / Passport / Proof of Address",        "Pending",     "pending", "clock"],
-  ],
-  reviewing: [
-    ["Discretionary PMS Service Agreement",                  "Verified",    "active",  "check"],
-    ["Investment Policy Statement",                          "Verified",    "active",  "check"],
-    ["Financial & Investment Fact Finder Questionnaire",     "Verified",    "active",  "check"],
-    ["Financial Health Check – Derivatives Knowledge Form", "Verified","active",  "check"],
-    ["Fee Schedule",                                         "In review",   "review",  "clock"],
-    ["Risk Disclosure Statement",                            "In review",   "review",  "clock"],
-    ["Other — ID / Passport / Proof of Address",        "Verified",    "active",  "check"],
-  ],
-  full: [
-    ["Discretionary PMS Service Agreement",                  "Verified",    "active",  "check"],
-    ["Investment Policy Statement",                          "Verified",    "active",  "check"],
-    ["Financial & Investment Fact Finder Questionnaire",     "Verified",    "active",  "check"],
-    ["Financial Health Check – Derivatives Knowledge Form", "Verified","active",  "check"],
-    ["Fee Schedule",                                         "Verified",    "active",  "check"],
-    ["Risk Disclosure Statement",                            "Verified",    "active",  "check"],
-    ["Other — ID / Passport / Proof of Address",        "Verified",    "active",  "check"],
-  ],
-};
-
-export type KycClient = { id: string; name: string; preset: keyof typeof KYC_DOCS; owner: string };
-export type KycColumn = { label: string; clients: KycClient[] };
-
-export const KYC_COLS: KycColumn[] = [
-  { label: "Initial Onboarding", clients: [
-    { id: "greystone", name: "Greystone Partners",  preset: "none",      owner: "M. Carver"  },
-    { id: "tarn",      name: "Tarn & Moss",          preset: "none",      owner: "D. Reyes"   },
-  ]},
-  { label: "Pending for Review", clients: [
-    { id: "harlow",    name: "Harlow Family Office", preset: "partial",   owner: "L. Okonkwo" },
-    { id: "ostrander", name: "Ostrander Inc.",       preset: "partial",   owner: "M. Carver"  },
-    { id: "brae",      name: "Brae Holdings",        preset: "missing",   owner: "D. Reyes"   },
-  ]},
-  { label: "Reviewing", clients: [
-    { id: "selwyn",    name: "Selwyn Asset Mgmt",    preset: "reviewing", owner: "M. Carver"  },
-    { id: "quill",     name: "Quill Ventures",       preset: "partial",   owner: "L. Okonkwo" },
-  ]},
-  { label: "Active", clients: [
-    { id: "pike",      name: "Pike & Vance",         preset: "full",      owner: "D. Reyes"   },
-    { id: "ardent",    name: "Ardent Capital",       preset: "full",      owner: "M. Carver"  },
-  ]},
-];
-
-export const VERIFIED_COUNT: Record<keyof typeof KYC_DOCS, number> = { none: 0, partial: 4, missing: 3, reviewing: 5, full: 7 };
-export const TONE_FOR: Record<keyof typeof KYC_DOCS, ChipTone> = { none: "neutral", partial: "warm", missing: "failed", reviewing: "review", full: "active" };
-
-/* ============================================================
    Model Subscription — client → models → transactions
    ============================================================ */
 export type TxnRow = [string, string, string, string, string, string, string, string, string];
@@ -470,12 +393,12 @@ export const MODEL_SIZES: Record<string, number> = {
 };
 export const MODEL_SIZE_LIST = Object.entries(MODEL_SIZES).map(([name, size]) => ({ name, size }));
 
-export type ModelCatalogEntry = { name: string; mgmtFee: string; incentiveFee: string };
+export type ModelCatalogEntry = { model_id: string; name: string; mgmtFee: string; incentiveFee: string };
 export const OB_MODEL_CATALOG: ModelCatalogEntry[] = [
-  { name: "Global Balanced", mgmtFee: "1.0%", incentiveFee: "10%" },
-  { name: "Equity Growth", mgmtFee: "1.5%", incentiveFee: "20%" },
-  { name: "Income Core", mgmtFee: "0.75%", incentiveFee: "8%" },
-  { name: "ESG Tilt", mgmtFee: "0.8%", incentiveFee: "10%" },
+  { model_id: "global-balanced", name: "Global Balanced", mgmtFee: "1.0%", incentiveFee: "10%" },
+  { model_id: "equity-growth", name: "Equity Growth", mgmtFee: "1.5%", incentiveFee: "20%" },
+  { model_id: "income-core", name: "Income Core", mgmtFee: "0.75%", incentiveFee: "8%" },
+  { model_id: "esg-tilt", name: "ESG Tilt", mgmtFee: "0.8%", incentiveFee: "10%" },
 ];
 
 /* ============================================================
