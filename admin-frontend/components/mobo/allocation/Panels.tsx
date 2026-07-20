@@ -11,10 +11,11 @@
    live in sibling files — not here.
    ============================================================ */
 
-import { useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   BarChart3, BarChartHorizontal, Layers, Coins, CalendarDays, Check, RefreshCw,
+  ChevronLeft, ChevronRight,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
@@ -373,50 +374,214 @@ export function EmptyCard({ settleDay }: { settleDay: string }) {
 }
 
 /* ============================================================
-   DateControl — settlement-day dropdown (fed from /runs)
+   DateControl — calendar picker with single-date + range modes
    ============================================================ */
+const _dk = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const _sameDay = (a: Date | null, b: Date | null) =>
+  a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const _inRange = (d: Date, s: Date, e: Date) => d >= s && d <= e;
+const _fmtShort = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+const _fmtFull = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+const DOW = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
 export function DateControl({
   dateLabel,
   runs,
   onPickDate,
+  onPickRange,
 }: {
   dateLabel: string;
   runs: PtaRun[];
   onPickDate: (d: string) => void;
+  onPickRange: (from: string, to: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [isRange, setIsRange] = useState(false);
+  const now = new Date();
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const [rangeStart, setRangeStart] = useState<Date | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
+  const [hover, setHover] = useState<Date | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const dataSet = new Set(runs.map((r) => r.date));
+  const today = _dk(now);
+
+  // build grid for current month view
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startDow = (firstOfMonth.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (Date | null)[] = Array.from({ length: startDow }, () => null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  const handleDayClick = useCallback((d: Date) => {
+    if (!isRange) {
+      onPickDate(_dk(d));
+      setOpen(false);
+      return;
+    }
+    // range mode
+    if (!rangeStart || rangeEnd) {
+      // first pick (or restart)
+      setRangeStart(d);
+      setRangeEnd(null);
+    } else {
+      // second pick — sort
+      const [a, b] = d < rangeStart ? [d, rangeStart] : [rangeStart, d];
+      setRangeStart(a);
+      setRangeEnd(b);
+    }
+  }, [isRange, rangeStart, rangeEnd, onPickDate]);
+
+  const applyRange = () => {
+    if (rangeStart && rangeEnd) {
+      onPickRange(_dk(rangeStart), _dk(rangeEnd));
+      setOpen(false);
+    }
+  };
+
+  // effective range end for hover preview
+  const effectiveEnd = rangeEnd ?? (rangeStart && hover && !_sameDay(hover, rangeStart) ? hover : null);
+  const sortedStart = rangeStart && effectiveEnd && effectiveEnd < rangeStart ? effectiveEnd : rangeStart;
+  const sortedEnd = rangeStart && effectiveEnd && effectiveEnd < rangeStart ? rangeStart : effectiveEnd;
+
   return (
-    <div className="relative" onMouseLeave={() => setOpen(false)}>
+    <div className="relative" ref={ref}>
       <Button variant="secondary" icon={CalendarDays} onClick={() => setOpen((o) => !o)}>
         {dateLabel}
       </Button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-20 min-w-[190px] rounded-md border border-outline-variant bg-white p-1.5 shadow-overlay">
-          <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-secondary">
-            Settlement day
+        <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-[296px] rounded-md border border-outline-variant bg-white p-3 shadow-overlay">
+          {/* range toggle */}
+          <label className="mb-2.5 flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold text-on-surface">
+            <span
+              className={[
+                "flex h-[18px] w-[18px] items-center justify-center rounded border",
+                isRange ? "border-primary bg-primary" : "border-outline-variant bg-white",
+              ].join(" ")}
+              onClick={() => { setIsRange((v) => !v); setRangeStart(null); setRangeEnd(null); }}
+            >
+              {isRange && <Check size={12} strokeWidth={2.5} className="text-white" />}
+            </span>
+            Select range
+          </label>
+
+          {/* month nav */}
+          <div className="mb-1.5 flex items-center justify-between">
+            <button type="button" onClick={prevMonth} className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface-container">
+              <ChevronLeft size={16} strokeWidth={1.75} />
+            </button>
+            <span className="text-[13px] font-bold text-on-surface">{monthLabel}</span>
+            <button type="button" onClick={nextMonth} className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface-container">
+              <ChevronRight size={16} strokeWidth={1.75} />
+            </button>
           </div>
-          <div className="max-h-[280px] overflow-y-auto">
-            {runs.map((run) => {
-              const on = run.date === dateLabel;
+
+          {/* DOW header */}
+          <div className="mb-0.5 grid grid-cols-7 text-center text-[10.5px] font-bold text-secondary">
+            {DOW.map((d) => <span key={d}>{d}</span>)}
+          </div>
+
+          {/* day grid */}
+          <div className="grid grid-cols-7">
+            {cells.map((cell, i) => {
+              if (!cell) return <span key={`e${i}`} />;
+              const key = _dk(cell);
+              const dow = cell.getDay();
+              const isWeekend = dow === 0 || dow === 6;
+              const isFuture = key > today;
+              const disabled = isWeekend || isFuture;
+              const hasData = dataSet.has(key);
+              const isStart = isRange && _sameDay(cell, sortedStart);
+              const isEnd = isRange && _sameDay(cell, sortedEnd);
+              const inRng = isRange && sortedStart && sortedEnd && _inRange(cell, sortedStart, sortedEnd) && !isStart && !isEnd;
+
               return (
                 <button
-                  key={run.date}
+                  key={key}
                   type="button"
-                  onClick={() => {
-                    onPickDate(run.date);
-                    setOpen(false);
-                  }}
+                  disabled={disabled}
+                  onClick={() => handleDayClick(cell)}
+                  onMouseEnter={() => setHover(cell)}
+                  onMouseLeave={() => setHover(null)}
                   className={[
-                    "flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-[13px] font-semibold text-on-surface",
-                    on ? "bg-surface-container" : "bg-transparent",
+                    "relative flex h-[34px] flex-col items-center justify-center rounded text-[12.5px] font-semibold transition-colors",
+                    disabled ? "cursor-default text-on-surface opacity-[0.45]"
+                      : (isStart || isEnd) ? "bg-primary text-white"
+                      : inRng ? "bg-primary-fixed text-primary"
+                      : "text-on-surface hover:bg-surface-container",
                   ].join(" ")}
                 >
-                  {run.label}
-                  {on && <Check size={14} strokeWidth={2} className="text-primary" />}
+                  {cell.getDate()}
+                  {hasData && (
+                    <span className={[
+                      "absolute bottom-[3px] h-1 w-1 rounded-full",
+                      (isStart || isEnd) ? "bg-white" : "bg-primary-container",
+                    ].join(" ")} />
+                  )}
                 </button>
               );
             })}
           </div>
+
+          {/* legend */}
+          <div className="mt-2 flex items-center gap-4 text-[10.5px] text-secondary">
+            <span className="flex items-center gap-1">
+              <span className="h-1 w-1 rounded-full bg-primary-container" /> Has data
+            </span>
+            <span>Greyed = weekend / future</span>
+          </div>
+
+          {/* range footer */}
+          {isRange && (
+            <div className="mt-2.5 border-t border-outline-variant pt-2.5">
+              <div className="mb-2 text-[12px] text-secondary">
+                {rangeStart && rangeEnd
+                  ? `Range: ${_fmtFull(rangeStart)} – ${_fmtFull(rangeEnd)}`
+                  : rangeStart
+                  ? `Start: ${_fmtShort(rangeStart)} — pick end date`
+                  : "Pick start date"}
+              </div>
+              <button
+                type="button"
+                disabled={!rangeStart || !rangeEnd}
+                onClick={applyRange}
+                className={[
+                  "w-full rounded-md px-3 py-2 text-[13px] font-bold transition-colors",
+                  rangeStart && rangeEnd
+                    ? "bg-primary text-white hover:bg-primary/90"
+                    : "cursor-default bg-surface-container text-secondary",
+                ].join(" ")}
+              >
+                Apply range
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
