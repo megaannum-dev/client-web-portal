@@ -99,20 +99,27 @@ class OnboardingService:
             raise
         return self._to_dto(onboarding, with_documents=True)
 
+    def _is_admin(self, caller_uid: str) -> bool:
+        caller = self.db.query(User).filter(User.firebase_uid == caller_uid).one_or_none()
+        profile = AdminProfileRepository(self.db).get_by_user_id(caller.id) if caller else None
+        return profile is not None and profile.role == AdminRole.ADMIN
+
     def _resolve_rm_override(self, requested_rm_uid: str | None, *, caller_uid: str) -> str:
         """ADMIN-only "Assigned RM" override: any other role gets pinned to
         itself no matter what the request body claims (defence in depth --
-        the FE only shows the picker to ADMIN, but the API can't trust that)."""
-        if not requested_rm_uid:
-            return caller_uid
-        caller = self.db.query(User).filter(User.firebase_uid == caller_uid).one_or_none()
-        profile = AdminProfileRepository(self.db).get_by_user_id(caller.id) if caller else None
-        if profile is None or profile.role != AdminRole.ADMIN:
+        the FE only offers other RMs to ADMIN, but the API can't trust that)."""
+        if not requested_rm_uid or not self._is_admin(caller_uid):
             return caller_uid
         return requested_rm_uid
 
-    def rm_options(self) -> list[RmOptionDTO]:
-        return [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
+    def rm_options(self, *, caller_uid: str) -> list[RmOptionDTO]:
+        """ADMIN sees every RM (can assign anyone); any other caller sees only
+        themselves (the picker is enabled everywhere but pre-scoped, so there's
+        nothing else to pick)."""
+        options = [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
+        if self._is_admin(caller_uid):
+            return options
+        return [o for o in options if o.uid == caller_uid]
 
     def upload_document(
         self,

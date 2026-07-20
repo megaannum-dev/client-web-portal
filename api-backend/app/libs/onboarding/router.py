@@ -50,11 +50,11 @@ def start_onboarding(
 @router.get("/rm/onboardings/rm-options", response_model=list[RmOptionDTO])
 def get_rm_options(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
 ) -> list[RmOptionDTO]:
     """Registered before /rm/onboardings/{onboarding_id} so "rm-options"
     isn't swallowed as a (then-invalid) onboarding_id path param."""
-    return svc.rm_options()
+    return svc.rm_options(caller_uid=user.firebase_uid)
 
 
 @router.get("/rm/onboardings", response_model=BoardDTO)
