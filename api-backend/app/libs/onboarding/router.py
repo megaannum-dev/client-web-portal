@@ -17,6 +17,7 @@ from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
     BoardDTO,
     ClientEventDTO,
+    DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
     RejectReq,
@@ -55,6 +56,18 @@ def get_rm_options(
     """Registered before /rm/onboardings/{onboarding_id} so "rm-options"
     isn't swallowed as a (then-invalid) onboarding_id path param."""
     return svc.rm_options(caller_uid=user.firebase_uid)
+
+
+@router.get("/rm/onboardings/doc-specs", response_model=list[DocSpecDTO])
+def get_doc_specs(
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+) -> list[DocSpecDTO]:
+    """Same registration-order reason as rm-options above. The single source
+    of truth for the 7 required docs (compliance_doc_config.py), exposed so
+    the "Start Onboarding" wizard's Documents step can render the real
+    catalog before an onboarding_id exists, instead of a hardcoded copy."""
+    return svc.doc_specs()
 
 
 @router.get("/rm/onboardings", response_model=BoardDTO)

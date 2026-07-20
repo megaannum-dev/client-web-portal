@@ -43,6 +43,16 @@ class RmOptionDTO(BaseModel):
     name: str
 
 
+class DocSpecDTO(BaseModel):
+    """The 7 required-doc catalog itself, independent of any onboarding
+    instance -- lets the FE render the doc list before an onboarding_id
+    exists (e.g. the "Start Onboarding" wizard's Documents step)."""
+
+    doc_type: str
+    label: str
+    required: bool
+
+
 class DocumentDTO(BaseModel):
     doc_type: str
     label: str

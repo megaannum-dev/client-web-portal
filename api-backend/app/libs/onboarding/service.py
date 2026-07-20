@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session
 
 from app.libs.clients.service import ClientService
 from app.libs.identity.service import FirebaseIdentityService
-from app.libs.onboarding.compliance_doc_config import get_doc_spec
+from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
     BoardDTO,
     ClientEventDTO,
+    DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
     RejectReq,
@@ -111,6 +112,9 @@ class OnboardingService:
         if not requested_rm_uid or not self._is_admin(caller_uid):
             return caller_uid
         return requested_rm_uid
+
+    def doc_specs(self) -> list[DocSpecDTO]:
+        return [DocSpecDTO(doc_type=d.key, label=d.label, required=d.required) for d in REQUIRED_DOCS]
 
     def rm_options(self, *, caller_uid: str) -> list[RmOptionDTO]:
         """ADMIN sees every RM (can assign anyone); any other caller sees only
