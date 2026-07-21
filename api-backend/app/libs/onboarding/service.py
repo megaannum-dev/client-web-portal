@@ -321,6 +321,14 @@ class OnboardingService:
     def detail(self, onboarding_id: uuid.UUID) -> OnboardingDTO:
         return self._to_dto(self._require_onboarding(onboarding_id), with_documents=True)
 
+    def detail_by_client(self, client_id: uuid.UUID) -> OnboardingDTO:
+        """014 C-8: RM-scoped by-client lookup -- 404 (not 500) for a client
+        with no client_onboardings row (the pre-013 bare POST /rm/clients path)."""
+        onboarding = self.repo.get_by_user_id(client_id)
+        if onboarding is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Client has no onboarding cycle")
+        return self._to_dto(onboarding, with_documents=True)
+
     def download_document(
         self, onboarding_id: uuid.UUID, doc_type: str
     ) -> tuple[BinaryIO, str, str | None]:

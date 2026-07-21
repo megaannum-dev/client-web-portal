@@ -27,6 +27,8 @@ class ClientListItemOut(BaseModel):
     ib_account: str | None
     email: str | None  # users.email (client's user, not RM's)
     authorized_by_name: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
+    id_type: str | None  # NEW (014 C-8) — client_onboardings.id_type, joined
+    id_number: str | None  # NEW (014 C-8) — client_onboardings.id_number, joined
     subscriptions: list[SubscriptionOut] = []  # only populated on the single-client route
 
 

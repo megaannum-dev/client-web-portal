@@ -78,6 +78,30 @@ def get_board(
     return svc.board()
 
 
+@router.get("/rm/onboardings/by-client/{client_id}", response_model=OnboardingDTO)
+def get_onboarding_by_client(
+    client_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+) -> OnboardingDTO:
+    """Registered before /rm/onboardings/{onboarding_id} -- same registration-order
+    reason as rm-options/doc-specs above ("by-client" would otherwise be swallowed
+    as an invalid onboarding_id path param)."""
+    return svc.detail_by_client(client_id)
+
+
+@router.get("/rm/clients/{client_id}/events", response_model=list[ClientEventDTO])
+def get_client_events_rm(
+    client_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> list[ClientEventDTO]:
+    """Thin re-exposure of the existing client_events(user_id) -- client_id IS
+    the user_id. Gated by CLIENT_VIEW (same action GET /rm/clients/{id}
+    already requires), not the client's own token."""
+    return svc.client_events(client_id)
+
+
 @router.get("/rm/onboardings/{onboarding_id}", response_model=OnboardingDTO)
 def get_onboarding_detail(
     onboarding_id: uuid.UUID,
