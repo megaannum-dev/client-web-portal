@@ -42,6 +42,7 @@ interface ObForm {
   swId: string;
   model: string;
   modelUnit: string;
+  initialCashDeposit: string;
   mgmtFee: string;
   incentiveFee: string;
 }
@@ -72,7 +73,7 @@ export function OnboardingModal({
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
     idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "",
-    ibhkId: "", swId: "", model: "", modelUnit: "", mgmtFee: "", incentiveFee: "",
+    ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
   });
   // Keyed by doc_type (not label) — staged Files to upload against the real
   // onboarding id once it exists, right before closing (FE bug: this used to
@@ -122,9 +123,15 @@ export function OnboardingModal({
     form.clientName.trim() && form.phone.trim() && form.email.trim() &&
     form.address.trim() && form.country.trim() && form.idType && form.idNumber.trim()
   );
+  const selectedModel = liveModels.find((m) => m.id === form.model);
+  // Floor mirrors the backend's BE-8 check exactly (N=0): deposit >= units * model size.
+  // An unknown/null size is treated as 0, same as the backend's own fallback for this field.
+  const depositFloor = Number(form.modelUnit || 0) * (selectedModel?.size ?? 0);
+  const depositMeetsFloor = form.initialCashDeposit.trim() !== "" && Number(form.initialCashDeposit) >= depositFloor;
   const page2Valid = !!(
     form.ibhkId.trim() && form.swId.trim() && form.model &&
-    /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim()
+    /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim() &&
+    depositMeetsFloor
   );
   const stepValid = [page1Valid, page2Valid, true];
   const canSubmit = page1Valid && page2Valid;
@@ -141,10 +148,15 @@ export function OnboardingModal({
         ibhk_account: form.ibhkId, sw_account: form.swId,
         model_id: model.id,
         units: Number(form.modelUnit),
+        // ponytail: StartOnboardingReq (lib/onboarding/types.ts, owned by another
+        // in-flight unit) doesn't declare this field yet even though BE-8's
+        // seam already requires it — cast locally instead of touching that
+        // shared file; drop the cast once the type gains the field.
+        initial_cash_deposit: Number(form.initialCashDeposit),
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
         ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
-      });
+      } as Parameters<typeof startOnboarding>[0] & { initial_cash_deposit: number });
       if (!result.success) {
         alert(`Could not start onboarding: ${result.error}`);
         return;
@@ -277,8 +289,15 @@ export function OnboardingModal({
             <input
               className={inputCls}
               inputMode="numeric"
+              value={form.initialCashDeposit}
+              onChange={(e) => setForm((f) => ({ ...f, initialCashDeposit: e.target.value.replace(/[^\d.]/g, "") }))}
               placeholder="e.g. 250000"
             />
+            {form.model && /^[1-9]\d*$/.test(form.modelUnit.trim()) && !depositMeetsFloor && (
+              <span className="text-[11.5px] font-semibold text-primary">
+                Must be at least {depositFloor.toLocaleString()} (units × model size).
+              </span>
+            )}
           </ObField>
 
           <ObField label="Management Fee" required>
