@@ -113,6 +113,21 @@ def submit_onboarding(
     return svc.submit(onboarding_id)
 
 
+@router.get("/rm/onboardings/{onboarding_id}/documents/{doc_type}/download")
+def download_document_rm(
+    onboarding_id: uuid.UUID,
+    doc_type: str,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+) -> StreamingResponse:
+    stream, filename, content_type = svc.download_document(onboarding_id, doc_type)
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ---- Compliance ---------------------------------------------------------
 @router.get("/compliance/onboardings", response_model=list[OnboardingDTO])
 def get_compliance_queue(
