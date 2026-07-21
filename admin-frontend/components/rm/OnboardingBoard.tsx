@@ -55,7 +55,7 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
     >
       <div className="flex items-start justify-between gap-2.5">
         <span className="text-[14px] font-semibold leading-tight text-on-surface">{item.name}</span>
-        {item.verifiedCount === 0
+        {item.status === "initial"
           ? <Chip tone="neutral" dot={false}>Not started</Chip>
           : <Chip tone={tone} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>}
       </div>

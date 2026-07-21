@@ -85,6 +85,7 @@ export interface KycBoardClient {
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhkAccount: string; swAccount: string;
+  status: OnboardingStatus;
   verifiedCount: number; requiredCount: number;
   documents: DocumentDTO[];
 }
