@@ -263,13 +263,21 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
           <ObField label="Model Unit" required>
             <input
               className={inputCls}
+              min={1} step={1} type="number"
               inputMode="numeric"
               value={form.modelUnit}
               onChange={(e) => setForm((f) => ({ ...f, modelUnit: e.target.value.replace(/[^\d]/g, "") }))}
               placeholder="e.g. 2"
             />
           </ObField>
-          <div />
+          <ObField label="Initial Cash Deposit" required>
+            <input
+              className={inputCls}
+              inputMode="numeric"
+              placeholder="e.g. 250000"
+            />
+          </ObField>
+
           <ObField label="Management Fee" required>
             <input className={inputCls} value={form.mgmtFee} onChange={set("mgmtFee")} placeholder="e.g. 1.0%" />
           </ObField>
