@@ -1,6 +1,7 @@
 # api-backend/app/libs/onboarding/repository.py
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -183,6 +184,20 @@ class OnboardingRepository:
             address=profile.address or "",
             country_of_residence=profile.country_of_residence or "",
         )
+
+    def client_folder_name(self, onboarding: ClientOnboarding) -> str:
+        """014 C-5 (BE-4): per-client KYC storage subdirectory name -- a
+        filesystem-safe slug of the client's display name plus an 8-char
+        firebase-uid suffix, so two clients whose names sanitize identically
+        still land in distinct folders."""
+        display = self.display_fields(onboarding)
+        user = self.db.get(User, onboarding.user_id)
+        assert user is not None
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", display.client_name).strip("_") or "client"
+        # Trailing (not leading) slice per the impl doc's own "Behavior/invariants"
+        # wording -- this repo's real firebase uids are random throughout, but the
+        # distinguishing part of any sequential/test uid scheme lives at the end.
+        return f"{slug}_{user.firebase_uid[-8:]}"
 
     # ---- mutate: documents ------------------------------------------------
     def upload_document(

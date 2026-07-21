@@ -148,7 +148,12 @@ class OnboardingService:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Document cannot be reuploaded in its current status"
             )
-        storage_key = get_storage().save(stream, suggested_name=filename, content_type=content_type)
+        storage_key = get_storage().save(
+            stream,
+            suggested_name=filename,
+            content_type=content_type,
+            subdir=f"client_kyc_docs/{self.repo.client_folder_name(onboarding)}",
+        )
         self.repo.upload_document(
             doc, storage_key=storage_key, filename=filename, content_type=content_type
         )

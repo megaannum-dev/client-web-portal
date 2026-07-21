@@ -38,10 +38,10 @@ services:
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       DEV_MODE: ${DEV_MODE:-false}
-      PC_STORAGE_ROOT: /app/pc_storage
+      STORAGE_ROOT: /app/crm_filesystem
     volumes:
       - ./firebase-client-web-portal.json:/secrets/firebase.json:ro
-      - ./pc_storage:/app/pc_storage
+      - ./crm_filesystem:/app/crm_filesystem
     depends_on:
       mariadb:
         condition: service_healthy

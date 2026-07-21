@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     dev_mode: bool = False  # was: True (G2 — secure-by-default fix)
     app_env: str = "development"
 
-    # PC workspace — file storage (BE-1)
-    pc_storage_backend: str = "local"  # "local" | "nas"
-    pc_storage_root: str = "./pc_storage"  # path for LocalStorage mount
+    # PC workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
+    storage_backend: str = "local"  # "local" | "nas"
+    storage_root: str = "./crm_filesystem"  # path for LocalStorage mount
 
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
