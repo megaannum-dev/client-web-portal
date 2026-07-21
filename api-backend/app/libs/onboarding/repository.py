@@ -216,6 +216,17 @@ class OnboardingRepository:
             if doc.status != DocStatus.VERIFIED:
                 doc.status = DocStatus.IN_REVIEW
 
+    def reset_non_verified_for_reupload(self, onboarding_id: uuid.UUID) -> None:
+        """Cycle-level reject() companion (pre-existing 013 gap, fixed alongside
+        014 BE-1): submit() bumps every non-VERIFIED doc to IN_REVIEW, which is
+        not itself a reuploadable status -- without this, a bare reject() (no
+        per-doc verdict) leaves those docs permanently stuck and unreuploadable.
+        VERIFIED docs are left untouched -- rejecting the cycle for other
+        reasons shouldn't force re-review of a doc compliance already verified."""
+        for doc in self.documents_for(onboarding_id):
+            if doc.status != DocStatus.VERIFIED:
+                self.reset_for_reupload(doc)
+
     def counts(self, onboarding_id: uuid.UUID) -> tuple[int, int]:
         """(verified_count, required_count) computed from real rows, never a
         lookup table."""

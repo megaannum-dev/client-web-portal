@@ -285,6 +285,7 @@ class OnboardingService:
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.decided_at = datetime.utcnow()
         onboarding.reject_reason = req.reason
+        self.repo.reset_non_verified_for_reupload(onboarding_id)
         self.db.commit()
         return self._to_dto(onboarding, with_documents=True)
 
