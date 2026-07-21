@@ -38,6 +38,7 @@ services:
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       DEV_MODE: ${DEV_MODE:-false}
+      PC_PERIOD_OPEN_DAYS_BEFORE_END: ${PC_PERIOD_OPEN_DAYS_BEFORE_END:-9}
       STORAGE_ROOT: /app/crm_filesystem
     volumes:
       - ./firebase-client-web-portal.json:/secrets/firebase.json:ro
