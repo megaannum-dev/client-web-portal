@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import BinaryIO
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.libs.eod.presenter import merge_day_view
 from app.libs.eod.repository import EodRepository
 from app.libs.reconciliation.engine import reconcile
 from app.libs.reconciliation.formatting import fmt_usd
+from app.libs.trade_models.storage import get_storage
 from app.models.eod import EodRecord
 from app.models.eod import EodStatus as DbEodStatus
 from app.schemas.eod import EodOutcome, EodReportViewOut, EodStatus
@@ -80,6 +83,14 @@ class EodService:
                 record.status == DbEodStatus.SIGNED and record.file_storage_key is not None
             ),
         )
+
+    def export(self, trade_date_iso: str | None) -> tuple[BinaryIO, str]:
+        record = self._resolve_record(trade_date_iso)
+        if record.status != DbEodStatus.SIGNED or record.file_storage_key is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "This day has not been signed off yet")
+        stream = get_storage().open(record.file_storage_key)
+        filename = f"EoD-{record.trade_date.isoformat()}.pdf"
+        return stream, filename
 
     def _resolve_record(self, trade_date_iso: str | None) -> EodRecord:
         from fastapi import HTTPException, status
