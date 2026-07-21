@@ -19,6 +19,11 @@ export interface ClientListItemDTO {
   id_type?: string | null;               // NEW (FE-4) — ClientListItemOut widening, §7.1
   id_number?: string | null;             // NEW (FE-4)
   authorized_by_name?: string | null;    // NEW (FE-4) — resolved display name of users.authorized_by
+  // NEW — client_portfolios (011/014 C-9), only populated on the single-client
+  // route. Decimal fields arrive over JSON as strings (see lib/pc/models.ts's
+  // Number() coercion), null if the client predates the cash-deposit flow.
+  cash_deposit?: string | null;
+  amount_in_trade?: string | null;
 }
 
 export interface ClientListDTO {
@@ -41,6 +46,8 @@ export interface ClientRow {
   idType: string | null;             // NEW (FE-4)
   idNumber: string | null;           // NEW (FE-4)
   authorizedByName: string | null;   // NEW (FE-4)
+  cashDeposit: number | null;
+  amountInTrade: number | null;
 }
 
 export function dtoToRow(d: ClientListItemDTO): ClientRow {
@@ -59,6 +66,8 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     idType: d.id_type ?? null,
     idNumber: d.id_number ?? null,
     authorizedByName: d.authorized_by_name ?? null,
+    cashDeposit: d.cash_deposit != null ? Number(d.cash_deposit) : null,
+    amountInTrade: d.amount_in_trade != null ? Number(d.amount_in_trade) : null,
   };
 }
 

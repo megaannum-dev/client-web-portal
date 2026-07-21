@@ -26,8 +26,11 @@ function formatFeePercent(fraction: number): string {
  *  client_subscriptions actually holds, even before allotment history has
  *  loaded. */
 function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
-  const amt = sub.amount.toLocaleString("en-US");
-  return ["Net", "", "", "", amt, `${sub.units}×`, amt, "", ""];
+  // Decimal fields arrive over JSON as strings (see lib/pc/models.ts's
+  // `Number(dto.model_size ?? 0)` for the same coercion) -- Number() first,
+  // or toLocaleString()/template interpolation just echoes the raw string.
+  const amt = Number(sub.amount).toLocaleString("en-US");
+  return ["Net", "", "", "", amt, `${Number(sub.units)}×`, amt, "", ""];
 }
 
 /** One ledger entry -> one TxnRow. Cash Amt and Notional are the SAME number
@@ -71,7 +74,7 @@ export function mapSubscriptionsToSubClients(
 ): SubClient[] {
   return dtos.map((c): SubClient => {
     const ledger = allotmentsByClient[c.client_id];
-    const totalAum = c.subscriptions.reduce((s, sub) => s + sub.amount, 0);
+    const totalAum = c.subscriptions.reduce((s, sub) => s + Number(sub.amount), 0);
     return {
       id: c.client_id,
       name: c.client_name,

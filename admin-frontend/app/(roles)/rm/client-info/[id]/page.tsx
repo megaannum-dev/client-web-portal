@@ -14,13 +14,10 @@ import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
-import type { DocStatus, DocumentDTO } from "@/lib/onboarding/types";
-import { fmtTimestamp } from "@/lib/pc/format";
-import {
-  getMockOverlay,
-  type ClientDoc,
-  type HistoryEntry,
-} from "@/lib/mock/rm-data";
+import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
+import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
+import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { type ClientDoc, type HistoryEntry } from "@/lib/mock/rm-data";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
@@ -54,6 +51,12 @@ function docFromDto(doc: DocumentDTO): ClientDoc {
 // Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
 const SUB_STATUS_LABEL: Record<string, string> = { live: "Active", draft: "In Review" };
 const SUB_STATUS_TONE: Record<string, ChipTone> = { live: "active", draft: "review" };
+
+// OnboardingStatus -> header chip tone. Labels reuse OnboardingBoard.tsx's own
+// COLUMN_LABELS (lib/onboarding/mappers.ts) so the two stay in lockstep.
+const ONBOARDING_STATUS_TONE: Record<OnboardingStatus, ChipTone> = {
+  initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
+};
 
 const CHECK_TINT: Record<string, string> = {
   active:  "bg-success-container text-success-on-container",
@@ -161,7 +164,15 @@ export default function ClientDetailPage() {
     );
   }
 
-  const overlay = getMockOverlay(data.id);
+  // Real onboarding status (already fetched for the KYC card below) drives the
+  // header chip instead of the mock overlay -- a client with a live subscription
+  // and fully-verified KYC must not still read "In Review".
+  const since = onboarding ? new Date(onboarding.created_at).getFullYear() : "—";
+  const totalCashValue = data.cashDeposit;
+  const totalPortfolioValue =
+    data.cashDeposit != null && data.amountInTrade != null
+      ? data.cashDeposit + data.amountInTrade
+      : null;
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -184,9 +195,11 @@ export default function ClientDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="whitespace-nowrap text-[26px] font-bold tracking-[-0.01em] text-on-surface">{data.name ?? "—"}</h1>
-              <Chip tone={overlay.tone}>{overlay.status}</Chip>
+              {onboarding && (
+                <Chip tone={ONBOARDING_STATUS_TONE[onboarding.status]}>{COLUMN_LABELS[onboarding.status]}</Chip>
+              )}
             </div>
-            <p className="mt-1 text-[14px] text-secondary">{overlay.mandate} mandate · Client since {overlay.since} · RM: {data.assignedRm ?? "Unassigned"}</p>
+            <p className="mt-1 text-[14px] text-secondary">Discretionary mandate · Client since {since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -213,8 +226,8 @@ export default function ClientDetailPage() {
         <div className="mb-[18px] rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Account Balance</div>
           <div className="grid grid-cols-2 gap-7">
-            <BalanceItem label="Total Portfolio Value" value={overlay.portfolioValue ?? "—"} censored={censored} />
-            <BalanceItem label="Total Cash Value" value={overlay.cashValue} censored={censored} />
+            <BalanceItem label="Total Portfolio Value" value={totalPortfolioValue != null ? fmtMoneyShort(totalPortfolioValue) : "—"} censored={censored} />
+            <BalanceItem label="Total Cash Value" value={totalCashValue != null ? fmtMoneyShort(totalCashValue) : "—"} censored={censored} />
           </div>
         </div>
 

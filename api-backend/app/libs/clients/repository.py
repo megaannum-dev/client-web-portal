@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.models.onboarding import ClientOnboarding
 from app.models.pc import ClientSubscription, Model, ModelStatus
+from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
 # D-4: roles in this set see every client_profiles row, unfiltered. Every other
@@ -116,6 +117,9 @@ class ClientRepository:
         query = self._base_query().filter(ClientProfile.user_id == client_id)
         row = self._scoped(query, role, rm_firebase_uid).one_or_none()
         return self._row(row) if row else None
+
+    def get_portfolio(self, client_id: uuid.UUID) -> ClientPortfolio | None:
+        return self.db.get(ClientPortfolio, client_id)
 
     def list_subscriptions(self, client_id: uuid.UUID, ib_account: str | None) -> list[SubscriptionRow]:
         rows = (
