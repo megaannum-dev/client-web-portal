@@ -205,6 +205,14 @@ class ClientSubscription(Base):
     multiplier: Mapped[Decimal] = mapped_column(
         Numeric(28, 10), nullable=False, server_default="1"
     )
+    # --- NEW (013 / DB-5) --------------------------------------------------
+    # NULL = inherit Model.mgmt_fee / Model.incentive_fee (the model's own
+    # default). Set ONLY when the client's onboarding-captured fee diverges
+    # from that default (Backend C-5's compare-and-set at approve). This is
+    # never a calculated value — see proposal D-6 / Non-Goals.
+    mgmt_fee_override: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    incentive_fee_override: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    # ------------------------------------------------------------------------
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

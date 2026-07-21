@@ -11,7 +11,8 @@ import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { X, Minus } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { clientInitial, type ObStatus, type CrStatus } from "@/lib/compliance/mock";
+import { clientInitial, type CrStatus } from "@/lib/compliance/mock";
+import type { DocumentDTO, ObStatus } from "@/lib/onboarding/types";
 
 /* uppercase micro-label — matches the prototype's coLabel */
 export const coLabelCls =
@@ -53,12 +54,12 @@ export function ClientAvatar({ name, size = 34 }: { name: string; size?: number 
 }
 
 /* ---- doc completeness pill --------------------------------- */
-export function DocProgress({ docs }: { docs: number[] }) {
-  const ok = docs.filter((d) => d === 1).length;
-  const clean = ok === docs.length;
+export function DocProgress({ documents }: { documents: DocumentDTO[] }) {
+  const ok = documents.filter((d) => d.status === "verified").length;
+  const clean = ok === documents.length;
   return (
     <span className="text-[13px] font-bold tabular-nums" style={{ color: clean ? "#15803d" : "#c2410c" }}>
-      {ok}/{docs.length}
+      {ok}/{documents.length}
     </span>
   );
 }

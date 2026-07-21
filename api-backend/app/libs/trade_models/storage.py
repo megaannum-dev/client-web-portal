@@ -4,7 +4,7 @@ The DB stores only opaque ``storage_key`` strings.  Swapping LocalStorage →
 NasStorage requires changes only here — nothing else in the feature package
 changes.
 
-Active implementation is chosen by ``PC_STORAGE_BACKEND`` (default: ``local``).
+Active implementation is chosen by ``STORAGE_BACKEND`` (default: ``local``).
 """
 
 from __future__ import annotations
@@ -23,7 +23,8 @@ class FileStorage(Protocol):
         stream: BinaryIO,
         *,
         suggested_name: str,
-        content_type: str | None,
+        content_type: str | None = None,
+        subdir: str | None = None,
     ) -> str:
         """Persist *stream* and return an opaque storage_key."""
         ...
@@ -34,7 +35,7 @@ class FileStorage(Protocol):
 
 
 class LocalStorage:
-    """Writes files to a configured filesystem mount (``PC_STORAGE_ROOT``)."""
+    """Writes files to a configured filesystem mount (``STORAGE_ROOT``)."""
 
     def __init__(self, root: str | os.PathLike[str]) -> None:
         self._root = Path(root)
@@ -46,10 +47,13 @@ class LocalStorage:
         *,
         suggested_name: str,
         content_type: str | None = None,
+        subdir: str | None = None,
     ) -> str:
         # Build a unique key so we never overwrite on re-upload.
-        key = f"{uuid.uuid4().hex}_{suggested_name}"
+        key_body = f"{uuid.uuid4().hex}_{suggested_name}"
+        key = f"{subdir}/{key_body}" if subdir else key_body
         dest = self._root / key
+        dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("wb") as fh:
             fh.write(stream.read())
         return key
@@ -68,6 +72,7 @@ class NasStorage:
         *,
         suggested_name: str,
         content_type: str | None = None,
+        subdir: str | None = None,
     ) -> str:
         raise NotImplementedError("NasStorage is not yet configured")
 
@@ -78,8 +83,8 @@ class NasStorage:
 def get_storage() -> FileStorage:
     """Return the active FileStorage implementation based on config."""
     settings = get_settings()
-    backend = settings.pc_storage_backend.lower()
+    backend = settings.storage_backend.lower()
     if backend == "nas":
         return NasStorage()
     # Default: local
-    return LocalStorage(settings.pc_storage_root)
+    return LocalStorage(settings.storage_root)

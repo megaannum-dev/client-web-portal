@@ -4,22 +4,21 @@ import { useState } from "react";
 import { X, Check, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { SectionLabel } from "@/components/compliance/Shared";
-import { DOC_NAMES, type DocVerdict, type Onboarding } from "@/lib/compliance/mock";
+import { docStatusToVerdict } from "@/lib/onboarding/mappers";
+import type { AdminOnboardingRow } from "@/lib/onboarding/types";
 
 export function RejectModal({
-  o, onCancel, onConfirm, verdicts,
+  o, onCancel, onConfirm,
 }: {
-  o: Onboarding;
+  o: AdminOnboardingRow;
   onCancel: () => void;
   onConfirm: (id: string, reason: string) => void;
-  verdicts: DocVerdict[];
 }) {
-  const [flags, setFlags] = useState<boolean[]>(() =>
-    (verdicts.length ? verdicts : o.docs.map(() => null)).map((v) => v === "issue"),
-  );
+  // Read-only: a doc is "flagged" iff Compliance already marked it Issue via
+  // ObDetailPanel's per-doc toggle (submitVerdict), before Reject was opened.
+  const flags = o.documents.map((d) => docStatusToVerdict(d.status) === "issue");
   const [reason, setReason] = useState("");
   const count = flags.filter(Boolean).length;
-  const toggle = (i: number) => setFlags((f) => f.map((v, j) => (j === i ? !v : v)));
 
   return (
     <div
@@ -43,14 +42,12 @@ export function RejectModal({
         <div className="flex-1 overflow-y-auto px-6 py-[18px]">
           <SectionLabel>Flag invalid documents</SectionLabel>
           <div className="mb-5 flex flex-col gap-1.5">
-            {DOC_NAMES.map((n, i) => {
+            {o.documents.map((d, i) => {
               const on = flags[i];
               return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggle(i)}
-                  className="flex cursor-pointer items-center gap-[11px] rounded-[9px] px-[11px] py-[9px] text-left"
+                <div
+                  key={d.doc_type}
+                  className="flex items-center gap-[11px] rounded-[9px] px-[11px] py-[9px] text-left"
                   style={{
                     border: `1px solid ${on ? "var(--primary)" : "var(--outline-variant)"}`,
                     background: on ? "var(--primary-fixed)" : "#fff",
@@ -66,9 +63,9 @@ export function RejectModal({
                     {on && <Check size={12} strokeWidth={3} />}
                   </span>
                   <span className="text-[13px] font-semibold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>
-                    {n}
+                    {d.label}
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>

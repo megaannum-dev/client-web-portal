@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLine } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { SUB_CLIENTS, type SubClient, type SubModel, type TxnRow } from "@/lib/mock/rm-data";
+import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 
 export type OpenSubscriptionModal = (opts: {
@@ -216,23 +216,32 @@ function ClientAccordionItem({
 }
 
 export function SubscriptionAccordion({
+  clients,
   onOpenModal,
+  onClientOpen,
   initialOpenClient,
   initialOpenModelKey,
 }: {
+  clients: SubClient[];                          // NEW — live data, was a direct mock import
   onOpenModal: OpenSubscriptionModal;
+  onClientOpen?: (clientId: string) => void;      // NEW
   initialOpenClient?: string;
   initialOpenModelKey?: string;
 }) {
-  const [openClient, setOpenClient] = useState<string | null>(initialOpenClient ?? "ardent");
+  const [openClient, setOpenClient] = useState<string | null>(initialOpenClient ?? null);
+  const toggle = (id: string) => {
+    const next = openClient === id ? null : id;
+    setOpenClient(next);
+    if (next) onClientOpen?.(next);   // fire on open, not on close
+  };
   return (
     <div className="flex flex-col gap-3">
-      {SUB_CLIENTS.map((client) => (
+      {clients.map((client) => (
         <ClientAccordionItem
           key={client.id}
           client={client}
           open={openClient === client.id}
-          onToggle={() => setOpenClient(openClient === client.id ? null : client.id)}
+          onToggle={() => toggle(client.id)}
           onOpenModal={onOpenModal}
           initialOpenModelKey={client.id === openClient ? initialOpenModelKey : undefined}
         />

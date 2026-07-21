@@ -5,6 +5,8 @@ from firebase_admin import auth
 from app.core.config import Settings
 from app.core.security import _init_firebase
 
+_DEFAULT_PASSWORD = "12345678"
+
 
 class FirebaseIdentityService:
     """The ONLY module in the codebase that mutates Firebase Auth identities."""
@@ -17,7 +19,7 @@ class FirebaseIdentityService:
         if self._settings.firebase_auth_disabled:
             return f"dev-{email}"  # deterministic synthetic uid, no Firebase call
         _init_firebase(self._settings)
-        user = auth.create_user(email=email)
+        user = auth.create_user(email=email, password=_DEFAULT_PASSWORD)
         return user.uid
 
     def get_user_by_email(self, email: str) -> str | None:

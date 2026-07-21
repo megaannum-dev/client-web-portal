@@ -32,9 +32,9 @@ import {
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
+import { useSubscriptions } from "@/lib/hooks/useSubscriptions";
 import {
   MOCK_ALLOTMENT_REQUESTS,
-  MOCK_SUBSCRIBED_MODELS,
   MOCK_RECOMMENDED_MODELS,
   MOCK_PORTFOLIO_STATS,
   type AllotmentRequest,
@@ -252,6 +252,7 @@ export default function PortfolioPage() {
   const [censored,    setCensored]    = useState(true);
   const [ticketOpen,  setTicketOpen]  = useState(false);
   const { dynamic, addRequest }       = useAllotmentRequests();
+  const { data: subscribedModels, loading: subsLoading } = useSubscriptions();
   const mask = (v: string) => (censored ? "********" : v);
 
   // ── Historical requests — search + pagination ──────────────────────────────
@@ -426,22 +427,28 @@ export default function PortfolioPage() {
       <section id="subscribed-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.subscribed_models")}</h2>
         <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(7, 1fr)">
-          {MOCK_SUBSCRIBED_MODELS.map((m) => (
-            <ModelRow key={m.symbol} gridTemplate="15rem repeat(7, 1fr)">
-              <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
-              <div className="px-5 py-4 flex items-center font-mono text-[12px] font-bold text-primary">{m.symbol}</div>
-              <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.country}</div>
-              <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.sector}</span></div>
-              <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.modelLimit}</div>
-              <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.amount}</div>
-              <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.multiplier}</div>
-              <div className="px-5 py-4 flex items-center">
-                <a href="#" className="font-mono text-[12px] font-semibold text-primary hover:underline transition-all">
-                  {m.ibAccount}
-                </a>
-              </div>
-            </ModelRow>
-          ))}
+          {subsLoading ? (
+            <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
+          ) : subscribedModels.length === 0 ? (
+            <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_results")}</div>
+          ) : (
+            subscribedModels.map((m, i) => (
+              <ModelRow key={i} gridTemplate="15rem repeat(7, 1fr)">
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
+                <div className="px-5 py-4 flex items-center font-mono text-[12px] font-bold text-primary">{m.symbol}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.country}</div>
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.sector}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.modelLimit}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.amount}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.multiplier}</div>
+                <div className="px-5 py-4 flex items-center">
+                  <a href="#" className="font-mono text-[12px] font-semibold text-primary hover:underline transition-all">
+                    {m.ibAccount}
+                  </a>
+                </div>
+              </ModelRow>
+            ))
+          )}
         </ModelTable>
       </section>
 

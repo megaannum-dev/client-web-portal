@@ -5,27 +5,6 @@
 // sign-off. Ported verbatim from the design prototype (CoData.jsx) — seed
 // values are identical.
 
-/* ---- doc verdict: null = unreviewed, "valid", "issue" ------ */
-export type DocVerdict = "valid" | "issue" | null;
-
-export type ObStatus = "pending" | "approved" | "rejected";
-
-export interface Onboarding {
-  id: string;
-  client: string;
-  email: string;
-  phone: string;
-  ibhk: string;
-  silverwate: string;
-  rm: string;
-  submitted: string;
-  status: ObStatus;
-  type: string;
-  /** 1 = valid, 0 = flagged (seed completeness only). */
-  docs: number[];
-  rejectReason?: string;
-}
-
 export type CrStatus = "pending_co" | "approved_co" | "rejected_co";
 
 export interface Redemption {
@@ -41,37 +20,6 @@ export interface Redemption {
   liquidity: number;
   emergent?: boolean;
 }
-
-/* ---- the 7 required onboarding documents ------------------- */
-export const DOC_NAMES = [
-  "Discretionary PMS Service Agreement",
-  "Investment Policy Statement",
-  "Financial & Investment Fact Finder Questionnaire",
-  "Financial Health Check — Derivatives Knowledge Form",
-  "Fee Schedule",
-  "Risk Disclosure Statement",
-  "ID / Passport / Proof of Address",
-];
-
-/* docs: 1 = valid, 0 = flagged. status: pending | approved | rejected */
-export const CO_ONBOARDING: Onboarding[] = [
-  { id: "ob1", client: "Marcus Chen", email: "mchen@email.com", phone: "+852 9123 4567",
-    ibhk: "U12345678", silverwate: "SW-001234", rm: "Sarah Chen", submitted: "08 Jul 2026",
-    status: "pending", type: "Initial Onboarding", docs: [1, 1, 0, 1, 1, 1, 1] },
-  { id: "ob2", client: "Elena Vasquez", email: "evasquez@mail.com", phone: "+852 6789 0123",
-    ibhk: "U23456789", silverwate: "SW-002345", rm: "James Liu", submitted: "10 Jul 2026",
-    status: "pending", type: "Yearly Renewal", docs: [1, 1, 1, 1, 1, 0, 0] },
-  { id: "ob3", client: "James Wong", email: "jwong@corp.hk", phone: "+852 5555 1234",
-    ibhk: "U34567890", silverwate: "SW-003456", rm: "Sarah Chen", submitted: "03 Jul 2026",
-    status: "approved", type: "Initial Onboarding", docs: [1, 1, 1, 1, 1, 1, 1] },
-  { id: "ob4", client: "Priya Sharma", email: "psharma@global.com", phone: "+852 8765 4321",
-    ibhk: "U45678901", silverwate: "SW-004567", rm: "David Park", submitted: "05 Jul 2026",
-    status: "rejected", type: "Yearly Renewal", docs: [1, 0, 1, 1, 0, 1, 1],
-    rejectReason: "Investment Policy Statement missing signature page; Fee Schedule references outdated rate table." },
-  { id: "ob5", client: "Robert Fischer", email: "rfischer@invest.ch", phone: "+41 79 234 5678",
-    ibhk: "U56789012", silverwate: "SW-005678", rm: "James Liu", submitted: "12 Jul 2026",
-    status: "pending", type: "Yearly Renewal", docs: [1, 1, 1, 0, 1, 1, 1] },
-];
 
 /* ---- large-redemption review ------------------------------ */
 export const CR_MODELS: Record<string, { name: string; notional: number }> = {

@@ -5,15 +5,17 @@ import { Check, X, Download, Minus, FileSearch, TriangleAlert } from "@/lib/icon
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { DetailShell, Fact, Notice, SectionLabel, ObStatusChip } from "@/components/compliance/Shared";
-import { DOC_NAMES, type DocVerdict, type Onboarding } from "@/lib/compliance/mock";
+import { docStatusToVerdict } from "@/lib/onboarding/mappers";
+import type { AdminOnboardingRow, DocumentDTO } from "@/lib/onboarding/types";
 
 /* ---- one document row with valid/issue verdict toggle ------ */
 function DocRow({
-  name, verdict, onToggle,
+  doc, verdict, onToggle, onDownload,
 }: {
-  name: string;
-  verdict: DocVerdict;
+  doc: DocumentDTO;
+  verdict: "valid" | "issue" | null;
   onToggle?: (v: "valid" | "issue") => void;
+  onDownload: () => void;
 }) {
   const bg = verdict === "valid" ? "#f0fdf4" : verdict === "issue" ? "#ffeceb" : "var(--surface-container)";
   const fg = verdict === "valid" ? "#15803d" : verdict === "issue" ? "#ba1a1a" : "var(--secondary)";
@@ -26,8 +28,8 @@ function DocRow({
       >
         <Glyph size={13} strokeWidth={2.4} />
       </span>
-      <div className="flex-1 text-[13px] font-semibold text-on-surface">{name}</div>
-      <button type="button" title={`Download ${name}`} className="flex cursor-pointer p-0.5 text-secondary">
+      <div className="flex-1 text-[13px] font-semibold text-on-surface">{doc.label}</div>
+      <button type="button" title={`Download ${doc.label}`} onClick={onDownload} className="flex cursor-pointer p-0.5 text-secondary">
         <Download size={14} strokeWidth={2} />
       </button>
       {onToggle ? (
@@ -103,16 +105,17 @@ function ApproveButton({
 }
 
 export function ObDetailPanel({
-  o, onClose, onApprove, onReject, verdicts, onVerdict,
+  o, onClose, onApprove, onReject, onVerdict, onDownload,
 }: {
-  o: Onboarding;
+  o: AdminOnboardingRow;
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
-  verdicts: DocVerdict[];
-  onVerdict: (idx: number, v: DocVerdict) => void;
+  onVerdict: (docType: string, v: "valid" | "issue") => void;
+  onDownload: (docType: string) => void;
 }) {
   const pending = o.status === "pending";
+  const verdicts = o.documents.map((d) => docStatusToVerdict(d.status));
   const reviewed = verdicts.filter((v) => v !== null).length;
   const issues = verdicts.filter((v) => v === "issue").length;
   const allReviewed = reviewed === verdicts.length;
@@ -156,12 +159,13 @@ export function ObDetailPanel({
           </div>
         )}
         <div className="border-t border-outline-variant">
-          {DOC_NAMES.map((n, i) => (
+          {o.documents.map((d, i) => (
             <DocRow
-              key={i}
-              name={n}
+              key={d.doc_type}
+              doc={d}
               verdict={verdicts[i]}
-              onToggle={pending ? (v) => onVerdict(i, verdicts[i] === v ? null : v) : undefined}
+              onToggle={pending ? (v) => onVerdict(d.doc_type, v) : undefined}
+              onDownload={() => onDownload(d.doc_type)}
             />
           ))}
         </div>

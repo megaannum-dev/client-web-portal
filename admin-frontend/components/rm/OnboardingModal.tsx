@@ -4,25 +4,26 @@
    RM — "Start Onboarding" modal: 3-step form (Basic Info → Trade
    Info → Documents) an RM fills out to create a client record and
    kick off KYC. Ported faithfully from the design handoff prototype
-   (Screens.jsx `OnboardingModal`, ~L1563-1738). Decorative only —
-   no submit target yet, matching this prototype's fidelity level
-   elsewhere (see OnboardingBoard's KYC panel).
+   (Screens.jsx `OnboardingModal`, ~L1563-1738). "Onboard Client"
+   calls the real POST /api/rm/onboardings route (FE-3), then
+   uploads any files staged in the Documents step against the new
+   onboarding id (real POST .../documents/{doc_type} calls, same as
+   the KYC panel) — nothing is submitted until that final click, but
+   nothing selected here is silently lost either.
    ============================================================ */
 
-import { Fragment, useState, type ChangeEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
-import { RM_CLIENTS, OB_MODEL_CATALOG, KYC_DOCS } from "@/lib/mock/rm-data";
+import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
+import { useModels } from "@/hooks/api/useModels";
+import { parseFeePercent } from "@/lib/onboarding/fee";
+import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
-const OB_DOC_NAMES = KYC_DOCS.none.map(([name]) => name);
 const OB_STEPS = ["Basic Info", "Trade Info", "Documents"];
-// No compliance/admin privilege distinction in this app yet — locked to the
-// current demo user, same as the prototype's `canAssignRm=false` default.
-const CURRENT_RM = "Dana Okafor";
-const ASSIGNED_RM_OPTIONS = Array.from(new Set(RM_CLIENTS.map((c) => c.assignedRm)));
 
 const inputCls =
   "h-10 rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary";
@@ -41,6 +42,7 @@ interface ObForm {
   swId: string;
   model: string;
   modelUnit: string;
+  initialCashDeposit: string;
   mgmtFee: string;
   incentiveFee: string;
 }
@@ -57,39 +59,118 @@ function ObField({ label, required, children }: { label: string; required?: bool
   );
 }
 
-export function OnboardingModal({ onClose }: { onClose: () => void }) {
+export function OnboardingModal({
+  onClose, startOnboarding, uploadDocument, fetchRmOptions, fetchDocSpecs,
+}: {
+  onClose: () => void;
+} & Pick<UseOnboardingBoardResult, "startOnboarding" | "uploadDocument" | "fetchRmOptions" | "fetchDocSpecs">) {
+  const { data: models } = useModels();
+  const liveModels = (models ?? []).filter((m) => m.status === "live");
+  const [rmOptions, setRmOptions] = useState<RmOptionDTO[]>([]);
+  const [docSpecs, setDocSpecs] = useState<DocSpecDTO[]>([]);
   const [page, setPage] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
-    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: CURRENT_RM,
-    ibhkId: "", swId: "", model: "", modelUnit: "", mgmtFee: "", incentiveFee: "",
+    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "",
+    ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
   });
-  const [docs, setDocs] = useState<Record<string, string>>({});
+  // Keyed by doc_type (not label) — staged Files to upload against the real
+  // onboarding id once it exists, right before closing (FE bug: this used to
+  // be a filename-only preview that never reached the server at all).
+  const [docs, setDocs] = useState<Record<string, File>>({});
+
+  // Server pre-scopes this list to what the caller may assign: every RM for
+  // ADMIN, just the caller's own row for anyone else -- so the same always-
+  // enabled select naturally has "only yourself" to pick when you're an RM.
+  // Always preselect the first option: an unmatched value="" on a controlled
+  // <select> renders the first <option> as selected in the DOM regardless,
+  // so leaving form state empty just desyncs it from what's visibly shown.
+  useEffect(() => {
+    fetchRmOptions().then((r) => {
+      if (!r.success || !r.data || r.data.length === 0) return;
+      setRmOptions(r.data);
+      setForm((f) => (f.assignedRm ? f : { ...f, assignedRm: r.data![0].uid }));
+    });
+  }, [fetchRmOptions]);
+
+  // Same 7-doc catalog the KYC panel renders (compliance_doc_config.py) —
+  // fetched here instead of hardcoded so the two surfaces can never diverge.
+  useEffect(() => {
+    fetchDocSpecs().then((r) => { if (r.success && r.data) setDocSpecs(r.data); });
+  }, [fetchDocSpecs]);
 
   const set = (k: keyof ObForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const onModel = (e: ChangeEvent<HTMLSelectElement>) => {
-    const m = OB_MODEL_CATALOG.find((x) => x.name === e.target.value);
-    setForm((f) => ({ ...f, model: e.target.value, mgmtFee: m?.mgmtFee ?? f.mgmtFee, incentiveFee: m?.incentiveFee ?? f.incentiveFee }));
+    const m = liveModels.find((x) => x.id === e.target.value);
+    setForm((f) => ({
+      ...f,
+      model: e.target.value,
+      mgmtFee: m ? `${m.mgmt}%` : f.mgmtFee,
+      incentiveFee: m ? `${m.incentive}%` : f.incentiveFee,
+    }));
   };
-  const onDoc = (name: string) => (e: ChangeEvent<HTMLInputElement>) => {
+  const onDoc = (docType: string) => (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setDocs((d) => ({ ...d, [name]: file.name }));
+    if (file) setDocs((d) => ({ ...d, [docType]: file }));
     e.target.value = "";
   };
-  const removeDoc = (name: string) => setDocs((d) => { const n = { ...d }; delete n[name]; return n; });
+  const removeDoc = (docType: string) => setDocs((d) => { const n = { ...d }; delete n[docType]; return n; });
 
   const page1Valid = !!(
     form.clientName.trim() && form.phone.trim() && form.email.trim() &&
     form.address.trim() && form.country.trim() && form.idType && form.idNumber.trim()
   );
+  const selectedModel = liveModels.find((m) => m.id === form.model);
+  // Floor mirrors the backend's BE-8 check exactly (N=0): deposit >= units * model size.
+  // An unknown/null size is treated as 0, same as the backend's own fallback for this field.
+  const depositFloor = Number(form.modelUnit || 0) * (selectedModel?.size ?? 0);
+  const depositMeetsFloor = form.initialCashDeposit.trim() !== "" && Number(form.initialCashDeposit) >= depositFloor;
   const page2Valid = !!(
     form.ibhkId.trim() && form.swId.trim() && form.model &&
-    /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim()
+    /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim() &&
+    depositMeetsFloor
   );
   const stepValid = [page1Valid, page2Valid, true];
   const canSubmit = page1Valid && page2Valid;
+
+  async function handleSubmit() {
+    const model = liveModels.find((m) => m.id === form.model);
+    if (!model) return;
+    setSubmitting(true);
+    try {
+      const result = await startOnboarding({
+        client_name: form.clientName, email: form.email, primary_phone: form.phone,
+        address: form.address, country_of_residence: form.country,
+        id_type: form.idType, id_number: form.idNumber,
+        ibhk_account: form.ibhkId, sw_account: form.swId,
+        model_id: model.id,
+        units: Number(form.modelUnit),
+        initial_cash_deposit: Number(form.initialCashDeposit),
+        mgmt_fee: parseFeePercent(form.mgmtFee),
+        incentive_fee: parseFeePercent(form.incentiveFee),
+        ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
+      });
+      if (!result.success) {
+        alert(`Could not start onboarding: ${result.error}`);
+        return;
+      }
+      // Client record exists now — push every doc staged in step 3 for real.
+      const failures: string[] = [];
+      for (const [docType, file] of Object.entries(docs)) {
+        const r = await uploadDocument(result.id!, docType, file);
+        if (!r.success) failures.push(docSpecs.find((s) => s.doc_type === docType)?.label ?? docType);
+      }
+      if (failures.length) alert(`Client created, but these documents failed to upload — add them from the KYC panel: ${failures.join(", ")}`);
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Invalid fee value");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <Modal
@@ -99,12 +180,14 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
       centered
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
-          {page > 1 && <Button variant="secondary" onClick={() => setPage(page - 1)}>Back</Button>}
+          <Button variant="secondary" onClick={onClose} className="mr-auto" disabled={submitting}>Cancel</Button>
+          {page > 1 && <Button variant="secondary" onClick={() => setPage(page - 1)} disabled={submitting}>Back</Button>}
           {page < 3 ? (
             <Button onClick={() => setPage(page + 1)}>Next</Button>
           ) : (
-            <Button icon={UserRoundPlus} disabled={!canSubmit}>Onboard Client</Button>
+            <Button icon={UserRoundPlus} disabled={!canSubmit || submitting} onClick={handleSubmit}>
+              {submitting ? "Onboarding…" : "Onboard Client"}
+            </Button>
           )}
         </>
       }
@@ -153,9 +236,6 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
               <input className={inputCls} value={form.address} onChange={set("address")} placeholder="Registered address" />
             </ObField>
           </div>
-          <ObField label="Country of Residence" required>
-            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
-          </ObField>
           <ObField label="ID Type" required>
             <select className={selectCls} value={form.idType} onChange={set("idType")}>
               {OB_ID_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -164,9 +244,12 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
           <ObField label="ID Number" required>
             <input className={inputCls} value={form.idNumber} onChange={set("idNumber")} placeholder="e.g. A1234567" />
           </ObField>
+          <ObField label="Country of Residence" required>
+            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
+          </ObField>
           <ObField label="Assigned RM">
-            <select className={clsx(inputCls, "cursor-not-allowed opacity-60")} value={form.assignedRm} onChange={set("assignedRm")} disabled>
-              {ASSIGNED_RM_OPTIONS.map((rm) => <option key={rm} value={rm}>{rm}</option>)}
+            <select className={selectCls} value={form.assignedRm} onChange={set("assignedRm")}>
+              {rmOptions.map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
             </select>
           </ObField>
         </div>
@@ -184,20 +267,35 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
             <ObField label="Initial Model to Subscribe" required>
               <select className={selectCls} value={form.model} onChange={onModel}>
                 <option value="" disabled>Select a model…</option>
-                {OB_MODEL_CATALOG.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+                {liveModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </ObField>
           </div>
           <ObField label="Model Unit" required>
             <input
               className={inputCls}
+              min={1} step={1} type="number"
               inputMode="numeric"
               value={form.modelUnit}
               onChange={(e) => setForm((f) => ({ ...f, modelUnit: e.target.value.replace(/[^\d]/g, "") }))}
               placeholder="e.g. 2"
             />
           </ObField>
-          <div />
+          <ObField label="Initial Cash Deposit" required>
+            <input
+              className={inputCls}
+              inputMode="numeric"
+              value={form.initialCashDeposit}
+              onChange={(e) => setForm((f) => ({ ...f, initialCashDeposit: e.target.value.replace(/[^\d.]/g, "") }))}
+              placeholder="e.g. 250000"
+            />
+            {form.model && /^[1-9]\d*$/.test(form.modelUnit.trim()) && !depositMeetsFloor && (
+              <span className="text-[11.5px] font-semibold text-primary">
+                Must be at least {depositFloor.toLocaleString()} (units × model size).
+              </span>
+            )}
+          </ObField>
+
           <ObField label="Management Fee" required>
             <input className={inputCls} value={form.mgmtFee} onChange={set("mgmtFee")} placeholder="e.g. 1.0%" />
           </ObField>
@@ -218,10 +316,10 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
             can also be added later from the KYC panel.
           </p>
           <div className="flex flex-col gap-2">
-            {OB_DOC_NAMES.map((name) => {
-              const file = docs[name];
+            {docSpecs.map((spec) => {
+              const file = docs[spec.doc_type];
               return (
-                <div key={name} className="flex items-center justify-between gap-3 rounded-[10px] border border-outline-variant bg-white px-3.5 py-2.5">
+                <div key={spec.doc_type} className="flex items-center justify-between gap-3 rounded-[10px] border border-outline-variant bg-white px-3.5 py-2.5">
                   <div className="flex min-w-0 items-center gap-2.5">
                     {file ? (
                       <Check size={16} strokeWidth={1.75} className="shrink-0 text-primary" />
@@ -229,19 +327,19 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
                       <File size={16} strokeWidth={1.75} className="shrink-0 text-secondary" />
                     )}
                     <div className="min-w-0">
-                      <div className="truncate text-[13.5px] font-semibold text-on-surface">{name}</div>
-                      {file && <div className="truncate text-[12px] text-secondary">{file}</div>}
+                      <div className="truncate text-[13.5px] font-semibold text-on-surface">{spec.label}</div>
+                      {file && <div className="truncate text-[12px] text-secondary">{file.name}</div>}
                     </div>
                   </div>
                   {file ? (
-                    <button type="button" onClick={() => removeDoc(name)} className="shrink-0 cursor-pointer bg-transparent p-1.5 text-[12.5px] font-semibold text-secondary">
+                    <button type="button" onClick={() => removeDoc(spec.doc_type)} className="shrink-0 cursor-pointer bg-transparent p-1.5 text-[12.5px] font-semibold text-secondary">
                       Remove
                     </button>
                   ) : (
                     <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded border border-outline px-3 py-1.5 text-[12.5px] font-semibold text-secondary">
                       <Upload size={13} strokeWidth={2} />
                       Upload
-                      <input type="file" className="hidden" onChange={onDoc(name)} />
+                      <input type="file" className="hidden" onChange={onDoc(spec.doc_type)} />
                     </label>
                   )}
                 </div>

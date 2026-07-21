@@ -94,6 +94,10 @@ class ClientService:
         dto.subscriptions = [
             SubscriptionOut(model=s.model, status=s.status, account=s.account) for s in subs
         ]
+        portfolio = self.repo.get_portfolio(client_id)
+        if portfolio is not None:
+            dto.cash_deposit = portfolio.cash_deposit
+            dto.amount_in_trade = portfolio.amount_in_trade
         return dto
 
     @staticmethod

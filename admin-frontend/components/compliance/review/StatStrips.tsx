@@ -2,14 +2,15 @@
 
 import { Clock, Check, X, TriangleAlert, Shield, Banknote } from "@/lib/icons";
 import { StatCard } from "@/components/compliance/Shared";
-import { coMoneyShort, crAmt, type Onboarding, type Redemption } from "@/lib/compliance/mock";
+import { coMoneyShort, crAmt, type Redemption } from "@/lib/compliance/mock";
+import type { AdminOnboardingRow } from "@/lib/onboarding/types";
 
 /* ---- Onboarding stat strip --------------------------------- */
-export function ObStatStrip({ rows }: { rows: Onboarding[] }) {
+export function ObStatStrip({ rows }: { rows: AdminOnboardingRow[] }) {
   const pending = rows.filter((o) => o.status === "pending").length;
   const approved = rows.filter((o) => o.status === "approved").length;
   const rejected = rows.filter((o) => o.status === "rejected").length;
-  const flagged = rows.filter((o) => o.status === "pending" && o.docs.some((d) => !d)).length;
+  const flagged = rows.filter((o) => o.status === "pending" && o.documents.some((d) => d.status === "rejected")).length;
   return (
     <div className="mb-[22px] grid grid-cols-4 gap-3.5">
       <StatCard icon={Clock} k="Pending review" v={pending} />

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -26,7 +28,15 @@ class ClientListItemOut(BaseModel):
     initiate_method: str | None
     ib_account: str | None
     email: str | None  # users.email (client's user, not RM's)
+    authorized_by_name: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
+    id_type: str | None  # NEW (014 C-8) — client_onboardings.id_type, joined
+    id_number: str | None  # NEW (014 C-8) — client_onboardings.id_number, joined
     subscriptions: list[SubscriptionOut] = []  # only populated on the single-client route
+    # NEW — client_portfolios (proposal 011/014 C-9), only populated on the
+    # single-client route (same convention as `subscriptions` above). None if
+    # the client predates the cash-deposit intake flow (no portfolio row yet).
+    cash_deposit: Decimal | None = None
+    amount_in_trade: Decimal | None = None
 
 
 class ClientListOut(BaseModel):

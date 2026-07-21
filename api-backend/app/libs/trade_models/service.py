@@ -346,6 +346,7 @@ class ModelService:
             stream,
             suggested_name=filename,
             content_type=content_type,
+            subdir="trade_models",
         )
 
         # Insert material row.
