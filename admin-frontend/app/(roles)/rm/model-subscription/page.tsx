@@ -12,6 +12,7 @@ import {
   type SubscriptionModalContext,
 } from "@/components/rm/SubscriptionFormModal";
 import { SUB_CLIENTS } from "@/lib/mock/rm-data";
+import { useSubscriptions } from "@/hooks/api/useSubscriptions";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
 
@@ -51,9 +52,10 @@ function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [modal, setModal] = useState<ModalState | null>(() => deepLink?.modal ?? null);
+  const { clients, ensureAllotmentsLoaded } = useSubscriptions();
 
-  const totalClients = SUB_CLIENTS.length;
-  const totalModels = SUB_CLIENTS.reduce((s, c) => s + c.models.length, 0);
+  const totalClients = clients?.length ?? 0;
+  const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -69,6 +71,8 @@ function ModelSubscriptionContent() {
         />
       </div>
       <SubscriptionAccordion
+        clients={clients ?? []}
+        onClientOpen={ensureAllotmentsLoaded}
         onOpenModal={setModal}
         initialOpenClient={deepLink?.openClient}
         initialOpenModelKey={deepLink?.openModelKey}

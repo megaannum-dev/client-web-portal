@@ -24,6 +24,7 @@ build/
 
 # PC workspace uploaded marketing materials (local storage backend mount)
 /pc_storage/
+/crm_filesystem/
 /tests/
 
 # IDE

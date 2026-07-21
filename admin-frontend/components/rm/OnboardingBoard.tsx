@@ -1,21 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle } from "@/lib/icons";
+import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Download } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import {
-  KYC_COLS,
-  KYC_DOCS,
-  VERIFIED_COUNT,
-  TONE_FOR,
-  KNOWN_CLIENT_IDS,
-  type KycClient,
-} from "@/lib/mock/rm-data";
+import { KNOWN_CLIENT_IDS } from "@/lib/mock/rm-data";
+import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
+import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -29,9 +24,25 @@ const DOC_TINT: Record<string, [string, string]> = {
   neutral: ["#f3f4f5", "#5f5e5e"],
 };
 
-function KanbanCard({ item, selected, onClick }: { item: KycClient; selected: boolean; onClick: () => void }) {
-  const count = VERIFIED_COUNT[item.preset];
-  const tone = TONE_FOR[item.preset];
+// DocStatus -> chip tone / display label — the KYC panel's own styling
+// lookup (mirrors the deleted mock's tone-per-doc-status shape 1:1).
+const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
+  not_started: "neutral", uploaded: "pending", in_review: "review",
+  verified: "active", rejected: "failed", expired: "overdue",
+};
+const DOC_STATUS_LABEL: Record<DocStatus, string> = {
+  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
+  verified: "Verified", rejected: "Rejected", expired: "Expired",
+};
+
+/** Pure function of the two counts, per §6 FE-3's invariant — not a preset key. */
+function chipToneForCounts(verified: number, required: number): ChipTone {
+  if (verified === 0) return "neutral";
+  return verified === required ? "active" : "warm";
+}
+
+function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selected: boolean; onClick: () => void }) {
+  const tone = chipToneForCounts(item.verifiedCount, item.requiredCount);
   return (
     <button
       type="button"
@@ -44,9 +55,9 @@ function KanbanCard({ item, selected, onClick }: { item: KycClient; selected: bo
     >
       <div className="flex items-start justify-between gap-2.5">
         <span className="text-[14px] font-semibold leading-tight text-on-surface">{item.name}</span>
-        {item.preset === "none"
+        {item.status === "initial"
           ? <Chip tone="neutral" dot={false}>Not started</Chip>
-          : <Chip tone={tone} dot={false}>{count}/7 verified</Chip>}
+          : <Chip tone={tone} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>}
       </div>
       <div className="flex items-center gap-1.5 text-[12px] text-secondary">
         <Shield size={13} strokeWidth={1.75} />
@@ -56,16 +67,69 @@ function KanbanCard({ item, selected, onClick }: { item: KycClient; selected: bo
   );
 }
 
-// Statuses that block submission — doc is not yet "provided".
-const BLOCKING_STATUSES = new Set(["Not started", "Pending", "Rejected", "Expired"]);
+// Doc statuses that count as "provided" — mirrors the deleted mock's
+// BLOCKING_STATUSES rule, now sourced from DocStatus instead of a string set.
+const NON_BLOCKING_DOC_STATUSES = new Set<DocStatus>(["uploaded", "verified", "in_review"]);
 
-function KycPanel({ item, onClose, onOpenProfile }: { item: KycClient; onClose: () => void; onOpenProfile: (id: string) => void }) {
-  const docs = KYC_DOCS[item.preset] ?? KYC_DOCS.none;
-  const count = VERIFIED_COUNT[item.preset];
+type DownloadResult = { success: boolean; error?: string; filename?: string; contentType?: string; base64?: string };
+
+// Rehydrate a base64 download payload into a Blob and trigger a save dialog
+// (mirrors app/(roles)/compliance/review/page.tsx's saveBase64File — cookie
+// token can't ride a plain <a href>, so every download in this codebase is a
+// base64 proxy decoded client-side instead).
+function saveBase64File(filename: string, contentType: string, base64: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+function KycPanel({
+  item, onClose, onOpenProfile, onUploadDoc, onSubmitAll, onDownload, onDownloadAll,
+}: {
+  item: KycBoardClient;
+  onClose: () => void;
+  onOpenProfile: (id: string) => void;
+  onUploadDoc: (onboardingId: string, docType: string, file: File) => Promise<{ success: boolean; error?: string }>;
+  onSubmitAll: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
+  onDownload?: (onboardingId: string, docType: string) => Promise<DownloadResult>;
+  onDownloadAll?: (onboardingId: string) => Promise<DownloadResult>;
+}) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const docs = item.documents;
+  const locked = item.status === "reviewing" || item.status === "active";
 
-  const outstanding = docs.filter(([, status]) => BLOCKING_STATUSES.has(status)).length;
+  const outstanding = docs.filter((d) => !NON_BLOCKING_DOC_STATUSES.has(d.status)).length;
   const canSubmit = outstanding === 0;
+
+  const handleUpload = (docType: string) => (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    void onUploadDoc(item.id, docType, file).then((r) => {
+      if (!r.success) alert(`Upload failed: ${r.error}`);
+    });
+  };
+
+  const handleSubmitAll = () => {
+    void onSubmitAll(item.id).then((r) => {
+      if (!r.success) alert(`Could not submit: ${r.error}`);
+    });
+  };
+
+  const handleDownload = (docType: string) => {
+    void onDownload?.(item.id, docType)?.then((r) => {
+      if (r.success) saveBase64File(r.filename!, r.contentType!, r.base64!);
+      else alert(`Download failed: ${r.error}`);
+    });
+  };
+
+  const handleDownloadAll = () => {
+    void onDownloadAll?.(item.id)?.then((r) => {
+      if (r.success) saveBase64File(r.filename!, r.contentType!, r.base64!);
+      else alert(`Download failed: ${r.error}`);
+    });
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -81,18 +145,19 @@ function KycPanel({ item, onClose, onOpenProfile }: { item: KycClient; onClose: 
         </div>
         <div className="mt-3.5 flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">KYC &amp; Compliance Docs</span>
-          <Chip tone={TONE_FOR[item.preset]} dot={false}>{count}/7 verified</Chip>
+          <Chip tone={chipToneForCounts(item.verifiedCount, item.requiredCount)} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-1">
-        {docs.map(([name, status, tone], i) => {
+        {docs.map((d, i) => {
+          const tone = DOC_STATUS_TONE[d.status];
           const [bg, fg] = DOC_TINT[tone] ?? DOC_TINT.neutral;
           const Glyph = DOC_ICON[tone] ?? Clock;
           const hov = hovered === i;
           return (
             <div
-              key={name}
+              key={d.doc_type}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
               className={clsx("flex items-center gap-3 py-[13px]", i < docs.length - 1 && "border-b border-outline-variant")}
@@ -100,17 +165,25 @@ function KycPanel({ item, onClose, onOpenProfile }: { item: KycClient; onClose: 
               <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md" style={{ background: bg, color: fg }}>
                 <Glyph size={14} strokeWidth={2} />
               </span>
-              <span className="flex-1 text-[14px] font-semibold text-on-surface">{name}</span>
-              {hov ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[5px] text-[12px] font-semibold text-primary"
+              <span className="flex-1 text-[14px] font-semibold text-on-surface">{d.label}</span>
+              {hov && d.can_reupload ? (
+                <label
+                  className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[5px] text-[12px] font-semibold text-primary"
                   style={{ background: "rgba(242,116,5,.12)" }}
                 >
                   <Upload size={13} strokeWidth={2} />Upload
+                  <input type="file" className="hidden" onChange={handleUpload(d.doc_type)} />
+                </label>
+              ) : !d.can_reupload && d.filename ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownload(d.doc_type)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-none bg-transparent p-0 text-[12px] font-semibold text-primary"
+                >
+                  <Download size={13} strokeWidth={2} /> {DOC_STATUS_LABEL[d.status]}
                 </button>
               ) : (
-                <Chip tone={tone as ChipTone} dot={false}>{status}</Chip>
+                <Chip tone={tone} dot={false}>{DOC_STATUS_LABEL[d.status]}</Chip>
               )}
             </div>
           );
@@ -125,8 +198,12 @@ function KycPanel({ item, onClose, onOpenProfile }: { item: KycClient; onClose: 
           </div>
         )}
         <div className="flex gap-2.5">
-          <Button variant="secondary" icon={Bell} full>Request docs</Button>
-          <Button icon={Check} full disabled={!canSubmit}>Submit All</Button>
+          {!locked && <Button variant="secondary" icon={Bell} full>Request docs</Button>}
+          {locked ? (
+            <Button icon={Download} full onClick={handleDownloadAll}>Download All</Button>
+          ) : (
+            <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
+          )}
         </div>
         <button
           type="button"
@@ -140,28 +217,69 @@ function KycPanel({ item, onClose, onOpenProfile }: { item: KycClient; onClose: 
   );
 }
 
-export function OnboardingBoard() {
+export function OnboardingBoard(props: UseOnboardingBoardResult) {
   const router = useRouter();
-  const [selected, setSelected] = useState<KycClient | null>(null);
-  const panelOpen = !!selected;
+  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding, downloadDocument, downloadAllDocuments } = props;
+  // Track by id, not by a snapshot object — a refetch after upload/submit
+  // must be reflected in the open panel, not the stale item captured at
+  // selection time.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const panelOpen = !!selectedId;
+  const selectedItem = (selectedId && columns?.flatMap((c) => c.clients).find((c) => c.id === selectedId)) || null;
+
+  // Board rows never carry documents (perf) -- fetch the real doc rows for
+  // whichever onboarding is open, and refresh it after any upload/submit.
+  const [detail, setDetail] = useState<KycBoardClient | null>(null);
+  const loadDetail = useCallback((id: string) => {
+    fetchOnboarding(id).then((r) => { if (r.success && r.data) setDetail(r.data); });
+  }, [fetchOnboarding]);
+  useEffect(() => {
+    if (selectedId) loadDetail(selectedId); else setDetail(null);
+  }, [selectedId, loadDetail]);
 
   // Remember the last opened item so the floating panel can fade/slide out
   // gracefully instead of unmounting its content mid-transition.
-  const lastItemRef = useRef<KycClient | null>(null);
-  if (selected) lastItemRef.current = selected;
-  const panelItem = selected ?? lastItemRef.current;
+  const lastItemRef = useRef<KycBoardClient | null>(null);
+  if (selectedItem) lastItemRef.current = selectedItem;
+  const panelItem = selectedItem ?? lastItemRef.current;
+  const panelItemWithDocs = panelItem && detail?.id === panelItem.id
+    ? { ...panelItem, documents: detail.documents, verifiedCount: detail.verifiedCount, requiredCount: detail.requiredCount }
+    : panelItem;
+
+  const uploadAndRefreshDetail = useCallback(
+    async (onboardingId: string, docType: string, file: File) => {
+      const r = await uploadDocument(onboardingId, docType, file);
+      if (r.success) loadDetail(onboardingId);
+      return r;
+    },
+    [uploadDocument, loadDetail],
+  );
+  const submitAndRefreshDetail = useCallback(
+    async (onboardingId: string) => {
+      const r = await submitAll(onboardingId);
+      if (r.success) loadDetail(onboardingId);
+      return r;
+    },
+    [submitAll, loadDetail],
+  );
 
   const openProfile = (id: string) => {
     if (KNOWN_CLIENT_IDS.has(id)) {
-      setSelected(null);
+      setSelectedId(null);
       router.push(`/rm/client-detail/${id}`);
     }
   };
 
+  if (!columns) {
+    return <div className="text-[13px] text-secondary">{error ? `Failed to load onboarding board: ${error}` : loading ? "Loading…" : "No data."}</div>;
+  }
+
+  const totalClients = columns.reduce((n, col) => n + col.clients.length, 0);
+
   return (
     <>
       <div className="mb-[18px] flex items-center justify-between">
-        <span className="text-[13px] text-secondary">9 clients across 4 queues</span>
+        <span className="text-[13px] text-secondary">{totalClients} clients across {columns.length} queues</span>
         {panelOpen && <span className="text-[12px] text-secondary">Click × to close panel</span>}
       </div>
 
@@ -171,7 +289,7 @@ export function OnboardingBoard() {
         style={{ paddingRight: panelOpen ? 396 : 0 }}
       >
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-          {KYC_COLS.map((col) => (
+          {columns.map((col) => (
             <div key={col.label} className="flex flex-col gap-2.5 rounded-[14px] bg-surface-low p-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold uppercase tracking-[0.05em] text-secondary">{col.label}</span>
@@ -182,8 +300,8 @@ export function OnboardingBoard() {
                   <KanbanCard
                     key={item.id}
                     item={item}
-                    selected={selected?.id === item.id}
-                    onClick={() => setSelected(selected?.id === item.id ? null : item)}
+                    selected={selectedId === item.id}
+                    onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
                   />
                 ))}
               </div>
@@ -207,7 +325,17 @@ export function OnboardingBoard() {
         }}
       >
         <div className="flex h-full flex-col overflow-hidden rounded-[20px] border border-outline-variant bg-white shadow-overlay">
-          {panelItem && <KycPanel item={panelItem} onClose={() => setSelected(null)} onOpenProfile={openProfile} />}
+          {panelItemWithDocs && (
+            <KycPanel
+              item={panelItemWithDocs}
+              onClose={() => setSelectedId(null)}
+              onOpenProfile={openProfile}
+              onUploadDoc={uploadAndRefreshDetail}
+              onSubmitAll={submitAndRefreshDetail}
+              onDownload={downloadDocument}
+              onDownloadAll={downloadAllDocuments}
+            />
+          )}
         </div>
       </div>
     </>

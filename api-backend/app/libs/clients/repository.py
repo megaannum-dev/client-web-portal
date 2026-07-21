@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
+from app.models.onboarding import ClientOnboarding
 from app.models.pc import ClientSubscription, Model, ModelStatus
+from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
 # D-4: roles in this set see every client_profiles row, unfiltered. Every other
@@ -33,6 +35,9 @@ class ClientRow:
     initiate_method: str | None
     ib_account: str | None
     email: str | None
+    authorized_by_name: str | None  # 014 C-7: resolved display name of users.authorized_by
+    id_type: str | None  # 014 C-8: client_onboardings.id_type, joined
+    id_number: str | None  # 014 C-8: client_onboardings.id_number, joined
 
 
 @dataclass(frozen=True)
@@ -60,7 +65,14 @@ class ClientRepository:
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
         ClientUser = aliased(User)
+        Approver = aliased(User)
+        ApproverProfile = aliased(AdminProfile)
         rm_name = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        # 014 C-7: same uid -> display-name coalesce as onboarding/repository.py's
+        # display_fields().approved_by -- one resolution, two call sites.
+        authorized_by_name = func.coalesce(
+            ApproverProfile.name, Approver.email, ClientUser.authorized_by
+        )
 
         return (
             self.db.query(
@@ -74,10 +86,18 @@ class ClientRepository:
                 ClientProfile.initiate_method,
                 ClientProfile.ib_account,
                 ClientUser.email.label("email"),
+                authorized_by_name.label("authorized_by_name"),
+                ClientOnboarding.id_type,
+                ClientOnboarding.id_number,
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
             .outerjoin(ClientUser, ClientUser.id == ClientProfile.user_id)
+            .outerjoin(Approver, Approver.firebase_uid == ClientUser.authorized_by)
+            .outerjoin(ApproverProfile, ApproverProfile.user_id == Approver.id)
+            # 014 C-8: outerjoin -- a pre-013 client (bare POST /rm/clients, no
+            # onboarding cycle) still returns, with id_type/id_number None.
+            .outerjoin(ClientOnboarding, ClientOnboarding.user_id == ClientProfile.user_id)
         )
 
     def _scoped(self, query, role: AdminRole, rm_firebase_uid: str):
@@ -97,6 +117,9 @@ class ClientRepository:
         query = self._base_query().filter(ClientProfile.user_id == client_id)
         row = self._scoped(query, role, rm_firebase_uid).one_or_none()
         return self._row(row) if row else None
+
+    def get_portfolio(self, client_id: uuid.UUID) -> ClientPortfolio | None:
+        return self.db.get(ClientPortfolio, client_id)
 
     def list_subscriptions(self, client_id: uuid.UUID, ib_account: str | None) -> list[SubscriptionRow]:
         rows = (
@@ -165,4 +188,7 @@ class ClientRepository:
             initiate_method=r.initiate_method,
             ib_account=r.ib_account,
             email=r.email,
+            authorized_by_name=r.authorized_by_name,
+            id_type=r.id_type,
+            id_number=r.id_number,
         )

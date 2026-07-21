@@ -6,25 +6,57 @@ import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
-  ChevronRight, Search, Clock, X,
+  ChevronRight, Search, Clock, X, TriangleAlert,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { useClient } from "@/hooks/api/useClient";
+import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
-import {
-  getMockOverlay,
-  type ClientDoc,
-  type HistoryEntry,
-} from "@/lib/mock/rm-data";
+import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
+import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
+import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { type ClientDoc, type HistoryEntry } from "@/lib/mock/rm-data";
 
-const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search };
+const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
+
+// DocStatus -> chip tone/label. Mirrors OnboardingBoard.tsx's own
+// DOC_STATUS_TONE/DOC_STATUS_LABEL lookup values 1:1 (same visual mapping),
+// re-declared here rather than imported since that file doesn't export them
+// and is out of scope for FE-4 (owned by FE-1/2/3, edited concurrently).
+// ponytail: dedupe by exporting OnboardingBoard.tsx's lookup once that file
+// is next touched for an unrelated reason.
+const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
+  not_started: "neutral", uploaded: "pending", in_review: "review",
+  verified: "active", rejected: "failed", expired: "overdue",
+};
+const DOC_STATUS_LABEL: Record<DocStatus, string> = {
+  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
+  verified: "Verified", rejected: "Rejected", expired: "Expired",
+};
+// Matches OnboardingBoard.tsx's own DOC_ICON glyph choice per tone exactly
+// (Check/Clock/Clock/X/TriangleAlert/Clock) -- these two lookups must stay
+// in visual lockstep even though they're declared in different files.
+const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
+  active: "check", pending: "clock", review: "clock", overdue: "warning", failed: "x", neutral: "clock",
+};
+
+/** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
+function docFromDto(doc: DocumentDTO): ClientDoc {
+  const tone = DOC_STATUS_TONE[doc.status];
+  return { name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock" };
+}
 
 // Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
 const SUB_STATUS_LABEL: Record<string, string> = { live: "Active", draft: "In Review" };
 const SUB_STATUS_TONE: Record<string, ChipTone> = { live: "active", draft: "review" };
+
+// OnboardingStatus -> header chip tone. Labels reuse OnboardingBoard.tsx's own
+// COLUMN_LABELS (lib/onboarding/mappers.ts) so the two stay in lockstep.
+const ONBOARDING_STATUS_TONE: Record<OnboardingStatus, ChipTone> = {
+  initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
+};
 
 const CHECK_TINT: Record<string, string> = {
   active:  "bg-success-container text-success-on-container",
@@ -111,6 +143,8 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error, notFound: nf } = useClient(id);
   const [censored, setCensored] = useState(false);
+  const { data: onboarding } = useOnboardingByClient(id);
+  const { data: events } = useClientEvents(id);
 
   if (nf) notFound(); // Next.js 404
 
@@ -130,8 +164,15 @@ export default function ClientDetailPage() {
     );
   }
 
-  const overlay = getMockOverlay(data.id);
-  const verifiedCount = overlay.docs.filter((x) => x.tone === "active").length;
+  // Real onboarding status (already fetched for the KYC card below) drives the
+  // header chip instead of the mock overlay -- a client with a live subscription
+  // and fully-verified KYC must not still read "In Review".
+  const since = onboarding ? new Date(onboarding.created_at).getFullYear() : "—";
+  const totalCashValue = data.cashDeposit;
+  const totalPortfolioValue =
+    data.cashDeposit != null && data.amountInTrade != null
+      ? data.cashDeposit + data.amountInTrade
+      : null;
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -154,9 +195,11 @@ export default function ClientDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="whitespace-nowrap text-[26px] font-bold tracking-[-0.01em] text-on-surface">{data.name ?? "—"}</h1>
-              <Chip tone={overlay.tone}>{overlay.status}</Chip>
+              {onboarding && (
+                <Chip tone={ONBOARDING_STATUS_TONE[onboarding.status]}>{COLUMN_LABELS[onboarding.status]}</Chip>
+              )}
             </div>
-            <p className="mt-1 text-[14px] text-secondary">{overlay.mandate} mandate · Client since {overlay.since} · RM: {data.assignedRm ?? "Unassigned"}</p>
+            <p className="mt-1 text-[14px] text-secondary">Discretionary mandate · Client since {since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -183,8 +226,8 @@ export default function ClientDetailPage() {
         <div className="mb-[18px] rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-3.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Account Balance</div>
           <div className="grid grid-cols-2 gap-7">
-            <BalanceItem label="Total Portfolio Value" value={overlay.portfolioValue ?? "—"} censored={censored} />
-            <BalanceItem label="Total Cash Value" value={overlay.cashValue} censored={censored} />
+            <BalanceItem label="Total Portfolio Value" value={totalPortfolioValue != null ? fmtMoneyShort(totalPortfolioValue) : "—"} censored={censored} />
+            <BalanceItem label="Total Cash Value" value={totalCashValue != null ? fmtMoneyShort(totalCashValue) : "—"} censored={censored} />
           </div>
         </div>
 
@@ -196,10 +239,10 @@ export default function ClientDetailPage() {
             <InfoField label="Email" value={data.email ?? "—"} />
             <InfoField label="Registered Address" value={data.address ?? "—"} />
             <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
-            <InfoField label="ID Info" value="—" />
+            <InfoField label="ID Info" value={[data.idType, data.idNumber].filter(Boolean).join(" ") || "—"} />
             <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
             <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
-            <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
+            <InfoField label="Authorized Person" value={data.authorizedByName ?? "—"} />
           </div>
         </div>
       </Card>
@@ -237,27 +280,35 @@ export default function ClientDetailPage() {
         <Card
           title="KYC & Documents"
           action={
-            <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
-              {verifiedCount} of {overlay.docs.length} verified
+            <Chip tone={onboarding && onboarding.verified_count === onboarding.required_count ? "active" : "pending"} dot={false}>
+              {onboarding?.verified_count ?? 0} of {onboarding?.required_count ?? 0} verified
             </Chip>
           }
         >
-          {overlay.docs.map((doc, i) => (
-            <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
-          ))}
+          {(onboarding?.documents ?? []).length === 0 ? (
+            <p className="py-1.5 text-[14px] text-secondary">No documents yet.</p>
+          ) : (
+            (onboarding!.documents.map((doc, i) => (
+              <CheckRow key={doc.doc_type} doc={docFromDto(doc)} last={i === onboarding!.documents.length - 1} />
+            )))
+          )}
           <div className="mt-[18px] flex gap-3">
             <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
+            <Button icon={Check} disabled={!!onboarding && onboarding.verified_count === onboarding.required_count}>Approve KYC</Button>
           </div>
         </Card>
       </div>
 
       {/* History */}
-      <Card title="History" action={<span className="text-[12px] text-secondary">{overlay.history.length} events</span>}>
+      <Card title="History" action={<span className="text-[12px] text-secondary">{(events ?? []).length} events</span>}>
         <div className="relative max-h-[268px] overflow-y-auto pl-[22px] pr-1.5">
           <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
-          {overlay.history.map((item, i) => (
-            <HistoryItem key={i} item={item} last={i === overlay.history.length - 1} />
+          {(events ?? []).map((e, i, arr) => (
+            <HistoryItem
+              key={e.id}
+              item={{ t: e.title, d: fmtTimestamp(e.created_at), detail: [e.body] }}
+              last={i === arr.length - 1}
+            />
           ))}
         </div>
       </Card>

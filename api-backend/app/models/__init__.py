@@ -36,4 +36,15 @@ from app.models.recon import (  # noqa: F401
     ReconSession,
     SourceKind,
 )
+from app.models.onboarding import (  # noqa: F401
+    ClientOnboarding,
+    OnboardingDocument,
+    ClientAllotmentRedemption,
+    ClientEvent,
+    OnboardingStatus,
+    OnboardingKind,
+    DocStatus,
+    AllotRdmpStatus,
+    AllotRdmpKind,
+)
 from app.core.database import Base  # noqa: F401
