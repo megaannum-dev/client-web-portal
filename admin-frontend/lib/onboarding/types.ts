@@ -64,6 +64,18 @@ export interface AllotRdmptDTO {
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
 export interface ClientEventDTO  { id: string; category: string; title: string; body: string; created_at: string; }
 
+/* ---- Model Subscription read endpoints (Goal 9, FE-6) --------------------- */
+export interface ClientSubscriptionRowDTO {
+  model_id: string; model_name: string; units: number;
+  mgmt_fee: number; incentive_fee: number;   // effective = override ?? Model default (013 C-5's read-side coalesce)
+  ib_account: string | null;
+  amount: number;   // = units * model.model_size — mirrors AllotRdmptDTO.amount
+}
+export interface ClientSubscriptionsDTO {
+  client_id: string; client_name: string;
+  subscriptions: ClientSubscriptionRowDTO[];
+}
+
 /* ---- Admin-side VIEW types — what OnboardingBoard.tsx/ObDetailPanel/
    AllotDetailPanel actually render. Replace the deleted mock types
    1:1 in shape so the components' JSX is untouched (FE-3/4/5). ---- */

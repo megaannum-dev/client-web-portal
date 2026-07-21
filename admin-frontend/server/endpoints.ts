@@ -32,6 +32,8 @@ export const ENDPOINTS = {
     ONBOARDING_DOC_SPECS: `${RM}/onboardings/doc-specs`,
     ONBOARDING_BY_CLIENT: (clientId: string) => `${RM}/onboardings/by-client/${encodeURIComponent(clientId)}`,
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
+    SUBSCRIPTIONS:            `${RM}/subscriptions`,
+    SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,
