@@ -17,7 +17,7 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
-import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
 import { parseFeePercent } from "@/lib/onboarding/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
@@ -58,8 +58,11 @@ function ObField({ label, required, children }: { label: string; required?: bool
   );
 }
 
-export function OnboardingModal({ onClose }: { onClose: () => void }) {
-  const { startOnboarding, uploadDocument, fetchRmOptions, fetchDocSpecs } = useOnboardingBoard();
+export function OnboardingModal({
+  onClose, startOnboarding, uploadDocument, fetchRmOptions, fetchDocSpecs,
+}: {
+  onClose: () => void;
+} & Pick<UseOnboardingBoardResult, "startOnboarding" | "uploadDocument" | "fetchRmOptions" | "fetchDocSpecs">) {
   const { data: models } = useModels();
   const liveModels = (models ?? []).filter((m) => m.status === "live");
   const [rmOptions, setRmOptions] = useState<RmOptionDTO[]>([]);

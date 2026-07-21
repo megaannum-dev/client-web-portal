@@ -8,7 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { KNOWN_CLIENT_IDS } from "@/lib/mock/rm-data";
-import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
 
@@ -175,9 +175,9 @@ function KycPanel({
   );
 }
 
-export function OnboardingBoard() {
+export function OnboardingBoard(props: UseOnboardingBoardResult) {
   const router = useRouter();
-  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding } = useOnboardingBoard();
+  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding } = props;
   // Track by id, not by a snapshot object — a refetch after upload/submit
   // must be reflected in the open panel, not the stale item captured at
   // selection time.

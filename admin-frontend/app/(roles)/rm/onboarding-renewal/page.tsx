@@ -6,9 +6,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { OnboardingBoard } from "@/components/rm/OnboardingBoard";
 import { OnboardingModal } from "@/components/rm/OnboardingModal";
+import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 
 export default function OnboardingRenewalPage() {
   const [onboarding, setOnboarding] = useState(false);
+  const board = useOnboardingBoard(); // single shared instance — lifted per §6 FE-1
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -19,8 +21,16 @@ export default function OnboardingRenewalPage() {
           actions={<Button icon={UserRoundPlus} onClick={() => setOnboarding(true)}>Start Onboarding</Button>}
         />
       </div>
-      <OnboardingBoard />
-      {onboarding && <OnboardingModal onClose={() => setOnboarding(false)} />}
+      <OnboardingBoard {...board} />
+      {onboarding && (
+        <OnboardingModal
+          onClose={() => setOnboarding(false)}
+          startOnboarding={board.startOnboarding}
+          uploadDocument={board.uploadDocument}
+          fetchRmOptions={board.fetchRmOptions}
+          fetchDocSpecs={board.fetchDocSpecs}
+        />
+      )}
     </div>
   );
 }
