@@ -6,7 +6,7 @@ import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
-  ChevronRight, Search, Clock, X,
+  ChevronRight, Search, Clock, X, TriangleAlert,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -22,7 +22,7 @@ import {
   type HistoryEntry,
 } from "@/lib/mock/rm-data";
 
-const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search };
+const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
 // DocStatus -> chip tone/label. Mirrors OnboardingBoard.tsx's own
 // DOC_STATUS_TONE/DOC_STATUS_LABEL lookup values 1:1 (same visual mapping),
@@ -38,8 +38,11 @@ const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
   verified: "Verified", rejected: "Rejected", expired: "Expired",
 };
+// Matches OnboardingBoard.tsx's own DOC_ICON glyph choice per tone exactly
+// (Check/Clock/Clock/X/TriangleAlert/Clock) -- these two lookups must stay
+// in visual lockstep even though they're declared in different files.
 const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
-  active: "check", pending: "clock", review: "search", overdue: "x", failed: "x", neutral: "clock",
+  active: "check", pending: "clock", review: "clock", overdue: "warning", failed: "x", neutral: "clock",
 };
 
 /** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
