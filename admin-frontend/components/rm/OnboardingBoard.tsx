@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle } from "@/lib/icons";
+import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Download } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -71,17 +71,33 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
 // BLOCKING_STATUSES rule, now sourced from DocStatus instead of a string set.
 const NON_BLOCKING_DOC_STATUSES = new Set<DocStatus>(["uploaded", "verified", "in_review"]);
 
+type DownloadResult = { success: boolean; error?: string; filename?: string; contentType?: string; base64?: string };
+
+// Rehydrate a base64 download payload into a Blob and trigger a save dialog
+// (mirrors app/(roles)/compliance/review/page.tsx's saveBase64File — cookie
+// token can't ride a plain <a href>, so every download in this codebase is a
+// base64 proxy decoded client-side instead).
+function saveBase64File(filename: string, contentType: string, base64: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
 function KycPanel({
-  item, onClose, onOpenProfile, onUploadDoc, onSubmitAll,
+  item, onClose, onOpenProfile, onUploadDoc, onSubmitAll, onDownload, onDownloadAll,
 }: {
   item: KycBoardClient;
   onClose: () => void;
   onOpenProfile: (id: string) => void;
   onUploadDoc: (onboardingId: string, docType: string, file: File) => Promise<{ success: boolean; error?: string }>;
   onSubmitAll: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
+  onDownload?: (onboardingId: string, docType: string) => Promise<DownloadResult>;
+  onDownloadAll?: (onboardingId: string) => Promise<DownloadResult>;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const docs = item.documents;
+  const locked = item.status === "reviewing" || item.status === "active";
 
   const outstanding = docs.filter((d) => !NON_BLOCKING_DOC_STATUSES.has(d.status)).length;
   const canSubmit = outstanding === 0;
@@ -98,6 +114,20 @@ function KycPanel({
   const handleSubmitAll = () => {
     void onSubmitAll(item.id).then((r) => {
       if (!r.success) alert(`Could not submit: ${r.error}`);
+    });
+  };
+
+  const handleDownload = (docType: string) => {
+    void onDownload?.(item.id, docType)?.then((r) => {
+      if (r.success) saveBase64File(r.filename!, r.contentType!, r.base64!);
+      else alert(`Download failed: ${r.error}`);
+    });
+  };
+
+  const handleDownloadAll = () => {
+    void onDownloadAll?.(item.id)?.then((r) => {
+      if (r.success) saveBase64File(r.filename!, r.contentType!, r.base64!);
+      else alert(`Download failed: ${r.error}`);
     });
   };
 
@@ -144,6 +174,14 @@ function KycPanel({
                   <Upload size={13} strokeWidth={2} />Upload
                   <input type="file" className="hidden" onChange={handleUpload(d.doc_type)} />
                 </label>
+              ) : !d.can_reupload && d.filename ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownload(d.doc_type)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-none bg-transparent p-0 text-[12px] font-semibold text-primary"
+                >
+                  <Download size={13} strokeWidth={2} /> {DOC_STATUS_LABEL[d.status]}
+                </button>
               ) : (
                 <Chip tone={tone} dot={false}>{DOC_STATUS_LABEL[d.status]}</Chip>
               )}
@@ -160,8 +198,12 @@ function KycPanel({
           </div>
         )}
         <div className="flex gap-2.5">
-          <Button variant="secondary" icon={Bell} full>Request docs</Button>
-          <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
+          {!locked && <Button variant="secondary" icon={Bell} full>Request docs</Button>}
+          {locked ? (
+            <Button icon={Download} full onClick={handleDownloadAll}>Download All</Button>
+          ) : (
+            <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
+          )}
         </div>
         <button
           type="button"
@@ -177,7 +219,7 @@ function KycPanel({
 
 export function OnboardingBoard(props: UseOnboardingBoardResult) {
   const router = useRouter();
-  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding } = props;
+  const { data: columns, loading, error, uploadDocument, submitAll, fetchOnboarding, downloadDocument, downloadAllDocuments } = props;
   // Track by id, not by a snapshot object — a refetch after upload/submit
   // must be reflected in the open panel, not the stale item captured at
   // selection time.
@@ -290,6 +332,8 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
               onOpenProfile={openProfile}
               onUploadDoc={uploadAndRefreshDetail}
               onSubmitAll={submitAndRefreshDetail}
+              onDownload={downloadDocument}
+              onDownloadAll={downloadAllDocuments}
             />
           )}
         </div>

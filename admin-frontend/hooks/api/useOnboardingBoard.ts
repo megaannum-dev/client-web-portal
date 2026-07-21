@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchBoard, startOnboarding, uploadDocument, submitAll, fetchRmOptions, fetchDocSpecs, fetchOnboarding } from "@/app/(roles)/rm/onboarding-renewal/actions";
+import {
+  fetchBoard, startOnboarding, uploadDocument, submitAll, fetchRmOptions, fetchDocSpecs, fetchOnboarding,
+  downloadDocument, downloadAllDocuments,
+} from "@/app/(roles)/rm/onboarding-renewal/actions";
 import { mapBoardToColumns, mapRow } from "@/lib/onboarding/mappers";
 import type { DocSpecDTO, KycBoardClient, KycBoardColumn, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 
@@ -16,6 +19,8 @@ export interface UseOnboardingBoardResult {
   fetchRmOptions: () => Promise<{ success: boolean; error?: string; data?: RmOptionDTO[] }>;
   fetchDocSpecs: () => Promise<{ success: boolean; error?: string; data?: DocSpecDTO[] }>;
   fetchOnboarding: (onboardingId: string) => Promise<{ success: boolean; error?: string; data?: KycBoardClient }>;
+  downloadDocument: (onboardingId: string, docType: string) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
+  downloadAllDocuments: (onboardingId: string) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
 }
 
 export function useOnboardingBoard(): UseOnboardingBoardResult {
@@ -79,8 +84,21 @@ export function useOnboardingBoard(): UseOnboardingBoardResult {
     return result.success ? { success: true, data: mapRow(result.data) } : { success: false, error: result.error };
   }, []);
 
+  // Plain passthrough wrappers -- a download never mutates board state, so
+  // no fetch_() refetch is triggered on success (unlike upload/submit/start).
+  const download = useCallback(async (onboardingId: string, docType: string) => {
+    const result = await downloadDocument(onboardingId, docType);
+    return result.success ? { success: true, ...result.data } : { success: false, error: result.error };
+  }, []);
+
+  const downloadAll = useCallback(async (onboardingId: string) => {
+    const result = await downloadAllDocuments(onboardingId);
+    return result.success ? { success: true, ...result.data } : { success: false, error: result.error };
+  }, []);
+
   return {
     data, loading, error, refetch: fetch_, startOnboarding: start, uploadDocument: upload, submitAll: submit,
     fetchRmOptions: rmOptions, fetchDocSpecs: docSpecs, fetchOnboarding: onboarding,
+    downloadDocument: download, downloadAllDocuments: downloadAll,
   };
 }

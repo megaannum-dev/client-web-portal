@@ -50,6 +50,44 @@ export async function fetchOnboardingByClient(clientId: string): Promise<APIResu
 export async function fetchClientEvents(clientId: string): Promise<APIResult<ClientEventDTO[]>> {
   return apiClient<ClientEventDTO[]>(ENDPOINTS.RM.CLIENT_EVENTS(clientId));
 }
+/** RM-scoped mirror of Compliance's downloadDocument below (base64 proxy —
+ * cookie token can't ride a plain <a href>). */
+export async function downloadDocumentRm(
+  onboardingId: string, docType: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  const token = (await cookies()).get("id_token")?.value ?? "";
+  const url = `${getApiBase()}${ENDPOINTS.RM.ONBOARDING_DOWNLOAD(onboardingId, docType)}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
+    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? docType;
+    const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { success: true, data: { filename, contentType, base64: buf.toString("base64") } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };
+  }
+}
+/** Zips every uploaded doc for one onboarding — same base64 proxy, no
+ * per-file Content-Disposition to parse so the filename/type are static. */
+export async function downloadAllDocuments(
+  onboardingId: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  const token = (await cookies()).get("id_token")?.value ?? "";
+  const url = `${getApiBase()}${ENDPOINTS.RM.ONBOARDING_DOWNLOAD_ALL(onboardingId)}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
+    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    const contentType = res.headers.get("Content-Type") ?? "application/zip";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { success: true, data: { filename: "kyc-documents.zip", contentType, base64: buf.toString("base64") } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };
+  }
+}
 
 /* ---- Compliance ---- */
 export async function fetchComplianceQueue(): Promise<APIResult<OnboardingDTO[]>> {

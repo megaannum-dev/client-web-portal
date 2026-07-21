@@ -8,6 +8,8 @@ import {
   fetchRmOptions as _fetchRmOptions,
   fetchDocSpecs as _fetchDocSpecs,
   fetchOnboarding as _fetchOnboarding,
+  downloadDocumentRm as _downloadDocumentRm,
+  downloadAllDocuments as _downloadAllDocuments,
   type APIResult,
 } from "@/server/onboarding";
 import type { BoardDTO, DocSpecDTO, DocumentDTO, OnboardingDTO, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
@@ -99,6 +101,34 @@ export async function fetchDocSpecs(): Promise<APIResult<DocSpecDTO[]>> {
     return response;
   } catch (error) {
     console.error("❌ Error fetching doc specs:", { error });
+    return toErrorResult(error);
+  }
+}
+
+export async function downloadDocument(
+  onboardingId: string, docType: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  try {
+    logger.log("🔄 Downloading onboarding document:", { onboardingId, docType });
+    const response = await _downloadDocumentRm(onboardingId, docType);
+    logger.json("✅ Download document response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error downloading onboarding document:", { error, onboardingId, docType });
+    return toErrorResult(error);
+  }
+}
+
+export async function downloadAllDocuments(
+  onboardingId: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  try {
+    logger.log("🔄 Downloading all onboarding documents:", onboardingId);
+    const response = await _downloadAllDocuments(onboardingId);
+    logger.json("✅ Download all documents response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error downloading all onboarding documents:", { error, onboardingId });
     return toErrorResult(error);
   }
 }

@@ -27,6 +27,8 @@ export const ENDPOINTS = {
     ONBOARDINGS:      `${RM}/onboardings`,
     ONBOARDING:       (id: string) => `${RM}/onboardings/${id}`,
     ONBOARDING_DOC:   (id: string, docType: string) => `${RM}/onboardings/${id}/documents/${encodeURIComponent(docType)}`,
+    ONBOARDING_DOWNLOAD:    (id: string, docType: string) => `${RM}/onboardings/${id}/documents/${encodeURIComponent(docType)}/download`,
+    ONBOARDING_DOWNLOAD_ALL:(id: string) => `${RM}/onboardings/${id}/documents/download-all`,
     ONBOARDING_SUBMIT:(id: string) => `${RM}/onboardings/${id}/submit`,
     ONBOARDING_RM_OPTIONS: `${RM}/onboardings/rm-options`,
     ONBOARDING_DOC_SPECS: `${RM}/onboardings/doc-specs`,
