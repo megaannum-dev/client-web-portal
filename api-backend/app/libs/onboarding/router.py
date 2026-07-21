@@ -128,6 +128,20 @@ def download_document_rm(
     )
 
 
+@router.get("/rm/onboardings/{onboarding_id}/documents/download-all")
+def download_all_documents(
+    onboarding_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+) -> StreamingResponse:
+    stream, zip_name = svc.download_all_documents(onboarding_id)
+    return StreamingResponse(
+        stream,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+    )
+
+
 # ---- Compliance ---------------------------------------------------------
 @router.get("/compliance/onboardings", response_model=list[OnboardingDTO])
 def get_compliance_queue(

@@ -1,8 +1,10 @@
 # api-backend/app/libs/onboarding/service.py
 from __future__ import annotations
 
+import io
 import os
 import uuid
+import zipfile
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import BinaryIO
@@ -322,6 +324,21 @@ class OnboardingService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No file uploaded for this document")
         stream = get_storage().open(doc.storage_key)
         return stream, doc.filename or doc.doc_type, doc.content_type
+
+    def download_all_documents(self, onboarding_id: uuid.UUID) -> tuple[BinaryIO, str]:
+        docs = [d for d in self.repo.documents_for(onboarding_id) if d.storage_key]
+        if not docs:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No documents have been uploaded yet")
+        onboarding = self._require_onboarding(onboarding_id)
+        display = self.repo.display_fields(onboarding)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for doc in docs:
+                assert doc.storage_key is not None  # filtered above
+                with get_storage().open(doc.storage_key) as fh:
+                    zf.writestr(f"{doc.doc_type}_{doc.filename or doc.doc_type}", fh.read())
+        buf.seek(0)
+        return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
 
     # ---- PC: allotments -----------------------------------------------------
     def list_allotments(self) -> list[AllotRdmptDTO]:
