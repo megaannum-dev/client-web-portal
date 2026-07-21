@@ -42,6 +42,7 @@ from app.models.pc import Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
+_EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 
 # Widened 2026-07-20 (D-9/C-7): settlement lag used to compute
 # client_allotment_redemptions.expected_cash_in at approve. Same os.getenv(...)
@@ -134,6 +135,12 @@ class OnboardingService:
         filename: str,
         content_type: str | None,
     ) -> DocumentDTO:
+        onboarding = self._require_onboarding(onboarding_id)
+        if onboarding.status not in _EDITABLE_STATUSES:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Documents cannot be uploaded while the cycle is under review or active",
+            )
         doc = self._require_document(onboarding_id, doc_type)
         if doc.status not in _CAN_REUPLOAD_STATUSES:
             raise HTTPException(
@@ -148,6 +155,10 @@ class OnboardingService:
 
     def submit(self, onboarding_id: uuid.UUID) -> OnboardingDTO:
         onboarding = self._require_onboarding(onboarding_id)
+        if onboarding.status not in _EDITABLE_STATUSES:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "Cycle has already been submitted or decided"
+            )
         docs = self.repo.documents_for(onboarding_id)
         missing = [
             d for d in docs if get_doc_spec(d.doc_type).required and d.status == "not_started"
