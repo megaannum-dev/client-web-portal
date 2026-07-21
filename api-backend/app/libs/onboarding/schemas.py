@@ -97,6 +97,7 @@ class OnboardingDTO(BaseModel):
     reject_reason: str | None
     submitted_at: datetime | None
     created_at: datetime
+    approved_by: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
     documents: list[DocumentDTO] = []  # present on detail, omitted (empty) on board list
 
 

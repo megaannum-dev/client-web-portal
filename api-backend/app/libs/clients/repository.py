@@ -33,6 +33,7 @@ class ClientRow:
     initiate_method: str | None
     ib_account: str | None
     email: str | None
+    authorized_by_name: str | None  # 014 C-7: resolved display name of users.authorized_by
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,14 @@ class ClientRepository:
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
         ClientUser = aliased(User)
+        Approver = aliased(User)
+        ApproverProfile = aliased(AdminProfile)
         rm_name = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        # 014 C-7: same uid -> display-name coalesce as onboarding/repository.py's
+        # display_fields().approved_by -- one resolution, two call sites.
+        authorized_by_name = func.coalesce(
+            ApproverProfile.name, Approver.email, ClientUser.authorized_by
+        )
 
         return (
             self.db.query(
@@ -74,10 +82,13 @@ class ClientRepository:
                 ClientProfile.initiate_method,
                 ClientProfile.ib_account,
                 ClientUser.email.label("email"),
+                authorized_by_name.label("authorized_by_name"),
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
             .outerjoin(ClientUser, ClientUser.id == ClientProfile.user_id)
+            .outerjoin(Approver, Approver.firebase_uid == ClientUser.authorized_by)
+            .outerjoin(ApproverProfile, ApproverProfile.user_id == Approver.id)
         )
 
     def _scoped(self, query, role: AdminRole, rm_firebase_uid: str):
@@ -165,4 +176,5 @@ class ClientRepository:
             initiate_method=r.initiate_method,
             ib_account=r.ib_account,
             email=r.email,
+            authorized_by_name=r.authorized_by_name,
         )

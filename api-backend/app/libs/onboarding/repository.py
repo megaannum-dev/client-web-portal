@@ -19,6 +19,7 @@ from app.models.onboarding import (
     ClientOnboarding,
     DocStatus,
     OnboardingDocument,
+    OnboardingStatus,
 )
 from app.models.pc import ClientSubscription, Model
 from app.models.users import AdminProfile, ClientProfile, User
@@ -38,6 +39,7 @@ class OnboardingDisplayRow:
     primary_phone: str
     address: str
     country_of_residence: str
+    approved_by: str | None  # 014 C-7: resolved display name of users.authorized_by
 
 
 @dataclass(frozen=True)
@@ -175,6 +177,17 @@ class OnboardingRepository:
             .filter(ClientProfile.user_id == onboarding.user_id)
             .scalar()
         )
+        # 014 C-7: users.authorized_by is NOT exclusively an approval marker --
+        # ClientService.onboard already stamps it with the RM's own uid at
+        # intake (start()), long before any compliance review; _approve_initial
+        # then overwrites it with the compliance officer's uid. So "null until
+        # approved" (the seam's own stated invariant) can only hold by gating on
+        # the cycle's own status, not on authorized_by's nullness alone.
+        approved_by = (
+            self._resolve_uid_to_display_name(user.authorized_by)
+            if onboarding.status == OnboardingStatus.ACTIVE
+            else None
+        )
         return OnboardingDisplayRow(
             client_name=profile.name or "",
             email=user.email or "",
@@ -183,6 +196,25 @@ class OnboardingRepository:
             primary_phone=profile.primary_phone or "",
             address=profile.address or "",
             country_of_residence=profile.country_of_residence or "",
+            approved_by=approved_by,
+        )
+
+    def _resolve_uid_to_display_name(self, firebase_uid: str | None) -> str | None:
+        """014 C-7: the same uid -> display-name coalesce as
+        clients/repository.py's ClientRepository._base_query() authorized_by_name
+        join -- one resolution, two call sites. `None` in, `None` out (never
+        raises/short-circuits to "")."""
+        if firebase_uid is None:
+            return None
+        Approver = aliased(User)
+        ApproverProfile = aliased(AdminProfile)
+        name_expr = func.coalesce(ApproverProfile.name, Approver.email, Approver.firebase_uid)
+        return (
+            self.db.query(name_expr)
+            .select_from(Approver)
+            .outerjoin(ApproverProfile, ApproverProfile.user_id == Approver.id)
+            .filter(Approver.firebase_uid == firebase_uid)
+            .scalar()
         )
 
     def client_folder_name(self, onboarding: ClientOnboarding) -> str:

@@ -458,6 +458,7 @@ class OnboardingService:
             reject_reason=onboarding.reject_reason,
             submitted_at=onboarding.submitted_at,
             created_at=onboarding.created_at,
+            approved_by=display.approved_by,
             documents=[self._doc_to_dto(d) for d in self.repo.documents_for(onboarding.id)]
             if with_documents
             else [],
