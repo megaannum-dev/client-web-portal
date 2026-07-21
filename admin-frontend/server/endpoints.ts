@@ -30,6 +30,8 @@ export const ENDPOINTS = {
     ONBOARDING_SUBMIT:(id: string) => `${RM}/onboardings/${id}/submit`,
     ONBOARDING_RM_OPTIONS: `${RM}/onboardings/rm-options`,
     ONBOARDING_DOC_SPECS: `${RM}/onboardings/doc-specs`,
+    ONBOARDING_BY_CLIENT: (clientId: string) => `${RM}/onboardings/by-client/${encodeURIComponent(clientId)}`,
+    CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,

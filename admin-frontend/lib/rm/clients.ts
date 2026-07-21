@@ -16,6 +16,9 @@ export interface ClientListItemDTO {
   ib_account: string | null;
   email: string | null;
   subscriptions?: SubscriptionDTO[]; // only populated on the single-client route
+  id_type?: string | null;               // NEW (FE-4) — ClientListItemOut widening, §7.1
+  id_number?: string | null;             // NEW (FE-4)
+  authorized_by_name?: string | null;    // NEW (FE-4) — resolved display name of users.authorized_by
 }
 
 export interface ClientListDTO {
@@ -35,6 +38,9 @@ export interface ClientRow {
   ibAccount: string | null;
   email: string | null;
   subscriptions: SubscriptionDTO[];
+  idType: string | null;             // NEW (FE-4)
+  idNumber: string | null;           // NEW (FE-4)
+  authorizedByName: string | null;   // NEW (FE-4)
 }
 
 export function dtoToRow(d: ClientListItemDTO): ClientRow {
@@ -50,6 +56,9 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     ibAccount: d.ib_account,
     email: d.email,
     subscriptions: d.subscriptions ?? [],
+    idType: d.id_type ?? null,
+    idNumber: d.id_number ?? null,
+    authorizedByName: d.authorized_by_name ?? null,
   };
 }
 

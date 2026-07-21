@@ -12,8 +12,10 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { useClient } from "@/hooks/api/useClient";
+import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
+import type { DocStatus, DocumentDTO } from "@/lib/onboarding/types";
+import { fmtTimestamp } from "@/lib/pc/format";
 import {
   getMockOverlay,
   type ClientDoc,
@@ -21,6 +23,30 @@ import {
 } from "@/lib/mock/rm-data";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search };
+
+// DocStatus -> chip tone/label. Mirrors OnboardingBoard.tsx's own
+// DOC_STATUS_TONE/DOC_STATUS_LABEL lookup values 1:1 (same visual mapping),
+// re-declared here rather than imported since that file doesn't export them
+// and is out of scope for FE-4 (owned by FE-1/2/3, edited concurrently).
+// ponytail: dedupe by exporting OnboardingBoard.tsx's lookup once that file
+// is next touched for an unrelated reason.
+const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
+  not_started: "neutral", uploaded: "pending", in_review: "review",
+  verified: "active", rejected: "failed", expired: "overdue",
+};
+const DOC_STATUS_LABEL: Record<DocStatus, string> = {
+  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
+  verified: "Verified", rejected: "Rejected", expired: "Expired",
+};
+const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
+  active: "check", pending: "clock", review: "search", overdue: "x", failed: "x", neutral: "clock",
+};
+
+/** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
+function docFromDto(doc: DocumentDTO): ClientDoc {
+  const tone = DOC_STATUS_TONE[doc.status];
+  return { name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock" };
+}
 
 // Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
 const SUB_STATUS_LABEL: Record<string, string> = { live: "Active", draft: "In Review" };
@@ -111,6 +137,8 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error, notFound: nf } = useClient(id);
   const [censored, setCensored] = useState(false);
+  const { data: onboarding } = useOnboardingByClient(id);
+  const { data: events } = useClientEvents(id);
 
   if (nf) notFound(); // Next.js 404
 
@@ -131,7 +159,6 @@ export default function ClientDetailPage() {
   }
 
   const overlay = getMockOverlay(data.id);
-  const verifiedCount = overlay.docs.filter((x) => x.tone === "active").length;
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -196,10 +223,10 @@ export default function ClientDetailPage() {
             <InfoField label="Email" value={data.email ?? "—"} />
             <InfoField label="Registered Address" value={data.address ?? "—"} />
             <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
-            <InfoField label="ID Info" value="—" />
+            <InfoField label="ID Info" value={[data.idType, data.idNumber].filter(Boolean).join(" ") || "—"} />
             <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
             <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
-            <InfoField label="Authorized Person" value={data.authorizedPerson ?? "—"} />
+            <InfoField label="Authorized Person" value={data.authorizedByName ?? "—"} />
           </div>
         </div>
       </Card>
@@ -237,27 +264,35 @@ export default function ClientDetailPage() {
         <Card
           title="KYC & Documents"
           action={
-            <Chip tone={overlay.kyc === "Verified" ? "active" : overlay.tone === "overdue" ? "overdue" : "pending"} dot={false}>
-              {verifiedCount} of {overlay.docs.length} verified
+            <Chip tone={onboarding && onboarding.verified_count === onboarding.required_count ? "active" : "pending"} dot={false}>
+              {onboarding?.verified_count ?? 0} of {onboarding?.required_count ?? 0} verified
             </Chip>
           }
         >
-          {overlay.docs.map((doc, i) => (
-            <CheckRow key={i} doc={doc} last={i === overlay.docs.length - 1} />
-          ))}
+          {(onboarding?.documents ?? []).length === 0 ? (
+            <p className="py-1.5 text-[14px] text-secondary">No documents yet.</p>
+          ) : (
+            (onboarding!.documents.map((doc, i) => (
+              <CheckRow key={doc.doc_type} doc={docFromDto(doc)} last={i === onboarding!.documents.length - 1} />
+            )))
+          )}
           <div className="mt-[18px] flex gap-3">
             <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={overlay.kyc === "Verified"}>Approve KYC</Button>
+            <Button icon={Check} disabled={!!onboarding && onboarding.verified_count === onboarding.required_count}>Approve KYC</Button>
           </div>
         </Card>
       </div>
 
       {/* History */}
-      <Card title="History" action={<span className="text-[12px] text-secondary">{overlay.history.length} events</span>}>
+      <Card title="History" action={<span className="text-[12px] text-secondary">{(events ?? []).length} events</span>}>
         <div className="relative max-h-[268px] overflow-y-auto pl-[22px] pr-1.5">
           <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
-          {overlay.history.map((item, i) => (
-            <HistoryItem key={i} item={item} last={i === overlay.history.length - 1} />
+          {(events ?? []).map((e, i, arr) => (
+            <HistoryItem
+              key={e.id}
+              item={{ t: e.title, d: fmtTimestamp(e.created_at), detail: [e.body] }}
+              last={i === arr.length - 1}
+            />
           ))}
         </div>
       </Card>

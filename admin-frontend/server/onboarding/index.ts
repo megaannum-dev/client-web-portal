@@ -5,7 +5,7 @@ import { ENDPOINTS } from "@/server/endpoints";
 import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
-  AllotRdmptDTO, BoardDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
+  AllotRdmptDTO, BoardDTO, ClientEventDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
   RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
@@ -41,6 +41,14 @@ export async function fetchRmOptions(): Promise<APIResult<RmOptionDTO[]>> {
  * step never hardcodes its own (divergent) copy. */
 export async function fetchDocSpecs(): Promise<APIResult<DocSpecDTO[]>> {
   return apiClient<DocSpecDTO[]>(ENDPOINTS.RM.ONBOARDING_DOC_SPECS);
+}
+/** Client-detail page's KYC & Documents card (FE-4) -- 404 if the client has no onboarding row. */
+export async function fetchOnboardingByClient(clientId: string): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.RM.ONBOARDING_BY_CLIENT(clientId));
+}
+/** Client-detail page's History card (FE-4). */
+export async function fetchClientEvents(clientId: string): Promise<APIResult<ClientEventDTO[]>> {
+  return apiClient<ClientEventDTO[]>(ENDPOINTS.RM.CLIENT_EVENTS(clientId));
 }
 
 /* ---- Compliance ---- */
