@@ -53,3 +53,12 @@ class PtaRunListOut(BaseModel):
 class PtaRunResultOut(BaseModel):
     newRuns: list[PtaRunListEntryOut]
     latest: PostTradeAllocationView
+
+
+class PtaHistoryEntryOut(BaseModel):
+    date: str  # YYYY-MM-DD
+    pnl: float  # net traded (signed) for that date
+
+
+class PtaHistoryOut(BaseModel):
+    series: list[PtaHistoryEntryOut]

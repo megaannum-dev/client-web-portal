@@ -143,3 +143,23 @@ class PostTradeAllocationRepository:
         return (
             self.db.query(PostTradeAllocation).filter(PostTradeAllocation.run_id.in_(run_ids)).all()
         )
+
+    def runs_in_date_range(
+        self, from_date: str, to_date: str, *, include_empty: bool = False
+    ) -> list[PostTradeAllocationRun]:
+        query = self.db.query(PostTradeAllocationRun).filter(
+            PostTradeAllocationRun.trade_date >= from_date,
+            PostTradeAllocationRun.trade_date <= to_date,
+        )
+        if not include_empty:
+            query = query.filter(PostTradeAllocationRun.status != RunStatus.EMPTY.value)
+        return query.all()
+
+    def run_ids_for_model(self, model_id: uuid.UUID) -> list[uuid.UUID]:
+        rows = (
+            self.db.query(PostTradeAllocation.run_id)
+            .filter(PostTradeAllocation.model_id == model_id)
+            .distinct()
+            .all()
+        )
+        return [r[0] for r in rows]

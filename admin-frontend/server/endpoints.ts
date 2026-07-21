@@ -26,6 +26,7 @@ export const ENDPOINTS = {
     PTA:      `${MOBO}/post-trade-allocation`,
     PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
     PTA_RUN:  `${MOBO}/post-trade-allocation/run`,
+    PTA_HISTORY: `${MOBO}/post-trade-allocation/history`,
     RECONCILIATION: `${MOBO}/reconciliation`,
   },
 } as const;

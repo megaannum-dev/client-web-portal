@@ -15,10 +15,11 @@ import { RefreshCw } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
-import { usePostTradeAllocation, usePostTradeAllocationRuns } from "@/hooks/api/usePostTradeAllocation";
+import { usePostTradeAllocation, usePostTradeAllocationRuns, usePostTradeAllocationHistory } from "@/hooks/api/usePostTradeAllocation";
 import { toast } from "sonner";
 import type { PtaModelAllocation } from "@/lib/mobo/types";
 import { StackedBarChart } from "@/components/mobo/allocation/StackedBarChart";
+import { HistoricalCard } from "@/components/mobo/allocation/HistoricalChart";
 import {
   ScopeToggle,
   OrientationToggle,
@@ -30,7 +31,7 @@ import {
 
 const CARD = "rounded-2xl border border-outline-variant bg-surface-lowest shadow-card";
 
-type View = "all" | "per" | "empty";
+type View = "all" | "per" | "range" | "empty";
 
 /* ---- "All models" oversight card: header (title + orientation toggle,
    grand total + date), the stacked bar chart, and an explanatory caption. */
@@ -96,11 +97,22 @@ export default function PostTradeAllocationPage() {
   const [modelId, setModelId] = useState<string | undefined>(models[0]?.id);
   const [orientation, setOrientation] = useState<"vertical" | "horizontal">("vertical");
 
-  const scope: "all" | "per" = view === "per" ? "per" : "all";
+  // range / historical view state
+  const [rangeFrom, setRangeFrom] = useState<string | null>(null);
+  const [rangeTo, setRangeTo] = useState<string | null>(null);
+  const [rangeScope, setRangeScope] = useState<"all" | "per">("all");
+  const [rangeModelId, setRangeModelId] = useState<string | undefined>(undefined);
+  const { series: historySeries } = usePostTradeAllocationHistory(
+    rangeFrom, rangeTo, view === "range" && rangeScope === "per" ? rangeModelId : undefined,
+  );
+
+  const scope: "all" | "per" = view === "per" ? "per" : view === "range" ? rangeScope : "all";
   const selectedModel = models.find((m) => m.id === modelId) ?? models[0];
 
   const subtitle =
-    view === "per"
+    view === "range"
+      ? `Historical performance · ${rangeFrom} – ${rangeTo}`
+      : view === "per"
       ? "One model's traded amount, split by client"
       : view === "empty"
       ? `No post-trade allocation posted for ${settleDay} yet`
@@ -114,7 +126,12 @@ export default function PostTradeAllocationPage() {
           subtitle={subtitle}
           actions={
             <>
-              <DateControl dateLabel={pickedDate ?? "Latest"} runs={runs} onPickDate={setPickedDate} />
+              <DateControl
+                dateLabel={view === "range" ? `${rangeFrom} – ${rangeTo}` : (pickedDate ?? "Latest")}
+                runs={runs}
+                onPickDate={(d) => { setPickedDate(d); setView("all"); }}
+                onPickRange={(from, to) => { setRangeFrom(from); setRangeTo(to); setView("range"); }}
+              />
               <Button icon={RefreshCw} onClick={handleSync} disabled={loading}>
                 Sync
               </Button>
@@ -127,7 +144,10 @@ export default function PostTradeAllocationPage() {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <ScopeToggle value={scope} onChange={(v) => setView(v)} />
+        <ScopeToggle
+          value={scope}
+          onChange={(v) => { if (view === "range") setRangeScope(v); else setView(v); }}
+        />
         <span className="text-[13px] text-secondary">
           {scope === "all" ? "bar chart · oversight across all models" : "pie chart · client proportions in one model"}
         </span>
@@ -136,6 +156,14 @@ export default function PostTradeAllocationPage() {
       <div className="flex min-h-0 flex-1 flex-col">
         {view === "empty" ? (
           <EmptyCard settleDay={settleDay} />
+        ) : view === "range" ? (
+          <HistoricalCard
+            series={historySeries}
+            scope={rangeScope}
+            models={models.map((m) => ({ id: m.id, name: m.name, acct: m.acct }))}
+            selectedModelId={rangeModelId}
+            onModelChange={setRangeModelId}
+          />
         ) : scope === "all" ? (
           <AllModelsCard
             models={models}
