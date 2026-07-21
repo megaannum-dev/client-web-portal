@@ -157,3 +157,22 @@ class ClientEventDTO(BaseModel):
     title: str
     body: str
     created_at: datetime
+
+
+class ClientSubscriptionRowDTO(BaseModel):
+    """014 D (BE-9): one client_subscriptions row, joined to its model, with
+    fee overrides resolved to their effective (read-time) values."""
+
+    model_id: uuid.UUID
+    model_name: str
+    units: Decimal
+    mgmt_fee: Decimal  # effective = override ?? Model default
+    incentive_fee: Decimal  # effective = override ?? Model default
+    ib_account: str | None
+    amount: Decimal  # = units * model.model_size -- mirrors AllotRdmptDTO.amount
+
+
+class ClientSubscriptionsDTO(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    subscriptions: list[ClientSubscriptionRowDTO]

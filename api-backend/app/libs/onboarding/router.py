@@ -17,6 +17,7 @@ from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
     BoardDTO,
     ClientEventDTO,
+    ClientSubscriptionsDTO,
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
@@ -27,7 +28,8 @@ from app.libs.onboarding.schemas import (
     VerdictReq,
 )
 from app.libs.onboarding.service import OnboardingService
-from app.models.users import User
+from app.libs.users.repository import AdminProfileRepository
+from app.models.users import AdminRole, User
 
 router = APIRouter(tags=["onboarding"])
 
@@ -164,6 +166,37 @@ def download_all_documents(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
     )
+
+
+def _get_subscriptions_caller_role(
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    db: Annotated[Session, Depends(get_db)],
+) -> AdminRole:
+    """A small local role-lookup dependency, mirroring clients/router.py's own
+    _get_caller_role (that function is underscore-private to its module; rather
+    than import a private name across packages, this router keeps its own copy
+    of the same 3-line lookup -- one small extra query rather than changing a
+    shared dependency's shape)."""
+    profile = AdminProfileRepository(db).get_by_user_id(user.id)
+    return AdminRole(profile.role)  # type: ignore[union-attr]
+
+
+@router.get("/rm/subscriptions", response_model=list[ClientSubscriptionsDTO])
+def list_subscriptions(
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+) -> list[ClientSubscriptionsDTO]:
+    return svc.list_subscriptions(role=role, rm_uid=user.firebase_uid)
+
+
+@router.get("/rm/subscriptions/{client_id}/allotments", response_model=list[AllotRdmptDTO])
+def list_client_allotments(
+    client_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> list[AllotRdmptDTO]:
+    return svc.client_allotments(client_id)
 
 
 # ---- Compliance ---------------------------------------------------------

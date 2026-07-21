@@ -20,6 +20,8 @@ from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
     BoardDTO,
     ClientEventDTO,
+    ClientSubscriptionRowDTO,
+    ClientSubscriptionsDTO,
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
@@ -406,6 +408,51 @@ class OnboardingService:
             )
             for e in self.repo.list_events_for_client(user_id)
         ]
+
+    # ---- RM: Model Subscription read endpoints (014 D / BE-9) ---------------
+    def list_subscriptions(self, *, role: AdminRole, rm_uid: str) -> list[ClientSubscriptionsDTO]:
+        """Groups the repo's flat joined rows by client, scoped to the caller's
+        visible book. Reuses ClientRepository's own visibility rule instead of
+        duplicating FULL_VISIBILITY_ROLES/assigned_rm_uid filtering as a second
+        SQL WHERE clause -- local import to avoid a module-level onboarding<->clients
+        circular dependency (both packages already reference each other's models,
+        never each other's service/router, at import time)."""
+        from app.libs.clients.repository import ClientRepository
+
+        visible_ids = {row.id for row in ClientRepository(self.db).list_visible(role, rm_uid)}
+        by_client: dict[uuid.UUID, ClientSubscriptionsDTO] = {}
+        for profile, sub, model in self.repo.list_all_subscriptions():
+            if str(profile.user_id) not in visible_ids:
+                continue
+            amount = sub.multiplier * (model.model_size or Decimal("0"))
+            row = ClientSubscriptionRowDTO(
+                model_id=model.id,
+                model_name=model.name,
+                units=sub.multiplier,
+                mgmt_fee=(
+                    sub.mgmt_fee_override
+                    if sub.mgmt_fee_override is not None
+                    else (model.mgmt_fee or Decimal("0"))
+                ),
+                incentive_fee=(
+                    sub.incentive_fee_override
+                    if sub.incentive_fee_override is not None
+                    else (model.incentive_fee or Decimal("0"))
+                ),
+                ib_account=profile.ib_account,
+                amount=amount,
+            )
+            bucket = by_client.setdefault(
+                profile.user_id,
+                ClientSubscriptionsDTO(
+                    client_id=profile.user_id, client_name=profile.name or "", subscriptions=[]
+                ),
+            )
+            bucket.subscriptions.append(row)
+        return list(by_client.values())
+
+    def client_allotments(self, client_id: uuid.UUID) -> list[AllotRdmptDTO]:
+        return [self._allotment_to_dto(a) for a in self.repo.list_allotments_for_client(client_id)]
 
     # ---- internal helpers -----------------------------------------------
     def _require_onboarding(self, onboarding_id: uuid.UUID) -> ClientOnboarding:

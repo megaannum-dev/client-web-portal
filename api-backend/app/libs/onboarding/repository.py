@@ -389,6 +389,26 @@ class OnboardingRepository:
     def get_allotment(self, allotment_id: uuid.UUID) -> ClientAllotmentRedemption | None:
         return self.db.get(ClientAllotmentRedemption, allotment_id)
 
+    def list_all_subscriptions(self) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
+        """014 D (BE-9): every (client profile, subscription, model) row,
+        joined -- unfiltered by RM-book visibility (the SERVICE layer applies
+        that via ClientRepository.list_visible)."""
+        rows = (
+            self.db.query(ClientProfile, ClientSubscription, Model)
+            .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
+            .join(Model, Model.id == ClientSubscription.model_id)
+            .all()
+        )
+        return rows  # type: ignore[return-value]
+
+    def list_allotments_for_client(self, user_id: uuid.UUID) -> list[ClientAllotmentRedemption]:
+        return (
+            self.db.query(ClientAllotmentRedemption)
+            .filter(ClientAllotmentRedemption.user_id == user_id)
+            .order_by(ClientAllotmentRedemption.created_at.desc())
+            .all()
+        )
+
     def create_event(self, *, user_id: uuid.UUID, category: str, title: str, body: str) -> None:
         self.db.add(
             ClientEvent(id=uuid.uuid4(), user_id=user_id, category=category, title=title, body=body)
