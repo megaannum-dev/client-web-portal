@@ -148,15 +148,11 @@ export function OnboardingModal({
         ibhk_account: form.ibhkId, sw_account: form.swId,
         model_id: model.id,
         units: Number(form.modelUnit),
-        // ponytail: StartOnboardingReq (lib/onboarding/types.ts, owned by another
-        // in-flight unit) doesn't declare this field yet even though BE-8's
-        // seam already requires it — cast locally instead of touching that
-        // shared file; drop the cast once the type gains the field.
         initial_cash_deposit: Number(form.initialCashDeposit),
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
         ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
-      } as Parameters<typeof startOnboarding>[0] & { initial_cash_deposit: number });
+      });
       if (!result.success) {
         alert(`Could not start onboarding: ${result.error}`);
         return;

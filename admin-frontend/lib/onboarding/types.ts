@@ -13,6 +13,7 @@ export interface StartOnboardingReq {
   id_type: string; id_number: string;
   ibhk_account: string; sw_account: string;
   model_id: string; units: number;
+  initial_cash_deposit: number;              // Decimal-as-number, see BE-8
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
   assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
