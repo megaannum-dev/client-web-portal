@@ -14,8 +14,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.libs.eod.repository import EodRepository
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
-from app.libs.reconciliation.algotrade.synth import synthesize_from_run
+from app.libs.reconciliation.algotrade.synth import _parse_yyyymmdd, synthesize_from_run
 from app.models.pc import AllocationModelSnapshot, Model
 from app.models.post_trade_allocation import (
     PostTradeAllocation,
@@ -156,6 +157,8 @@ class PostTradeAllocationService:
                             snapshot=cells[0],
                             orders=orders_by_key[(trade_date, model_name)],
                         )
+                    # BE-6: open (or no-op if already open) the day's EoD header, same transaction.
+                    EodRepository(self.db).ensure_open(_parse_yyyymmdd(trade_date))
 
             self.db.commit()
         assert newest_run is not None
