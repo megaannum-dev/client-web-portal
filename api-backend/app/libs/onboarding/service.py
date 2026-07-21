@@ -85,6 +85,16 @@ class OnboardingService:
         model = self.db.get(Model, req.model_id)
         if model is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        # 014 C-9: AUM-floor check -- validated exactly once, before create_cycle
+        # runs, so a 422 here leaves no client_onboardings/onboarding_documents/
+        # client_portfolios row behind (no rollback dance needed).
+        amount_in_trade = req.units * (model.model_size or Decimal("0"))
+        cash_deposit = req.initial_cash_deposit - amount_in_trade
+        if cash_deposit < 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Initial cash deposit must cover at least the subscribed amount in trade",
+            )
         try:
             onboarding = self.repo.create_cycle(
                 user_id=staged_user.id,
@@ -96,6 +106,9 @@ class OnboardingService:
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
+            )
+            self.repo.set_initial_portfolio(
+                staged_user.id, amount_in_trade=amount_in_trade, cash_deposit=cash_deposit
             )
             self.db.commit()
         except Exception:

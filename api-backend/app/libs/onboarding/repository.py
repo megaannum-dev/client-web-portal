@@ -22,6 +22,7 @@ from app.models.onboarding import (
     OnboardingStatus,
 )
 from app.models.pc import ClientSubscription, Model
+from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, ClientProfile, User
 
 
@@ -98,6 +99,27 @@ class OnboardingRepository:
                 )
             )
         return onboarding
+
+    def set_initial_portfolio(
+        self, user_id: uuid.UUID, *, amount_in_trade: Decimal, cash_deposit: Decimal
+    ) -> None:
+        """014 C-9: seeds client_portfolios (proposal 011) at intake. Assumes no
+        row exists yet for this user_id (true by construction -- this is the
+        same request that creates the client's subscription eligibility in the
+        first place); the `else` branch is defensive-only, not an expected path.
+        No commit here -- caller's txn boundary (OnboardingService.start)."""
+        portfolio = self.db.get(ClientPortfolio, user_id)
+        if portfolio is None:
+            portfolio = ClientPortfolio(
+                user_id=user_id,
+                cash_deposit=cash_deposit,
+                amount_in_trade=amount_in_trade,
+                previous_amount_in_trade=Decimal("0"),
+            )
+            self.db.add(portfolio)
+        else:
+            portfolio.cash_deposit = cash_deposit
+            portfolio.amount_in_trade = amount_in_trade
 
     # ---- read --------------------------------------------------------
     def get_by_id(self, onboarding_id: uuid.UUID) -> ClientOnboarding | None:
