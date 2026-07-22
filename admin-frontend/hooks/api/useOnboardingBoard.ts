@@ -6,6 +6,7 @@ import {
   downloadDocument, downloadAllDocuments,
 } from "@/app/(roles)/rm/onboarding-renewal/actions";
 import { mapBoardToColumns, mapRow } from "@/lib/onboarding/mappers";
+import { invalidateClientBook } from "@/hooks/api/useClientBook";
 import type { DocSpecDTO, KycBoardClient, KycBoardColumn, RmOptionDTO, StartOnboardingReq } from "@/lib/onboarding/types";
 
 export interface UseOnboardingBoardResult {
@@ -51,6 +52,7 @@ export function useOnboardingBoard(): UseOnboardingBoardResult {
   const start = useCallback(async (body: StartOnboardingReq) => {
     const result = await startOnboarding(body);
     if (!result.success) return { success: false, error: result.error };
+    invalidateClientBook(); // a new client just appeared in /rm/clients
     fetch_();
     return { success: true, id: result.data.id };
   }, [fetch_]);

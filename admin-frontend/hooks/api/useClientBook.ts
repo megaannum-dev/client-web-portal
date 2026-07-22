@@ -16,6 +16,13 @@ export function getCachedById(uid: string | null, id: string): ClientRow | null 
   return cache.get(uid)?.find((c) => c.id === id) ?? null;
 }
 
+/** Call after a mutation that changes which/how clients show up in the book
+ *  (e.g. onboarding a new client) so the next mount re-fetches instead of
+ *  serving the stale cached list. */
+export function invalidateClientBook(): void {
+  cache.clear();
+}
+
 export interface UseClientBookResult {
   data: ClientRow[] | null;
   loading: boolean;
