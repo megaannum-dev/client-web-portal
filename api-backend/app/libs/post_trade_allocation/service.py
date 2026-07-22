@@ -76,7 +76,9 @@ class PostTradeAllocationService:
                 by_model[s.model_id].append(s)
 
             # --- Step 1: pick up new orders ---------------------------------
-            orders = self.repo.unallocated_orders(after=period.confirmed_at)
+            demo_datetime = datetime(2026, 7, 13, tzinfo=timezone.utc);
+            # orders = self.repo.unallocated_orders(after=period.confirmed_at)
+            orders = self.repo.unallocated_orders(after=demo_datetime)
             if not orders:
                 newest_run = self.repo.create_run(
                     trade_date=datetime.now(timezone.utc).strftime("%Y%m%d"),
