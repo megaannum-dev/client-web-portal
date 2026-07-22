@@ -17,7 +17,7 @@ class ChromiumRenderer:
 
         settings = get_settings()
         url = (
-            f"{settings.pdf_render_base_url}/mobo/daily-exception-report/print"
+            f"{settings.pdf_render_base_url}/print/eod"
             f"?trade_date={trade_date_iso}"
         )
         # ponytail: Chromium doesn't use Docker's embedded DNS — resolve the
