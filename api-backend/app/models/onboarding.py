@@ -264,6 +264,14 @@ class ClientAllotmentRedemption(Base):
     # app/models/pc.py (`server_default=text("1")`) and this table's own migration
     # (op.add_column(..., server_default=sa.text("false"))).
     emergent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # widened 2026-07-22 (proposal 016, BE-2/BE-3 gap fix): redemption's settlement-date
+    # counterpart to expected_cash_in above. Missing from the DB layer's own migration
+    # (5712eb238fd6 added only reject_reason/decided_by/decided_at/emergent) even though
+    # BE-2's create_allotment contract and BE-3's redemption submit both require it --
+    # additive-only, not part of the frozen §7 seam (AllotRdmptDTO doesn't expose it yet).
+    expected_cash_out: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_client_allotment_redemptions_status", "status"),
