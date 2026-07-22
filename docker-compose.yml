@@ -41,6 +41,11 @@ services:
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       DEV_MODE: ${DEV_MODE:-false}
       PC_STORAGE_ROOT: /app/pc_storage
+      # EoD PDF rendering — feature 015 (BE-9): admin-frontend's in-container
+      # service name + internal port, not the host-mapped ADMIN_PORT/localhost
+      # (ChromiumRenderer runs inside this container, so "localhost" would
+      # mean itself, not the admin-frontend container).
+      PDF_RENDER_BASE_URL: ${PDF_RENDER_BASE_URL:-http://admin-frontend:3000}
     depends_on:
       mariadb:
         condition: service_healthy

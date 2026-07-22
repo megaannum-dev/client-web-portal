@@ -18,6 +18,8 @@ class Action(str, enum.Enum):
     POST_TRADE_ALLOCATION_RUN = "mobo:pta_run"
     # Trade Reconciliation — feature 012 (BE-1)
     RECON_VIEW = "mobo:recon_view"
+    # EoD Exception Report — feature 015 (BE-6)
+    EOD_SIGNOFF = "mobo:eod_signoff"
     # Client Onboarding — feature 013 (BE-4)
     ONBOARDING_MANAGE = "onboarding:manage"  # RM: start / upload / submit
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
@@ -35,6 +37,7 @@ ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
         Action.POST_TRADE_ALLOCATION_VIEW,
         Action.POST_TRADE_ALLOCATION_RUN,
         Action.RECON_VIEW,
+        Action.EOD_SIGNOFF,
     },
     AdminRole.PM: set(),
     AdminRole.PC: {

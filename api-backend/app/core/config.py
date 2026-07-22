@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_name: str = "Bootstrap Admin"
 
+    # EoD PDF rendering — feature 015 (BE-9)
+    pdf_renderer: str = "simple"  # "simple" (fpdf2, default) | "chromium" (Playwright)
+    pdf_render_base_url: str = "http://localhost:3001"
+    pdf_render_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

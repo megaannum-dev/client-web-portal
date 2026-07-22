@@ -36,6 +36,13 @@ from app.models.recon import (  # noqa: F401
     ReconSession,
     SourceKind,
 )
+from app.models.eod import (  # noqa: F401
+    EodBreakRecord,
+    EodLeg,
+    EodOutcome,
+    EodRecord,
+    EodStatus,
+)
 from app.models.onboarding import (  # noqa: F401
     ClientOnboarding,
     OnboardingDocument,
