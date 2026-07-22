@@ -10,6 +10,7 @@ pydantic-settings>=2.6.0
 email-validator>=2.2.0
 alembic>=1.13.0
 tzdata>=2024.1  # zoneinfo IANA data — stdlib zoneinfo has no bundled tz db on Windows/minimal Linux
+playwright>=1.47  # EoD PDF rendering — feature 015 (BE-9)
 
 # dev / CI tooling
 pytest>=8.3.0

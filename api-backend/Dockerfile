@@ -8,6 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# EoD PDF rendering — feature 015 (BE-9): Chromium browser binary for ChromiumRenderer.
+RUN playwright install --with-deps chromium
 
 COPY app ./app
 COPY alembic ./alembic

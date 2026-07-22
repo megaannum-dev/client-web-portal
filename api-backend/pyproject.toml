@@ -1,12 +1,3 @@
-[project]
-name = "api-backend"
-version = "0.1.0"
-requires-python = ">=3.13"
-dependencies = [
-    # EoD PDF rendering — feature 015 (BE-9)
-    "playwright>=1.47",
-]
-
 [tool.ruff]
 line-length = 100
 exclude = ["alembic", ".venv", "pc_storage"]
