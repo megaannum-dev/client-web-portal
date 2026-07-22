@@ -23,30 +23,30 @@ export type RmClient = {
 };
 
 export const RM_CLIENTS: RmClient[] = [
-  { id: "ardent", name: "Ardent Capital", mandate: "Discretionary", status: "Active", tone: "active",
-    aum: "$42.1M", renewal: "Jun 14, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 3,
-    contact: "Helena Voss", title: "Chief Investment Officer", email: "h.voss@ardentcap.com", assignedRm: "Dana Okafor" },
-  { id: "northbridge", name: "Northbridge LP", mandate: "Advisory", status: "Pending", tone: "pending",
-    aum: "$18.9M", renewal: "Aug 02, 2026", kyc: "Pending", kycTone: "pending", since: "2023", models: 2,
-    contact: "Marcus Lin", title: "Managing Partner", email: "m.lin@northbridge.lp", assignedRm: "Dana Okafor" },
-  { id: "vela", name: "Vela Holdings", mandate: "Discretionary", status: "Active", tone: "active",
-    aum: "$31.4M", renewal: "Jun 21, 2026", kyc: "Verified", kycTone: "active", since: "2020", models: 4,
-    contact: "Priya Anand", title: "Treasurer", email: "priya@velaholdings.com", assignedRm: "Jules Bennett" },
-  { id: "meridian", name: "Meridian Trust", mandate: "Advisory", status: "In Review", tone: "review",
-    aum: "$12.0M", renewal: "Jul 09, 2026", kyc: "In Review", kycTone: "review", since: "2024", models: 1,
-    contact: "Daniel Reyes", title: "Trustee", email: "d.reyes@meridiantrust.org", assignedRm: "Sana Iqbal" },
-  { id: "coalfield", name: "Coalfield & Co.", mandate: "Discretionary", status: "Overdue", tone: "overdue",
-    aum: "$9.7M", renewal: "Overdue", kyc: "Expired", kycTone: "overdue", since: "2019", models: 2,
-    contact: "Susan Pike", title: "Finance Director", email: "spike@coalfield.co", assignedRm: "Dana Okafor" },
-  { id: "selwyn", name: "Selwyn Asset Mgmt", mandate: "Discretionary", status: "Active", tone: "active",
-    aum: "$27.3M", renewal: "Sep 18, 2026", kyc: "Verified", kycTone: "active", since: "2022", models: 3,
-    contact: "Omar Haddad", title: "Head of Portfolios", email: "o.haddad@selwyn.am", assignedRm: "Jules Bennett" },
-  { id: "harlow", name: "Harlow Family Office", mandate: "Advisory", status: "Pending", tone: "pending",
-    aum: "$54.8M", renewal: "Oct 01, 2026", kyc: "Pending", kycTone: "pending", since: "2025", models: 0,
-    contact: "Lena Okonkwo", title: "Principal", email: "lena@harlowfo.com", assignedRm: "Sana Iqbal" },
-  { id: "pike", name: "Pike & Vance", mandate: "Discretionary", status: "Active", tone: "active",
-    aum: "$22.6M", renewal: "Nov 12, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 2,
-    contact: "Greg Vance", title: "Partner", email: "g.vance@pikevance.com", assignedRm: "Dana Okafor" },
+  // { id: "ardent", name: "Ardent Capital", mandate: "Discretionary", status: "Active", tone: "active",
+  //   aum: "$42.1M", renewal: "Jun 14, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 3,
+  //   contact: "Helena Voss", title: "Chief Investment Officer", email: "h.voss@ardentcap.com", assignedRm: "Dana Okafor" },
+  // { id: "northbridge", name: "Northbridge LP", mandate: "Advisory", status: "Pending", tone: "pending",
+  //   aum: "$18.9M", renewal: "Aug 02, 2026", kyc: "Pending", kycTone: "pending", since: "2023", models: 2,
+  //   contact: "Marcus Lin", title: "Managing Partner", email: "m.lin@northbridge.lp", assignedRm: "Dana Okafor" },
+  // { id: "vela", name: "Vela Holdings", mandate: "Discretionary", status: "Active", tone: "active",
+  //   aum: "$31.4M", renewal: "Jun 21, 2026", kyc: "Verified", kycTone: "active", since: "2020", models: 4,
+  //   contact: "Priya Anand", title: "Treasurer", email: "priya@velaholdings.com", assignedRm: "Jules Bennett" },
+  // { id: "meridian", name: "Meridian Trust", mandate: "Advisory", status: "In Review", tone: "review",
+  //   aum: "$12.0M", renewal: "Jul 09, 2026", kyc: "In Review", kycTone: "review", since: "2024", models: 1,
+  //   contact: "Daniel Reyes", title: "Trustee", email: "d.reyes@meridiantrust.org", assignedRm: "Sana Iqbal" },
+  // { id: "coalfield", name: "Coalfield & Co.", mandate: "Discretionary", status: "Overdue", tone: "overdue",
+  //   aum: "$9.7M", renewal: "Overdue", kyc: "Expired", kycTone: "overdue", since: "2019", models: 2,
+  //   contact: "Susan Pike", title: "Finance Director", email: "spike@coalfield.co", assignedRm: "Dana Okafor" },
+  // { id: "selwyn", name: "Selwyn Asset Mgmt", mandate: "Discretionary", status: "Active", tone: "active",
+  //   aum: "$27.3M", renewal: "Sep 18, 2026", kyc: "Verified", kycTone: "active", since: "2022", models: 3,
+  //   contact: "Omar Haddad", title: "Head of Portfolios", email: "o.haddad@selwyn.am", assignedRm: "Jules Bennett" },
+  // { id: "harlow", name: "Harlow Family Office", mandate: "Advisory", status: "Pending", tone: "pending",
+  //   aum: "$54.8M", renewal: "Oct 01, 2026", kyc: "Pending", kycTone: "pending", since: "2025", models: 0,
+  //   contact: "Lena Okonkwo", title: "Principal", email: "lena@harlowfo.com", assignedRm: "Sana Iqbal" },
+  // { id: "pike", name: "Pike & Vance", mandate: "Discretionary", status: "Active", tone: "active",
+  //   aum: "$22.6M", renewal: "Nov 12, 2026", kyc: "Verified", kycTone: "active", since: "2021", models: 2,
+  //   contact: "Greg Vance", title: "Partner", email: "g.vance@pikevance.com", assignedRm: "Dana Okafor" },
 ];
 
 export type SummaryItem = { id: string; c: string; d?: string; s?: string; t: ChipTone };
@@ -54,25 +54,13 @@ export type SummaryItem = { id: string; c: string; d?: string; s?: string; t: Ch
 /** Count-only row for the Open Requests card (dot + label + number, no navigation). */
 export type CountItem = { id: string; c: string; n: number; t: "primary" | "muted" };
 
-export const REQUEST_TICKETS: CountItem[] = [
-  { id: "allotment",  c: "Allotment",  n: 3, t: "primary" },
-  { id: "redemption", c: "Redemption", n: 2, t: "primary" },
-  { id: "others",     c: "Others",     n: 2, t: "muted"   },
-];
-
-export const RENEWALS_DUE: SummaryItem[] = [
-  { id: "coalfield", c: "Coalfield & Co.", d: "Overdue", t: "overdue" },
-  { id: "ardent",    c: "Ardent Capital", d: "Jun 14",  t: "warm" },
-  { id: "vela",      c: "Vela Holdings",  d: "Jun 21",  t: "warm" },
-  { id: "meridian",  c: "Meridian Trust", d: "Jul 09",  t: "neutral" },
-];
-
-export const ONBOARDING_QUEUE: SummaryItem[] = [
-  { id: "harlow",      c: "Harlow Family Office", s: "KYC Review",    t: "pending" },
-  { id: "greystone",   c: "Greystone Partners",   s: "Initial",       t: "neutral" },
-  { id: "ostrander",   c: "Ostrander Inc.",       s: "Awaiting docs", t: "pending" },
-  { id: "northbridge", c: "Northbridge LP",       s: "Documentation", t: "review" },
-];
+/** Renewals Due rail card — one row per client, sourced from RM_CLIENTS. */
+export const RENEWALS_DUE: SummaryItem[] = RM_CLIENTS.map((c) => ({
+  id: c.id,
+  c: c.name,
+  d: c.renewal === "Overdue" ? "Overdue" : c.renewal.replace(", 2026", ""),
+  t: c.tone === "overdue" ? "overdue" : "neutral",
+}));
 
 /* ---- Per-client DETAIL mock data --------------------------- */
 type ClientModel = { name: string; status: string; tone: ChipTone; account: string; notes: string };
@@ -87,70 +75,70 @@ type ClientExtra = {
 };
 
 export const CLIENT_EXTRA: Record<string, ClientExtra> = {
-  ardent: {
-    address: "120 Battery Street, Suite 1400\nSan Francisco, CA 94111",
-    country: "United States", clientId: "MEGA-0481", phone: "+1 (415) 555-0142", cashValue: "$3.84M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", account: "IB-4471", notes: "Quarterly rebalance" },
-      { name: "Model A", status: "Active", tone: "active", account: "IB-4471", notes: "First subscription" },
-      { name: "ESG Tilt", status: "In Review", tone: "review", account: "IB-5582", notes: "Awaiting compliance" },
-    ],
-  },
-  northbridge: {
-    address: "8 Finsbury Circus\nLondon EC2M 7EA",
-    country: "United Kingdom", clientId: "MEGA-0613", phone: "+44 20 7946 0318", cashValue: "$1.62M",
-    models: [
-      { name: "Income Core", status: "Active", tone: "active", account: "IB-3310", notes: "Monthly income" },
-      { name: "Global Balanced", status: "Pending", tone: "pending", account: "IB-3310", notes: "Allotment scheduled" },
-    ],
-  },
-  vela: {
-    address: "1 Raffles Place, #44-01\nSingapore 048616",
-    country: "Singapore", clientId: "MEGA-0298", phone: "+65 6812 4477", cashValue: "$2.97M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", account: "IB-2204", notes: "Quarterly rebalance" },
-      { name: "Equity Growth", status: "Active", tone: "active", account: "IB-2204", notes: "High conviction" },
-      { name: "Income Core", status: "Active", tone: "active", account: "IB-2255", notes: "Liquidity sleeve" },
-      { name: "ESG Tilt", status: "Active", tone: "active", account: "IB-2255", notes: "Client mandate" },
-    ],
-  },
-  meridian: {
-    address: "200 Bay Street, Suite 3200\nToronto, ON M5J 2J3",
-    country: "Canada", clientId: "MEGA-0744", phone: "+1 (416) 555-0190", cashValue: "$0.91M",
-    models: [
-      { name: "Income Core", status: "In Review", tone: "review", account: "IB-7781", notes: "Onboarding model" },
-    ],
-  },
-  coalfield: {
-    address: "55 Collins Street\nMelbourne, VIC 3000",
-    country: "Australia", clientId: "MEGA-0152", phone: "+61 3 9012 5566", cashValue: "$0.44M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", account: "IB-1190", notes: "Review overdue" },
-      { name: "Model A", status: "Overdue", tone: "overdue", account: "IB-1190", notes: "KYC expired — frozen" },
-    ],
-  },
-  selwyn: {
-    address: "Bahnhofstrasse 45\n8001 Zürich",
-    country: "Switzerland", clientId: "MEGA-0526", phone: "+41 44 668 1120", cashValue: "$2.15M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", account: "IB-6620", notes: "Quarterly rebalance" },
-      { name: "Equity Growth", status: "Active", tone: "active", account: "IB-6620", notes: "Core holding" },
-      { name: "ESG Tilt", status: "Active", tone: "active", account: "IB-6655", notes: "Thematic tilt" },
-    ],
-  },
-  harlow: {
-    address: "443 Park Avenue, Floor 28\nNew York, NY 10022",
-    country: "United States", clientId: "MEGA-0807", phone: "+1 (212) 555-0177", cashValue: "$6.30M",
-    models: [],
-  },
-  pike: {
-    address: "2 Pacific Place, 88 Queensway\nHong Kong",
-    country: "Hong Kong SAR", clientId: "MEGA-0369", phone: "+852 3018 4422", cashValue: "$1.78M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", account: "IB-9012", notes: "Quarterly rebalance" },
-      { name: "Income Core", status: "Active", tone: "active", account: "IB-9012", notes: "Yield focus" },
-    ],
-  },
+  // ardent: {
+  //   address: "120 Battery Street, Suite 1400\nSan Francisco, CA 94111",
+  //   country: "United States", clientId: "MEGA-0481", phone: "+1 (415) 555-0142", cashValue: "$3.84M",
+  //   models: [
+  //     { name: "Global Balanced", status: "Active", tone: "active", account: "IB-4471", notes: "Quarterly rebalance" },
+  //     { name: "Model A", status: "Active", tone: "active", account: "IB-4471", notes: "First subscription" },
+  //     { name: "ESG Tilt", status: "In Review", tone: "review", account: "IB-5582", notes: "Awaiting compliance" },
+  //   ],
+  // },
+  // northbridge: {
+  //   address: "8 Finsbury Circus\nLondon EC2M 7EA",
+  //   country: "United Kingdom", clientId: "MEGA-0613", phone: "+44 20 7946 0318", cashValue: "$1.62M",
+  //   models: [
+  //     { name: "Income Core", status: "Active", tone: "active", account: "IB-3310", notes: "Monthly income" },
+  //     { name: "Global Balanced", status: "Pending", tone: "pending", account: "IB-3310", notes: "Allotment scheduled" },
+  //   ],
+  // },
+  // vela: {
+  //   address: "1 Raffles Place, #44-01\nSingapore 048616",
+  //   country: "Singapore", clientId: "MEGA-0298", phone: "+65 6812 4477", cashValue: "$2.97M",
+  //   models: [
+  //     { name: "Global Balanced", status: "Active", tone: "active", account: "IB-2204", notes: "Quarterly rebalance" },
+  //     { name: "Equity Growth", status: "Active", tone: "active", account: "IB-2204", notes: "High conviction" },
+  //     { name: "Income Core", status: "Active", tone: "active", account: "IB-2255", notes: "Liquidity sleeve" },
+  //     { name: "ESG Tilt", status: "Active", tone: "active", account: "IB-2255", notes: "Client mandate" },
+  //   ],
+  // },
+  // meridian: {
+  //   address: "200 Bay Street, Suite 3200\nToronto, ON M5J 2J3",
+  //   country: "Canada", clientId: "MEGA-0744", phone: "+1 (416) 555-0190", cashValue: "$0.91M",
+  //   models: [
+  //     { name: "Income Core", status: "In Review", tone: "review", account: "IB-7781", notes: "Onboarding model" },
+  //   ],
+  // },
+  // coalfield: {
+  //   address: "55 Collins Street\nMelbourne, VIC 3000",
+  //   country: "Australia", clientId: "MEGA-0152", phone: "+61 3 9012 5566", cashValue: "$0.44M",
+  //   models: [
+  //     { name: "Global Balanced", status: "Active", tone: "active", account: "IB-1190", notes: "Review overdue" },
+  //     { name: "Model A", status: "Overdue", tone: "overdue", account: "IB-1190", notes: "KYC expired — frozen" },
+  //   ],
+  // },
+  // selwyn: {
+  //   address: "Bahnhofstrasse 45\n8001 Zürich",
+  //   country: "Switzerland", clientId: "MEGA-0526", phone: "+41 44 668 1120", cashValue: "$2.15M",
+  //   models: [
+  //     { name: "Global Balanced", status: "Active", tone: "active", account: "IB-6620", notes: "Quarterly rebalance" },
+  //     { name: "Equity Growth", status: "Active", tone: "active", account: "IB-6620", notes: "Core holding" },
+  //     { name: "ESG Tilt", status: "Active", tone: "active", account: "IB-6655", notes: "Thematic tilt" },
+  //   ],
+  // },
+  // harlow: {
+  //   address: "443 Park Avenue, Floor 28\nNew York, NY 10022",
+  //   country: "United States", clientId: "MEGA-0807", phone: "+1 (212) 555-0177", cashValue: "$6.30M",
+  //   models: [],
+  // },
+  // pike: {
+  //   address: "2 Pacific Place, 88 Queensway\nHong Kong",
+  //   country: "Hong Kong SAR", clientId: "MEGA-0369", phone: "+852 3018 4422", cashValue: "$1.78M",
+  //   models: [
+  //     { name: "Global Balanced", status: "Active", tone: "active", account: "IB-9012", notes: "Quarterly rebalance" },
+  //     { name: "Income Core", status: "Active", tone: "active", account: "IB-9012", notes: "Yield focus" },
+  //   ],
+  // },
 };
 
 export type ClientDoc = { name: string; status: string; tone: ChipTone; icon: string };
@@ -159,11 +147,11 @@ function clientDocs(c: Pick<RmClient, "kyc" | "tone">): ClientDoc[] {
   const v = c.kyc === "Verified";
   const overdue = c.tone === "overdue";
   return [
-    { name: "Passport / ID", status: v ? "Verified" : "Pending", tone: v ? "active" : "pending", icon: v ? "check" : "clock" },
-    { name: "Proof of Address", status: v ? "Verified" : "Pending review", tone: v ? "active" : "pending", icon: v ? "check" : "clock" },
-    { name: "Source of Wealth", status: overdue ? "Expired" : v ? "Verified" : "Missing", tone: overdue ? "overdue" : v ? "active" : "pending", icon: overdue ? "x" : v ? "check" : "clock" },
-    { name: "Tax Residency (CRS)", status: "Verified", tone: "active", icon: "check" },
-    { name: "Sanctions / PEP Screen", status: v ? "Verified" : "In Review", tone: v ? "active" : "review", icon: v ? "check" : "search" },
+    // { name: "Passport / ID", status: v ? "Verified" : "Pending", tone: v ? "active" : "pending", icon: v ? "check" : "clock" },
+    // { name: "Proof of Address", status: v ? "Verified" : "Pending review", tone: v ? "active" : "pending", icon: v ? "check" : "clock" },
+    // { name: "Source of Wealth", status: overdue ? "Expired" : v ? "Verified" : "Missing", tone: overdue ? "overdue" : v ? "active" : "pending", icon: overdue ? "x" : v ? "check" : "clock" },
+    // { name: "Tax Residency (CRS)", status: "Verified", tone: "active", icon: "check" },
+    // { name: "Sanctions / PEP Screen", status: v ? "Verified" : "In Review", tone: v ? "active" : "review", icon: v ? "check" : "search" },
   ];
 }
 
@@ -174,21 +162,21 @@ function clientHistory(c: Pick<RmClient, "kyc" | "mandate">, models: ClientModel
   const m0 = models[0] ? models[0].name : null;
   const m1 = models[1] ? models[1].name : null;
   return [
-    m0
-      ? { t: `Subscribed to ${m0}`, d: "May 28", accent: true, detail: ["Allotment · 2× model multiple", `Ref SUB-20418 · logged by ${rm}`] }
-      : { t: "Onboarding started", d: "May 28", accent: true, detail: ["KYC pack issued to client", `Owner: ${rm}`] },
-    c.kyc === "Verified"
-      ? { t: "KYC renewal completed", d: "May 12", detail: ["All documents re-verified", "Next review scheduled"] }
-      : c.kyc === "Expired"
-        ? { t: "KYC flagged expired", d: "May 12", detail: ["Source of Wealth lapsed", "Account actions frozen"] }
-        : { t: "KYC documents requested", d: "May 12", detail: ["Awaiting client upload", "Compliance notified"] },
-    { t: "Quarterly review call", d: "Apr 03", detail: ["45 min · portfolio + rebalancing", "Notes added to relationship file"] },
-    { t: "Statement dispatched", d: "Mar 31", detail: ["Q1 2026 consolidated statement", "Delivered via secure portal"] },
-    m1
-      ? { t: `Subscribed to ${m1}`, d: "Mar 12", detail: ["Allotment · 1× model multiple", `Ref SUB-19744 · logged by ${rm}`] }
-      : { t: "Mandate confirmed", d: "Mar 12", detail: ["Mandate documents countersigned", "Filed with compliance"] },
-    { t: "Mandate amended", d: "Feb 20", detail: [`${c.mandate} limits revised`, "Signed by client & RM"] },
-    { t: "Address updated", d: "Feb 02", detail: ["Registered address changed", "Re-verified against proof of address"] },
+    // m0
+    //   ? { t: `Subscribed to ${m0}`, d: "May 28", accent: true, detail: ["Allotment · 2× model multiple", `Ref SUB-20418 · logged by ${rm}`] }
+    //   : { t: "Onboarding started", d: "May 28", accent: true, detail: ["KYC pack issued to client", `Owner: ${rm}`] },
+    // c.kyc === "Verified"
+    //   ? { t: "KYC renewal completed", d: "May 12", detail: ["All documents re-verified", "Next review scheduled"] }
+    //   : c.kyc === "Expired"
+    //     ? { t: "KYC flagged expired", d: "May 12", detail: ["Source of Wealth lapsed", "Account actions frozen"] }
+    //     : { t: "KYC documents requested", d: "May 12", detail: ["Awaiting client upload", "Compliance notified"] },
+    // { t: "Quarterly review call", d: "Apr 03", detail: ["45 min · portfolio + rebalancing", "Notes added to relationship file"] },
+    // { t: "Statement dispatched", d: "Mar 31", detail: ["Q1 2026 consolidated statement", "Delivered via secure portal"] },
+    // m1
+    //   ? { t: `Subscribed to ${m1}`, d: "Mar 12", detail: ["Allotment · 1× model multiple", `Ref SUB-19744 · logged by ${rm}`] }
+    //   : { t: "Mandate confirmed", d: "Mar 12", detail: ["Mandate documents countersigned", "Filed with compliance"] },
+    // { t: "Mandate amended", d: "Feb 20", detail: [`${c.mandate} limits revised`, "Signed by client & RM"] },
+    // { t: "Address updated", d: "Feb 02", detail: ["Registered address changed", "Re-verified against proof of address"] },
   ];
 }
 
@@ -427,22 +415,33 @@ export type RequestTicket = {
 };
 
 export const TICKET_QUEUE: RequestTicket[] = [
-  { ref: "REQ-2048", client: "Ardent Capital", contact: "Marcus Lindqvist", email: "m.lindqvist@ardentcap.com", model: "Global Balanced", account: "IB-4471", type: "Allotment", ccy: "USD", cash: "180,000", mult: "2×", notional: "360,000", date: "Jun 06", status: "New", tone: "warm",
-    message: "Please allot a further USD 180,000 to our Global Balanced model at the standard 2× multiple ahead of the quarterly rebalance. Target settlement by mid-June." },
-  { ref: "REQ-2047", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", model: "Equity Growth", account: "IB-2204", type: "Allotment", ccy: "USD", cash: "150,000", mult: "2×", notional: "300,000", date: "Jun 05", status: "New", tone: "warm",
-    message: "Top up Equity Growth by USD 150,000 from the cash we wired Tuesday." },
-  { ref: "REQ-2045", client: "Selwyn Asset Mgmt", contact: "Tom Brockway", email: "tbrockway@selwynam.ch", model: "Global Balanced", account: "IB-6620", type: "Redemption", ccy: "CHF", cash: "(50,000)", mult: "−0.5×", notional: "(100,000)", date: "Jun 04", status: "In Progress", tone: "review",
-    message: "Redeem CHF 50,000 from Global Balanced to fund an end-of-quarter distribution to our underlying client." },
-  { ref: "REQ-2044", client: "Northbridge LP", contact: "Helen Asari", email: "h.asari@northbridge.com", model: "Income Core", account: "IB-3310", type: "Allotment", ccy: "USD", cash: "200,000", mult: "2×", notional: "400,000", date: "Jun 04", status: "New", tone: "warm",
-    message: "New allotment of USD 200,000 to Income Core, please." },
-  { ref: "REQ-2041", client: "Coalfield & Co.", contact: "Derek Mwangi", email: "derek@coalfield.com.au", account: "IB-1190", type: "Other", subject: "Update authorised signatory", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 03", status: "In Progress", tone: "review",
-    message: "We've appointed a new CFO, Sarah Quinn, who should replace David Pell as authorised signatory across all our mandates. Could you advise what documentation you need from us to make the change?" },
-  { ref: "REQ-2038", client: "Pike & Vance", contact: "Owen Pike", email: "owen.pike@pikevance.com", model: "Income Core", account: "IB-9012", type: "Redemption", ccy: "USD", cash: "(80,000)", mult: "−1×", notional: "(80,000)", date: "Jun 02", status: "Closed", tone: "neutral",
-    message: "Redeem USD 80,000 from Income Core." },
-  { ref: "REQ-2035", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", account: "IB-2255", type: "Other", subject: "Fee schedule clarification", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 01", status: "Replied", tone: "active",
-    message: "Could you confirm whether the incentive fee on ESG Tilt is charged on a high-water-mark basis, and when it crystallises?" },
-  { ref: "REQ-2031", client: "Meridian Trust", contact: "Anita Cole", email: "acole@meridiantrust.ca", model: "Income Core", account: "IB-7781", type: "Allotment", ccy: "CAD", cash: "120,000", mult: "1×", notional: "120,000", date: "May 30", status: "Declined", tone: "overdue",
-    message: "Allot CAD 120,000 to Income Core." },
+  // { ref: "REQ-2048", client: "Ardent Capital", contact: "Marcus Lindqvist", email: "m.lindqvist@ardentcap.com", model: "Global Balanced", account: "IB-4471", type: "Allotment", ccy: "USD", cash: "180,000", mult: "2×", notional: "360,000", date: "Jun 06", status: "New", tone: "warm",
+  //   message: "Please allot a further USD 180,000 to our Global Balanced model at the standard 2× multiple ahead of the quarterly rebalance. Target settlement by mid-June." },
+  // { ref: "REQ-2047", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", model: "Equity Growth", account: "IB-2204", type: "Allotment", ccy: "USD", cash: "150,000", mult: "2×", notional: "300,000", date: "Jun 05", status: "New", tone: "warm",
+  //   message: "Top up Equity Growth by USD 150,000 from the cash we wired Tuesday." },
+  // { ref: "REQ-2045", client: "Selwyn Asset Mgmt", contact: "Tom Brockway", email: "tbrockway@selwynam.ch", model: "Global Balanced", account: "IB-6620", type: "Redemption", ccy: "CHF", cash: "(50,000)", mult: "−0.5×", notional: "(100,000)", date: "Jun 04", status: "In Progress", tone: "review",
+  //   message: "Redeem CHF 50,000 from Global Balanced to fund an end-of-quarter distribution to our underlying client." },
+  // { ref: "REQ-2044", client: "Northbridge LP", contact: "Helen Asari", email: "h.asari@northbridge.com", model: "Income Core", account: "IB-3310", type: "Allotment", ccy: "USD", cash: "200,000", mult: "2×", notional: "400,000", date: "Jun 04", status: "New", tone: "warm",
+  //   message: "New allotment of USD 200,000 to Income Core, please." },
+  // { ref: "REQ-2041", client: "Coalfield & Co.", contact: "Derek Mwangi", email: "derek@coalfield.com.au", account: "IB-1190", type: "Other", subject: "Update authorised signatory", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 03", status: "In Progress", tone: "review",
+  //   message: "We've appointed a new CFO, Sarah Quinn, who should replace David Pell as authorised signatory across all our mandates. Could you advise what documentation you need from us to make the change?" },
+  // { ref: "REQ-2038", client: "Pike & Vance", contact: "Owen Pike", email: "owen.pike@pikevance.com", model: "Income Core", account: "IB-9012", type: "Redemption", ccy: "USD", cash: "(80,000)", mult: "−1×", notional: "(80,000)", date: "Jun 02", status: "Closed", tone: "neutral",
+  //   message: "Redeem USD 80,000 from Income Core." },
+  // { ref: "REQ-2035", client: "Vela Holdings", contact: "Priya Nandakumar", email: "priya.n@velaholdings.com", account: "IB-2255", type: "Other", subject: "Fee schedule clarification", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 01", status: "Replied", tone: "active",
+  //   message: "Could you confirm whether the incentive fee on ESG Tilt is charged on a high-water-mark basis, and when it crystallises?" },
+  // { ref: "REQ-2031", client: "Meridian Trust", contact: "Anita Cole", email: "acole@meridiantrust.ca", model: "Income Core", account: "IB-7781", type: "Allotment", ccy: "CAD", cash: "120,000", mult: "1×", notional: "120,000", date: "May 30", status: "Declined", tone: "overdue",
+  //   message: "Allot CAD 120,000 to Income Core." },
+];
+
+/** A ticket still needs RM attention (mirrors RequestTickets.tsx's isClosed). */
+const isOpenTicket = (t: RequestTicket) =>
+  t.status !== "Closed" && t.status !== "Declined" && t.status !== "Replied";
+
+/** Open Requests card — count of still-open tickets per type, from TICKET_QUEUE. */
+export const REQUEST_TICKETS: CountItem[] = [
+  { id: "allotment", c: "Allotment", n: TICKET_QUEUE.filter((t) => t.type === "Allotment" && isOpenTicket(t)).length, t: "primary" },
+  { id: "redemption", c: "Redemption", n: TICKET_QUEUE.filter((t) => t.type === "Redemption" && isOpenTicket(t)).length, t: "primary" },
+  { id: "others", c: "Others", n: TICKET_QUEUE.filter((t) => t.type === "Other" && isOpenTicket(t)).length, t: "muted" },
 ];
 
 /* ============================================================
@@ -500,10 +499,20 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
+/** Used when RM_CLIENTS has no entries to rotate through — keeps callers
+ *  (dashboard counts, client-book table) rendering placeholders instead of throwing. */
+const EMPTY_OVERLAY: OverlayCore = {
+  status: "—", tone: "neutral", mandate: "—", aum: "—", renewal: "—",
+  kyc: "—", kycTone: "neutral", since: "—", models: [], cashValue: "—",
+  contact: "—", title: "—",
+};
+
 /** Stable per-id mock overlay: a real client id always hashes onto the
  *  same rotation entry, so repeated lookups for the same id are identical. */
 export function getMockOverlay(id: string): MockOverlay {
-  const core = OVERLAY_ROTATION[hashString(id) % OVERLAY_ROTATION.length];
+  const core = OVERLAY_ROTATION.length
+    ? OVERLAY_ROTATION[hashString(id) % OVERLAY_ROTATION.length]
+    : EMPTY_OVERLAY;
   return {
     ...core,
     docs: clientDocs(core),
