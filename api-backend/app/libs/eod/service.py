@@ -125,7 +125,8 @@ class EodService:
         )
         self.db.flush()
 
-        pdf_bytes = get_renderer().render(trade_date_iso)
+        view = self.build_day_view(trade_date_iso)
+        pdf_bytes = get_renderer().render(view)
         month_subdir = trade_date.strftime("%Y-%m")
         storage_key = get_storage().save(
             BytesIO(pdf_bytes),
