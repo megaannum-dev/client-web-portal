@@ -13,7 +13,9 @@
    Ported from the design handoff (mobo/mobo-app/MoboRecon.jsx).
    ============================================================ */
 
-export type RcModelId = "mA" | "mB" | "mC";
+// Was a fixed "mA" | "mB" | "mC" union under the mock data model; the real
+// backend sends the model's actual name (any string) in this field.
+export type RcModelId = string;
 export type FlowState = "ok" | "brk";
 
 export interface RcModelMeta {
