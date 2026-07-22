@@ -386,6 +386,16 @@ class OnboardingRepository:
         portfolio.amount_in_trade += amount
         portfolio.previous_amount_in_trade += amount
 
+    def shift_portfolio_for_redemption(self, user_id: uuid.UUID, amount: Decimal) -> None:
+        """D-1: the redemption-direction mirror of shift_portfolio_for_allotment
+        above -- amount_in_trade -= amount, previous_amount_in_trade -= amount,
+        cash_deposit += amount. Does NOT touch client_portfolio_run_deltas."""
+        portfolio = self.db.get(ClientPortfolio, user_id)
+        assert portfolio is not None
+        portfolio.amount_in_trade -= amount
+        portfolio.previous_amount_in_trade -= amount
+        portfolio.cash_deposit += amount
+
     def list_rm_options(self) -> list[tuple[str, str]]:
         """(firebase_uid, display name) for every RM-role admin -- feeds the
         ADMIN-only "Assigned RM" override picker. Same name-resolution

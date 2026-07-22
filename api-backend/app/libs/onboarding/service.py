@@ -25,6 +25,7 @@ from app.libs.onboarding.schemas import (
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
+    RedemptionDecisionReq,
     RejectReq,
     RmOptionDTO,
     StartOnboardingReq,
@@ -502,6 +503,104 @@ class OnboardingService:
             self.db.rollback()
             raise
         return self._allotment_to_dto(allotment)
+
+    # ---- PC: redemption decide (BE-4) --------------------------------------
+    def pc_decide_redemption(
+        self, allotment_id: uuid.UUID, req: RedemptionDecisionReq, *, decided_by: str
+    ) -> AllotRdmptDTO:
+        row = self.repo.get_allotment(allotment_id)
+        if row is None or row.kind != AllotRdmpKind.REDEMPTION:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown redemption")
+        if row.status == AllotRdmpStatus.AWAITING_CO:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Awaiting Compliance decision first")
+        if row.status != AllotRdmpStatus.AWAITING_PC:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Redemption already decided")
+
+        try:
+            if req.verdict == "reject":
+                if not req.reason:
+                    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                row.status = AllotRdmpStatus.REJECTED
+                row.reject_reason = req.reason
+                row.decided_by = decided_by
+                row.decided_at = datetime.utcnow()
+            else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
+                # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
+                self._execute_redemption_approval(row, decided_by=decided_by)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(row)
+
+    def _execute_redemption_approval(
+        self, row: ClientAllotmentRedemption, *, decided_by: str
+    ) -> None:
+        """Terminal step, called only from pc_decide_redemption above (this same
+        unit) once a row reaches its final PC gate. (1) read agg_before, (2)
+        decrement client_subscriptions.multiplier (delete the row if it reaches
+        0), (3) agg_after = agg_before - row.multiplier, (4) paired portfolio
+        shift (D-1 redemption direction), (5) status=approved + decided_by/
+        decided_at, (6) insert client_events. No commit here -- caller's txn
+        boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
+        its only caller, lives here."""
+        model = self.db.get(Model, row.model_id)
+        assert model is not None
+        agg_before = self.repo.sum_subscription_multiplier(row.model_id)
+
+        sub = self.db.get(ClientSubscription, (row.user_id, row.model_id))
+        assert sub is not None
+        remaining = sub.multiplier - row.multiplier
+        if remaining <= 0:
+            self.db.delete(sub)
+        else:
+            sub.multiplier = remaining
+
+        agg_after = agg_before - row.multiplier
+        amount = row.multiplier * (model.model_size or Decimal("0"))
+        self.repo.shift_portfolio_for_redemption(row.user_id, amount)
+
+        row.status = AllotRdmpStatus.APPROVED
+        row.decided_by = decided_by
+        row.decided_at = datetime.utcnow()
+        row.agg_before = agg_before  # re-snapshotted at the point of real effect
+        row.agg_after = agg_after
+
+        self.repo.create_event(
+            user_id=row.user_id,
+            category="Account Notification",
+            title="Redemption approved",
+            body=f"Your redemption of {row.multiplier} unit(s) in {model.name} has been approved.",
+        )
+
+    # ---- CO: redemption decide (BE-5) --------------------------------------
+    def co_decide_redemption(
+        self, allotment_id: uuid.UUID, req: RedemptionDecisionReq, *, decided_by: str
+    ) -> AllotRdmptDTO:
+        row = self.repo.get_allotment(allotment_id)
+        if row is None or row.kind != AllotRdmpKind.REDEMPTION:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown redemption")
+        if row.status != AllotRdmpStatus.AWAITING_CO:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Not awaiting Compliance decision")
+
+        try:
+            if req.verdict == "reject":
+                if not req.reason:
+                    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                row.status = AllotRdmpStatus.REJECTED
+                row.reject_reason = req.reason
+                row.decided_by = decided_by
+                row.decided_at = datetime.utcnow()
+            else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
+                # to PC. Never transitions straight to approved -- PC still owes
+                # the terminal decision (BE-4's _execute_redemption_approval),
+                # so decided_by/decided_at/execute are NOT stamped here.
+                row.status = AllotRdmpStatus.AWAITING_PC
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(row)
 
     # ---- PC: allotments -----------------------------------------------------
     def list_allotments(self) -> list[AllotRdmptDTO]:
