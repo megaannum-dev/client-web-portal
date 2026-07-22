@@ -24,6 +24,7 @@ import {
   getMockOverlay,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useClientBook } from "@/hooks/api/useClientBook";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
@@ -36,8 +37,6 @@ import type { ClientRow } from "@/lib/rm/clients";
 const ONBOARDING_TONE: Record<OnboardingStatus, ChipTone> = {
   initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
 };
-
-const RM_NAME = "Dana Okafor";
 
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
@@ -60,6 +59,7 @@ function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
 
 export default function RmDashboardPage() {
   const router = useRouter();
+  const rmName = useAuth().portalUser?.name;
   const { data, loading, error } = useClientBook();
   const { data: board } = useOnboardingBoard();
 
@@ -137,7 +137,7 @@ export default function RmDashboardPage() {
         <div className="mb-4">
           <PageHeader
             title="Dashboard"
-            subtitle={`Hello, ${RM_NAME} — here's your client book today.`}
+            subtitle={rmName ? `Hello, ${rmName} — here's your client book today.` : "Here's your client book today."}
           />
         </div>
 
