@@ -5,7 +5,7 @@ import io
 import os
 import uuid
 import zipfile
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import BinaryIO
 
@@ -29,6 +29,7 @@ from app.libs.onboarding.schemas import (
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
+    SubmitRedemptionReq,
     SubscriptionDTO,
     VerdictReq,
 )
@@ -54,6 +55,10 @@ _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 # client_allotment_redemptions.expected_cash_in at approve. Same os.getenv(...)
 # convention as onboarding/scheduler.py's _RENEWAL_LOOKAHEAD_DAYS.
 ONBOARDING_SETTLEMENT_DAYS = max(0, int(os.getenv("ONBOARDING_SETTLEMENT_DAYS", "5")))
+
+# BE-3 (D-2): redemptions strictly above this amount require Compliance
+# approval in addition to PC's.
+_REDEMPTION_CO_THRESHOLD = Decimal("300000")
 
 
 class OnboardingService:
@@ -429,6 +434,68 @@ class OnboardingService:
                 category="Account Notification",
                 title="Allotment submitted",
                 body=f"An allotment of {req.multiplier} unit(s) in {model.name} was submitted.",
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(allotment)
+
+    def _needs_co(self, amount: Decimal) -> bool:
+        return amount > _REDEMPTION_CO_THRESHOLD
+
+    # ---- RM/PC: redemption submission (BE-3) -------------------------------
+    def submit_redemption(self, req: SubmitRedemptionReq) -> AllotRdmptDTO:
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        sub = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        multiplier = req.multiplier
+        if sub is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No subscription to redeem from")
+        if req.emergent:
+            multiplier = sub.multiplier  # D-3: emergent redeems the FULL current holding
+        if multiplier > sub.multiplier:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Redemption exceeds current subscription"
+            )
+
+        amount = multiplier * (model.model_size or Decimal("0"))
+        status_ = (
+            AllotRdmpStatus.AWAITING_CO if self._needs_co(amount) else AllotRdmpStatus.AWAITING_PC
+        )
+        agg_before = self.repo.sum_subscription_multiplier(req.model_id)
+        agg_after = agg_before - multiplier  # preview snapshot; not applied until final approval
+
+        expected_cash_out = req.expected_cash_out
+        if req.emergent:
+            expected_cash_out = date.today() + timedelta(days=1)  # D-3: forced T+1
+
+        try:
+            allotment = self.repo.create_allotment(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=multiplier,
+                agg_before=agg_before,
+                agg_after=agg_after,
+                kind=AllotRdmpKind.REDEMPTION,
+                status=status_,
+                note="emergent redemption" if req.emergent else "redemption",
+                expected_cash_out=(
+                    datetime.combine(expected_cash_out, datetime.min.time())
+                    if expected_cash_out
+                    else None
+                ),
+                emergent=req.emergent,
+            )
+            self.repo.create_event(
+                user_id=req.client_id,
+                category="Account Notification",
+                title="Redemption submitted",
+                body=(
+                    f"A redemption of {multiplier} unit(s) in {model.name} "
+                    "was submitted for approval."
+                ),
             )
             self.db.commit()
         except Exception:
