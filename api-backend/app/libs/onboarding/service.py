@@ -28,12 +28,14 @@ from app.libs.onboarding.schemas import (
     RejectReq,
     RmOptionDTO,
     StartOnboardingReq,
+    SubmitAllotmentReq,
     SubscriptionDTO,
     VerdictReq,
 )
 from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
 from app.models.onboarding import (
+    AllotRdmpKind,
     AllotRdmpStatus,
     ClientAllotmentRedemption,
     ClientOnboarding,
@@ -42,7 +44,7 @@ from app.models.onboarding import (
     OnboardingKind,
     OnboardingStatus,
 )
-from app.models.pc import Model
+from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
@@ -367,6 +369,72 @@ class OnboardingService:
                     zf.writestr(f"{doc.doc_type}_{doc.filename or doc.doc_type}", fh.read())
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
+
+    # ---- RM/PC: allotment submission (BE-2) --------------------------------
+    def submit_allotment(self, req: SubmitAllotmentReq) -> AllotRdmptDTO:
+        """Mirrors _approve_initial (service.py:242) without the onboarding
+        ceremony: no compliance gate, no users.status change, no document checks."""
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        client = self.db.get(User, req.client_id)
+        if client is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown client")
+
+        existing = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        # ORDERING: read agg_before BEFORE the upsert -- same constraint as
+        # _approve_initial (double-counts this client's own row otherwise).
+        agg_before = self.repo.sum_subscription_multiplier(req.model_id)
+
+        if existing is None:
+            new_multiplier = req.multiplier  # new-subscription mode
+            mgmt_override = req.mgmt_fee if req.mgmt_fee != model.mgmt_fee else None
+            incentive_override = (
+                req.incentive_fee if req.incentive_fee != model.incentive_fee else None
+            )
+        else:
+            new_multiplier = existing.multiplier + req.multiplier  # D-4: additive
+            mgmt_override = existing.mgmt_fee_override
+            incentive_override = existing.incentive_fee_override
+
+        agg_after = agg_before + req.multiplier
+        amount = req.multiplier * (model.model_size or Decimal("0"))
+
+        try:
+            self.repo.upsert_subscription(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=new_multiplier,
+                mgmt_fee_override=mgmt_override,
+                incentive_fee_override=incentive_override,
+            )
+            allotment = self.repo.create_allotment(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=req.multiplier,  # the submitted delta, not new_multiplier
+                agg_before=agg_before,
+                agg_after=agg_after,
+                kind=AllotRdmpKind.ALLOTMENT,
+                status=AllotRdmpStatus.PENDING,
+                note="allotment",
+                expected_cash_in=(
+                    datetime.combine(req.expected_cash_in, datetime.min.time())
+                    if req.expected_cash_in
+                    else None
+                ),
+            )
+            self.repo.shift_portfolio_for_allotment(req.client_id, amount)
+            self.repo.create_event(
+                user_id=req.client_id,
+                category="Account Notification",
+                title="Allotment submitted",
+                body=f"An allotment of {req.multiplier} unit(s) in {model.name} was submitted.",
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(allotment)
 
     # ---- PC: allotments -----------------------------------------------------
     def list_allotments(self) -> list[AllotRdmptDTO]:

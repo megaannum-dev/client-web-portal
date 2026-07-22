@@ -344,27 +344,47 @@ class OnboardingRepository:
         user_id: uuid.UUID,
         model_id: uuid.UUID,
         multiplier: Decimal,
-        source_onboarding_id: uuid.UUID,
         agg_before: Decimal,
         agg_after: Decimal,
-        expected_cash_in: datetime,
+        kind: AllotRdmpKind = AllotRdmpKind.ALLOTMENT,
+        status: AllotRdmpStatus = AllotRdmpStatus.PENDING,
+        note: str | None = "initial allotment",
+        source_onboarding_id: uuid.UUID | None = None,
+        expected_cash_in: datetime | None = None,
+        expected_cash_out: datetime | None = None,
+        emergent: bool = False,
     ) -> ClientAllotmentRedemption:
         allotment = ClientAllotmentRedemption(
             id=uuid.uuid4(),
             user_id=user_id,
             model_id=model_id,
             multiplier=multiplier,
-            kind=AllotRdmpKind.ALLOTMENT,
-            status=AllotRdmpStatus.PENDING,
-            note="initial allotment",
+            kind=kind,
+            status=status,
+            note=note,
             source_onboarding_id=source_onboarding_id,
             reference=f"AL-{uuid.uuid4().hex[:6].upper()}",
             agg_before=agg_before,
             agg_after=agg_after,
             expected_cash_in=expected_cash_in,
+            expected_cash_out=expected_cash_out,
+            emergent=emergent,
         )
         self.db.add(allotment)
         return allotment
+
+    def shift_portfolio_for_allotment(self, user_id: uuid.UUID, amount: Decimal) -> None:
+        """D-1: cash_deposit -= amount, amount_in_trade += amount,
+        previous_amount_in_trade += amount. Preserves the trading delta
+        (amount_in_trade - previous_amount_in_trade) and total portfolio value
+        (cash_deposit + amount_in_trade) is shifted by zero net, since this moves
+        cash INTO trade, not new money in. Does NOT touch client_portfolio_run_deltas
+        (proposal D-1 / Non-Goals -- that ledger is post-trade-allocation-run only)."""
+        portfolio = self.db.get(ClientPortfolio, user_id)
+        assert portfolio is not None  # every subscribed client has one, seeded at onboarding
+        portfolio.cash_deposit -= amount
+        portfolio.amount_in_trade += amount
+        portfolio.previous_amount_in_trade += amount
 
     def list_rm_options(self) -> list[tuple[str, str]]:
         """(firebase_uid, display name) for every RM-role admin -- feeds the
