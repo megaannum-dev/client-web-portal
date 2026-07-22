@@ -179,6 +179,11 @@ class OnboardingDocument(Base):
 class AllotRdmpStatus(str, enum.Enum):
     PENDING = "pending"
     ACKNOWLEDGED = "acknowledged"
+    # NEW (proposal 016, B-1):
+    AWAITING_PC = "awaiting_pc"  # redemption submitted, needs PC approval
+    AWAITING_CO = "awaiting_co"  # redemption submitted, needs Compliance approval (amount > $300k)
+    APPROVED = "approved"  # redemption fully approved, took effect
+    REJECTED = "rejected"  # redemption rejected by PC or CO
 
 
 class AllotRdmpKind(str, enum.Enum):
