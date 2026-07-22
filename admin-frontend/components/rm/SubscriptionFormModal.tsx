@@ -20,7 +20,7 @@ import {
 } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
-import { SUB_CLIENTS, MODEL_SIZES, MODEL_SIZE_LIST, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import { MODEL_SIZES } from "@/lib/mock/rm-data";
 import { submitAllotment, submitRedemption } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type SubscriptionModalMode = "new-subscription" | "add-allotment" | "redemption";
@@ -63,12 +63,16 @@ export function SubscriptionFormModal({
   initialEmergent = false,
   onClose,
   onSuccess,
+  availableClients = [],
+  availableModels = [],
 }: {
   mode?: SubscriptionModalMode;
   context?: SubscriptionModalContext;
   initialEmergent?: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  availableClients?: { id: string; name: string }[];
+  availableModels?: { id: string; name: string; mgmtFee: string; incentiveFee: string }[];
 }) {
   const isNew = mode === "new-subscription";
   const isAddAllot = mode === "add-allotment";
@@ -76,8 +80,10 @@ export function SubscriptionFormModal({
   const isAllotment = !isRedemption;
   const locked = isAddAllot || isRedemption;
 
-  const [client, setClient] = useState(context.clientName ?? "");
+  const client = context.clientName ?? ""; // locked-mode display only — new-subscription mode uses clientId
   const [model, setModel] = useState(context.modelName ?? "");
+  const [clientId, setClientId] = useState(context.clientId ?? "");
+  const [modelId, setModelId] = useState(context.modelId ?? "");
   const [multiplier, setMultiplier] = useState(isRedemption ? "1" : "2");
   const [mgmtFee, setMgmtFee] = useState(context.mgmtFee ?? "");
   const [incentiveFee, setIncentiveFee] = useState(context.incentiveFee ?? "");
@@ -99,13 +105,16 @@ export function SubscriptionFormModal({
       ? "Allot additional units to an existing model subscription."
       : "Redeem units from an existing model subscription.";
 
+  const onClientChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    setClientId(e.target.value);
+  };
+
   const onModelChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const m = e.target.value;
-    setModel(m);
-    if (!locked) {
-      const cat = OB_MODEL_CATALOG.find((x) => x.name === m);
-      if (cat) { setMgmtFee(cat.mgmtFee); setIncentiveFee(cat.incentiveFee); }
-    }
+    const id = e.target.value;
+    setModelId(id);
+    const entry = availableModels.find((m) => m.id === id);
+    setModel(entry?.name ?? "");
+    if (entry) { setMgmtFee(entry.mgmtFee); setIncentiveFee(entry.incentiveFee); }
   };
 
   const toggleEmergent = () => {
@@ -120,15 +129,15 @@ export function SubscriptionFormModal({
     setSubmitting(true);
     const result = isRedemption
       ? await submitRedemption({
-          client_id: context.clientId ?? "",
-          model_id: context.modelId ?? "",
+          client_id: clientId,
+          model_id: modelId,
           multiplier: emergent ? 0 : parseFloat(multiplier) || 0,
           expected_cash_out: emergent ? null : (dateVal || null),
           emergent,
         })
       : await submitAllotment({
-          client_id: context.clientId ?? "",
-          model_id: context.modelId ?? "",
+          client_id: clientId,
+          model_id: modelId,
           multiplier: parseFloat(multiplier) || 0,
           expected_cash_in: dateVal || null,
           mgmt_fee: isNew ? parseFloat(mgmtFee) || null : null,
@@ -179,9 +188,9 @@ export function SubscriptionFormModal({
           {locked ? (
             <div className={fieldDisabledClass}>{client}</div>
           ) : (
-            <select value={client} onChange={(e) => setClient(e.target.value)} className={clsx(fieldClass, "font-semibold")}>
+            <select value={clientId} onChange={onClientChange} className={clsx(fieldClass, "font-semibold")}>
               <option value="" disabled>Select a client…</option>
-              {SUB_CLIENTS.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+              {availableClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
         </Field>
@@ -189,9 +198,9 @@ export function SubscriptionFormModal({
           {locked ? (
             <div className={fieldDisabledClass}>{model}</div>
           ) : (
-            <select value={model} onChange={onModelChange} className={clsx(fieldClass, "font-semibold")}>
+            <select value={modelId} onChange={onModelChange} className={clsx(fieldClass, "font-semibold")}>
               <option value="" disabled>Select a model…</option>
-              {MODEL_SIZE_LIST.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+              {availableModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           )}
         </Field>
