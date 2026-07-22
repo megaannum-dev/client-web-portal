@@ -7,7 +7,6 @@ import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Down
 import type { LucideIcon } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { KNOWN_CLIENT_IDS } from "@/lib/mock/rm-data";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
@@ -207,7 +206,7 @@ function KycPanel({
         </div>
         <button
           type="button"
-          onClick={() => onOpenProfile(item.id)}
+          onClick={() => onOpenProfile(item.userId)}
           className="py-0.5 text-left text-[13px] font-semibold text-primary"
         >
           Open client profile →
@@ -264,10 +263,8 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
   );
 
   const openProfile = (id: string) => {
-    if (KNOWN_CLIENT_IDS.has(id)) {
-      setSelectedId(null);
-      router.push(`/rm/client-detail/${id}`);
-    }
+    setSelectedId(null);
+    router.push(`/rm/client-info/${id}`);
   };
 
   if (!columns) {
