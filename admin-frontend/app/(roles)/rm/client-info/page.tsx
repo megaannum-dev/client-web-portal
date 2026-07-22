@@ -132,15 +132,16 @@ export default function RmDashboardPage() {
   const onboardingAwaitingKyc = onboardingQueue.length;
 
   return (
-    <div className="mx-auto max-w-[90%]">
-      <div className="mb-4">
-        <PageHeader
-          title="Dashboard"
-          subtitle={`Hello, ${RM_NAME} — here's your client book today.`}
-        />
-      </div>
+    <div className="relative -mx-16 -my-8 flex min-h-[calc(100vh_-_64px)] flex-col px-16 py-8">
+      <div className="mx-auto flex w-full flex-1 flex-col">
+        <div className="mb-4">
+          <PageHeader
+            title="Dashboard"
+            subtitle={`Hello, ${RM_NAME} — here's your client book today.`}
+          />
+        </div>
 
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
         {/* Client book */}
         <section className="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
           <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
@@ -459,6 +460,7 @@ export default function RmDashboardPage() {
             },
           ]}
         />
+        </div>
       </div>
     </div>
   );
