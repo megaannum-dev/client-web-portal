@@ -14,6 +14,7 @@ import {
   LayoutDashboardIcon,
   Wallet,
   Ticket,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,7 +36,8 @@ export type PageId =
   | "pc.allotment-redemption"
   | "compliance.review"
   | "shared.monthly-reports"
-  | "admin.enroll-user";
+  | "admin.enroll-user"
+  | "admin.system-config";
 
 export type NavGroup = {
   label: string;
@@ -142,6 +144,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/admin/enroll-user",
     label: "Enroll User",
     icon: UserPlus,
+    subgroup: "System",
+  },
+  "admin.system-config": {
+    id: "admin.system-config",
+    path: "/admin/system-config",
+    label: "System Config",
+    icon: Settings,
     subgroup: "System",
   },
   // — Hidden (not in nav) —
