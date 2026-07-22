@@ -56,12 +56,6 @@ export type PageDef = {
 };
 
 export const PAGES: Record<PageId, PageDef> = {
-  "admin.enroll-user": {
-    id: "admin.enroll-user",
-    path: "/admin/enroll-user",
-    label: "Enroll User",
-    icon: UserPlus,
-  },
   "rm.client-info": {
     id: "rm.client-info",
     path: "/rm/client-info",
@@ -74,23 +68,42 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Onboarding & Renewal",
     icon: UserPlus,
   },
+  "compliance.review": {
+    id: "compliance.review",
+    path: "/compliance/review",
+    label: "Compliance Review",
+    icon: ShieldCheck,
+  },
+  "pc.allotment-redemption": {
+    id: "pc.allotment-redemption",
+    path: "/pc/allotment-redemption",
+    label: "Allotment & Redemption",
+    icon: Inbox,
+  },
   "rm.model-subscription": {
     id: "rm.model-subscription",
     path: "/rm/model-subscription",
     label: "Model Subscription",
     icon: Layers,
   },
-  "rm.request-tickets": {
-    id: "rm.request-tickets",
-    path: "/rm/requests",
-    label: "Request Tickets",
-    icon: Ticket,
+  "pc.allocation-matrix": {
+    id: "pc.allocation-matrix",
+    path: "/pc/allocation-matrix",
+    label: "Allocation Matrix",
+    icon: Grid3x3,
   },
   "mobo.recon-overview": {
     id: "mobo.recon-overview",
     path: "/mobo/recon-overview",
     label: "Reconciliation Overview",
     icon: LayoutDashboardIcon,
+    hideFromNav: true,
+  },
+  "mobo.post-trade-allocation": {
+    id: "mobo.post-trade-allocation",
+    path: "/mobo/post-trade-allocation",
+    label: "Post-Trade Allocation",
+    icon: Wallet,
   },
   "mobo.trade-reconciliation": {
     id: "mobo.trade-reconciliation",
@@ -104,35 +117,11 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Daily Exceptions",
     icon: ShieldAlert,
   },
-  "mobo.post-trade-allocation": {
-    id: "mobo.post-trade-allocation",
-    path: "/mobo/post-trade-allocation",
-    label: "Post-Trade Allocation",
-    icon: Wallet,
-  },
   "pc.model-management": {
     id: "pc.model-management",
     path: "/pc/model-management",
     label: "Model Management",
     icon: Layers,
-  },
-  "pc.allocation-matrix": {
-    id: "pc.allocation-matrix",
-    path: "/pc/allocation-matrix",
-    label: "Allocation Matrix",
-    icon: Grid3x3,
-  },
-  "pc.allotment-redemption": {
-    id: "pc.allotment-redemption",
-    path: "/pc/allotment-redemption",
-    label: "Allotment & Redemption",
-    icon: Inbox,
-  },
-  "compliance.review": {
-    id: "compliance.review",
-    path: "/compliance/review",
-    label: "Compliance Review",
-    icon: ShieldCheck,
   },
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
@@ -140,6 +129,18 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Monthly Reports",
     icon: CalendarDays,
     hideFromNav: true,
+  },
+  "rm.request-tickets": {
+    id: "rm.request-tickets",
+    path: "/rm/requests",
+    label: "Request Tickets",
+    icon: Ticket,
+  },
+  "admin.enroll-user": {
+    id: "admin.enroll-user",
+    path: "/admin/enroll-user",
+    label: "Enroll User",
+    icon: UserPlus,
   },
 };
 
@@ -191,7 +192,7 @@ export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   RM: "rm.client-info",
   MOBO: "mobo.recon-overview",
   PC: "pc.model-management",
-  ADMIN: "admin.enroll-user",
+  ADMIN: "rm.client-info",
   PM: null,
   COMPLIANCE: "compliance.review",
 };
