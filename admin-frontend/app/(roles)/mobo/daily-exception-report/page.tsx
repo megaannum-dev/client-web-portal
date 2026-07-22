@@ -34,8 +34,8 @@ import { Button } from "@/components/ui/Button";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Eyebrow } from "@/components/mobo/Shared";
 import { MPill } from "@/components/mobo/recon-flow/shared";
-import { loadReconciliationFlow } from "@/lib/mobo/reconciliation-flow";
-import { loadReconciliation } from "@/lib/mobo/reconciliation";
+import { useEodReport } from "@/hooks/api/useEodReport";
+import { downloadEodPdf } from "@/app/(roles)/mobo/daily-exception-report/actions";
 import type { RcAlloc, RcModelId, RcOrder, RcPort } from "@/lib/mobo/flow-types";
 
 /* ---- number helpers ----------------------------------------- */
@@ -372,22 +372,52 @@ function SignLine({ cap }: { cap: string }) {
   );
 }
 
+function saveBase64File(filename: string, contentType: string, base64: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
 export default function DailyExceptionReportPage() {
-  /* Flow bundle — same three-row model the Trade Reconciliation screen
-     renders, so the two screens can never disagree (SINGLE SEAM). */
-  const { settleDay, orders, allocs, ports, ibTotal, counts } = loadReconciliationFlow("breaks");
-  /* Report metadata (generated time / month-to-date) isn't part of the
-     flow bundle — sourced from the existing EOD rollup, same as before. */
-  const { eod } = loadReconciliation();
+  const { data, loading, error, refetch, signOff, signingOff } = useEodReport();
+
+  if (loading && !data) {
+    return <PageHeader title="Daily Exception Report" />;
+  }
+  if (error) {
+    return (
+      <div role="alert">
+        <Button onClick={refetch}>Retry</Button>
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const { orders, allocs, ports, settleDay, tradeDate, ibTotal, status, outcome,
+          breakTotal, canSignOff, exportReady, generated } = data;
 
   const l1 = buildL1(orders);
   const l2 = buildL2(allocs);
   const l3 = buildL3(ports);
-  const open = counts.totalBrk;
+  const open = breakTotal;
 
   /* trading-volume stats — straight off the flow bundle */
   const execs = orders.reduce((s, o) => s + (o.execs?.length ?? 0), 0);
   const avgFills = orders.length > 0 ? (execs / orders.length).toFixed(1) : "0.0";
+
+  /* dayOf / daysInMonth aren't part of the report DTO — derived from
+     tradeDate ("YYYY-MM-DD") for the existing MonthProgress bar. */
+  const [tdY, tdM, tdD] = tradeDate.split("-").map(Number);
+  const dayOf = tdD;
+  const daysInMonth = new Date(tdY, tdM, 0).getDate();
+
+  const handleSignOff = async () => { await signOff(); };
+  const handleExport = async () => {
+    const result = await downloadEodPdf(tradeDate);
+    if (result.success) saveBase64File(result.data.filename, result.data.contentType, result.data.base64);
+    else alert(`Export failed: ${result.error}`);
+  };
 
   const subtitle = open === 0
     ? `All reconciled · 0 exceptions · settlement day ${settleDay}`
@@ -399,7 +429,7 @@ export default function DailyExceptionReportPage() {
         <PageHeader
           title="Daily Exception Report"
           subtitle={subtitle}
-          actions={<Button variant="secondary" icon={Download}>Export</Button>}
+          actions={<Button variant="secondary" icon={Download} onClick={handleExport} disabled={!exportReady}>Export</Button>}
         />
       </div>
 
@@ -409,7 +439,7 @@ export default function DailyExceptionReportPage() {
           <div>
             <div className="text-[20px] font-bold tracking-[-0.01em] text-on-surface">Daily Exception Report</div>
             <div className="mt-1 text-[12.5px] text-secondary">
-              Settlement day · {settleDay} · Middle &amp; Back Office · Generated {eod.generated}
+              Settlement day · {settleDay} · Middle &amp; Back Office · Generated {generated}
             </div>
           </div>
           <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[14px] border-[1.5px] border-primary text-[14px] font-extrabold tracking-[0.06em] text-primary">
@@ -435,7 +465,7 @@ export default function DailyExceptionReportPage() {
           </div>
 
           {/* VERDICT */}
-          {open === 0 ? (
+          {outcome === "CLEAR" ? (
             <AllClear orders={orders.length} />
           ) : (
             <>
@@ -454,7 +484,7 @@ export default function DailyExceptionReportPage() {
           )}
 
           {/* date section — progress toward the June Monthly Report */}
-          <MonthProgress dayOf={eod.dayOf} daysInMonth={eod.daysInMonth} />
+          <MonthProgress dayOf={dayOf} daysInMonth={daysInMonth} />
         </div>
 
         {/* footer / sign-off */}
@@ -464,19 +494,19 @@ export default function DailyExceptionReportPage() {
             <SignLine cap="Reviewed by · Supervisor" />
           </div>
           <div className="flex items-center gap-3.5">
-            {open === 0 ? (
+            {status === "OPEN" && canSignOff ? (
               <>
                 <span className="flex items-center gap-[7px] text-[12.5px] font-semibold" style={{ color: "#15803d" }}>
                   <Check size={15} strokeWidth={2.25} /> Ready to sign — 0 open breaks.
                 </span>
-                <Button icon={Lock}>Sign off &amp; lock</Button>
+                <Button icon={Lock} onClick={handleSignOff} disabled={signingOff}>Sign off &amp; lock</Button>
               </>
             ) : (
               <>
                 <span className="max-w-[220px] text-right text-[12px] text-secondary">
                   Locked until {open} open {open === 1 ? "break is" : "breaks are"} cleared.
                 </span>
-                <Button icon={Lock} disabled>Sign off &amp; lock</Button>
+                <Button icon={Lock} disabled onClick={handleSignOff}>Sign off &amp; lock</Button>
               </>
             )}
           </div>
