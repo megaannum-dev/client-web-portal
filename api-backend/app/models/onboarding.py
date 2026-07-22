@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -250,6 +252,18 @@ class ClientAllotmentRedemption(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # --- widened 2026-07-22 (proposal 016, DB-2): redemption approval workflow ---
+    reject_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # firebase_uid of PC/CO
+    decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # server_default uses text("false") not the bare string "false" — a plain string
+    # server_default is quoted as a string literal in the DDL (works on MySQL/MariaDB via
+    # implicit cast, but on SQLite stores the literal text "false" and reads back truthy).
+    # text() emits unquoted SQL, matching the existing Boolean-default convention in
+    # app/models/pc.py (`server_default=text("1")`) and this table's own migration
+    # (op.add_column(..., server_default=sa.text("false"))).
+    emergent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     __table_args__ = (
         Index("ix_client_allotment_redemptions_status", "status"),
