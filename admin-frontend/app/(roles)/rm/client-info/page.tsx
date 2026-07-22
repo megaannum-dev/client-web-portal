@@ -16,18 +16,26 @@ import {
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
   RENEWALS_DUE,
-  ONBOARDING_QUEUE,
   REQUEST_TICKETS,
   getMockOverlay,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
 import { useClientBook } from "@/hooks/api/useClientBook";
+import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
+import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
+
+// Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
+// duplicated rather than shared since that file doesn't export it (FE-4 scope).
+const ONBOARDING_TONE: Record<OnboardingStatus, ChipTone> = {
+  initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
+};
 
 const RM_NAME = "Dana Okafor";
 
@@ -53,6 +61,7 @@ function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
 export default function RmDashboardPage() {
   const router = useRouter();
   const { data, loading, error } = useClientBook();
+  const { data: board } = useOnboardingBoard();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -99,6 +108,28 @@ export default function RmDashboardPage() {
 
   const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
   const goSummary = (item: SummaryItem) => openClient(item.id);
+
+  // Requests + Renewals — from mock data (lib/mock/rm-data.ts).
+  const ticketsTotal = REQUEST_TICKETS.reduce((sum, i) => sum + i.n, 0);
+  const renewalsOverdue = RENEWALS_DUE.filter((i) => i.t === "overdue").length;
+
+  // Onboarding — real onboarding board (013 integration): every column except
+  // "active" is still in the queue; a client only leaves once fully onboarded.
+  const onboardingByUserId = useMemo(() => {
+    const m = new Map<string, KycBoardClient>();
+    (board ?? []).forEach((col) => col.clients.forEach((c) => m.set(c.userId, c)));
+    return m;
+  }, [board]);
+  const onboardingQueue: SummaryItem[] = useMemo(() => (
+    (board ?? [])
+      .filter((col) => col.status !== "active")
+      .flatMap((col) => col.clients.map((c): SummaryItem => (
+        { id: c.userId, c: c.name, s: COLUMN_LABELS[col.status], t: ONBOARDING_TONE[col.status] }
+      )))
+  ), [board]);
+  // "initial" (not yet submitted) counts as awaiting KYC too — every
+  // non-active client is, by definition, still waiting on KYC clearance.
+  const onboardingAwaitingKyc = onboardingQueue.length;
 
   return (
     <div className="mx-auto max-w-[90%]">
@@ -353,7 +384,11 @@ export default function RmDashboardPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const overlay = getMockOverlay(r.id);
+                  const mockOverlay = getMockOverlay(r.id);
+                  const ob = onboardingByUserId.get(r.id);
+                  const overlay = ob
+                    ? { ...mockOverlay, status: COLUMN_LABELS[ob.status], tone: ONBOARDING_TONE[ob.status] }
+                    : mockOverlay;
                   return (
                     <tr
                       key={r.id}
@@ -394,7 +429,7 @@ export default function RmDashboardPage() {
             {
               icon: Inbox,
               label: "Requests Tickets",
-              value: "7",
+              value: String(ticketsTotal),
               sub: "across 3 types",
               mode: "count",
               items: REQUEST_TICKETS,
@@ -404,8 +439,8 @@ export default function RmDashboardPage() {
             {
               icon: CalendarClock,
               label: "Renewals Due",
-              value: "9",
-              sub: "3 overdue",
+              value: String(RENEWALS_DUE.length),
+              sub: `${renewalsOverdue} overdue`,
               subTone: "down",
               items: RENEWALS_DUE,
               onItem: goSummary,
@@ -415,9 +450,9 @@ export default function RmDashboardPage() {
             {
               icon: UserRoundPlus,
               label: "Onboarding",
-              value: "6",
-              sub: "2 awaiting KYC",
-              items: ONBOARDING_QUEUE,
+              value: String(onboardingQueue.length),
+              sub: `${onboardingAwaitingKyc} awaiting KYC`,
+              items: onboardingQueue,
               onItem: goSummary,
               footerLabel: "Go to onboarding",
               onFooter: () => router.push("/rm/onboarding-renewal"),
