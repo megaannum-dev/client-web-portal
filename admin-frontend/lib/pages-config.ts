@@ -155,9 +155,9 @@ export const PAGES: Record<PageId, PageDef> = {
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
     path: "/monthly-reports",
-    label: "Monthly Reports",
+    label: "Monthly Reports (Models)",
     icon: CalendarDays,
-    hideFromNav: true,
+    subgroup: "Trade Management",
   },
 };
 
