@@ -6,7 +6,7 @@ import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
-  ChevronRight, Search, Clock, X, TriangleAlert,
+  ChevronRight, Search, Clock, X, TriangleAlert, Download,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -244,6 +244,11 @@ export default function ClientDetailPage() {
             <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
             <InfoField label="Authorized Person" value={data.authorizedByName ?? "—"} />
           </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-3">
+          <Button variant="secondary" icon={Download}>Formation of Investment Guideline</Button>
+          <Button variant="secondary" icon={Download}>Client Monthly Report</Button>
         </div>
       </Card>
 
