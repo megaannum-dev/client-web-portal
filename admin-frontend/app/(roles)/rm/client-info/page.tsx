@@ -481,7 +481,7 @@ function Pagination({ from, to, total }: { from: number; to: number; total: numb
       <span className="text-[13px] text-secondary">
         Showing <b className="text-on-surface">{from}–{to}</b> of {total} clients
       </span>
-      <div className="flex items-center gap-1.5">
+      {/* <div className="flex items-center gap-1.5">
         <Btn disabled>‹ Prev</Btn>
         <Btn on>1</Btn>
         <Btn>2</Btn>
@@ -489,7 +489,7 @@ function Pagination({ from, to, total }: { from: number; to: number; total: numb
         <span className="px-0.5 text-secondary">…</span>
         <Btn>18</Btn>
         <Btn>Next ›</Btn>
-      </div>
+      </div> */}
     </div>
   );
 }
