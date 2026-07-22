@@ -21,17 +21,18 @@ import {
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { SUB_CLIENTS, MODEL_SIZES, MODEL_SIZE_LIST, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import { submitAllotment, submitRedemption } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type SubscriptionModalMode = "new-subscription" | "add-allotment" | "redemption";
 
 /** Threaded from the "Add allotment"/"Add redemption" buttons (ModelAccordionItem)
- *  and the page-level "Subscribe Client" button. Only clientName/modelName/
- *  mgmtFee/incentiveFee are read by this modal — clientId/modelAccount ride
- *  along for other consumers (deep-link building) and are ignored here. */
+ *  and the page-level "Subscribe Client" button. clientId/modelId are the ids
+ *  used to build the submit request in add-allotment/redemption modes. */
 export interface SubscriptionModalContext {
   clientName?: string;
   clientId?: string;
   modelName?: string;
+  modelId?: string;
   modelAccount?: string;
   mgmtFee?: string;
   incentiveFee?: string;
@@ -61,11 +62,13 @@ export function SubscriptionFormModal({
   context = {},
   initialEmergent = false,
   onClose,
+  onSuccess,
 }: {
   mode?: SubscriptionModalMode;
   context?: SubscriptionModalContext;
   initialEmergent?: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const isNew = mode === "new-subscription";
   const isAddAllot = mode === "add-allotment";
@@ -80,6 +83,8 @@ export function SubscriptionFormModal({
   const [incentiveFee, setIncentiveFee] = useState(context.incentiveFee ?? "");
   const [dateVal, setDateVal] = useState("");
   const [emergent, setEmergent] = useState(initialEmergent);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const modelSize = MODEL_SIZES[model] ?? 0;
   const multNum = emergent ? 0 : parseFloat(multiplier) || 0;
@@ -110,6 +115,34 @@ export function SubscriptionFormModal({
     });
   };
 
+  const handleSubmit = async () => {
+    setSubmitError(null);
+    setSubmitting(true);
+    const result = isRedemption
+      ? await submitRedemption({
+          client_id: context.clientId ?? "",
+          model_id: context.modelId ?? "",
+          multiplier: emergent ? 0 : parseFloat(multiplier) || 0,
+          expected_cash_out: emergent ? null : (dateVal || null),
+          emergent,
+        })
+      : await submitAllotment({
+          client_id: context.clientId ?? "",
+          model_id: context.modelId ?? "",
+          multiplier: parseFloat(multiplier) || 0,
+          expected_cash_in: dateVal || null,
+          mgmt_fee: isNew ? parseFloat(mgmtFee) || null : null,
+          incentive_fee: isNew ? parseFloat(incentiveFee) || null : null,
+        });
+    setSubmitting(false);
+    if (!result.success) {
+      setSubmitError(result.error);
+      return;
+    }
+    onSuccess?.();
+    onClose();
+  };
+
   return (
     <Modal
       title={
@@ -128,11 +161,15 @@ export function SubscriptionFormModal({
       centered
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} className="ml-auto">Cancel</Button>
+          <Button variant="secondary" onClick={onClose} className="ml-auto" disabled={submitting}>Cancel</Button>
           {emergent ? (
-            <Button icon={TriangleAlert} style={{ background: "#b71c1c" }}>Submit emergent redemption</Button>
+            <Button icon={TriangleAlert} style={{ background: "#b71c1c" }} onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Submitting…" : "Submit emergent redemption"}
+            </Button>
           ) : (
-            <Button icon={Send}>Submit {isRedemption ? "redemption" : "allotment"}</Button>
+            <Button icon={Send} onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Submitting…" : `Submit ${isRedemption ? "redemption" : "allotment"}`}
+            </Button>
           )}
         </>
       }
@@ -273,6 +310,13 @@ export function SubscriptionFormModal({
           </div>
         </div>
       </div>
+
+      {submitError && (
+        <div className="mt-3.5 flex items-start gap-2.5 rounded-md bg-[#fce4e0] p-3">
+          <TriangleAlert size={16} strokeWidth={2} className="mt-px shrink-0 text-[#b71c1c]" />
+          <div className="text-[12.5px] leading-[1.55] text-[#7f1313]">{submitError}</div>
+        </div>
+      )}
     </Modal>
   );
 }

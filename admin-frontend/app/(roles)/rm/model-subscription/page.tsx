@@ -52,7 +52,7 @@ function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [modal, setModal] = useState<ModalState | null>(() => deepLink?.modal ?? null);
-  const { clients, ensureAllotmentsLoaded } = useSubscriptions();
+  const { clients, ensureAllotmentsLoaded, refetch, invalidateClientAllotments } = useSubscriptions();
 
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
@@ -78,7 +78,15 @@ function ModelSubscriptionContent() {
         initialOpenModelKey={deepLink?.openModelKey}
       />
       {modal && (
-        <SubscriptionFormModal mode={modal.mode} context={modal.context} onClose={() => setModal(null)} />
+        <SubscriptionFormModal
+          mode={modal.mode}
+          context={modal.context}
+          onClose={() => setModal(null)}
+          onSuccess={() => {
+            refetch();
+            if (modal.context.clientId) invalidateClientAllotments(modal.context.clientId);
+          }}
+        />
       )}
     </div>
   );
