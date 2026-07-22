@@ -103,7 +103,7 @@ def reconcile(db: Session, session_id: uuid.UUID) -> ReconciliationResult:
     # --- Stage 1: coarse (row-level aggregate) ---------------------------
     algo_total = algo.total_notional(session_id)
     ib_total = ib.total_allocated(session.ib_run_id)
-    crm_total = crm.total_amount_in_trade()
+    crm_total = crm.total_portfolio_delta_for_run(session.ib_run_id)
 
     coarse_ok = (
         abs(algo_total - ib_total) <= eps
