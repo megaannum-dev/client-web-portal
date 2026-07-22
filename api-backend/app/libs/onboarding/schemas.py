@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -11,7 +11,9 @@ from pydantic import BaseModel, EmailStr
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
 DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "rejected", "expired"]
-AllotRdmpStatus = Literal["pending", "acknowledged"]
+AllotRdmpStatus = Literal[
+    "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
+]
 AllotRdmpKind = Literal["allotment", "redemption"]
 
 
@@ -118,6 +120,28 @@ class VerdictReq(BaseModel):
 
 
 class RejectReq(BaseModel):
+    reason: str | None = None
+
+
+class SubmitAllotmentReq(BaseModel):
+    client_id: uuid.UUID
+    model_id: uuid.UUID
+    multiplier: Decimal
+    expected_cash_in: date | None = None
+    mgmt_fee: Decimal | None = None
+    incentive_fee: Decimal | None = None
+
+
+class SubmitRedemptionReq(BaseModel):
+    client_id: uuid.UUID
+    model_id: uuid.UUID
+    multiplier: Decimal
+    expected_cash_out: date | None = None
+    emergent: bool = False
+
+
+class RedemptionDecisionReq(BaseModel):
+    verdict: Literal["approve", "reject"]
     reason: str | None = None
 
 

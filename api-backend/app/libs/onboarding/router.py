@@ -21,9 +21,12 @@ from app.libs.onboarding.schemas import (
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
+    RedemptionDecisionReq,
     RejectReq,
     RmOptionDTO,
     StartOnboardingReq,
+    SubmitAllotmentReq,
+    SubmitRedemptionReq,
     SubscriptionDTO,
     VerdictReq,
 )
@@ -199,6 +202,24 @@ def list_client_allotments(
     return svc.client_allotments(client_id)
 
 
+@router.post("/rm/allotment", response_model=AllotRdmptDTO, status_code=201)
+def submit_allotment(
+    req: SubmitAllotmentReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> AllotRdmptDTO:
+    return svc.submit_allotment(req)
+
+
+@router.post("/rm/redemption", response_model=AllotRdmptDTO, status_code=201)
+def submit_redemption(
+    req: SubmitRedemptionReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> AllotRdmptDTO:
+    return svc.submit_redemption(req)
+
+
 # ---- Compliance ---------------------------------------------------------
 @router.get("/compliance/onboardings", response_model=list[OnboardingDTO])
 def get_compliance_queue(
@@ -272,6 +293,26 @@ def acknowledge_allotment(
     user: Annotated[User, Depends(require_action(Action.ALLOTMENT_ACKNOWLEDGE))],
 ) -> AllotRdmptDTO:
     return svc.acknowledge_allotment(allotment_id, acked_by=user.firebase_uid)
+
+
+@router.post("/pc/redemptions/{allotment_id}/decide", response_model=AllotRdmptDTO)
+def pc_decide_redemption(
+    allotment_id: uuid.UUID,
+    req: RedemptionDecisionReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.ALLOTMENT_ACKNOWLEDGE))],
+) -> AllotRdmptDTO:
+    return svc.pc_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
+
+
+@router.post("/co/redemptions/{allotment_id}/decide", response_model=AllotRdmptDTO)
+def co_decide_redemption(
+    allotment_id: uuid.UUID,
+    req: RedemptionDecisionReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> AllotRdmptDTO:
+    return svc.co_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
 
 
 # ---- Client ---------------------------------------------------------------
