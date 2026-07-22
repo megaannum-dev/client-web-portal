@@ -13,6 +13,7 @@ from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
 from app.libs.clients.router import router as clients_router
+from app.libs.eod.router import router as eod_router
 from app.libs.onboarding.router import router as onboarding_router
 from app.libs.onboarding.scheduler import start_scheduler as start_onboarding_scheduler
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
@@ -66,6 +67,7 @@ app.include_router(post_trade_allocation_router, prefix="/api")
 app.include_router(clients_router, prefix="/api")  # /api/rm/…
 app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
+app.include_router(eod_router, prefix="/api")
 app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes
