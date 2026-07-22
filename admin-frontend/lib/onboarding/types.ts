@@ -82,7 +82,7 @@ export interface ClientSubscriptionsDTO {
    1:1 in shape so the components' JSX is untouched (FE-3/4/5). ---- */
 
 export interface KycBoardClient {
-  id: string; name: string; owner: string; clientRef: string;
+  id: string; userId: string; name: string; owner: string; clientRef: string;
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhkAccount: string; swAccount: string;

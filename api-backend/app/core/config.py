@@ -33,9 +33,7 @@ class Settings(BaseSettings):
     bootstrap_admin_name: str = "Bootstrap Admin"
 
     # EoD PDF rendering — feature 015 (BE-9)
-    pdf_renderer: str = (
-        "chromium"  # "chromium" (default) | "weasyprint" (reserved, not yet implemented)
-    )
+    pdf_renderer: str = "simple"  # "simple" (fpdf2, default) | "chromium" (Playwright)
     pdf_render_base_url: str = "http://localhost:3001"
     pdf_render_token: str = ""
 

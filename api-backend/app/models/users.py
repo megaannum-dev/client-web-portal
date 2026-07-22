@@ -116,6 +116,13 @@ class User(Base):
             return self.admin_profile.role.value if self.admin_profile else "ADMIN"
         return "CLIENT"
 
+    @property
+    def name(self) -> str | None:
+        """Derived wire value, mirrors `role`: read off whichever profile
+        table matches `portal` rather than a column on `users` itself."""
+        profile = self.admin_profile if self.portal == Portal.ADMIN else self.client_profile
+        return profile.name if profile else None
+
 
 class ClientProfile(Base):
     __tablename__ = "client_profiles"

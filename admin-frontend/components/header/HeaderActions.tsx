@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 export function HeaderActions() {
   const { user, portalUser } = useAuth();
 
-  const displayName = user?.displayName ?? user?.email?.split("@")[0] ?? "";
+  const displayName = portalUser?.name ?? user?.displayName ?? user?.email?.split("@")[0] ?? "";
 
   return (
     <div className="flex items-center gap-5">

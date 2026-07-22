@@ -20,7 +20,7 @@ export const COLUMN_LABELS: Record<keyof BoardDTO, string> = {
 
 export function mapRow(o: OnboardingDTO): KycBoardClient {
   return {
-    id: o.id, name: o.client_name, owner: o.assigned_rm, clientRef: o.client_ref,
+    id: o.id, userId: o.user_id, name: o.client_name, owner: o.assigned_rm, clientRef: o.client_ref,
     // widened 2026-07-20 (D-9) — read straight off the widened OnboardingDTO, no "—" fallback:
     phone: o.primary_phone, address: o.address, country: o.country_of_residence,
     idType: o.id_type, idNumber: o.id_number,

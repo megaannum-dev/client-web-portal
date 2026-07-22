@@ -155,14 +155,12 @@ function XLabels({ series, compact }: { series: PtaHistoryEntry[]; compact: bool
 function BarChartInner({
   series,
   maxAbs,
-  halfH,
   tip,
   onTip,
   onClear,
 }: {
   series: PtaHistoryEntry[];
   maxAbs: number;
-  halfH: number;
   tip: ChartTip | null;
   onTip: (e: ReactMouseEvent, d: PtaHistoryEntry) => void;
   onClear: () => void;
@@ -171,10 +169,10 @@ function BarChartInner({
   const gap = n > 60 ? 1 : n > 30 ? 2 : 3;
 
   return (
-    <div className="relative flex h-full items-center" style={{ gap }}>
+    <div className="relative flex h-full items-stretch" style={{ gap }}>
       {series.map((d) => {
         const pct = maxAbs > 0 ? Math.abs(d.pnl) / maxAbs : 0;
-        const barH = Math.max(2, pct * halfH);
+        const barH = `${Math.max(1, pct * 100)}%`;
         const profit = d.pnl >= 0;
         const hovered = tip?.date === d.date;
         const color = profit
@@ -184,8 +182,7 @@ function BarChartInner({
         return (
           <div
             key={d.date}
-            className="flex flex-1 cursor-crosshair flex-col justify-center"
-            style={{ height: halfH * 2 }}
+            className="flex h-full flex-1 cursor-crosshair flex-col justify-center"
             onMouseEnter={(e) => onTip(e, d)}
             onMouseMove={(e) => onTip(e, d)}
             onMouseLeave={onClear}
@@ -260,36 +257,38 @@ function LineChartInner({
   }
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${h}`}
-      className="block h-full w-full"
-      preserveAspectRatio="none"
-    >
-      <path d={pathD} fill="none" stroke="var(--on-surface)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+    <div className="relative h-full w-full">
+      {/* preserveAspectRatio="none" stretches x/y independently, which is
+          correct for the path (time vs. pnl are unrelated scales) but would
+          turn <circle> nodes into ellipses and clip endpoints at the SVG's
+          default overflow:hidden — so nodes render as HTML overlays instead. */}
+      <svg viewBox={`0 0 ${width} ${h}`} className="block h-full w-full" preserveAspectRatio="none">
+        <path d={pathD} fill="none" stroke="var(--on-surface)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+      </svg>
       {points.map((p, i) => {
         if (!nodeIndices.has(i)) return null;
         const hovered = tip?.date === p.d.date;
         const color = p.d.pnl >= 0 ? PNL_GREEN : PNL_RED;
-        const r = hovered ? 10 : 7;
-        // ponytail: non-scaling circles via transform trick would overcomplicate; fixed viewBox is fine
-        const svgR = (r / h) * (halfH * 2); // scale radius to viewBox units
+        const size = hovered ? 20 : 14;
         return (
-          <circle
+          <div
             key={p.d.date}
-            cx={p.x}
-            cy={p.y}
-            r={svgR}
-            fill="white"
-            stroke={color}
-            strokeWidth={(2 / h) * (halfH * 2)}
-            className="cursor-crosshair transition-[r] duration-100"
+            className="absolute cursor-crosshair rounded-full border-2 bg-white transition-[width,height] duration-100"
+            style={{
+              left: `${(p.x / width) * 100}%`,
+              top: `${(p.y / h) * 100}%`,
+              width: size,
+              height: size,
+              borderColor: color,
+              transform: "translate(-50%, -50%)",
+            }}
             onMouseEnter={(e) => onTip(e, p.d)}
             onMouseMove={(e) => onTip(e, p.d)}
             onMouseLeave={onClear}
           />
         );
       })}
-    </svg>
+    </div>
   );
 }
 
@@ -315,8 +314,7 @@ export function HistoricalCard({
   const maxAbs = series.length
     ? Math.max(...series.map((d) => Math.abs(d.pnl)), 1)
     : 1;
-  const halfH = 130;
-  const chartH = 260;
+  const halfH = 130; // virtual coordinate space only — CSS stretches the actual render, see LineChartInner
   // ponytail: width for line SVG is approximate; CSS flex handles bar mode
   const lineWidth = 800;
 
@@ -327,7 +325,7 @@ export function HistoricalCard({
   const compact = series.length > 30;
 
   return (
-    <div className="rounded-2xl border border-outline-variant bg-surface-lowest px-[22px] pb-[22px] pt-[18px] shadow-card">
+    <div className="flex flex-1 flex-col rounded-2xl border border-outline-variant bg-surface-lowest px-[22px] pb-[22px] pt-[18px] shadow-card">
       {/* header row */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-[16px] font-bold text-on-surface">Historical P&L</h3>
@@ -356,12 +354,12 @@ export function HistoricalCard({
         </div>
       )}
 
-      {/* chart area */}
-      <div className="relative" style={{ height: chartH }}>
+      {/* chart area — flex-1 so it stretches to fill the card, like AllModelsCard's StackedBarChart */}
+      <div className="relative min-h-0 flex-1">
         {/* Y-axis */}
         <div
-          className="absolute left-0 top-0 flex flex-col justify-between text-right text-[10px] font-semibold tabular-nums text-secondary"
-          style={{ width: 50, height: chartH }}
+          className="absolute inset-y-0 left-0 flex flex-col justify-between text-right text-[10px] font-semibold tabular-nums text-secondary"
+          style={{ width: 50 }}
         >
           <span>{ptaMoney(maxAbs)}</span>
           <span>$0</span>
@@ -369,7 +367,7 @@ export function HistoricalCard({
         </div>
 
         {/* grid lines + chart */}
-        <div className="absolute right-0 top-0" style={{ left: 56, height: chartH }}>
+        <div className="absolute inset-y-0 right-0 left-14">
           {/* faint grid at 25%, 50% (zero), 75% */}
           <div
             className="pointer-events-none absolute left-0 right-0 border-t"
@@ -393,7 +391,6 @@ export function HistoricalCard({
               <BarChartInner
                 series={series}
                 maxAbs={maxAbs}
-                halfH={halfH}
                 tip={tip}
                 onTip={onTip}
                 onClear={onClear}

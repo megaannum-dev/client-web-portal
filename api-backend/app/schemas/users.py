@@ -7,6 +7,7 @@ class UserOut(BaseModel):
     firebase_uid: str
     email: str | None
     role: str
+    name: str | None
 
     model_config = {"from_attributes": True}
 

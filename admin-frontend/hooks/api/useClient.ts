@@ -25,10 +25,12 @@ export function useClient(id: string): UseClientResult {
   const inFlight = useRef(false);
 
   useEffect(() => {
-    if (cacheHit) { setData(cacheHit); setLoading(false); return; }
     if (!uid || inFlight.current) return;
     inFlight.current = true;
-    setLoading(true);
+    // cacheHit (from the list endpoint) lacks single-client-only fields like
+    // subscriptions — show it immediately, but still fetch the full record
+    // rather than treating the cache as a substitute for that fetch.
+    if (!cacheHit) setLoading(true);
     setError(null);
     setNotFound(false);
     (async () => {

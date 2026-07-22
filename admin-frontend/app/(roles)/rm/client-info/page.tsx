@@ -16,20 +16,27 @@ import {
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
   RENEWALS_DUE,
-  ONBOARDING_QUEUE,
   REQUEST_TICKETS,
   getMockOverlay,
   type SummaryItem,
 } from "@/lib/mock/rm-data";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useClientBook } from "@/hooks/api/useClientBook";
+import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
+import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
 
-const RM_NAME = "Dana Okafor";
+// Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
+// duplicated rather than shared since that file doesn't export it (FE-4 scope).
+const ONBOARDING_TONE: Record<OnboardingStatus, ChipTone> = {
+  initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
+};
 
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
@@ -52,7 +59,9 @@ function matchAdv(c: ClientRow, active: Record<string, string>): boolean {
 
 export default function RmDashboardPage() {
   const router = useRouter();
+  const rmName = useAuth().portalUser?.name;
   const { data, loading, error } = useClientBook();
+  const { data: board } = useOnboardingBoard();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -100,16 +109,39 @@ export default function RmDashboardPage() {
   const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
-  return (
-    <div className="mx-auto max-w-[90%]">
-      <div className="mb-4">
-        <PageHeader
-          title="Dashboard"
-          subtitle={`Hello, ${RM_NAME} — here's your client book today.`}
-        />
-      </div>
+  // Requests + Renewals — from mock data (lib/mock/rm-data.ts).
+  const ticketsTotal = REQUEST_TICKETS.reduce((sum, i) => sum + i.n, 0);
+  const renewalsOverdue = RENEWALS_DUE.filter((i) => i.t === "overdue").length;
 
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
+  // Onboarding — real onboarding board (013 integration): every column except
+  // "active" is still in the queue; a client only leaves once fully onboarded.
+  const onboardingByUserId = useMemo(() => {
+    const m = new Map<string, KycBoardClient>();
+    (board ?? []).forEach((col) => col.clients.forEach((c) => m.set(c.userId, c)));
+    return m;
+  }, [board]);
+  const onboardingQueue: SummaryItem[] = useMemo(() => (
+    (board ?? [])
+      .filter((col) => col.status !== "active")
+      .flatMap((col) => col.clients.map((c): SummaryItem => (
+        { id: c.userId, c: c.name, s: COLUMN_LABELS[col.status], t: ONBOARDING_TONE[col.status] }
+      )))
+  ), [board]);
+  // "initial" (not yet submitted) counts as awaiting KYC too — every
+  // non-active client is, by definition, still waiting on KYC clearance.
+  const onboardingAwaitingKyc = onboardingQueue.length;
+
+  return (
+    <div className="relative -mx-16 -my-8 flex min-h-[calc(100vh_-_64px)] flex-col px-16 py-8">
+      <div className="mx-auto flex w-full flex-1 flex-col">
+        <div className="mb-4">
+          <PageHeader
+            title="Dashboard"
+            subtitle={rmName ? `Hello, ${rmName} — here's your client book today.` : "Here's your client book today."}
+          />
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2.2fr)_minmax(280px,1fr)]">
         {/* Client book */}
         <section className="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
           <header className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
@@ -353,7 +385,11 @@ export default function RmDashboardPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const overlay = getMockOverlay(r.id);
+                  const mockOverlay = getMockOverlay(r.id);
+                  const ob = onboardingByUserId.get(r.id);
+                  const overlay = ob
+                    ? { ...mockOverlay, status: COLUMN_LABELS[ob.status], tone: ONBOARDING_TONE[ob.status] }
+                    : mockOverlay;
                   return (
                     <tr
                       key={r.id}
@@ -394,7 +430,7 @@ export default function RmDashboardPage() {
             {
               icon: Inbox,
               label: "Requests Tickets",
-              value: "7",
+              value: String(ticketsTotal),
               sub: "across 3 types",
               mode: "count",
               items: REQUEST_TICKETS,
@@ -404,8 +440,8 @@ export default function RmDashboardPage() {
             {
               icon: CalendarClock,
               label: "Renewals Due",
-              value: "9",
-              sub: "3 overdue",
+              value: String(RENEWALS_DUE.length),
+              sub: `${renewalsOverdue} overdue`,
               subTone: "down",
               items: RENEWALS_DUE,
               onItem: goSummary,
@@ -415,15 +451,16 @@ export default function RmDashboardPage() {
             {
               icon: UserRoundPlus,
               label: "Onboarding",
-              value: "6",
-              sub: "2 awaiting KYC",
-              items: ONBOARDING_QUEUE,
+              value: String(onboardingQueue.length),
+              sub: `${onboardingAwaitingKyc} awaiting KYC`,
+              items: onboardingQueue,
               onItem: goSummary,
               footerLabel: "Go to onboarding",
               onFooter: () => router.push("/rm/onboarding-renewal"),
             },
           ]}
         />
+        </div>
       </div>
     </div>
   );
@@ -446,7 +483,7 @@ function Pagination({ from, to, total }: { from: number; to: number; total: numb
       <span className="text-[13px] text-secondary">
         Showing <b className="text-on-surface">{from}–{to}</b> of {total} clients
       </span>
-      <div className="flex items-center gap-1.5">
+      {/* <div className="flex items-center gap-1.5">
         <Btn disabled>‹ Prev</Btn>
         <Btn on>1</Btn>
         <Btn>2</Btn>
@@ -454,7 +491,7 @@ function Pagination({ from, to, total }: { from: number; to: number; total: numb
         <span className="px-0.5 text-secondary">…</span>
         <Btn>18</Btn>
         <Btn>Next ›</Btn>
-      </div>
+      </div> */}
     </div>
   );
 }
