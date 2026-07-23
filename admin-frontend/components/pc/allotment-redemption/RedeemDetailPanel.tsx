@@ -1,8 +1,9 @@
 "use client";
 
 // Redemption detail — the ONLY place approve/reject live. Approving a request
-// above US$300K routes to compliance (backend handles routing); below that
-// threshold, PC approval is sufficient.
+// above US$300K routes to compliance FIRST (backend handles routing; D-2:
+// awaiting_co -> awaiting_pc -> approved); below that threshold, PC approval
+// alone is sufficient.
 
 import { Check, X, User, TriangleAlert, Shield } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +42,6 @@ export function RedeemDetailPanel({
   const amt = r.amount;
   const comp = amt > 300000;
   const pending = r.status === "awaiting_pc";
-  const approvedOrRouted = r.status === "approved" || r.status === "awaiting_co";
 
   return (
     <ArDetailShell
@@ -60,7 +60,7 @@ export function RedeemDetailPanel({
       )}
       {comp && (
         <ArNotice tone="warn" icon={Shield}>
-          <b>Compliance approval required</b> — exceeds the US$300,000 threshold ({fmtMoney(amt)}). Needs PC approval, then Compliance sign-off to proceed.
+          <b>Compliance approval required</b> — exceeds the US$300,000 threshold ({fmtMoney(amt)}). Compliance decides first, then PC gives the final sign-off.
         </ArNotice>
       )}
       <div
@@ -78,23 +78,31 @@ export function RedeemDetailPanel({
       </div>
       <div className="mt-[18px]">
         <div className={`${arLabelCls} mb-2`}>Approval workflow</div>
-        <div className="flex items-center gap-2.5">
-          <WorkflowStep
-            label="PC approval"
-            sub={approvedOrRouted ? "Approved" : r.status === "rejected" ? "Rejected" : "Awaiting your decision"}
-            state={r.status === "rejected" ? "rejected" : approvedOrRouted ? "done" : "current"}
-          />
-          {comp && (
-            <>
-              <div className="h-px w-6 bg-outline-variant" />
-              <WorkflowStep
-                label="Compliance review"
-                sub={r.status === "awaiting_co" ? "Awaiting review" : "Pending · > US$300K threshold"}
-                state={r.status === "awaiting_co" ? "current" : "upcoming"}
-              />
-            </>
-          )}
-        </div>
+        {!comp ? (
+          <div className="flex items-center gap-2.5">
+            <WorkflowStep
+              label="PC approval"
+              sub={r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Awaiting your decision"}
+              state={r.status === "rejected" ? "rejected" : r.status === "approved" ? "done" : "current"}
+            />
+          </div>
+        ) : r.status === "rejected" ? (
+          <p className="text-[12.5px] leading-[1.55] text-secondary">This redemption was rejected during the approval workflow.</p>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <WorkflowStep
+              label="Compliance review"
+              sub={r.status === "awaiting_co" ? "Awaiting review" : "Approved"}
+              state={r.status === "awaiting_co" ? "current" : "done"}
+            />
+            <div className="h-px w-6 bg-outline-variant" />
+            <WorkflowStep
+              label="PC approval (final)"
+              sub={r.status === "approved" ? "Approved" : r.status === "awaiting_pc" ? "Awaiting your decision" : "Pending"}
+              state={r.status === "approved" ? "done" : r.status === "awaiting_pc" ? "current" : "upcoming"}
+            />
+          </div>
+        )}
         {!comp && (
           <p className="mt-2.5 text-[12.5px] leading-[1.55] text-secondary">
             Below US$300K — no compliance sign-off needed. PC approval is sufficient.
@@ -109,8 +117,10 @@ export function RedeemDetailPanel({
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
-            {r.status === "rejected" ? <X size={15} strokeWidth={2} /> : <Check size={15} strokeWidth={2} />}
-            {r.status === "rejected" ? "Rejected" : r.status === "awaiting_co" ? "Routed to compliance" : "Approved"}
+            {r.status === "rejected" && <><X size={15} strokeWidth={2} />Rejected</>}
+            {r.status === "awaiting_co" && "With Compliance — awaiting their review"}
+            {r.status === "approved" && <><Check size={15} strokeWidth={2} />Approved</>}
+            {r.status !== "rejected" && r.status !== "awaiting_co" && r.status !== "approved" && `Unexpected status: ${r.status}`}
           </span>
         )}
       </div>
