@@ -13,7 +13,7 @@ function OnboardingRenewalContent() {
   const board = useOnboardingBoard(); // single shared instance — lifted per §6 FE-1
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto">
       <div className="mb-7">
         <PageHeader
           title="Onboarding & Renewal"

@@ -164,7 +164,7 @@ export default function ClientDetailPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] font-medium text-error">
+      <div className="mx-auto px-5 py-16 text-center text-[13px] font-medium text-error">
         {error}
       </div>
     );
@@ -172,7 +172,7 @@ export default function ClientDetailPage() {
 
   if (loading || !data) {
     return (
-      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] text-secondary">
+      <div className="mx-auto px-5 py-16 text-center text-[13px] text-secondary">
         Loading…
       </div>
     );
@@ -189,7 +189,7 @@ export default function ClientDetailPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto">
       <Link
         href="/rm/client-info"
         className="mb-[18px] inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondary hover:text-on-surface"
