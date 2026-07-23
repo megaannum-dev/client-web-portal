@@ -3,8 +3,27 @@
 // types from lib/mock/rm-data.ts verbatim -- this file produces values of
 // those types, it does not redefine them.
 import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
-import type { ClientSubscriptionsDTO, AllotRdmptDTO } from "@/lib/onboarding/types";
+import type { ChipTone } from "@/components/ui/Chip";
+import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
+
+/** Status -> chip tone/label, per the proposal's A-2 refactor. Exhaustive
+ *  switch, no default -- a 7th AllotRdmpStatus value fails tsc here, which
+ *  is the intended guard rail. */
+export function statusToChip(status: AllotRdmpStatus): { tone: ChipTone; label: string } {
+  switch (status) {
+    case "pending":
+    case "acknowledged":
+      return { tone: "active", label: "Confirmed" };
+    case "awaiting_pc":
+    case "awaiting_co":
+      return { tone: "pending", label: "Awaiting Approval" };
+    case "approved":
+      return { tone: "active", label: "Approved" };
+    case "rejected":
+      return { tone: "overdue", label: "Rejected" };
+  }
+}
 
 /** "Ardent Capital Partners" -> "AC" — first letter of the first two words,
  *  matching the mock's own `initials` convention exactly. */
@@ -30,7 +49,7 @@ function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
   // `Number(dto.model_size ?? 0)` for the same coercion) -- Number() first,
   // or toLocaleString()/template interpolation just echoes the raw string.
   const amt = Number(sub.amount).toLocaleString("en-US");
-  return ["Net", "", "", "", amt, `${Number(sub.units)}×`, amt, "", ""];
+  return ["Net", "", "", "", amt, `${Number(sub.units)}×`, amt, "", "", ""]; // 10th = ""
 }
 
 /** One ledger entry -> one TxnRow. Cash Amt and Notional are the SAME number
@@ -58,6 +77,7 @@ export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null):
     signedAmt,                       // Cash Amt === Notional for live rows — see note above
     isRedemption ? "—" : expected,   // Expected Cash In
     isRedemption ? expected : "—",   // Expected Redemption
+    dto.status,                      // NEW 10th element
   ];
 }
 
@@ -102,6 +122,10 @@ export function mapSubscriptionsToSubClients(
           mgmtFee: formatFeePercent(sub.mgmt_fee),
           incentiveFee: formatFeePercent(sub.incentive_fee),
           account: ibAccount ?? "—",
+          modelId: sub.model_id,
+          // amount = units * model_size (ClientSubscriptionRowDTO's own contract) --
+          // derive the real model size from that instead of a name-keyed mock lookup.
+          modelSize: Number(sub.units) > 0 ? Number(sub.amount) / Number(sub.units) : 0,
           rows: ledger === undefined ? [netRow(sub)] : [...modelTxns, netRow(sub)],
         };
       }),

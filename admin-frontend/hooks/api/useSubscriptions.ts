@@ -15,6 +15,10 @@ export interface UseSubscriptionsResult {
    *  client's accordion section is opened, not eagerly for every client
    *  up front (that would be one request per row on page load). */
   ensureAllotmentsLoaded: (clientId: string) => void;
+  /** Re-fetch subscriptions (Net rows, aggregates). */
+  refetch: () => void;
+  /** Force-refresh one client's ledger, bypassing the cache. */
+  invalidateClientAllotments: (clientId: string) => void;
 }
 
 export function useSubscriptions(): UseSubscriptionsResult {
@@ -23,23 +27,35 @@ export function useSubscriptions(): UseSubscriptionsResult {
   const [allotmentsByClient, setAllotmentsByClient] = useState<Record<string, AllotRdmptDTO[]>>({});
   const inFlight = useRef(new Set<string>());
 
-  useEffect(() => {
+  const loadSubscriptions = useCallback(() => {
     fetchSubscriptions().then((r) => (r.success ? setDtos(r.data) : setError(r.error)));
   }, []);
 
-  const ensureAllotmentsLoaded = useCallback((clientId: string) => {
-    if (allotmentsByClient[clientId] !== undefined || inFlight.current.has(clientId)) return;
+  useEffect(loadSubscriptions, [loadSubscriptions]);
+
+  const loadAllotments = useCallback((clientId: string) => {
     inFlight.current.add(clientId);
     fetchClientAllotments(clientId).then((r) => {
       inFlight.current.delete(clientId);
       if (r.success) setAllotmentsByClient((m) => ({ ...m, [clientId]: r.data }));
     });
-  }, [allotmentsByClient]);
+  }, []);
+
+  const ensureAllotmentsLoaded = useCallback((clientId: string) => {
+    if (allotmentsByClient[clientId] !== undefined || inFlight.current.has(clientId)) return;
+    loadAllotments(clientId);
+  }, [allotmentsByClient, loadAllotments]);
+
+  const invalidateClientAllotments = useCallback((clientId: string) => {
+    loadAllotments(clientId); // unconditional re-fetch, overwrites the cached entry on success
+  }, [loadAllotments]);
 
   return {
     clients: dtos ? mapSubscriptionsToSubClients(dtos, allotmentsByClient) : null,
     loading: dtos === null && !error,
     error,
     ensureAllotmentsLoaded,
+    refetch: loadSubscriptions,
+    invalidateClientAllotments,
   };
 }

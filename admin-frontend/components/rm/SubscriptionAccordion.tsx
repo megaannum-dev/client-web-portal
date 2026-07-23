@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLine } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { statusToChip } from "@/lib/rm/subscriptions";
+import type { AllotRdmpStatus } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 
@@ -15,6 +17,7 @@ export type OpenSubscriptionModal = (opts: {
 
 const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In / Out", "Status"];
 const TXN_RIGHT = new Set(["Cash Amt", "Model ×", "Notional"]);
+const REJECTED_AMOUNT_COLS = new Set(["Cash Amt", "Model ×", "Notional"]);
 
 function FeePill({ label, accent }: { label: string; accent?: boolean }) {
   return (
@@ -66,13 +69,17 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
                       "whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 tabular-nums text-on-surface",
                       TXN_RIGHT.has(TXN_COLS[ci]) ? "text-right" : "text-left",
                       isNet ? "font-bold" : ci === 0 ? "font-semibold" : "font-normal",
+                      r[9] === "rejected" && REJECTED_AMOUNT_COLS.has(TXN_COLS[ci]) && "text-secondary opacity-60 [text-decoration:overline]",
                     )}
                   >
                     {v}
                   </td>
                 ))}
                 <td className="whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 text-left">
-                  {!isNet && <Chip tone="active" dot={false}>Confirmed</Chip>}
+                  {!isNet && (() => {
+                    const { tone, label } = statusToChip(r[9] as AllotRdmpStatus);
+                    return <Chip tone={tone} dot={false}>{label}</Chip>;
+                  })()}
                 </td>
               </tr>
             );
@@ -100,6 +107,8 @@ function ModelAccordionItem({
     clientName: client.name,
     clientId: client.id,
     modelName: model.name,
+    modelId: model.modelId,
+    modelSize: model.modelSize,
     modelAccount: model.account,
     mgmtFee: model.mgmtFee,
     incentiveFee: model.incentiveFee,

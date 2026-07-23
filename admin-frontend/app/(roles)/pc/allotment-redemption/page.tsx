@@ -1,8 +1,7 @@
 "use client";
 
 // PC — Allotment & Redemption: tabbed queue (Allotments | Redemptions) with
-// slide-in detail panels. FRONTEND ONLY — backed by local mock seeds
-// (@/lib/pc/allotment-redemption-mock); no API/hooks/server layer.
+// slide-in detail panels. Wired to live data via useAllotments hook (FE-5/FE-7).
 
 import { useState } from "react";
 import { Filter, Download, Inbox, Lock, User } from "@/lib/icons";
@@ -14,26 +13,18 @@ import { AllotTable } from "@/components/pc/allotment-redemption/AllotTable";
 import { AllotDetailPanel } from "@/components/pc/allotment-redemption/AllotDetailPanel";
 import { RedeemTable } from "@/components/pc/allotment-redemption/RedeemTable";
 import { RedeemDetailPanel } from "@/components/pc/allotment-redemption/RedeemDetailPanel";
-import {
-  AR_REDEMPTIONS_SEED,
-  type Redemption,
-  type RedeemStatus,
-} from "@/lib/pc/allotment-redemption-mock";
 import { useAllotments } from "@/hooks/api/useAllotments";
 
 export default function AllotmentRedemptionPage() {
   const [tab, setTab] = useState<"allot" | "redeem">("allot");
-  const { data: allotmentsData, acknowledge } = useAllotments();
-  const [redemptions, setRedemptions] = useState<Redemption[]>(AR_REDEMPTIONS_SEED);
+  const { data: allotmentsData, redemptions: redemptionsData, acknowledge, decideRedemption } = useAllotments();
   const [openAllotId, setOpenAllotId] = useState<string | null>(null);
   const [openRedeemId, setOpenRedeemId] = useState<string | null>(null);
 
   const allotments = allotmentsData ?? [];
+  const redemptions = redemptionsData ?? [];
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
-  const pendRedeem = redemptions.filter((r) => r.status === "pending_pc").length;
-
-  const decide = (id: string, status: RedeemStatus) =>
-    setRedemptions((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
+  const pendRedeem = redemptions.filter((r) => r.status === "awaiting_pc").length;
 
   const openAllot = allotments.find((a) => a.id === openAllotId);
   const openRedeem = redemptions.find((r) => r.id === openRedeemId);
@@ -73,7 +64,11 @@ export default function AllotmentRedemptionPage() {
         <AllotDetailPanel a={openAllot} onClose={() => setOpenAllotId(null)} onAcknowledge={acknowledge} />
       )}
       {openRedeem && (
-        <RedeemDetailPanel r={openRedeem} onClose={() => setOpenRedeemId(null)} onDecision={decide} />
+        <RedeemDetailPanel
+          r={openRedeem}
+          onClose={() => setOpenRedeemId(null)}
+          onDecision={(id, verdict) => decideRedemption(id, { verdict })}
+        />
       )}
     </div>
   );

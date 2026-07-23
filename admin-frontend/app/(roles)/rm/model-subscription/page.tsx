@@ -11,7 +11,7 @@ import {
   type SubscriptionModalMode,
   type SubscriptionModalContext,
 } from "@/components/rm/SubscriptionFormModal";
-import { SUB_CLIENTS } from "@/lib/mock/rm-data";
+import { SUB_CLIENTS, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
@@ -52,10 +52,20 @@ function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [modal, setModal] = useState<ModalState | null>(() => deepLink?.modal ?? null);
-  const { clients, ensureAllotmentsLoaded } = useSubscriptions();
+  const { clients, ensureAllotmentsLoaded, refetch, invalidateClientAllotments } = useSubscriptions();
 
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
+  const availableClients = clients?.map((c) => ({ id: c.id, name: c.name })) ?? [];
+  // ponytail: no models-list endpoint exists yet in this layer's scope — interim source is
+  // the mock model/fee catalog, already shaped as {id, name, mgmtFee, incentiveFee}. Swap for
+  // a real models-list hook when that endpoint lands.
+  const availableModels = OB_MODEL_CATALOG.map((m) => ({
+    id: m.model_id,
+    name: m.name,
+    mgmtFee: m.mgmtFee,
+    incentiveFee: m.incentiveFee,
+  }));
 
   return (
     <div className="mx-auto max-w-[1180px]">
@@ -78,7 +88,17 @@ function ModelSubscriptionContent() {
         initialOpenModelKey={deepLink?.openModelKey}
       />
       {modal && (
-        <SubscriptionFormModal mode={modal.mode} context={modal.context} onClose={() => setModal(null)} />
+        <SubscriptionFormModal
+          mode={modal.mode}
+          context={modal.context}
+          availableClients={availableClients}
+          availableModels={availableModels}
+          onClose={() => setModal(null)}
+          onSuccess={() => {
+            refetch();
+            if (modal.context.clientId) invalidateClientAllotments(modal.context.clientId);
+          }}
+        />
       )}
     </div>
   );

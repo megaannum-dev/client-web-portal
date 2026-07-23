@@ -3,6 +3,7 @@
    All data is mock; no backend wiring.
    ============================================================ */
 import type { ChipTone } from "@/components/ui/Chip";
+import type { AllotRdmpStatus } from "@/lib/onboarding/types";
 
 export type RmClient = {
   id: string;
@@ -217,7 +218,10 @@ export function getClientDetail(id: string): { client: RmClient; detail: ClientD
 /* ============================================================
    Model Subscription — client → models → transactions
    ============================================================ */
-export type TxnRow = [string, string, string, string, string, string, string, string, string];
+export type TxnRow = [
+  string, string, string, string, string, string, string, string, string,
+  AllotRdmpStatus | "",   // NEW 10th element — "" for Net rows and any legacy mock row
+];
 export type SubModel = {
   name: string;
   status: string;
@@ -225,6 +229,8 @@ export type SubModel = {
   mgmtFee: string;
   incentiveFee: string;
   account: string;
+  modelId: string;   // NEW
+  modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
   rows: TxnRow[];
 };
 export type SubClient = {
@@ -240,23 +246,23 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "ardent", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$42.1M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471",
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "ardent-global-balanced",
         rows: [
-          ["Allotment",  "01/01/2026", "IB-4471", "USD", "180,000",  "2×",  "200,000",  "25/12/2025", "—"],
-          ["Redemption", "01/03/2026", "IB-4471", "USD", "(80,000)", "−1×", "(100,000)", "—", "01/03/2026"],
-          ["Net",        "",           "",         "",    "100,000",  "1×",  "100,000",  "",  ""],
+          ["Allotment",  "01/01/2026", "IB-4471", "USD", "180,000",  "2×",  "200,000",  "25/12/2025", "—", "pending"],
+          ["Redemption", "01/03/2026", "IB-4471", "USD", "(80,000)", "−1×", "(100,000)", "—", "01/03/2026", "pending"],
+          ["Net",        "",           "",         "",    "100,000",  "1×",  "100,000",  "",  "", ""],
         ],
       },
-      { name: "Model A", status: "Active", tone: "active", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-4471",
+      { name: "Model A", status: "Active", tone: "active", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-4471", modelId: "ardent-model-a",
         rows: [
-          ["Allotment", "15/02/2026", "IB-4471", "USD", "120,000", "2×", "240,000", "10/02/2026", "—"],
-          ["Net",       "",           "",         "",    "120,000", "2×", "240,000", "",           ""],
+          ["Allotment", "15/02/2026", "IB-4471", "USD", "120,000", "2×", "240,000", "10/02/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "120,000", "2×", "240,000", "",           "", ""],
         ],
       },
-      { name: "ESG Tilt", status: "In Review", tone: "review", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-5582",
+      { name: "ESG Tilt", status: "In Review", tone: "review", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-5582", modelId: "ardent-esg-tilt",
         rows: [
-          ["Allotment", "28/05/2026", "IB-5582", "USD", "80,000", "2×", "160,000", "25/05/2026", "—"],
-          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           ""],
+          ["Allotment", "28/05/2026", "IB-5582", "USD", "80,000", "2×", "160,000", "25/05/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           "", ""],
         ],
       },
     ],
@@ -264,29 +270,29 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "vela", name: "Vela Holdings", initials: "VH", mandate: "Discretionary", aum: "$31.4M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-2204",
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-2204", modelId: "vela-global-balanced",
         rows: [
-          ["Allotment",  "01/11/2025", "IB-2204", "USD", "300,000",   "3×",  "900,000",   "28/10/2025", "—"],
-          ["Redemption", "01/04/2026", "IB-2204", "USD", "(100,000)", "−1×", "(300,000)", "—", "01/04/2026"],
-          ["Net",        "",           "",         "",    "200,000",   "2×",  "600,000",   "",  ""],
+          ["Allotment",  "01/11/2025", "IB-2204", "USD", "300,000",   "3×",  "900,000",   "28/10/2025", "—", "pending"],
+          ["Redemption", "01/04/2026", "IB-2204", "USD", "(100,000)", "−1×", "(300,000)", "—", "01/04/2026", "pending"],
+          ["Net",        "",           "",         "",    "200,000",   "2×",  "600,000",   "",  "", ""],
         ],
       },
-      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-2204",
+      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-2204", modelId: "vela-equity-growth",
         rows: [
-          ["Allotment", "15/01/2026", "IB-2204", "USD", "150,000", "2×", "300,000", "12/01/2026", "—"],
-          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           ""],
+          ["Allotment", "15/01/2026", "IB-2204", "USD", "150,000", "2×", "300,000", "12/01/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           "", ""],
         ],
       },
-      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-2255",
+      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-2255", modelId: "vela-income-core",
         rows: [
-          ["Allotment", "01/03/2026", "IB-2255", "USD", "100,000", "2×", "200,000", "26/02/2026", "—"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           ""],
+          ["Allotment", "01/03/2026", "IB-2255", "USD", "100,000", "2×", "200,000", "26/02/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
         ],
       },
-      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-2255",
+      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-2255", modelId: "vela-esg-tilt",
         rows: [
-          ["Allotment", "01/02/2026", "IB-2255", "USD", "50,000", "1×", "50,000", "28/01/2026", "—"],
-          ["Net",       "",           "",         "",    "50,000", "1×", "50,000", "",           ""],
+          ["Allotment", "01/02/2026", "IB-2255", "USD", "50,000", "1×", "50,000", "28/01/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "50,000", "1×", "50,000", "",           "", ""],
         ],
       },
     ],
@@ -294,16 +300,16 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "northbridge", name: "Northbridge LP", initials: "NL", mandate: "Advisory", aum: "$18.9M",
     models: [
-      { name: "Income Core", status: "Pending", tone: "pending", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-3310",
+      { name: "Income Core", status: "Pending", tone: "pending", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-3310", modelId: "northbridge-income-core",
         rows: [
-          ["Allotment", "15/06/2026", "IB-3310", "USD", "200,000", "2×", "400,000", "12/06/2026", "—"],
-          ["Net",       "",           "",         "",    "200,000", "2×", "400,000", "",           ""],
+          ["Allotment", "15/06/2026", "IB-3310", "USD", "200,000", "2×", "400,000", "12/06/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "200,000", "2×", "400,000", "",           "", ""],
         ],
       },
-      { name: "Global Balanced", status: "Pending", tone: "pending", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-3310",
+      { name: "Global Balanced", status: "Pending", tone: "pending", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-3310", modelId: "northbridge-global-balanced",
         rows: [
-          ["Allotment", "01/07/2026", "IB-3310", "USD", "150,000", "2×", "300,000", "28/06/2026", "—"],
-          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           ""],
+          ["Allotment", "01/07/2026", "IB-3310", "USD", "150,000", "2×", "300,000", "28/06/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           "", ""],
         ],
       },
     ],
@@ -311,23 +317,23 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "selwyn", name: "Selwyn Asset Mgmt", initials: "SA", mandate: "Discretionary", aum: "$27.3M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-6620",
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-6620", modelId: "selwyn-global-balanced",
         rows: [
-          ["Allotment",  "01/08/2025", "IB-6620", "CHF", "250,000",  "2×",    "500,000",   "28/07/2025", "—"],
-          ["Redemption", "01/01/2026", "IB-6620", "CHF", "(50,000)", "−0.5×", "(100,000)", "—", "02/01/2026"],
-          ["Net",        "",           "",         "",    "200,000",  "1.5×",  "400,000",   "",  ""],
+          ["Allotment",  "01/08/2025", "IB-6620", "CHF", "250,000",  "2×",    "500,000",   "28/07/2025", "—", "pending"],
+          ["Redemption", "01/01/2026", "IB-6620", "CHF", "(50,000)", "−0.5×", "(100,000)", "—", "02/01/2026", "pending"],
+          ["Net",        "",           "",         "",    "200,000",  "1.5×",  "400,000",   "",  "", ""],
         ],
       },
-      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-6620",
+      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-6620", modelId: "selwyn-equity-growth",
         rows: [
-          ["Allotment", "15/03/2026", "IB-6620", "CHF", "100,000", "2×", "200,000", "12/03/2026", "—"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           ""],
+          ["Allotment", "15/03/2026", "IB-6620", "CHF", "100,000", "2×", "200,000", "12/03/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
         ],
       },
-      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-6655",
+      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-6655", modelId: "selwyn-esg-tilt",
         rows: [
-          ["Allotment", "10/03/2026", "IB-6655", "CHF", "100,000", "1×", "100,000", "07/03/2026", "—"],
-          ["Net",       "",           "",         "",    "100,000", "1×", "100,000", "",           ""],
+          ["Allotment", "10/03/2026", "IB-6655", "CHF", "100,000", "1×", "100,000", "07/03/2026", "—", "pending"],
+          ["Net",       "",           "",         "",    "100,000", "1×", "100,000", "",           "", ""],
         ],
       },
     ],
@@ -335,16 +341,16 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "coalfield", name: "Coalfield & Co.", initials: "CC", mandate: "Discretionary", aum: "$9.7M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-1190",
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-1190", modelId: "coalfield-global-balanced",
         rows: [
-          ["Allotment", "01/06/2025", "IB-1190", "AUD", "100,000", "2×", "200,000", "28/05/2025", "—"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           ""],
+          ["Allotment", "01/06/2025", "IB-1190", "AUD", "100,000", "2×", "200,000", "28/05/2025", "—", "pending"],
+          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
         ],
       },
-      { name: "Model A", status: "Overdue", tone: "overdue", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-1190",
+      { name: "Model A", status: "Overdue", tone: "overdue", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-1190", modelId: "coalfield-model-a",
         rows: [
-          ["Allotment", "01/09/2025", "IB-1190", "AUD", "80,000", "2×", "160,000", "28/08/2025", "—"],
-          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           ""],
+          ["Allotment", "01/09/2025", "IB-1190", "AUD", "80,000", "2×", "160,000", "28/08/2025", "—", "pending"],
+          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           "", ""],
         ],
       },
     ],
@@ -352,16 +358,16 @@ export const SUB_CLIENTS: SubClient[] = [
   {
     id: "pike", name: "Pike & Vance", initials: "PV", mandate: "Discretionary", aum: "$22.6M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-9012",
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-9012", modelId: "pike-global-balanced",
         rows: [
-          ["Allotment", "15/04/2025", "IB-9012", "USD", "220,000", "2×", "440,000", "12/04/2025", "—"],
-          ["Net",       "",           "",         "",    "220,000", "2×", "440,000", "",           ""],
+          ["Allotment", "15/04/2025", "IB-9012", "USD", "220,000", "2×", "440,000", "12/04/2025", "—", "pending"],
+          ["Net",       "",           "",         "",    "220,000", "2×", "440,000", "",           "", ""],
         ],
       },
-      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-9012",
+      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-9012", modelId: "pike-income-core",
         rows: [
-          ["Allotment", "01/09/2025", "IB-9012", "USD", "180,000", "2×", "360,000", "28/08/2025", "—"],
-          ["Net",       "",           "",         "",    "180,000", "2×", "360,000", "",           ""],
+          ["Allotment", "01/09/2025", "IB-9012", "USD", "180,000", "2×", "360,000", "28/08/2025", "—", "pending"],
+          ["Net",       "",           "",         "",    "180,000", "2×", "360,000", "",           "", ""],
         ],
       },
     ],

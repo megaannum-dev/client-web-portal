@@ -4,7 +4,13 @@
 export type OnboardingStatus = "initial" | "reviewing" | "pending_review" | "active";
 export type OnboardingKind   = "initial" | "renewal";
 export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "rejected" | "expired";
-export type AllotRdmpStatus  = "pending" | "acknowledged";
+export type AllotRdmpStatus =
+  | "pending"        // existing
+  | "acknowledged"   // existing
+  | "awaiting_pc"    // NEW — redemption submitted, needs PC approval
+  | "awaiting_co"    // NEW — redemption submitted, needs Compliance approval (amount > $300k)
+  | "approved"       // NEW — redemption fully approved, took effect
+  | "rejected";      // NEW — redemption rejected by PC or CO
 export type AllotRdmpKind    = "allotment" | "redemption";
 
 export interface StartOnboardingReq {
@@ -53,6 +59,28 @@ export interface BoardDTO {
 export interface VerdictReq { verdict: "valid" | "issue"; note?: string | null; }
 export interface RejectReq  { reason?: string | null; }
 
+export interface SubmitAllotmentReq {
+  client_id: string;             // uuid.UUID as string
+  model_id: string;              // uuid.UUID as string
+  multiplier: number;            // Decimal-as-number — number of units
+  expected_cash_in: string | null;  // ISO date "YYYY-MM-DD", nullable
+  mgmt_fee?: number | null;      // only populated for new-subscription mode
+  incentive_fee?: number | null; // only populated for new-subscription mode
+}
+
+export interface SubmitRedemptionReq {
+  client_id: string;
+  model_id: string;
+  multiplier: number;             // units to redeem
+  expected_cash_out: string | null;
+  emergent?: boolean;             // default false
+}
+
+export interface RedemptionDecisionReq {
+  verdict: "approve" | "reject";
+  reason?: string | null;         // required when verdict === "reject"
+}
+
 export interface AllotRdmptDTO {
   id: string; reference: string;
   model_id: string; model_name: string; units: number; amount: number;
@@ -60,6 +88,11 @@ export interface AllotRdmptDTO {
   agg_before: number; agg_after: number;                       // widened 2026-07-20 — snapshotted server-side at insert (DB B-3), never recomputed here
   expected_cash_in: string | null;                             // widened 2026-07-20 — settlement date, snapshotted at insert time
   rm: string; created_at: string; acknowledged_at: string | null;
+  emergent: boolean;                    // widened 2026-07-23 (BE-6) — server always sends this now
+  expected_cash_out: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  reject_reason: string | null;
 }
 
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
@@ -101,6 +134,11 @@ export interface AdminOnboardingRow {
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
   rejectReason: string | null;
+}
+
+export interface RedemptionView {
+  id: string; ref: string; modelName: string; mult: number; amount: number;
+  status: AllotRdmpStatus; rm: string; date: string; emergent?: boolean;
 }
 
 export interface AllotmentView {

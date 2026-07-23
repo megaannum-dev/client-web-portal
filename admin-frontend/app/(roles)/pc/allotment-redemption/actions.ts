@@ -3,9 +3,10 @@
 import {
   fetchAllotments as _fetchAllotments,
   acknowledgeAllotment as _acknowledgeAllotment,
+  pcDecideRedemption as _pcDecideRedemption,
   type APIResult,
 } from "@/server/onboarding";
-import type { AllotRdmptDTO } from "@/lib/onboarding/types";
+import type { AllotRdmptDTO, RedemptionDecisionReq } from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -34,4 +35,12 @@ export async function acknowledgeAllotment(id: string): Promise<APIResult<AllotR
     console.error("❌ Error acknowledging allotment:", { error, id });
     return toErrorResult(error);
   }
+}
+
+export async function pcDecideRedemption(id: string, body: RedemptionDecisionReq) {
+  try {
+    const r = await _pcDecideRedemption(id, body);
+    logger.json("pc.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
+    return r;
+  } catch (e) { return toErrorResult(e); }
 }

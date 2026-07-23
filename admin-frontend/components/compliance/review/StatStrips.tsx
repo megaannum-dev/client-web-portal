@@ -2,8 +2,8 @@
 
 import { Clock, Check, X, TriangleAlert, Shield, Banknote } from "@/lib/icons";
 import { StatCard } from "@/components/compliance/Shared";
-import { coMoneyShort, crAmt, type Redemption } from "@/lib/compliance/mock";
-import type { AdminOnboardingRow } from "@/lib/onboarding/types";
+import { coMoneyShort } from "@/lib/compliance/mock";
+import type { AdminOnboardingRow, RedemptionView } from "@/lib/onboarding/types";
 
 /* ---- Onboarding stat strip --------------------------------- */
 export function ObStatStrip({ rows }: { rows: AdminOnboardingRow[] }) {
@@ -22,11 +22,11 @@ export function ObStatStrip({ rows }: { rows: AdminOnboardingRow[] }) {
 }
 
 /* ---- Redemption stat strip --------------------------------- */
-export function CrStatStrip({ rows }: { rows: Redemption[] }) {
-  const pend = rows.filter((r) => r.status === "pending_co");
-  const totalVal = pend.reduce((s, r) => s + crAmt(r), 0);
-  const approved = rows.filter((r) => r.status === "approved_co").length;
-  const rejected = rows.filter((r) => r.status === "rejected_co").length;
+export function CrStatStrip({ rows }: { rows: RedemptionView[] }) {
+  const pend = rows.filter((r) => r.status === "awaiting_co");
+  const totalVal = pend.reduce((s, r) => s + r.amount, 0);
+  const approved = rows.filter((r) => r.status === "approved").length;
+  const rejected = rows.filter((r) => r.status === "rejected").length;
   return (
     <div className="mb-[22px] grid grid-cols-4 gap-3.5">
       <StatCard icon={Shield} k="Pending compliance" v={pend.length} />

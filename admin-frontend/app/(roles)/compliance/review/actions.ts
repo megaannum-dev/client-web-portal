@@ -6,9 +6,11 @@ import {
   approveOnboarding as _approveOnboarding,
   rejectOnboarding as _rejectOnboarding,
   downloadDocument as _downloadDocument,
+  coDecideRedemption as _coDecideRedemption,
+  fetchCoRedemptions as _fetchCoRedemptions,
   type APIResult,
 } from "@/server/onboarding";
-import type { DocumentDTO, OnboardingDTO, RejectReq, VerdictReq } from "@/lib/onboarding/types";
+import type { AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq, VerdictReq } from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -75,6 +77,25 @@ export async function downloadDocument(
     return response;
   } catch (error) {
     console.error("❌ Error downloading onboarding document:", { error, onboardingId, docType });
+    return toErrorResult(error);
+  }
+}
+
+export async function coDecideRedemption(id: string, body: RedemptionDecisionReq) {
+  try {
+    const r = await _coDecideRedemption(id, body);
+    logger.json("co.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
+    return r;
+  } catch (e) { return toErrorResult(e); }
+}
+
+export async function fetchCoRedemptions(): Promise<APIResult<AllotRdmptDTO[]>> {
+  try {
+    const response = await _fetchCoRedemptions();
+    logger.json("co.fetchRedemptions", response.success ? { count: response.data.length } : response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error fetching CO redemptions:", { error });
     return toErrorResult(error);
   }
 }

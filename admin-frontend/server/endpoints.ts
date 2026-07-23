@@ -2,6 +2,7 @@ const PC = "/api/pc";
 const RM = "/api/rm";
 const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
+const CO = "/api/co";
 
 export const ENDPOINTS = {
   PC: {
@@ -20,6 +21,7 @@ export const ENDPOINTS = {
     PATCH_PERIOD:        (id: string) => `${PC}/allocation/periods/${id}`,
     ALLOTMENTS:      `${PC}/allotments`,
     ALLOTMENT_ACK:   (id: string) => `${PC}/allotments/${id}/acknowledge`,
+    REDEMPTION_DECIDE: (id: string) => `${PC}/redemptions/${id}/decide`,
   },
   RM: {
     CLIENTS: `${RM}/clients`,
@@ -36,6 +38,8 @@ export const ENDPOINTS = {
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
+    SUBMIT_ALLOTMENT:  `${RM}/allotment`,
+    SUBMIT_REDEMPTION: `${RM}/redemption`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,
@@ -53,5 +57,10 @@ export const ENDPOINTS = {
     ONBOARDING_VERDICT: (id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/verdict`,
     ONBOARDING_APPROVE: (id: string) => `${COMPLIANCE}/onboardings/${id}/approve`,
     ONBOARDING_REJECT:  (id: string) => `${COMPLIANCE}/onboardings/${id}/reject`,
+    // NOTE: the decide/read routes below live under /api/co, not /api/compliance
+    // (the backend's frozen seam pins CO decide to /co/redemptions/{id}/decide —
+    // see proposal 016 §F-2 "Path note"). Do not "fix" these back to COMPLIANCE.
+    REDEMPTIONS:       `${CO}/redemptions`,
+    REDEMPTION_DECIDE: (id: string) => `${CO}/redemptions/${id}/decide`,
   },
 } as const;
