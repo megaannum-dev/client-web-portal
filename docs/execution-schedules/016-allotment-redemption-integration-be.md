@@ -191,3 +191,21 @@ Both agents must return **PASS**. If either fails:
 - [ ] W-final test agent: PASS.
 - [ ] PR opened against `allotment-redemption-integration`.
 - [ ] Orchestrator has not pushed, force-pushed, merged, or opened worktrees. Hand-off complete.
+
+---
+
+## 11. Addendum — W5 (BE-6 + BE-7, 2026-07-23)
+
+**Context:** by the time this addendum was scheduled, W1-W4 + W-final had already completed and the layer branch was already merged into `allotment-redemption-integration`. Same situation as the Frontend layer's FE-6/FE-7 addendum: BE-6/BE-7 are committed **directly on the parent branch**, not on a re-cut `allotment-redemption-integration-be`.
+
+| Wave | Units | Runs in parallel? | Depends on |
+|---|---|---|---|
+| W5 | `BE-6`, `BE-7` | yes — disjoint files (`schemas.py`+`service.py` vs. `router.py`) | none (independent of W1-W4's units; additive) |
+
+**Barrier before commit:** both BE-6 and BE-7 implemented AND the gate (§6) passes.
+
+**Definition of done (addendum):**
+- [ ] BE-6 committed: `AllotRdmptDTO` widened, `_allotment_to_dto` populates the 5 new fields.
+- [ ] BE-7 committed: `GET /co/redemptions` route live, gated `ONBOARDING_REVIEW`, reuses `list_allotments()`.
+- [ ] Gate (§6) green.
+- [ ] Frontend bug fix (`admin-frontend/server/endpoints.ts` `COMPLIANCE.REDEMPTION_DECIDE` path) noted in proposal §F-2, applied as a small out-of-layer fix alongside this addendum since it blocks the very route BE-6/BE-7 exist to support.

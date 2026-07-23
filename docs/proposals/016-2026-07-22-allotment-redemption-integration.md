@@ -210,6 +210,28 @@ Mirrors `_approve_initial` (`service.py:242-273`) but without the onboarding cer
 | B | Allotment submit service method | MANDATORY | S |
 | C | Redemption submit service method | MANDATORY | S |
 | D | Redemption approval service methods (PC + CO) | MANDATORY | M |
+| F-1 | Widen `AllotRdmptDTO` with approval/emergent fields | MANDATORY | XS |
+| F-2 | `GET /co/redemptions` read route | MANDATORY | XS |
+
+### F. Addendum — closing the CO-read and DTO gaps (2026-07-23, JQ)
+
+**Motivation:** Frontend addendum §E (Layer 3) flagged two known gaps left out of scope there: (1) `AllotRdmptDTO` doesn't expose `emergent`/`expected_cash_out`/`decided_by`/`decided_at`/`reject_reason` even though all five columns already exist on `client_allotment_redemptions` (DB-2 + the 016 gap-fix migration) — `_allotment_to_dto` simply never serializes them; (2) no read endpoint exists for the Compliance/CO role, so the Compliance Review page's Redemptions tab cannot be wired to live data the way PC's was. This addendum closes both.
+
+#### F-1. `Widen AllotRdmptDTO with approval/emergent fields` (MANDATORY)
+
+Add `emergent: bool`, `expected_cash_out: datetime | None`, `decided_by: str | None`, `decided_at: datetime | None`, `reject_reason: str | None` to `AllotRdmptDTO` (`schemas.py`) and populate them in `_allotment_to_dto` (`service.py`) from the already-existing `ClientAllotmentRedemption` columns. Purely additive — no existing field changes shape.
+
+**Files:** `api-backend/app/libs/onboarding/schemas.py`, `api-backend/app/libs/onboarding/service.py`
+
+#### F-2. `GET /co/redemptions` read route (MANDATORY)
+
+Mirrors `GET /pc/allotments` (which already returns all `client_allotment_redemptions` rows, both kinds, unfiltered) but gated by `Action.ONBOARDING_REVIEW` (the same action already used for `POST /co/redemptions/{id}/decide`) instead of `Action.ALLOTMENT_ACKNOWLEDGE`. Reuses `OnboardingService.list_allotments()` as-is — no new service logic, since that method already returns the full unfiltered set and the frontend is expected to filter `kind === "redemption"` client-side, same convention as the PC page.
+
+**Path note:** every other Compliance/CO route in this router uses the `/compliance/*` prefix (`/compliance/onboardings`, `/compliance/onboardings/{id}/approve`) *except* the CO decide route, which the frozen seam (§4.1) pins to `/co/redemptions/{id}/decide`. This read route follows the decide route's existing (frozen, already-shipped) prefix — `/co/redemptions` — for path symmetry with its sibling decide route, not the broader `/compliance/*` convention. Flagged, not silently reconciled: a future cleanup could rename `/co/*` to `/compliance/*` for consistency, but that would be a breaking change to an already-merged, already-consumed route and is out of scope here.
+
+**Bug found & fixed in passing:** the Frontend Layer-3 addendum (E-1) wired `ENDPOINTS.COMPLIANCE.REDEMPTION_DECIDE` to `` `${COMPLIANCE}/redemptions/${id}/decide` `` = `/api/compliance/redemptions/{id}/decide` — which does not match the actual backend route `/api/co/redemptions/{id}/decide` (confirmed against the router's literal path strings and its `/api`-only mount prefix in `app/main.py`). The CO "decide" button in the Compliance Review page would 404. Fixed as part of this addendum by pointing the frontend constant at the correct `/api/co/redemptions/{id}/decide` path.
+
+**Files:** `api-backend/app/libs/onboarding/router.py` (new route); `admin-frontend/server/endpoints.ts` (path fix)
 
 ---
 
