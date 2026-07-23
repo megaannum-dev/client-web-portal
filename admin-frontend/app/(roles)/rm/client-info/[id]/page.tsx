@@ -97,10 +97,11 @@ function CheckRow({ doc, last }: { doc: ClientDoc & { uploadedBy: string | null;
       </span>
       <span className="flex-1 flex flex-col gap-0.5">
         <span className="text-[14px] font-semibold text-on-surface">{doc.name}</span>
-        {(doc.uploadedBy || doc.uploadedAt) && (
-          <span className="text-[12px] text-secondary">
-            Uploaded{doc.uploadedBy ? ` by ${doc.uploadedBy}` : ""}{doc.uploadedAt ? ` on ${fmtTimestamp(doc.uploadedAt)}` : ""}
-          </span>
+        {doc.uploadedBy && (
+          <span className="text-[12px] text-secondary">Uploaded by {doc.uploadedBy}</span>
+        )}
+        {doc.uploadedAt && (
+          <span className="text-[12px] text-secondary">on {fmtTimestamp(doc.uploadedAt)}</span>
         )}
         {doc.approvedAt && (
           <span className="text-[12px] text-secondary">Approved on {fmtTimestamp(doc.approvedAt)}</span>

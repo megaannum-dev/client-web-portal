@@ -57,7 +57,12 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
         <span className="text-[14px] font-semibold leading-tight text-on-surface">{item.name}</span>
         {item.status === "initial"
           ? <Chip tone="neutral" dot={false}>Not started</Chip>
-          : <Chip tone={tone} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>}
+          : (
+            <Chip tone={tone} dot={false}>
+              <span className="shrink-0">{item.verifiedCount}/{item.requiredCount}</span>
+              <span className="min-w-0 overflow-hidden whitespace-nowrap">&nbsp;verified</span>
+            </Chip>
+          )}
       </div>
       <div className="flex items-center gap-1.5 text-[12px] text-secondary">
         <Shield size={13} strokeWidth={1.75} />
@@ -167,10 +172,11 @@ function KycPanel({
               </span>
               <span className="flex-1 flex flex-col gap-0.5">
                 <span className="text-[14px] font-semibold text-on-surface">{d.label}</span>
-                {(d.uploaded_by || d.uploaded_at) && (
-                  <span className="text-[11px] text-secondary">
-                    Uploaded{d.uploaded_by ? ` by ${d.uploaded_by}` : ""}{d.uploaded_at ? ` on ${fmtTimestamp(d.uploaded_at)}` : ""}
-                  </span>
+                {d.uploaded_by && (
+                  <span className="text-[11px] text-secondary">Uploaded by {d.uploaded_by}</span>
+                )}
+                {d.uploaded_at && (
+                  <span className="text-[11px] text-secondary">on {fmtTimestamp(d.uploaded_at)}</span>
                 )}
                 {d.approved_at && (
                   <span className="text-[11px] text-secondary">Approved on {fmtTimestamp(d.approved_at)}</span>

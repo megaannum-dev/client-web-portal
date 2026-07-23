@@ -719,7 +719,7 @@ class OnboardingService:
             reviewed_at=doc.reviewed_at,
             expires_at=doc.expires_at,
             can_reupload=doc.status in _CAN_REUPLOAD_STATUSES,
-            uploaded_by=self.repo._resolve_uid_to_display_name(doc.uploaded_by),
+            uploaded_by=self.repo._resolve_uid_to_display_name_with_role(doc.uploaded_by),
             uploaded_at=doc.uploaded_at,
             approved_at=doc.reviewed_at if doc.status == DocStatus.VERIFIED else None,
         )
