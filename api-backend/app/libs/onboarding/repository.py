@@ -255,7 +255,13 @@ class OnboardingRepository:
 
     # ---- mutate: documents ------------------------------------------------
     def upload_document(
-        self, doc: OnboardingDocument, *, storage_key: str, filename: str, content_type: str | None
+        self,
+        doc: OnboardingDocument,
+        *,
+        storage_key: str,
+        filename: str,
+        content_type: str | None,
+        uploaded_by: str,
     ) -> None:
         doc.storage_key = storage_key
         doc.filename = filename
@@ -263,6 +269,8 @@ class OnboardingRepository:
         doc.status = DocStatus.UPLOADED
         doc.version_no = (doc.version_no or 0) + 1
         doc.issue_note = None
+        doc.uploaded_by = uploaded_by
+        doc.uploaded_at = datetime.utcnow()
 
     def set_verdict(
         self, doc: OnboardingDocument, *, status: DocStatus, reviewed_by: str, note: str | None

@@ -121,7 +121,7 @@ async def upload_document(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
     file: UploadFile = File(...),
 ) -> DocumentDTO:
     return svc.upload_document(
@@ -130,6 +130,7 @@ async def upload_document(
         stream=file.file,
         filename=file.filename or doc_type,
         content_type=file.content_type,
+        caller_uid=user.firebase_uid,
     )
 
 

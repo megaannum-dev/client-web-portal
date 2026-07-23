@@ -159,6 +159,7 @@ class OnboardingService:
         stream: BinaryIO,
         filename: str,
         content_type: str | None,
+        caller_uid: str,
     ) -> DocumentDTO:
         onboarding = self._require_onboarding(onboarding_id)
         if onboarding.status not in _EDITABLE_STATUSES:
@@ -178,7 +179,11 @@ class OnboardingService:
             subdir=f"client_kyc_docs/{self.repo.client_folder_name(onboarding)}",
         )
         self.repo.upload_document(
-            doc, storage_key=storage_key, filename=filename, content_type=content_type
+            doc,
+            storage_key=storage_key,
+            filename=filename,
+            content_type=content_type,
+            uploaded_by=caller_uid,
         )
         self.db.commit()
         return self._doc_to_dto(doc)
@@ -714,6 +719,9 @@ class OnboardingService:
             reviewed_at=doc.reviewed_at,
             expires_at=doc.expires_at,
             can_reupload=doc.status in _CAN_REUPLOAD_STATUSES,
+            uploaded_by=self.repo._resolve_uid_to_display_name(doc.uploaded_by),
+            uploaded_at=doc.uploaded_at,
+            approved_at=doc.reviewed_at if doc.status == DocStatus.VERIFIED else None,
         )
 
     @staticmethod
