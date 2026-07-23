@@ -3,24 +3,19 @@
 import { Inbox, Lock, Shield, Banknote } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { fmtMoneyShort } from "@/lib/pc/format";
-import {
-  arNeedsCompliance,
-  arRedeemAmt,
-  type Redemption,
-} from "@/lib/pc/allotment-redemption-mock";
-import type { AllotmentView } from "@/lib/onboarding/types";
+import type { AllotmentView, RedemptionView } from "@/lib/onboarding/types";
 import { arLabelCls } from "./parts";
 
 export function ArStatStrip({
   allotments, redemptions,
 }: {
   allotments: AllotmentView[];
-  redemptions: Redemption[];
+  redemptions: RedemptionView[];
 }) {
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
-  const pending = redemptions.filter((r) => r.status === "pending_pc");
-  const compCount = pending.filter(arNeedsCompliance).length;
-  const totalRedeem = pending.reduce((s, r) => s + arRedeemAmt(r), 0);
+  const pending = redemptions.filter((r) => r.status === "awaiting_pc");
+  const compCount = pending.filter((r) => r.amount > 300000).length;
+  const totalRedeem = pending.reduce((s, r) => s + r.amount, 0);
 
   const stats: { k: string; v: string | number; icon: LucideIcon }[] = [
     { k: "Pending allotments", v: pendAllot, icon: Inbox },

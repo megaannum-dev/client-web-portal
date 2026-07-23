@@ -8,19 +8,13 @@ import { TriangleAlert, Shield } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Card } from "@/components/ui/Card";
 import { fmtMoney } from "@/lib/pc/format";
-import {
-  arModelById,
-  arNeedsCompliance,
-  arRedeemAmt,
-  type RedeemStatus,
-  type Redemption,
-} from "@/lib/pc/allotment-redemption-mock";
+import type { AllotRdmpStatus, RedemptionView } from "@/lib/onboarding/types";
 
-export function RedeemStatusChip({ status }: { status: RedeemStatus }) {
-  if (status === "pending_pc") return <Chip tone="pending">Awaiting approval</Chip>;
+export function RedeemStatusChip({ status }: { status: AllotRdmpStatus }) {
+  if (status === "awaiting_pc") return <Chip tone="pending">Awaiting approval</Chip>;
   if (status === "approved") return <Chip tone="active">Approved</Chip>;
   if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
-  if (status === "pending_compliance") return <Chip tone="review">Compliance review</Chip>;
+  if (status === "awaiting_co") return <Chip tone="review">Compliance review</Chip>;
   return <Chip tone="neutral">{status}</Chip>;
 }
 
@@ -30,7 +24,7 @@ const TD = "cursor-pointer border-t border-outline-variant px-4 py-[13px] text-[
 export function RedeemTable({
   rows, onRowClick,
 }: {
-  rows: Redemption[];
+  rows: RedemptionView[];
   onRowClick: (id: string) => void;
 }) {
   return (
@@ -49,8 +43,7 @@ export function RedeemTable({
           </thead>
           <tbody>
             {rows.map((r) => {
-              const m = arModelById(r.mid);
-              const comp = arNeedsCompliance(r);
+              const comp = r.amount > 300000;
               return (
                 <tr
                   key={r.id}
@@ -66,9 +59,9 @@ export function RedeemTable({
                       <Shield size={12} strokeWidth={2} color="#994700" className="ml-1.5 inline align-[-2px]" />
                     )}
                   </td>
-                  <td className={TD}>{m.name}</td>
+                  <td className={TD}>{r.modelName}</td>
                   <td className={`${TD} text-right font-bold tabular-nums`}>{r.mult}×</td>
-                  <td className={`${TD} text-right font-bold tabular-nums`}>{fmtMoney(arRedeemAmt(r))}</td>
+                  <td className={`${TD} text-right font-bold tabular-nums`}>{fmtMoney(r.amount)}</td>
                   <td className={`${TD} text-secondary`}>{r.rm}</td>
                   <td className={TD}><RedeemStatusChip status={r.status} /></td>
                 </tr>

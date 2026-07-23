@@ -6,7 +6,7 @@
 
 import type {
   AdminOnboardingRow, AllotRdmptDTO, AllotmentView, BoardDTO, DocStatus,
-  KycBoardClient, KycBoardColumn, ObStatus, OnboardingDTO,
+  KycBoardClient, KycBoardColumn, ObStatus, OnboardingDTO, RedemptionView,
 } from "./types";
 
 /* ---- FE-3: RM onboarding board -------------------------------------- */
@@ -88,4 +88,16 @@ export function mapAllotmentsToView(dtos: AllotRdmptDTO[]): AllotmentView[] {
     expectedCashIn: d.expected_cash_in,
     aggBefore: d.agg_before, aggAfter: d.agg_after,
   }));
+}
+
+/* ---- FE-7: PC redemptions ---------------------------------------------- */
+
+export function mapRedemptionsToView(dtos: AllotRdmptDTO[]): RedemptionView[] {
+  return dtos
+    .filter((d) => d.kind === "redemption")
+    .map((d) => ({
+      id: d.id, ref: d.reference, modelName: d.model_name,
+      mult: d.units, amount: d.amount, status: d.status,
+      rm: d.rm, date: d.created_at, emergent: d.emergent,
+    }));
 }
