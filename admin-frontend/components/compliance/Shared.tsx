@@ -11,8 +11,8 @@ import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { X, Minus } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { clientInitial, type CrStatus } from "@/lib/compliance/mock";
-import type { DocumentDTO, ObStatus } from "@/lib/onboarding/types";
+import { clientInitial } from "@/lib/compliance/mock";
+import type { AllotRdmpStatus, DocumentDTO, ObStatus } from "@/lib/onboarding/types";
 
 /* uppercase micro-label — matches the prototype's coLabel */
 export const coLabelCls =
@@ -30,10 +30,11 @@ export function ObTypeChip({ type }: { type: string }) {
     ? <Chip tone="review" dot={false}>Renewal</Chip>
     : <Chip tone="warm" dot={false}>Initial</Chip>;
 }
-export function CrStatusChip({ status }: { status: CrStatus }) {
-  if (status === "pending_co") return <Chip tone="pending">Awaiting compliance</Chip>;
-  if (status === "approved_co") return <Chip tone="active">Approved</Chip>;
-  if (status === "rejected_co") return <Chip tone="failed">Rejected</Chip>;
+export function CrStatusChip({ status }: { status: AllotRdmpStatus }) {
+  if (status === "awaiting_co") return <Chip tone="pending">Awaiting compliance</Chip>;
+  if (status === "awaiting_pc") return <Chip tone="review">Awaiting PC sign-off</Chip>;
+  if (status === "approved") return <Chip tone="active">Approved</Chip>;
+  if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
   return <Chip tone="neutral">{status}</Chip>;
 }
 
