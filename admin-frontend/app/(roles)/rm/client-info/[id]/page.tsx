@@ -43,9 +43,12 @@ const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
 };
 
 /** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
-function docFromDto(doc: DocumentDTO): ClientDoc {
+function docFromDto(doc: DocumentDTO): ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null } {
   const tone = DOC_STATUS_TONE[doc.status];
-  return { name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock" };
+  return {
+    name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock",
+    uploadedBy: doc.uploaded_by, uploadedAt: doc.uploaded_at, approvedAt: doc.approved_at,
+  };
 }
 
 // Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
@@ -85,14 +88,24 @@ function BalanceItem({ label, value, censored }: { label: string; value: string;
   );
 }
 
-function CheckRow({ doc, last }: { doc: ClientDoc; last: boolean }) {
+function CheckRow({ doc, last }: { doc: ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null }; last: boolean }) {
   const Glyph = DOC_ICON[doc.icon] ?? Clock;
   return (
     <div className={clsx("flex items-center gap-3 py-3", !last && "border-b border-outline-variant")}>
       <span className={clsx("flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md", CHECK_TINT[doc.tone] ?? CHECK_TINT.review)}>
         <Glyph size={15} strokeWidth={2} />
       </span>
-      <span className="flex-1 text-[14px] font-semibold text-on-surface">{doc.name}</span>
+      <span className="flex-1 flex flex-col gap-0.5">
+        <span className="text-[14px] font-semibold text-on-surface">{doc.name}</span>
+        {(doc.uploadedBy || doc.uploadedAt) && (
+          <span className="text-[12px] text-secondary">
+            Uploaded{doc.uploadedBy ? ` by ${doc.uploadedBy}` : ""}{doc.uploadedAt ? ` on ${fmtTimestamp(doc.uploadedAt)}` : ""}
+          </span>
+        )}
+        {doc.approvedAt && (
+          <span className="text-[12px] text-secondary">Approved on {fmtTimestamp(doc.approvedAt)}</span>
+        )}
+      </span>
       <Chip tone={doc.tone} dot={false}>{doc.status}</Chip>
     </div>
   );
