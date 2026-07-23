@@ -149,3 +149,6 @@ export async function coDecideRedemption(
     method: "POST", body: JSON.stringify(body),
   });
 }
+export async function fetchCoRedemptions(): Promise<APIResult<AllotRdmptDTO[]>> {
+  return apiClient<AllotRdmptDTO[]>(ENDPOINTS.COMPLIANCE.REDEMPTIONS);
+}

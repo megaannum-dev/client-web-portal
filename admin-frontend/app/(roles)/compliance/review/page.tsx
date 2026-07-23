@@ -2,10 +2,11 @@
 
 // Compliance Review — two work types split by tabs:
 //   · Onboarding — review client packages + required docs, approve/reject.
-//   · Redemptions — second gate on large ( > US$300K ) PC-approved redemptions.
+//   · Redemptions — Compliance's gate on large ( > US$300K ) redemptions;
+//     Compliance decides FIRST (awaiting_co), PC gives the final sign-off
+//     second (awaiting_pc -> approved) -- see proposal 016 D-2.
 // Thin orchestrator holding UI state; queue tables + slide-in detail panels.
-// Onboarding is wired to live data via useComplianceQueue; Redemptions stays
-// FRONTEND ONLY — backed by local mock data (@/lib/compliance/mock) — out of scope.
+// Both tabs wired to live data (FE-8: useCoRedemptions mirrors PC's FE-7).
 
 import { useState } from "react";
 import { Filter, Download, Eye, Check, Shield, ShieldCheck, User } from "@/lib/icons";
@@ -20,8 +21,10 @@ import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
 import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
-import { CR_REDEMPTIONS, COMPLIANCE_THRESHOLD, type CrStatus, type Redemption } from "@/lib/compliance/mock";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
+import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
+
+const COMPLIANCE_THRESHOLD = 300000;
 
 // Rehydrate a base64 download payload into a Blob and trigger a save dialog
 // (mirrors app/(roles)/pc/model-management/page.tsx's saveBase64File).
@@ -36,13 +39,17 @@ export default function ComplianceReviewPage() {
   const [tab, setTab] = useState<CoTab>("onboarding");
   const { data: onboardingData, submitVerdict, approve, reject, download } = useComplianceQueue();
   const onboarding = onboardingData ?? [];
-  const [redemptions, setRedemptions] = useState<Redemption[]>(CR_REDEMPTIONS);
+  const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
+  // Compliance only ever acts on redemptions above the threshold -- rows at
+  // or below it never leave PC's workflow, so filter them out here rather
+  // than showing PC-only history as noise on this page.
+  const redemptions = (redemptionsData ?? []).filter((r) => r.amount > COMPLIANCE_THRESHOLD);
   const [openObId, setOpenObId] = useState<string | null>(null);
   const [openCrId, setOpenCrId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
-  const pendCr = redemptions.filter((r) => r.status === "pending_co").length;
+  const pendCr = redemptions.filter((r) => r.status === "awaiting_co").length;
 
   const openOb = onboarding.find((o) => o.id === openObId);
   const openCr = redemptions.find((r) => r.id === openCrId);
@@ -65,8 +72,10 @@ export default function ComplianceReviewPage() {
     void reject(id, reason).then((r) => {
       if (r.success) { setRejecting(false); setOpenObId(null); } else alert(`Could not reject: ${r.error}`);
     });
-  const decideCr = (id: string, status: CrStatus) =>
-    setRedemptions((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
+  const decideCr = (id: string, verdict: "approve" | "reject") =>
+    void decideRedemption(id, { verdict }).then((r) => {
+      if (!r.success) alert(`Could not submit decision: ${r.error}`);
+    });
 
   const rows = tab === "onboarding" ? onboarding : redemptions;
   const isEmpty = rows.length === 0;
@@ -106,12 +115,12 @@ export default function ComplianceReviewPage() {
               <CrStatStrip rows={redemptions} />
               <div className="mb-4">
                 <Notice tone="info" icon={Shield}>
-                  <b>Compliance gate</b> — these redemptions exceed US${COMPLIANCE_THRESHOLD.toLocaleString()} and are already PC-approved. Your approval is the final step before the redemption proceeds.
+                  <b>Compliance gate</b> — these redemptions exceed US${COMPLIANCE_THRESHOLD.toLocaleString()}. Compliance decides first; PC gives the final sign-off before the redemption proceeds.
                 </Notice>
               </div>
               <RedeemTable rows={redemptions} onRowClick={setOpenCrId} openId={openCrId} />
               <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
-                <span className="flex items-center gap-1.5"><ShieldCheck size={13} strokeWidth={2} />PC-approved amount is verified before compliance sign-off</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck size={13} strokeWidth={2} />Compliance is the first gate on amounts above the threshold</span>
                 <span className="flex items-center gap-1.5"><User size={13} strokeWidth={2} />Client identity is anonymized throughout</span>
               </div>
             </>
