@@ -315,6 +315,14 @@ def co_decide_redemption(
     return svc.co_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
 
 
+@router.get("/co/redemptions", response_model=list[AllotRdmptDTO])
+def get_co_redemptions(
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> list[AllotRdmptDTO]:
+    return svc.list_allotments()
+
+
 # ---- Client ---------------------------------------------------------------
 @router.get("/client/subscriptions", response_model=list[SubscriptionDTO])
 def get_client_subscriptions(
