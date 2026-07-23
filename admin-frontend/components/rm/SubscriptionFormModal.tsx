@@ -33,6 +33,7 @@ export interface SubscriptionModalContext {
   clientId?: string;
   modelName?: string;
   modelId?: string;
+  modelSize?: number;
   modelAccount?: string;
   mgmtFee?: string;
   incentiveFee?: string;
@@ -92,7 +93,10 @@ export function SubscriptionFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const modelSize = MODEL_SIZES[model] ?? 0;
+  // Locked modes (add-allotment/redemption) are against a real, already-live
+  // subscription — use its actual size, not a name-keyed lookup into the
+  // new-subscription mock catalog (whose names don't cover live model names).
+  const modelSize = locked ? (context.modelSize ?? 0) : (MODEL_SIZES[model] ?? 0);
   const multNum = emergent ? 0 : parseFloat(multiplier) || 0;
   const notional = emergent ? modelSize : modelSize * multNum;
   const accentText = isRedemption ? "text-[#994700]" : "text-[#2f7a47]";

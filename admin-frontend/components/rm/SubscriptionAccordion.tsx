@@ -108,6 +108,7 @@ function ModelAccordionItem({
     clientId: client.id,
     modelName: model.name,
     modelId: model.modelId,
+    modelSize: model.modelSize,
     modelAccount: model.account,
     mgmtFee: model.mgmtFee,
     incentiveFee: model.incentiveFee,

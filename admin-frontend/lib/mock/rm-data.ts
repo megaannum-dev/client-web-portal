@@ -230,6 +230,7 @@ export type SubModel = {
   incentiveFee: string;
   account: string;
   modelId: string;   // NEW
+  modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
   rows: TxnRow[];
 };
 export type SubClient = {
