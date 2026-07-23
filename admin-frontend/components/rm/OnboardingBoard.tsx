@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Download } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
@@ -60,7 +60,7 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
       </div>
       <div className="flex items-center gap-1.5 text-[12px] text-secondary">
         <Shield size={13} strokeWidth={1.75} />
-        <span>KYC &amp; docs · {item.owner}</span>
+        <span>Assigned RM: {item.owner}</span>
       </div>
     </button>
   );
@@ -136,7 +136,7 @@ function KycPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[16px] font-bold leading-tight text-on-surface">{item.name}</div>
-            <div className="mt-1 text-[12px] text-secondary">KYC Review · {item.owner}</div>
+            <div className="mt-1 text-[12px] text-secondary">Assigned RM: {item.owner}</div>
           </div>
           <button type="button" onClick={onClose} className="flex shrink-0 rounded p-1 text-secondary hover:bg-surface-container">
             <X size={18} strokeWidth={2} />
@@ -266,6 +266,20 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
     setSelectedId(null);
     router.push(`/rm/client-info/${id}`);
   };
+
+  // Deep link from the client-detail page's KYC card (?ob=<onboardingId>) —
+  // open that client's panel once, as soon as the board data arrives. Only
+  // once: `columns` re-fetches after every upload/submit and would otherwise
+  // re-open the panel right after the user closes it.
+  const searchParams = useSearchParams();
+  const deepLinkOb = searchParams.get("ob");
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkOb && columns && !deepLinkConsumed.current) {
+      deepLinkConsumed.current = true;
+      setSelectedId(deepLinkOb);
+    }
+  }, [deepLinkOb, columns]);
 
   if (!columns) {
     return <div className="text-[13px] text-secondary">{error ? `Failed to load onboarding board: ${error}` : loading ? "Loading…" : "No data."}</div>;
