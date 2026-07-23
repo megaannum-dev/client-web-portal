@@ -88,6 +88,8 @@ export interface AllotRdmptDTO {
   agg_before: number; agg_after: number;                       // widened 2026-07-20 — snapshotted server-side at insert (DB B-3), never recomputed here
   expected_cash_in: string | null;                             // widened 2026-07-20 — settlement date, snapshotted at insert time
   rm: string; created_at: string; acknowledged_at: string | null;
+  emergent?: boolean;                   // FE-7: optional — DB column exists, backend mapper not yet serializing
+  expected_cash_out?: string | null;    // FE-7: optional — same
 }
 
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
@@ -129,6 +131,11 @@ export interface AdminOnboardingRow {
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
   rejectReason: string | null;
+}
+
+export interface RedemptionView {
+  id: string; ref: string; modelName: string; mult: number; amount: number;
+  status: AllotRdmpStatus; rm: string; date: string; emergent?: boolean;
 }
 
 export interface AllotmentView {
