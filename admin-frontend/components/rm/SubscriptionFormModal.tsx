@@ -99,6 +99,11 @@ export function SubscriptionFormModal({
   const modelSize = locked ? (context.modelSize ?? 0) : (MODEL_SIZES[model] ?? 0);
   const multNum = emergent ? 0 : parseFloat(multiplier) || 0;
   const notional = emergent ? modelSize : modelSize * multNum;
+  // "Expected Cash In/Out" is marked required (Field's asterisk) but, unlike a
+  // real <form>, this modal has no submit event for the browser's native
+  // `required` to hook into — nothing stopped an empty date from reaching the
+  // backend as null. Emergent redemption is exempt: its date is fixed to T+1.
+  const canSubmit = emergent || dateVal !== "";
   const accentText = isRedemption ? "text-[#994700]" : "text-[#2f7a47]";
   const accentBg = isRedemption ? "bg-[#fff3e8]" : "bg-[#e3f1e7]";
   const HeaderIcon = isRedemption ? ArrowUpFromLine : ArrowDownToLine;
@@ -176,11 +181,11 @@ export function SubscriptionFormModal({
         <>
           <Button variant="secondary" onClick={onClose} className="ml-auto" disabled={submitting}>Cancel</Button>
           {emergent ? (
-            <Button icon={TriangleAlert} style={{ background: "#b71c1c" }} onClick={handleSubmit} disabled={submitting}>
+            <Button icon={TriangleAlert} style={{ background: "#b71c1c" }} onClick={handleSubmit} disabled={submitting || !canSubmit}>
               {submitting ? "Submitting…" : "Submit emergent redemption"}
             </Button>
           ) : (
-            <Button icon={Send} onClick={handleSubmit} disabled={submitting}>
+            <Button icon={Send} onClick={handleSubmit} disabled={submitting || !canSubmit}>
               {submitting ? "Submitting…" : `Submit ${isRedemption ? "redemption" : "allotment"}`}
             </Button>
           )}
