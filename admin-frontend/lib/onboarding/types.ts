@@ -33,6 +33,7 @@ export interface DocumentDTO {
   filename: string | null; required: boolean; periodic_review: boolean;
   issue_note: string | null; reviewed_at: string | null; expires_at: string | null;
   can_reupload: boolean;
+  uploaded_by: string | null; uploaded_at: string | null; approved_at: string | null;
 }
 
 export interface OnboardingDTO {   // widened 2026-07-20 for full field parity with the pre-existing RM/Compliance mocks — see D-9
