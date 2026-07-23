@@ -17,7 +17,7 @@
 | Sibling layer schedules | `docs/execution-schedules/016-allotment-redemption-integration-db.md`, `docs/execution-schedules/016-allotment-redemption-integration-be.md` |
 | Prompt (dispatch harness) | `docs/prompts/016-allotment-redemption-integration-fe.md` |
 
-**Unit ID space this schedule sequences:** `FE-1 … FE-5` (definitions live in the impl doc — do not restate them here).
+**Unit ID space this schedule sequences:** `FE-1 … FE-7` (definitions live in the impl doc — do not restate them here). FE-6/FE-7 added by addendum 2026-07-23.
 
 ---
 
@@ -45,6 +45,8 @@
 | `FE-3` | `FE-2` | modal's `handleSubmit` calls the `submitAllotment`/`submitRedemption` server actions introduced by FE-2 |
 | `FE-4` | `FE-1` | `statusToChip` switches over the widened `AllotRdmpStatus` union introduced by FE-1 |
 | `FE-5` | `FE-3` | dropdown props feed `context.clientId`/`context.modelId`, the fields FE-3 wired into `handleSubmit`'s payload construction |
+| `FE-6` | `FE-1` | uses `RedemptionDecisionReq` type introduced by FE-1 |
+| `FE-7` | `FE-6` | `decideRedemption` in the hook calls the `pcDecideRedemption` action introduced by FE-6; `RedemptionView` uses `AllotRdmpStatus` from FE-1 |
 
 **Graph invariants:**
 - No cycles.
@@ -65,6 +67,9 @@
 | W3 | `FE-3` | no (single unit) | W2 committed |
 | W4 | `FE-5` | no (single unit) | W3 committed |
 | **W-final** | Validation + Test | yes (two dispatches) | W4 committed |
+| W5 | `FE-6` | no (single unit) | W-final passed (addendum) |
+| W6 | `FE-7` | no (single unit) | W5 committed |
+| **W-final-2** | Validation + Test | yes (two dispatches) | W6 committed |
 
 ### Algorithm (pseudocode)
 
@@ -108,6 +113,20 @@ open PR against allotment-redemption-integration
 | `FE-5` | impl §6 FE-5 — Recommend-tier: source new-subscription dropdowns from live data | `admin-frontend/components/rm/SubscriptionFormModal.tsx`, `admin-frontend/app/(roles)/rm/model-subscription/page.tsx` | commit exists on layer branch |
 
 **Barrier before W-final:** FE-5 committed on the layer branch AND wave-gate checks (§6) pass.
+
+### Wave W5 (Addendum 2026-07-23)
+| Unit | Brief | Files touched | Done when |
+|---|---|---|---|
+| `FE-6` | impl §6 FE-6 — PC/CO decide endpoint constants + server functions + actions | `admin-frontend/server/endpoints.ts`, `admin-frontend/server/onboarding/index.ts`, `admin-frontend/app/(roles)/pc/allotment-redemption/actions.ts`, `admin-frontend/app/(roles)/compliance/review/actions.ts` | commit exists on branch |
+
+**Barrier before W6:** FE-6 committed AND wave-gate checks (§6) pass.
+
+### Wave W6 (Addendum 2026-07-23)
+| Unit | Brief | Files touched | Done when |
+|---|---|---|---|
+| `FE-7` | impl §6 FE-7 — wire PC redemptions tab to live data | `admin-frontend/lib/onboarding/types.ts`, `admin-frontend/lib/onboarding/mappers.ts`, `admin-frontend/hooks/api/useAllotments.ts`, `admin-frontend/app/(roles)/pc/allotment-redemption/page.tsx`, `admin-frontend/components/pc/allotment-redemption/RedeemTable.tsx`, `admin-frontend/components/pc/allotment-redemption/RedeemDetailPanel.tsx`, `admin-frontend/components/pc/allotment-redemption/StatStrip.tsx` | commit exists on branch |
+
+**Barrier before W-final-2:** FE-7 committed AND wave-gate checks (§6) pass.
 
 ---
 
@@ -189,4 +208,5 @@ Both agents must return **PASS**. If either fails:
 - [ ] W-final validation agent: PASS.
 - [ ] W-final test agent: PASS.
 - [ ] PR opened against `allotment-redemption-integration`.
+- [ ] (Addendum) Every wave W5…W6 committed; W-final-2 validation + test: PASS.
 - [ ] Orchestrator has **not** pushed, force-pushed, merged, or opened worktrees. Hand-off complete.
