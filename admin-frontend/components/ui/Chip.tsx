@@ -30,7 +30,7 @@ export function Chip({ tone = "neutral", dot = true, children }: ChipProps) {
   const t = CHIP_TONES[tone] ?? CHIP_TONES.neutral;
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[12px] font-semibold whitespace-nowrap"
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[12px] font-semibold whitespace-nowrap"
       style={{ background: t.bg, color: t.fg }}
     >
       {dot && (
