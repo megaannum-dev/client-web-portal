@@ -297,10 +297,14 @@ export default function ClientDetailPage() {
               <CheckRow key={doc.doc_type} doc={docFromDto(doc)} last={i === onboarding!.documents.length - 1} />
             )))
           )}
-          <div className="mt-[18px] flex gap-3">
-            <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={!!onboarding && onboarding.verified_count === onboarding.required_count}>Approve KYC</Button>
-          </div>
+          {onboarding && (
+            <Link
+              href={`/rm/onboarding-renewal?ob=${onboarding.id}`}
+              className="mt-2.5 block py-0.5 text-right text-[13px] font-semibold text-primary"
+            >
+              Open in Onboarding & Renewal →
+            </Link>
+          )}
         </Card>
       </div>
 
