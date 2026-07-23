@@ -55,7 +55,7 @@ You are the **orchestrator** for the Frontend layer of proposal 016. Your job is
 
 You **do not** edit source files yourself. You **do not** push, merge, or open worktrees.
 
-**This layer's wave shape** (schedule §4): W1 = `FE-1` alone. W2 = `FE-2` + `FE-4`, **true parallel** (schedule §7 confirms zero file overlap — dispatch both Agent calls in one message). W3 = `FE-3` alone. W4 = `FE-5` alone. W-final = validation + test, parallel.
+**This layer's wave shape** (schedule §4): W1 = `FE-1` alone. W2 = `FE-2` + `FE-4`, **true parallel** (schedule §7 confirms zero file overlap — dispatch both Agent calls in one message). W3 = `FE-3` alone. W4 = `FE-5` alone. W-final = validation + test, parallel. **Addendum 2026-07-23:** W5 = `FE-6` alone. W6 = `FE-7` alone. W-final-2 = validation + test, parallel.
 
 ---
 
@@ -217,13 +217,14 @@ step 0: invoke test-gen standard on
         (generates admin-frontend/tests/ from impl §8.3 goals) — do this
         BEFORE dispatching any feature-wave sub-agent below.
 
-for wave in [W1(FE-1), W2(FE-2,FE-4), W3(FE-3), W4(FE-5), W_final]:
+for wave in [W1(FE-1), W2(FE-2,FE-4), W3(FE-3), W4(FE-5), W_final,
+             W5(FE-6), W6(FE-7), W_final_2]:
     dispatch every unit in wave in a single message (parallel Agent calls)
     # W2 is the true-parallel wave: FE-2 and FE-4 in one message, two Agent calls
     wait until every dispatched sub-agent reports a commit on LAYER_BRANCH
     run wave gate (schedule §6: next lint, tsc --noEmit, vitest run)
       — if red: STOP, report to human, exit
-open PR against PARENT_BRANCH
+open PR against PARENT_BRANCH (or update existing PR)
 report: units committed, gate summary, PR URL
 STOP
 ```
@@ -233,10 +234,10 @@ STOP
 ## 9. Definition of done
 
 - [ ] `test-gen standard` invoked on the impl doc before any feature-wave dispatch.
-- [ ] Every unit in impl doc §6 (FE-1 through FE-5) has a commit on `${LAYER_BRANCH}`.
+- [ ] Every unit in impl doc §6 (FE-1 through FE-7) has a commit on the working branch.
 - [ ] Every wave gate (schedule §6: `npx next lint`, `npx tsc --noEmit`, `npx vitest run`) was green when crossed.
-- [ ] W-final validation agent: PASS.
-- [ ] W-final test agent: PASS.
+- [ ] W-final validation agent: PASS. W-final-2 validation agent: PASS.
+- [ ] W-final test agent: PASS. W-final-2 test agent: PASS.
 - [ ] PR opened against `${PARENT_BRANCH}`.
 - [ ] Orchestrator has **not** pushed, force-pushed, merged, opened a worktree, or started a dev/preview server.
 - [ ] Final report delivered: units committed, gate summaries, PR URL.

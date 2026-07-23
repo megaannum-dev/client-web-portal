@@ -270,6 +270,29 @@ Mirrors `_approve_initial` (`service.py:242-273`) but without the onboarding cer
 | A-2 | Status-aware chip rendering in TxnTable | MANDATORY | XS |
 | A-3 | Widen AllotRdmpStatus type | MANDATORY | XS |
 | C-1 | Source modal dropdowns from live data | Recommend | S |
+| E-1 | PC/CO redemption decide endpoint wiring | MANDATORY | S |
+| E-2 | Wire PC redemptions tab to live data | MANDATORY | M |
+
+### E. Addendum — PC redemption table live-data wiring (2026-07-23, JQ)
+
+**Motivation:** The PC Allotment & Redemption page's Redemptions tab and the Compliance Review page's Redemptions tab both render from local mock seeds (`AR_REDEMPTIONS_SEED`, `CR_REDEMPTIONS`). The backend endpoints exist (`POST /pc/redemptions/{id}/decide`, `POST /co/redemptions/{id}/decide`) and the read endpoint (`GET /pc/allotments`) already returns both allotments AND redemptions (the `kind` field distinguishes them). This addendum wires the PC page's redemptions tab to live data.
+
+#### E-1. `PC/CO redemption decide server layer` (MANDATORY)
+
+The decide endpoints exist on the backend but are not wired in the frontend server layer. Add endpoint constants, `server/onboarding` functions, and route-scoped server actions for both PC and CO decide.
+
+**Files:** `server/endpoints.ts`, `server/onboarding/index.ts`, `app/(roles)/pc/allotment-redemption/actions.ts`, `app/(roles)/compliance/review/actions.ts`
+
+#### E-2. `Wire PC redemptions tab to live data` (MANDATORY)
+
+The existing `GET /pc/allotments` returns all records (`kind: "allotment" | "redemption"`). The `useAllotments` hook already fetches this data. Filter `kind === "redemption"`, map to a `RedemptionView`, and replace mock `Redemption` / `AR_REDEMPTIONS_SEED` / helper imports in the PC page, `RedeemTable`, `RedeemDetailPanel`, and `StatStrip` components. Approve/reject buttons call the real `pcDecideRedemption` action instead of local state mutation.
+
+**Files:** `lib/onboarding/types.ts`, `lib/onboarding/mappers.ts`, `hooks/api/useAllotments.ts`, `app/(roles)/pc/allotment-redemption/page.tsx`, `components/pc/allotment-redemption/RedeemTable.tsx`, `components/pc/allotment-redemption/RedeemDetailPanel.tsx`, `components/pc/allotment-redemption/StatStrip.tsx`
+
+#### Known gaps (out of scope for this addendum)
+
+1. **CO redemptions read** — no `GET /co/redemptions` backend endpoint exists. CO's Redemptions tab stays on mock data until a backend read route is added (separate proposal).
+2. **Backend `AllotRdmptDTO` missing fields** — `emergent`, `expected_cash_out`, `decided_at`, `decided_by`, `reject_reason` exist as DB columns but the backend `_allotment_to_dto` mapper does not serialize them. The frontend `AllotRdmptDTO` widens these as **optional** fields — they render when present, degrade gracefully when absent.
 
 ---
 

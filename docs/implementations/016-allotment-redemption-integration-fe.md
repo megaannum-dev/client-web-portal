@@ -86,7 +86,7 @@ admin-frontend/
 
 **Dependency direction:** `page.tsx` → `SubscriptionAccordion`/`SubscriptionFormModal` (view) → `actions.ts` (server action) → `server/rm` (API client wrapper) → `server/api-client` (transport). `lib/rm/subscriptions.ts` is a pure mapping module imported by both the hook and the accordion; it imports types only, never `server/*`.
 
-**External seams:** consumes `POST /api/rm/allotment`, `POST /api/rm/redemption` (this layer's calls); reads/renders the widened `AllotRdmpStatus` values on `AllotRdmptDTO` returned by the existing `GET /api/rm/subscriptions/{client_id}/allotments`. The PC/CO decide endpoints (`/api/pc/redemptions/{id}/decide`, `/api/co/redemptions/{id}/decide`) are **out of scope** for this layer — proposal Non-Goals excludes PC approval UI wiring; this layer only renders the resulting status values.
+**External seams:** consumes `POST /api/rm/allotment`, `POST /api/rm/redemption` (this layer's calls); reads/renders the widened `AllotRdmpStatus` values on `AllotRdmptDTO` returned by the existing `GET /api/rm/subscriptions/{client_id}/allotments`. **Addendum 2026-07-23:** also consumes `POST /api/pc/redemptions/{id}/decide` and `POST /api/co/redemptions/{id}/decide` (FE-6), and reads redemption records from `GET /api/pc/allotments` filtered by `kind === "redemption"` (FE-7).
 
 ---
 
@@ -121,6 +121,12 @@ admin-frontend/
 - **Files:** `admin-frontend/components/rm/SubscriptionFormModal.tsx`, `admin-frontend/app/(roles)/rm/model-subscription/page.tsx`.
 - **Public surface:** none new — consumes existing `useSubscriptions().clients` and a models list.
 - **Owns features:** FE-5.
+
+### 5.6 PC Redemptions live-data wiring (Addendum 2026-07-23)
+- **Responsibility:** wire the PC Allotment & Redemption page's Redemptions tab to live data from `GET /pc/allotments` (filtered `kind === "redemption"`) and wire approve/reject to `POST /pc/redemptions/{id}/decide`.
+- **Files:** `admin-frontend/lib/onboarding/types.ts`, `admin-frontend/lib/onboarding/mappers.ts`, `admin-frontend/hooks/api/useAllotments.ts`, `admin-frontend/app/(roles)/pc/allotment-redemption/page.tsx`, `admin-frontend/components/pc/allotment-redemption/RedeemTable.tsx`, `admin-frontend/components/pc/allotment-redemption/RedeemDetailPanel.tsx`, `admin-frontend/components/pc/allotment-redemption/StatStrip.tsx`.
+- **Public surface:** `RedemptionView` type, `mapRedemptionsToView` mapper, `UseAllotmentsResult.redemptions`/`.decideRedemption`.
+- **Owns features:** FE-6, FE-7.
 
 ---
 
@@ -563,6 +569,230 @@ export function SubscriptionFormModal({
 
 ---
 
+### FE-6 — PC/CO redemption decide server layer (MANDATORY) — Addendum 2026-07-23
+
+- **Proposal ref:** § "Layer 3 — Frontend" E-1
+- **Module:** 5.2 (server layer extension)
+- **Files:** `modify: admin-frontend/server/endpoints.ts`, `modify: admin-frontend/server/onboarding/index.ts`, `modify: admin-frontend/app/(roles)/pc/allotment-redemption/actions.ts`, `modify: admin-frontend/app/(roles)/compliance/review/actions.ts`
+- **Dependencies:** FE-1 (needs `RedemptionDecisionReq` type)
+
+**Contract:**
+```ts
+// server/endpoints.ts — add to ENDPOINTS.PC and ENDPOINTS.COMPLIANCE
+PC: {
+  // ...existing...
+  REDEMPTION_DECIDE: (id: string) => `${PC}/redemptions/${id}/decide`,
+},
+COMPLIANCE: {
+  // ...existing...
+  REDEMPTION_DECIDE: (id: string) => `${COMPLIANCE}/redemptions/${id}/decide`,
+},
+```
+```ts
+// server/onboarding/index.ts — add alongside existing PC functions
+import type { RedemptionDecisionReq } from "@/lib/onboarding/types";
+
+export async function pcDecideRedemption(
+  id: string, body: RedemptionDecisionReq,
+): Promise<APIResult<AllotRdmptDTO>> {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.REDEMPTION_DECIDE(id), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+
+export async function coDecideRedemption(
+  id: string, body: RedemptionDecisionReq,
+): Promise<APIResult<AllotRdmptDTO>> {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.COMPLIANCE.REDEMPTION_DECIDE(id), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+```
+```ts
+// app/(roles)/pc/allotment-redemption/actions.ts — add action
+import { pcDecideRedemption as _pcDecideRedemption } from "@/server/onboarding";
+import type { RedemptionDecisionReq } from "@/lib/onboarding/types";
+
+export async function pcDecideRedemption(id: string, body: RedemptionDecisionReq) {
+  try {
+    const r = await _pcDecideRedemption(id, body);
+    logger.json("pc.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
+    return r;
+  } catch (e) { return toErrorResult(e); }
+}
+```
+```ts
+// app/(roles)/compliance/review/actions.ts — add action
+import { coDecideRedemption as _coDecideRedemption } from "@/server/onboarding";
+import type { RedemptionDecisionReq } from "@/lib/onboarding/types";
+
+export async function coDecideRedemption(id: string, body: RedemptionDecisionReq) {
+  try {
+    const r = await _coDecideRedemption(id, body);
+    logger.json("co.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
+    return r;
+  } catch (e) { return toErrorResult(e); }
+}
+```
+
+**Behavior / invariants:** follows the exact pattern of `acknowledgeAllotment` (PC actions) and `approveOnboarding` (CO actions). Both functions POST a `RedemptionDecisionReq` (`{ verdict: "approve" | "reject", reason?: string }`) and return `APIResult<AllotRdmptDTO>`. The backend handles status routing (to `awaiting_co` for large amounts, directly to `approved` for small ones) — the frontend never sets the next status explicitly.
+
+**Done when:** `pcDecideRedemption` and `coDecideRedemption` server actions are callable from client components, return `APIResult<AllotRdmptDTO>`, and type-check clean.
+
+---
+
+### FE-7 — Wire PC redemptions tab to live data (MANDATORY) — Addendum 2026-07-23
+
+- **Proposal ref:** § "Layer 3 — Frontend" E-2
+- **Module:** new — 5.6 PC Redemptions live-data wiring
+- **Files:**
+  - `modify: admin-frontend/lib/onboarding/types.ts` — widen `AllotRdmptDTO` (optional fields), add `RedemptionView`
+  - `modify: admin-frontend/lib/onboarding/mappers.ts` — add `mapRedemptionsToView`
+  - `modify: admin-frontend/hooks/api/useAllotments.ts` — expose `redemptions` + `decideRedemption`
+  - `modify: admin-frontend/app/(roles)/pc/allotment-redemption/page.tsx` — replace mock redemptions state with hook data
+  - `modify: admin-frontend/components/pc/allotment-redemption/RedeemTable.tsx` — replace mock imports with `RedemptionView` + `AllotRdmpStatus`
+  - `modify: admin-frontend/components/pc/allotment-redemption/RedeemDetailPanel.tsx` — replace mock imports, wire real decide
+  - `modify: admin-frontend/components/pc/allotment-redemption/StatStrip.tsx` — replace mock imports with `RedemptionView`
+- **Dependencies:** FE-6 (needs `pcDecideRedemption` action), FE-1 (needs widened `AllotRdmpStatus`)
+
+**Contract — widen `AllotRdmptDTO` with optional fields:**
+```ts
+// lib/onboarding/types.ts
+export interface AllotRdmptDTO {
+  // ...existing fields (id, reference, model_id, model_name, units, amount,
+  //   kind, status, note, agg_before, agg_after, expected_cash_in, rm,
+  //   created_at, acknowledged_at)...
+  emergent?: boolean;                   // NEW optional — DB column exists, backend mapper not yet serializing
+  expected_cash_out?: string | null;    // NEW optional — same
+}
+```
+
+**Contract — add `RedemptionView` type:**
+```ts
+// lib/onboarding/types.ts
+export interface RedemptionView {
+  id: string;
+  ref: string;           // dto.reference
+  modelName: string;     // dto.model_name
+  mult: number;          // dto.units
+  amount: number;        // dto.amount (backend-computed = units × model_size)
+  status: AllotRdmpStatus;
+  rm: string;
+  date: string;          // dto.created_at
+  emergent?: boolean;    // dto.emergent (undefined until backend DTO widened)
+}
+```
+
+**Contract — add mapper:**
+```ts
+// lib/onboarding/mappers.ts
+export function mapRedemptionsToView(dtos: AllotRdmptDTO[]): RedemptionView[] {
+  return dtos
+    .filter((d) => d.kind === "redemption")
+    .map((d) => ({
+      id: d.id, ref: d.reference, modelName: d.model_name,
+      mult: d.units, amount: d.amount, status: d.status,
+      rm: d.rm, date: d.created_at, emergent: d.emergent,
+    }));
+}
+```
+
+**Contract — widen `useAllotments` hook:**
+```ts
+// hooks/api/useAllotments.ts
+import { mapRedemptionsToView } from "@/lib/onboarding/mappers";
+import { pcDecideRedemption } from "@/app/(roles)/pc/allotment-redemption/actions";
+import type { RedemptionView, RedemptionDecisionReq } from "@/lib/onboarding/types";
+
+export interface UseAllotmentsResult {
+  data: AllotmentView[] | null;
+  redemptions: RedemptionView[] | null;   // NEW — filtered from same GET /pc/allotments data
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+  acknowledge: (id: string) => Promise<{ success: boolean; error?: string }>;
+  decideRedemption: (id: string, body: RedemptionDecisionReq) =>  // NEW
+    Promise<{ success: boolean; error?: string }>;
+}
+// Inside the hook: store raw DTOs alongside the mapped allotments view.
+// redemptions = mapRedemptionsToView(rawDtos). decideRedemption calls
+// pcDecideRedemption then refetches on success (same pattern as acknowledge).
+```
+
+**Contract — PC page wiring:**
+```tsx
+// app/(roles)/pc/allotment-redemption/page.tsx
+// REMOVE: useState<Redemption[]>(AR_REDEMPTIONS_SEED), local decide()
+// REMOVE: imports from @/lib/pc/allotment-redemption-mock
+// ADD: use redemptions + decideRedemption from useAllotments()
+const { data: allotmentsData, redemptions: redemptionsData, acknowledge, decideRedemption } = useAllotments();
+const redemptions = redemptionsData ?? [];
+// Pass decideRedemption to RedeemDetailPanel as onDecision
+```
+
+**Contract — `RedeemTable` component:**
+```tsx
+// components/pc/allotment-redemption/RedeemTable.tsx
+// REMOVE: all imports from @/lib/pc/allotment-redemption-mock
+// REPLACE: Redemption type with RedemptionView
+// REPLACE: arModelById(r.mid) lookups with direct r.modelName access
+// REPLACE: arRedeemAmt(r) with r.amount
+// REPLACE: arNeedsCompliance(r) with r.amount > 300000
+// REPLACE: RedeemStatusChip to map AllotRdmpStatus values:
+//   "awaiting_pc" → Chip tone="pending", "Awaiting approval"
+//   "awaiting_co" → Chip tone="review", "Compliance review"
+//   "approved" → Chip tone="active", "Approved"
+//   "rejected" → Chip tone="failed", "Rejected"
+//   default → Chip tone="neutral"
+// r.ref → r.ref (same), r.mult → r.mult (same), r.emergent → r.emergent
+// r.rm → r.rm (same), r.status → r.status (AllotRdmpStatus now)
+import { fmtMoney } from "@/lib/pc/format";
+import type { RedemptionView } from "@/lib/onboarding/types";
+```
+
+**Contract — `RedeemDetailPanel` component:**
+```tsx
+// components/pc/allotment-redemption/RedeemDetailPanel.tsx
+// REMOVE: all imports from @/lib/pc/allotment-redemption-mock
+// REPLACE: Redemption with RedemptionView, RedeemStatus with AllotRdmpStatus
+// REPLACE: arModelById(r.mid) → r.modelName, arRedeemAmt(r) → r.amount
+// REPLACE: arNeedsCompliance(r) → r.amount > 300000
+// REPLACE: onDecision callback signature:
+//   OLD: (id: string, status: RedeemStatus) => void  (local state mutation)
+//   NEW: (id: string, verdict: "approve" | "reject") => void  (calls pcDecideRedemption)
+// Status checks:
+//   r.status === "pending_pc" → r.status === "awaiting_pc"
+//   r.status === "approved" → same
+//   r.status === "rejected" → same
+//   r.status === "pending_compliance" → r.status === "awaiting_co"
+// Approve button: onDecision(r.id, "approve") — backend routes to CO if needed
+// Reject button: onDecision(r.id, "reject")
+// Date display: r.date → fmtTimestamp(r.date) for consistent formatting
+```
+
+**Contract — `StatStrip` component:**
+```tsx
+// components/pc/allotment-redemption/StatStrip.tsx
+// REMOVE: imports from @/lib/pc/allotment-redemption-mock (Redemption, arNeedsCompliance, arRedeemAmt)
+// REPLACE: Redemption with RedemptionView
+// REPLACE: r.status === "pending_pc" → r.status === "awaiting_pc"
+// REPLACE: arNeedsCompliance filter → r.amount > 300000
+// REPLACE: arRedeemAmt(r) → r.amount
+import type { RedemptionView } from "@/lib/onboarding/types";
+```
+
+**Behavior / invariants:**
+- The `GET /pc/allotments` endpoint already returns both allotments and redemptions. No new read endpoint needed — just filter `kind === "redemption"` from the same response.
+- `RedemptionView` is structurally simpler than the mock `Redemption` — no model lookup indirection, amount is pre-computed by the backend, status uses the real `AllotRdmpStatus` union.
+- `emergent` is optional on both `AllotRdmptDTO` and `RedemptionView`. When the backend DTO mapper is widened later, emergent highlighting activates automatically with no frontend change.
+- The `COMPLIANCE_THRESHOLD` (300000) constant stays hardcoded for the compliance-shield display — same as the mock. This is a display hint, not a business rule (the backend enforces the threshold in `submit_redemption`).
+- `pcDecideRedemption` replaces local state mutation. On success, the hook refetches the full dataset so all rows update.
+- CO redemptions tab is NOT wired by this unit — blocked on missing `GET /co/redemptions` backend endpoint.
+
+**Done when:** PC Redemptions tab renders live data from `GET /pc/allotments` (filtered to `kind === "redemption"`); approve/reject buttons call `POST /pc/redemptions/{id}/decide` via the real server action; stat strip computes from live data; no imports from `@/lib/pc/allotment-redemption-mock` remain in the modified files.
+
+---
+
 ## 7. Frozen seam (from the proposal — verbatim)
 
 ### 7.1 The seam (verbatim from proposal § 4)
@@ -694,7 +924,7 @@ class RedemptionDecisionReq(BaseModel):
 ## 9. Definition of done & rollback
 
 **Definition of done (this layer):**
-- [ ] Every §6 unit (FE-1..FE-5) committed on `allotment-redemption-integration-fe`; each commit left the branch green.
+- [ ] Every §6 unit (FE-1..FE-7) committed on `allotment-redemption-integration-fe` (or parent branch for addendum units); each commit left the branch green.
 - [ ] §8 unit tests all pass; CI gate (§3.2: `npx vitest run && npx tsc --noEmit && npx next lint`) green.
 - [ ] §7 matches the proposal's frozen seam verbatim. Checked against the proposal on the parent branch, not against the DB/Backend layers' branches.
 - [ ] PR opened; human owns the merge to `allotment-redemption-integration`.
