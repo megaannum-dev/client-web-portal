@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
+import { fmtTimestamp } from "@/lib/pc/format";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -164,7 +165,17 @@ function KycPanel({
               <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md" style={{ background: bg, color: fg }}>
                 <Glyph size={14} strokeWidth={2} />
               </span>
-              <span className="flex-1 text-[14px] font-semibold text-on-surface">{d.label}</span>
+              <span className="flex-1 flex flex-col gap-0.5">
+                <span className="text-[14px] font-semibold text-on-surface">{d.label}</span>
+                {(d.uploaded_by || d.uploaded_at) && (
+                  <span className="text-[11px] text-secondary">
+                    Uploaded{d.uploaded_by ? ` by ${d.uploaded_by}` : ""}{d.uploaded_at ? ` on ${fmtTimestamp(d.uploaded_at)}` : ""}
+                  </span>
+                )}
+                {d.approved_at && (
+                  <span className="text-[11px] text-secondary">Approved on {fmtTimestamp(d.approved_at)}</span>
+                )}
+              </span>
               {hov && d.can_reupload ? (
                 <label
                   className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[5px] text-[12px] font-semibold text-primary"
@@ -297,7 +308,7 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
       {/* Board squeezes left to make room for the floating panel */}
       <div
         className="transition-[padding-right] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{ paddingRight: panelOpen ? 396 : 0 }}
+        style={{ paddingRight: panelOpen ? 360 : 0 }}
       >
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           {columns.map((col) => (
