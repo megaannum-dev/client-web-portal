@@ -166,6 +166,16 @@ class AllotRdmptDTO(BaseModel):
     rm: str
     created_at: datetime
     acknowledged_at: datetime | None
+    # --- widened 2026-07-23 (proposal 016 addendum, BE-6): redemption approval /
+    # emergent fields -- columns already existed (DB-2 + 016 gap-fix migration),
+    # just never exposed on this DTO. Defaults mirror the DB: emergent's
+    # server_default is false (never null); the other 4 are genuinely
+    # nullable until a decision/emergent-flagged submit sets them.
+    emergent: bool = False
+    expected_cash_out: datetime | None = None
+    decided_by: str | None = None
+    decided_at: datetime | None = None
+    reject_reason: str | None = None
 
 
 class SubscriptionDTO(BaseModel):

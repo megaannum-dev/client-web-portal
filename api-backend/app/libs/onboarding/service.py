@@ -790,4 +790,9 @@ class OnboardingService:
             rm=assigned_rm,
             created_at=allotment.created_at,
             acknowledged_at=allotment.acknowledged_at,
+            emergent=allotment.emergent,
+            expected_cash_out=allotment.expected_cash_out,
+            decided_by=allotment.decided_by,
+            decided_at=allotment.decided_at,
+            reject_reason=allotment.reject_reason,
         )
