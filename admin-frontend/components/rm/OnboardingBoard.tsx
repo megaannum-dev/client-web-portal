@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Download } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
+import { fmtTimestamp } from "@/lib/pc/format";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -56,11 +57,16 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
         <span className="text-[14px] font-semibold leading-tight text-on-surface">{item.name}</span>
         {item.status === "initial"
           ? <Chip tone="neutral" dot={false}>Not started</Chip>
-          : <Chip tone={tone} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>}
+          : (
+            <Chip tone={tone} dot={false}>
+              <span className="shrink-0">{item.verifiedCount}/{item.requiredCount}</span>
+              <span className="min-w-0 overflow-hidden whitespace-nowrap">&nbsp;verified</span>
+            </Chip>
+          )}
       </div>
       <div className="flex items-center gap-1.5 text-[12px] text-secondary">
         <Shield size={13} strokeWidth={1.75} />
-        <span>KYC &amp; docs · {item.owner}</span>
+        <span>Assigned RM: {item.owner}</span>
       </div>
     </button>
   );
@@ -136,7 +142,7 @@ function KycPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[16px] font-bold leading-tight text-on-surface">{item.name}</div>
-            <div className="mt-1 text-[12px] text-secondary">KYC Review · {item.owner}</div>
+            <div className="mt-1 text-[12px] text-secondary">Assigned RM: {item.owner}</div>
           </div>
           <button type="button" onClick={onClose} className="flex shrink-0 rounded p-1 text-secondary hover:bg-surface-container">
             <X size={18} strokeWidth={2} />
@@ -164,7 +170,18 @@ function KycPanel({
               <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md" style={{ background: bg, color: fg }}>
                 <Glyph size={14} strokeWidth={2} />
               </span>
-              <span className="flex-1 text-[14px] font-semibold text-on-surface">{d.label}</span>
+              <span className="flex-1 flex flex-col gap-0.5">
+                <span className="text-[14px] font-semibold text-on-surface">{d.label}</span>
+                {d.uploaded_by && (
+                  <span className="text-[11px] text-secondary">Uploaded by {d.uploaded_by}</span>
+                )}
+                {d.uploaded_at && (
+                  <span className="text-[11px] text-secondary">on {fmtTimestamp(d.uploaded_at)}</span>
+                )}
+                {d.approved_at && (
+                  <span className="text-[11px] text-secondary">Approved on {fmtTimestamp(d.approved_at)}</span>
+                )}
+              </span>
               {hov && d.can_reupload ? (
                 <label
                   className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[5px] text-[12px] font-semibold text-primary"
@@ -267,6 +284,20 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
     router.push(`/rm/client-info/${id}`);
   };
 
+  // Deep link from the client-detail page's KYC card (?ob=<onboardingId>) —
+  // open that client's panel once, as soon as the board data arrives. Only
+  // once: `columns` re-fetches after every upload/submit and would otherwise
+  // re-open the panel right after the user closes it.
+  const searchParams = useSearchParams();
+  const deepLinkOb = searchParams.get("ob");
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkOb && columns && !deepLinkConsumed.current) {
+      deepLinkConsumed.current = true;
+      setSelectedId(deepLinkOb);
+    }
+  }, [deepLinkOb, columns]);
+
   if (!columns) {
     return <div className="text-[13px] text-secondary">{error ? `Failed to load onboarding board: ${error}` : loading ? "Loading…" : "No data."}</div>;
   }
@@ -283,7 +314,7 @@ export function OnboardingBoard(props: UseOnboardingBoardResult) {
       {/* Board squeezes left to make room for the floating panel */}
       <div
         className="transition-[padding-right] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{ paddingRight: panelOpen ? 396 : 0 }}
+        style={{ paddingRight: panelOpen ? 360 : 0 }}
       >
         <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
           {columns.map((col) => (

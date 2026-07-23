@@ -70,6 +70,9 @@ class DocumentDTO(BaseModel):
     reviewed_at: datetime | None
     expires_at: datetime | None
     can_reupload: bool  # server-computed: status in {not_started, uploaded, rejected, expired}
+    uploaded_by: str | None
+    uploaded_at: datetime | None
+    approved_at: datetime | None
 
 
 class OnboardingDTO(BaseModel):

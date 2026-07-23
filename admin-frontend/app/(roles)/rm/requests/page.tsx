@@ -5,7 +5,7 @@ import { RequestTicketsInbox } from "@/components/rm/RequestTickets";
 
 export default function RequestTicketsPage() {
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto">
       <div className="mb-7">
         <PageHeader
           title="Request Tickets"

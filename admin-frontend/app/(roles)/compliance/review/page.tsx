@@ -83,7 +83,7 @@ export default function ComplianceReviewPage() {
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
       <div className="px-16 py-8">
-        <div className="mx-auto max-w-[1180px]">
+        <div className="mx-auto">
           <PageHeader
             title="Compliance Review"
             subtitle="Review onboarding packages · sign off on large redemption requests"

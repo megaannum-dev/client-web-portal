@@ -153,6 +153,8 @@ class OnboardingDocument(Base):
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     version_no: Mapped[int] = mapped_column(Integer(), nullable=False, server_default="0")
+    uploaded_by: Mapped[str | None] = mapped_column(String(128), nullable=True)  # RM firebase_uid
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # compliance firebase_uid
     reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

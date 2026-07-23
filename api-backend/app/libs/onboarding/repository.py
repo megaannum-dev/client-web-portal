@@ -239,6 +239,27 @@ class OnboardingRepository:
             .scalar()
         )
 
+    def _resolve_uid_to_display_name_with_role(self, firebase_uid: str | None) -> str | None:
+        """Same coalesce as _resolve_uid_to_display_name, plus the admin's role
+        in parentheses (e.g. "Jasmine (RM)") -- used for the document uploader,
+        where the acting role adds context that a bare name doesn't."""
+        if firebase_uid is None:
+            return None
+        Uploader = aliased(User)
+        UploaderProfile = aliased(AdminProfile)
+        name_expr = func.coalesce(UploaderProfile.name, Uploader.email, Uploader.firebase_uid)
+        row = (
+            self.db.query(name_expr, UploaderProfile.role)
+            .select_from(Uploader)
+            .outerjoin(UploaderProfile, UploaderProfile.user_id == Uploader.id)
+            .filter(Uploader.firebase_uid == firebase_uid)
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        name, role = row
+        return f"{name} ({role.value})" if role is not None else name
+
     def client_folder_name(self, onboarding: ClientOnboarding) -> str:
         """014 C-5 (BE-4): per-client KYC storage subdirectory name -- a
         filesystem-safe slug of the client's display name plus an 8-char
@@ -255,7 +276,13 @@ class OnboardingRepository:
 
     # ---- mutate: documents ------------------------------------------------
     def upload_document(
-        self, doc: OnboardingDocument, *, storage_key: str, filename: str, content_type: str | None
+        self,
+        doc: OnboardingDocument,
+        *,
+        storage_key: str,
+        filename: str,
+        content_type: str | None,
+        uploaded_by: str,
     ) -> None:
         doc.storage_key = storage_key
         doc.filename = filename
@@ -263,6 +290,8 @@ class OnboardingRepository:
         doc.status = DocStatus.UPLOADED
         doc.version_no = (doc.version_no or 0) + 1
         doc.issue_note = None
+        doc.uploaded_by = uploaded_by
+        doc.uploaded_at = datetime.utcnow()
 
     def set_verdict(
         self, doc: OnboardingDocument, *, status: DocStatus, reviewed_by: str, note: str | None

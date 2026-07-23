@@ -43,9 +43,12 @@ const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
 };
 
 /** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
-function docFromDto(doc: DocumentDTO): ClientDoc {
+function docFromDto(doc: DocumentDTO): ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null } {
   const tone = DOC_STATUS_TONE[doc.status];
-  return { name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock" };
+  return {
+    name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock",
+    uploadedBy: doc.uploaded_by, uploadedAt: doc.uploaded_at, approvedAt: doc.approved_at,
+  };
 }
 
 // Raw ModelStatus values from the backend ("live" | "draft") -> chip label/tone.
@@ -85,14 +88,25 @@ function BalanceItem({ label, value, censored }: { label: string; value: string;
   );
 }
 
-function CheckRow({ doc, last }: { doc: ClientDoc; last: boolean }) {
+function CheckRow({ doc, last }: { doc: ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null }; last: boolean }) {
   const Glyph = DOC_ICON[doc.icon] ?? Clock;
   return (
     <div className={clsx("flex items-center gap-3 py-3", !last && "border-b border-outline-variant")}>
       <span className={clsx("flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md", CHECK_TINT[doc.tone] ?? CHECK_TINT.review)}>
         <Glyph size={15} strokeWidth={2} />
       </span>
-      <span className="flex-1 text-[14px] font-semibold text-on-surface">{doc.name}</span>
+      <span className="flex-1 flex flex-col gap-0.5">
+        <span className="text-[14px] font-semibold text-on-surface">{doc.name}</span>
+        {doc.uploadedBy && (
+          <span className="text-[12px] text-secondary">Uploaded by {doc.uploadedBy}</span>
+        )}
+        {doc.uploadedAt && (
+          <span className="text-[12px] text-secondary">on {fmtTimestamp(doc.uploadedAt)}</span>
+        )}
+        {doc.approvedAt && (
+          <span className="text-[12px] text-secondary">Approved on {fmtTimestamp(doc.approvedAt)}</span>
+        )}
+      </span>
       <Chip tone={doc.tone} dot={false}>{doc.status}</Chip>
     </div>
   );
@@ -150,7 +164,7 @@ export default function ClientDetailPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] font-medium text-error">
+      <div className="mx-auto px-5 py-16 text-center text-[13px] font-medium text-error">
         {error}
       </div>
     );
@@ -158,7 +172,7 @@ export default function ClientDetailPage() {
 
   if (loading || !data) {
     return (
-      <div className="mx-auto max-w-[1180px] px-5 py-16 text-center text-[13px] text-secondary">
+      <div className="mx-auto px-5 py-16 text-center text-[13px] text-secondary">
         Loading…
       </div>
     );
@@ -175,7 +189,7 @@ export default function ClientDetailPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto">
       <Link
         href="/rm/client-info"
         className="mb-[18px] inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondary hover:text-on-surface"
@@ -297,10 +311,14 @@ export default function ClientDetailPage() {
               <CheckRow key={doc.doc_type} doc={docFromDto(doc)} last={i === onboarding!.documents.length - 1} />
             )))
           )}
-          <div className="mt-[18px] flex gap-3">
-            <Button variant="secondary" icon={Bell}>Request</Button>
-            <Button icon={Check} disabled={!!onboarding && onboarding.verified_count === onboarding.required_count}>Approve KYC</Button>
-          </div>
+          {onboarding && (
+            <Link
+              href={`/rm/onboarding-renewal?ob=${onboarding.id}`}
+              className="mt-2.5 block py-0.5 text-right text-[13px] font-semibold text-primary"
+            >
+              Open in Onboarding & Renewal →
+            </Link>
+          )}
         </Card>
       </div>
 

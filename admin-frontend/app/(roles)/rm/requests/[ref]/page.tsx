@@ -11,7 +11,7 @@ export default function RequestTicketDetailPage() {
   if (!ticket) notFound(); // Next.js 404
 
   return (
-    <div className="mx-auto max-w-[1180px]">
+    <div className="mx-auto">
       <RequestTicketDetail ticket={ticket} />
     </div>
   );

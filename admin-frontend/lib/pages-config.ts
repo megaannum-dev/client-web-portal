@@ -79,7 +79,7 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/compliance/review",
     label: "Compliance Review",
     icon: ShieldCheck,
-    subgroup: "Client Management",
+    subgroup: "Compliance",
   },
   "pc.allotment-redemption": {
     id: "pc.allotment-redemption",
@@ -136,7 +136,7 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/pc/model-management",
     label: "Model Management",
     icon: Layers,
-    subgroup: "Trade Management",
+    subgroup: "System",
   },
   // — System —
   "admin.enroll-user": {
