@@ -14,6 +14,7 @@ import {
   LayoutDashboardIcon,
   Wallet,
   Ticket,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,13 +36,14 @@ export type PageId =
   | "pc.allotment-redemption"
   | "compliance.review"
   | "shared.monthly-reports"
-  | "admin.enroll-user";
+  | "admin.enroll-user"
+  | "admin.system-config";
 
 export type NavGroup = {
   label: string;
   icon: LucideIcon;
   home: string; // resolved path of the group's home PageId
-  pages: { label: string; href: string; icon: LucideIcon }[];
+  pages: { label: string; href: string; icon: LucideIcon; subgroup?: string }[];
 };
 
 // label + icon are the page's "default name" — canonical for breadcrumbs / titles / dropdown children.
@@ -53,45 +55,105 @@ export type PageDef = {
   label: string;
   icon: LucideIcon;
   hideFromNav?: boolean;
+  subgroup?: string;
 };
 
 export const PAGES: Record<PageId, PageDef> = {
+  // — Client Management —
   "rm.client-info": {
     id: "rm.client-info",
     path: "/rm/client-info",
     label: "Client Information",
     icon: Users,
+    subgroup: "Client Management",
   },
   "rm.onboarding-renewal": {
     id: "rm.onboarding-renewal",
     path: "/rm/onboarding-renewal",
     label: "Onboarding & Renewal",
     icon: UserPlus,
+    subgroup: "Client Management",
   },
   "compliance.review": {
     id: "compliance.review",
     path: "/compliance/review",
     label: "Compliance Review",
     icon: ShieldCheck,
+    subgroup: "Client Management",
   },
   "pc.allotment-redemption": {
     id: "pc.allotment-redemption",
     path: "/pc/allotment-redemption",
     label: "Allotment & Redemption",
     icon: Inbox,
+    subgroup: "Client Management",
   },
   "rm.model-subscription": {
     id: "rm.model-subscription",
     path: "/rm/model-subscription",
     label: "Model Subscription",
     icon: Layers,
+    subgroup: "Client Management",
   },
+  "rm.request-tickets": {
+    id: "rm.request-tickets",
+    path: "/rm/requests",
+    label: "Request Tickets",
+    icon: Ticket,
+    subgroup: "Client Management",
+  },
+  // — Trade Management —
   "pc.allocation-matrix": {
     id: "pc.allocation-matrix",
     path: "/pc/allocation-matrix",
     label: "Allocation Matrix",
     icon: Grid3x3,
+    subgroup: "Trade Management",
   },
+  "mobo.post-trade-allocation": {
+    id: "mobo.post-trade-allocation",
+    path: "/mobo/post-trade-allocation",
+    label: "Post-Trade Allocation",
+    icon: Wallet,
+    subgroup: "Trade Management",
+  },
+  "mobo.trade-reconciliation": {
+    id: "mobo.trade-reconciliation",
+    path: "/mobo/trade-reconciliation",
+    label: "Trade Reconciliation",
+    icon: ArrowLeftRight,
+    subgroup: "Trade Management",
+  },
+  "mobo.daily-exception-report": {
+    id: "mobo.daily-exception-report",
+    path: "/mobo/daily-exception-report",
+    label: "Daily Exceptions",
+    icon: ShieldAlert,
+    subgroup: "Trade Management",
+  },
+  "pc.model-management": {
+    id: "pc.model-management",
+    path: "/pc/model-management",
+    label: "Model Management",
+    icon: Layers,
+    subgroup: "Trade Management",
+  },
+  // — System —
+  "admin.enroll-user": {
+    id: "admin.enroll-user",
+    path: "/admin/enroll-user",
+    label: "Enroll User",
+    icon: UserPlus,
+    subgroup: "System",
+  },
+  "admin.system-config": {
+    id: "admin.system-config",
+    path: "/admin/system-config",
+    label: "System Config",
+    icon: Settings,
+    subgroup: "System",
+  },
+  // — Hidden (not in nav) —
   "mobo.recon-overview": {
     id: "mobo.recon-overview",
     path: "/mobo/recon-overview",
@@ -99,48 +161,12 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: LayoutDashboardIcon,
     hideFromNav: true,
   },
-  "mobo.post-trade-allocation": {
-    id: "mobo.post-trade-allocation",
-    path: "/mobo/post-trade-allocation",
-    label: "Post-Trade Allocation",
-    icon: Wallet,
-  },
-  "mobo.trade-reconciliation": {
-    id: "mobo.trade-reconciliation",
-    path: "/mobo/trade-reconciliation",
-    label: "Trade Reconciliation",
-    icon: ArrowLeftRight,
-  },
-  "mobo.daily-exception-report": {
-    id: "mobo.daily-exception-report",
-    path: "/mobo/daily-exception-report",
-    label: "Daily Exceptions",
-    icon: ShieldAlert,
-  },
-  "pc.model-management": {
-    id: "pc.model-management",
-    path: "/pc/model-management",
-    label: "Model Management",
-    icon: Layers,
-  },
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
     path: "/monthly-reports",
-    label: "Monthly Reports",
+    label: "Monthly Reports (Models)",
     icon: CalendarDays,
-    hideFromNav: true,
-  },
-  "rm.request-tickets": {
-    id: "rm.request-tickets",
-    path: "/rm/requests",
-    label: "Request Tickets",
-    icon: Ticket,
-  },
-  "admin.enroll-user": {
-    id: "admin.enroll-user",
-    path: "/admin/enroll-user",
-    label: "Enroll User",
-    icon: UserPlus,
+    subgroup: "Trade Management",
   },
 };
 
@@ -242,7 +268,7 @@ export function groupsFor(role: string): NavGroup[] {
   const pages = pagesForRole(role)
     .map((id) => PAGES[id])
     .filter((p) => !p.hideFromNav)
-    .map((p) => ({ label: p.label, href: p.path, icon: p.icon }));
+    .map((p) => ({ label: p.label, href: p.path, icon: p.icon, subgroup: p.subgroup }));
   if (pages.length === 0) return [];
   return [
     {

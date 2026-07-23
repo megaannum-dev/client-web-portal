@@ -9,7 +9,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Check, X } from "@/lib/icons";
 import type { ChipTone } from "@/components/ui/Chip";
-import { FM } from "@/lib/mock/mobo-flow-data";
+import { clientColor } from "@/components/mobo/allocation/Panels";
 import type { FlowState, RcModelId } from "@/lib/mobo/flow-types";
 
 export const FG: Record<FlowState, { icon: LucideIcon; bg: string; fg: string; label: string; tone: ChipTone }> = {
@@ -19,18 +19,21 @@ export const FG: Record<FlowState, { icon: LucideIcon; bg: string; fg: string; l
 
 /** Plain model display name (no pill styling) — for text contexts like KV rows. */
 export function modelName(mid: RcModelId): string {
-  return FM[mid]?.name ?? mid;
+  return mid;
 }
 
+/** `mid` is the model's real name straight from the backend (RcOrderOut.m /
+ * RcAllocModelLineOut.m) -- there's no fixed model registry to look up
+ * anymore, so the pill's color is just hashed from the name (same helper
+ * the Post-Trade Allocation bar/donut chart uses for client colors). */
 export function MPill({ mid }: { mid: RcModelId }) {
-  const m = FM[mid];
-  if (!m) return null;
+  if (!mid) return null;
   return (
     <span
       className="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-      style={{ background: m.color }}
+      style={{ background: clientColor(mid) }}
     >
-      {m.name}
+      {mid}
     </span>
   );
 }
