@@ -34,6 +34,7 @@ export type PageId =
   | "pc.model-management"
   | "pc.allocation-matrix"
   | "pc.allotment-redemption"
+  | "compliance.overview"
   | "compliance.review"
   | "shared.monthly-reports"
   | "admin.enroll-user"
@@ -161,6 +162,13 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: LayoutDashboardIcon,
     hideFromNav: true,
   },
+  "compliance.overview": {
+    id: "compliance.overview",
+    path: "/compliance/overview",
+    label: "Compliance Overview",
+    icon: LayoutDashboardIcon,
+    hideFromNav: true,
+  },
   "shared.monthly-reports": {
     id: "shared.monthly-reports",
     path: "/monthly-reports",
@@ -208,6 +216,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
   },
   PM: {},
   COMPLIANCE: {
+    "compliance.overview": "OPERATE",
     "compliance.review": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
@@ -220,7 +229,7 @@ export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   PC: "pc.model-management",
   ADMIN: "rm.client-info",
   PM: null,
-  COMPLIANCE: "compliance.review",
+  COMPLIANCE: "compliance.overview",
 };
 
 // Default-deny gate. Every exported lookup routes through here. An unrecognized
