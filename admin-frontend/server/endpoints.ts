@@ -36,6 +36,8 @@ export const ENDPOINTS = {
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
+    SUBMIT_ALLOTMENT:  `${RM}/allotment`,
+    SUBMIT_REDEMPTION: `${RM}/redemption`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,

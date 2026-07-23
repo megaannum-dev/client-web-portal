@@ -4,7 +4,13 @@
 export type OnboardingStatus = "initial" | "reviewing" | "pending_review" | "active";
 export type OnboardingKind   = "initial" | "renewal";
 export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "rejected" | "expired";
-export type AllotRdmpStatus  = "pending" | "acknowledged";
+export type AllotRdmpStatus =
+  | "pending"        // existing
+  | "acknowledged"   // existing
+  | "awaiting_pc"    // NEW — redemption submitted, needs PC approval
+  | "awaiting_co"    // NEW — redemption submitted, needs Compliance approval (amount > $300k)
+  | "approved"       // NEW — redemption fully approved, took effect
+  | "rejected";      // NEW — redemption rejected by PC or CO
 export type AllotRdmpKind    = "allotment" | "redemption";
 
 export interface StartOnboardingReq {
@@ -52,6 +58,28 @@ export interface BoardDTO {
 
 export interface VerdictReq { verdict: "valid" | "issue"; note?: string | null; }
 export interface RejectReq  { reason?: string | null; }
+
+export interface SubmitAllotmentReq {
+  client_id: string;             // uuid.UUID as string
+  model_id: string;              // uuid.UUID as string
+  multiplier: number;            // Decimal-as-number — number of units
+  expected_cash_in: string | null;  // ISO date "YYYY-MM-DD", nullable
+  mgmt_fee?: number | null;      // only populated for new-subscription mode
+  incentive_fee?: number | null; // only populated for new-subscription mode
+}
+
+export interface SubmitRedemptionReq {
+  client_id: string;
+  model_id: string;
+  multiplier: number;             // units to redeem
+  expected_cash_out: string | null;
+  emergent?: boolean;             // default false
+}
+
+export interface RedemptionDecisionReq {
+  verdict: "approve" | "reject";
+  reason?: string | null;         // required when verdict === "reject"
+}
 
 export interface AllotRdmptDTO {
   id: string; reference: string;
