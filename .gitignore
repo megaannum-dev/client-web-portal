@@ -41,3 +41,4 @@ next-env.d.ts
 # templates
 /templates
 /scratch-crm
+api-backend/db-backups/

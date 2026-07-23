@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -11,7 +11,9 @@ from pydantic import BaseModel, EmailStr
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
 DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "rejected", "expired"]
-AllotRdmpStatus = Literal["pending", "acknowledged"]
+AllotRdmpStatus = Literal[
+    "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
+]
 AllotRdmpKind = Literal["allotment", "redemption"]
 
 
@@ -121,6 +123,28 @@ class RejectReq(BaseModel):
     reason: str | None = None
 
 
+class SubmitAllotmentReq(BaseModel):
+    client_id: uuid.UUID
+    model_id: uuid.UUID
+    multiplier: Decimal
+    expected_cash_in: date | None = None
+    mgmt_fee: Decimal | None = None
+    incentive_fee: Decimal | None = None
+
+
+class SubmitRedemptionReq(BaseModel):
+    client_id: uuid.UUID
+    model_id: uuid.UUID
+    multiplier: Decimal
+    expected_cash_out: date | None = None
+    emergent: bool = False
+
+
+class RedemptionDecisionReq(BaseModel):
+    verdict: Literal["approve", "reject"]
+    reason: str | None = None
+
+
 class AllotRdmptDTO(BaseModel):
     """agg_before/agg_after/expected_cash_in are snapshotted at insert time
     (DB B-3, Backend C-2), never recomputed live -- widened 2026-07-20 (D-9)."""
@@ -142,6 +166,16 @@ class AllotRdmptDTO(BaseModel):
     rm: str
     created_at: datetime
     acknowledged_at: datetime | None
+    # --- widened 2026-07-23 (proposal 016 addendum, BE-6): redemption approval /
+    # emergent fields -- columns already existed (DB-2 + 016 gap-fix migration),
+    # just never exposed on this DTO. Defaults mirror the DB: emergent's
+    # server_default is false (never null); the other 4 are genuinely
+    # nullable until a decision/emergent-flagged submit sets them.
+    emergent: bool = False
+    expected_cash_out: datetime | None = None
+    decided_by: str | None = None
+    decided_at: datetime | None = None
+    reject_reason: str | None = None
 
 
 class SubscriptionDTO(BaseModel):

@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy import (
     Enum as SAEnum,
@@ -179,6 +181,11 @@ class OnboardingDocument(Base):
 class AllotRdmpStatus(str, enum.Enum):
     PENDING = "pending"
     ACKNOWLEDGED = "acknowledged"
+    # NEW (proposal 016, B-1):
+    AWAITING_PC = "awaiting_pc"  # redemption submitted, needs PC approval
+    AWAITING_CO = "awaiting_co"  # redemption submitted, needs Compliance approval (amount > $300k)
+    APPROVED = "approved"  # redemption fully approved, took effect
+    REJECTED = "rejected"  # redemption rejected by PC or CO
 
 
 class AllotRdmpKind(str, enum.Enum):
@@ -244,6 +251,26 @@ class ClientAllotmentRedemption(Base):
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    # --- widened 2026-07-22 (proposal 016, DB-2): redemption approval workflow ---
+    reject_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # firebase_uid of PC/CO
+    decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # server_default uses text("false") not the bare string "false" — a plain string
+    # server_default is quoted as a string literal in the DDL (works on MySQL/MariaDB via
+    # implicit cast, but on SQLite stores the literal text "false" and reads back truthy).
+    # text() emits unquoted SQL, matching the existing Boolean-default convention in
+    # app/models/pc.py (`server_default=text("1")`) and this table's own migration
+    # (op.add_column(..., server_default=sa.text("false"))).
+    emergent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # widened 2026-07-22 (proposal 016, BE-2/BE-3 gap fix): redemption's settlement-date
+    # counterpart to expected_cash_in above. Missing from the DB layer's own migration
+    # (5712eb238fd6 added only reject_reason/decided_by/decided_at/emergent) even though
+    # BE-2's create_allotment contract and BE-3's redemption submit both require it --
+    # additive-only, not part of the frozen §7 seam (AllotRdmptDTO doesn't expose it yet).
+    expected_cash_out: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     __table_args__ = (

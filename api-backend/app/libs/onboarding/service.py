@@ -5,7 +5,7 @@ import io
 import os
 import uuid
 import zipfile
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import BinaryIO
 
@@ -25,15 +25,19 @@ from app.libs.onboarding.schemas import (
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
+    RedemptionDecisionReq,
     RejectReq,
     RmOptionDTO,
     StartOnboardingReq,
+    SubmitAllotmentReq,
+    SubmitRedemptionReq,
     SubscriptionDTO,
     VerdictReq,
 )
 from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
 from app.models.onboarding import (
+    AllotRdmpKind,
     AllotRdmpStatus,
     ClientAllotmentRedemption,
     ClientOnboarding,
@@ -42,7 +46,7 @@ from app.models.onboarding import (
     OnboardingKind,
     OnboardingStatus,
 )
-from app.models.pc import Model
+from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
@@ -52,6 +56,10 @@ _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 # client_allotment_redemptions.expected_cash_in at approve. Same os.getenv(...)
 # convention as onboarding/scheduler.py's _RENEWAL_LOOKAHEAD_DAYS.
 ONBOARDING_SETTLEMENT_DAYS = max(0, int(os.getenv("ONBOARDING_SETTLEMENT_DAYS", "5")))
+
+# BE-3 (D-2): redemptions strictly above this amount require Compliance
+# approval in addition to PC's.
+_REDEMPTION_CO_THRESHOLD = Decimal("300000")
 
 
 class OnboardingService:
@@ -368,6 +376,232 @@ class OnboardingService:
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
 
+    # ---- RM/PC: allotment submission (BE-2) --------------------------------
+    def submit_allotment(self, req: SubmitAllotmentReq) -> AllotRdmptDTO:
+        """Mirrors _approve_initial (service.py:242) without the onboarding
+        ceremony: no compliance gate, no users.status change, no document checks."""
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        client = self.db.get(User, req.client_id)
+        if client is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown client")
+
+        existing = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        # ORDERING: read agg_before BEFORE the upsert -- same constraint as
+        # _approve_initial (double-counts this client's own row otherwise).
+        agg_before = self.repo.sum_subscription_multiplier(req.model_id)
+
+        if existing is None:
+            new_multiplier = req.multiplier  # new-subscription mode
+            mgmt_override = req.mgmt_fee if req.mgmt_fee != model.mgmt_fee else None
+            incentive_override = (
+                req.incentive_fee if req.incentive_fee != model.incentive_fee else None
+            )
+        else:
+            new_multiplier = existing.multiplier + req.multiplier  # D-4: additive
+            mgmt_override = existing.mgmt_fee_override
+            incentive_override = existing.incentive_fee_override
+
+        agg_after = agg_before + req.multiplier
+        amount = req.multiplier * (model.model_size or Decimal("0"))
+
+        try:
+            self.repo.upsert_subscription(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=new_multiplier,
+                mgmt_fee_override=mgmt_override,
+                incentive_fee_override=incentive_override,
+            )
+            allotment = self.repo.create_allotment(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=req.multiplier,  # the submitted delta, not new_multiplier
+                agg_before=agg_before,
+                agg_after=agg_after,
+                kind=AllotRdmpKind.ALLOTMENT,
+                status=AllotRdmpStatus.PENDING,
+                note="allotment",
+                expected_cash_in=(
+                    datetime.combine(req.expected_cash_in, datetime.min.time())
+                    if req.expected_cash_in
+                    else None
+                ),
+            )
+            self.repo.shift_portfolio_for_allotment(req.client_id, amount)
+            self.repo.create_event(
+                user_id=req.client_id,
+                category="Account Notification",
+                title="Allotment submitted",
+                body=f"An allotment of {req.multiplier} unit(s) in {model.name} was submitted.",
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(allotment)
+
+    def _needs_co(self, amount: Decimal) -> bool:
+        return amount > _REDEMPTION_CO_THRESHOLD
+
+    # ---- RM/PC: redemption submission (BE-3) -------------------------------
+    def submit_redemption(self, req: SubmitRedemptionReq) -> AllotRdmptDTO:
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        sub = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        multiplier = req.multiplier
+        if sub is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No subscription to redeem from")
+        if req.emergent:
+            multiplier = sub.multiplier  # D-3: emergent redeems the FULL current holding
+        if multiplier > sub.multiplier:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Redemption exceeds current subscription"
+            )
+
+        amount = multiplier * (model.model_size or Decimal("0"))
+        status_ = (
+            AllotRdmpStatus.AWAITING_CO if self._needs_co(amount) else AllotRdmpStatus.AWAITING_PC
+        )
+        agg_before = self.repo.sum_subscription_multiplier(req.model_id)
+        agg_after = agg_before - multiplier  # preview snapshot; not applied until final approval
+
+        expected_cash_out = req.expected_cash_out
+        if req.emergent:
+            expected_cash_out = date.today() + timedelta(days=1)  # D-3: forced T+1
+
+        try:
+            allotment = self.repo.create_allotment(
+                user_id=req.client_id,
+                model_id=req.model_id,
+                multiplier=multiplier,
+                agg_before=agg_before,
+                agg_after=agg_after,
+                kind=AllotRdmpKind.REDEMPTION,
+                status=status_,
+                note="emergent redemption" if req.emergent else "redemption",
+                expected_cash_out=(
+                    datetime.combine(expected_cash_out, datetime.min.time())
+                    if expected_cash_out
+                    else None
+                ),
+                emergent=req.emergent,
+            )
+            self.repo.create_event(
+                user_id=req.client_id,
+                category="Account Notification",
+                title="Redemption submitted",
+                body=(
+                    f"A redemption of {multiplier} unit(s) in {model.name} "
+                    "was submitted for approval."
+                ),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(allotment)
+
+    # ---- PC: redemption decide (BE-4) --------------------------------------
+    def pc_decide_redemption(
+        self, allotment_id: uuid.UUID, req: RedemptionDecisionReq, *, decided_by: str
+    ) -> AllotRdmptDTO:
+        row = self.repo.get_allotment(allotment_id)
+        if row is None or row.kind != AllotRdmpKind.REDEMPTION:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown redemption")
+        if row.status == AllotRdmpStatus.AWAITING_CO:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Awaiting Compliance decision first")
+        if row.status != AllotRdmpStatus.AWAITING_PC:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Redemption already decided")
+
+        try:
+            if req.verdict == "reject":
+                if not req.reason:
+                    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                row.status = AllotRdmpStatus.REJECTED
+                row.reject_reason = req.reason
+                row.decided_by = decided_by
+                row.decided_at = datetime.utcnow()
+            else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
+                # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
+                self._execute_redemption_approval(row, decided_by=decided_by)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(row)
+
+    def _execute_redemption_approval(
+        self, row: ClientAllotmentRedemption, *, decided_by: str
+    ) -> None:
+        """Terminal step, called only from pc_decide_redemption above (this same
+        unit) once a row reaches its final PC gate. (1) read agg_before, (2)
+        decrement client_subscriptions.multiplier (delete the row if it reaches
+        0), (3) agg_after = agg_before - row.multiplier, (4) paired portfolio
+        shift (D-1 redemption direction), (5) status=approved + decided_by/
+        decided_at, (6) insert client_events. No commit here -- caller's txn
+        boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
+        its only caller, lives here."""
+        model = self.db.get(Model, row.model_id)
+        assert model is not None
+        agg_before = self.repo.sum_subscription_multiplier(row.model_id)
+
+        sub = self.db.get(ClientSubscription, (row.user_id, row.model_id))
+        assert sub is not None
+        remaining = sub.multiplier - row.multiplier
+        if remaining <= 0:
+            self.db.delete(sub)
+        else:
+            sub.multiplier = remaining
+
+        agg_after = agg_before - row.multiplier
+        amount = row.multiplier * (model.model_size or Decimal("0"))
+        self.repo.shift_portfolio_for_redemption(row.user_id, amount)
+
+        row.status = AllotRdmpStatus.APPROVED
+        row.decided_by = decided_by
+        row.decided_at = datetime.utcnow()
+        row.agg_before = agg_before  # re-snapshotted at the point of real effect
+        row.agg_after = agg_after
+
+        self.repo.create_event(
+            user_id=row.user_id,
+            category="Account Notification",
+            title="Redemption approved",
+            body=f"Your redemption of {row.multiplier} unit(s) in {model.name} has been approved.",
+        )
+
+    # ---- CO: redemption decide (BE-5) --------------------------------------
+    def co_decide_redemption(
+        self, allotment_id: uuid.UUID, req: RedemptionDecisionReq, *, decided_by: str
+    ) -> AllotRdmptDTO:
+        row = self.repo.get_allotment(allotment_id)
+        if row is None or row.kind != AllotRdmpKind.REDEMPTION:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown redemption")
+        if row.status != AllotRdmpStatus.AWAITING_CO:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Not awaiting Compliance decision")
+
+        try:
+            if req.verdict == "reject":
+                if not req.reason:
+                    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                row.status = AllotRdmpStatus.REJECTED
+                row.reject_reason = req.reason
+                row.decided_by = decided_by
+                row.decided_at = datetime.utcnow()
+            else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
+                # to PC. Never transitions straight to approved -- PC still owes
+                # the terminal decision (BE-4's _execute_redemption_approval),
+                # so decided_by/decided_at/execute are NOT stamped here.
+                row.status = AllotRdmpStatus.AWAITING_PC
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._allotment_to_dto(row)
+
     # ---- PC: allotments -----------------------------------------------------
     def list_allotments(self) -> list[AllotRdmptDTO]:
         return [self._allotment_to_dto(a) for a in self.repo.list_allotments()]
@@ -556,4 +790,9 @@ class OnboardingService:
             rm=assigned_rm,
             created_at=allotment.created_at,
             acknowledged_at=allotment.acknowledged_at,
+            emergent=allotment.emergent,
+            expected_cash_out=allotment.expected_cash_out,
+            decided_by=allotment.decided_by,
+            decided_at=allotment.decided_at,
+            reject_reason=allotment.reject_reason,
         )
