@@ -123,6 +123,9 @@ export function mapSubscriptionsToSubClients(
           incentiveFee: formatFeePercent(sub.incentive_fee),
           account: ibAccount ?? "—",
           modelId: sub.model_id,
+          // amount = units * model_size (ClientSubscriptionRowDTO's own contract) --
+          // derive the real model size from that instead of a name-keyed mock lookup.
+          modelSize: Number(sub.units) > 0 ? Number(sub.amount) / Number(sub.units) : 0,
           rows: ledger === undefined ? [netRow(sub)] : [...modelTxns, netRow(sub)],
         };
       }),
