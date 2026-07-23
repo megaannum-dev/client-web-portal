@@ -82,7 +82,9 @@ export function docStatusToVerdict(status: DocStatus): "valid" | "issue" | null 
  * aggregate computation of its own.
  */
 export function mapAllotmentsToView(dtos: AllotRdmptDTO[]): AllotmentView[] {
-  return dtos.map((d) => ({
+  return dtos
+    .filter((d) => d.kind === "allotment")
+    .map((d) => ({
     id: d.id, ref: d.reference, modelName: d.model_name, mult: d.units, amount: d.amount,
     status: d.status, rm: d.rm, date: d.created_at, acknowledgedAt: d.acknowledged_at,
     expectedCashIn: d.expected_cash_in,
