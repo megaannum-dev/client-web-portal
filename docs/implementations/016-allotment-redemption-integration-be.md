@@ -547,6 +547,81 @@ def co_decide_redemption(
 
 ---
 
+### BE-6 — Widen `AllotRdmptDTO` with approval/emergent fields (MANDATORY, addendum 2026-07-23)
+
+- **Proposal ref:** § "Layer 2 — Backend" §F (addendum), F-1
+- **Module:** `onboarding` (5.1)
+- **Files:** `modify: api-backend/app/libs/onboarding/schemas.py`, `modify: api-backend/app/libs/onboarding/service.py`
+- **Dependencies:** none (purely additive on top of BE-1..BE-5's committed state; touches only the response DTO and its mapper).
+
+**Contract (required code):**
+
+```python
+# schemas.py — AllotRdmptDTO gains 5 optional-in-practice fields, all backed
+# by columns that already exist on ClientAllotmentRedemption (DB-2 + the
+# 016 gap-fix migration) but were never serialized.
+class AllotRdmptDTO(BaseModel):
+    ...  # existing fields unchanged
+    emergent: bool
+    expected_cash_out: datetime | None
+    decided_by: str | None
+    decided_at: datetime | None
+    reject_reason: str | None
+```
+
+```python
+# service.py — _allotment_to_dto: add the 5 fields to the constructed DTO
+def _allotment_to_dto(self, allotment: ClientAllotmentRedemption) -> AllotRdmptDTO:
+    ...  # existing body unchanged
+    return AllotRdmptDTO(
+        ...,  # existing kwargs unchanged
+        emergent=allotment.emergent,
+        expected_cash_out=allotment.expected_cash_out,
+        decided_by=allotment.decided_by,
+        decided_at=allotment.decided_at,
+        reject_reason=allotment.reject_reason,
+    )
+```
+
+**Behavior / invariants:**
+- Purely additive — every existing field/shape is unchanged; every new field reads directly off the ORM row, no derived logic.
+- `emergent` defaults to `False` at the DB level (`server_default=text("false")`), so it's never `None`; the other 4 are legitimately nullable (unset until a decision/emergent-flagged submit happens).
+
+**Done when:** `GET /pc/allotments` and `GET /co/redemptions` (BE-7) both return the 5 new fields with real values for rows that have them set, and `False`/`None` for rows that don't.
+
+---
+
+### BE-7 — `GET /co/redemptions` read route (MANDATORY, addendum 2026-07-23)
+
+- **Proposal ref:** § "Layer 2 — Backend" §F (addendum), F-2
+- **Module:** `onboarding` (5.1)
+- **Files:** `modify: api-backend/app/libs/onboarding/router.py`
+- **Dependencies:** none — reuses `OnboardingService.list_allotments()` (already committed, BE-... predates this addendum) verbatim, zero new service/repository code.
+
+**Contract (required code):**
+
+```python
+# router.py — new route, placed next to the existing CO decide route.
+# Mirrors GET /pc/allotments exactly (same service call, same unfiltered
+# list[AllotRdmptDTO] shape) but gated by ONBOARDING_REVIEW instead of
+# ALLOTMENT_ACKNOWLEDGE, since this is the Compliance/CO role's read path.
+@router.get("/co/redemptions", response_model=list[AllotRdmptDTO])
+def get_co_redemptions(
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> list[AllotRdmptDTO]:
+    return svc.list_allotments()
+```
+
+**Behavior / invariants:**
+- No new service method — `list_allotments()` already returns every `client_allotment_redemptions` row (both `kind`s) unfiltered, same as `GET /pc/allotments`. The Frontend layer is expected to filter `kind === "redemption"` client-side, the same convention the PC page already uses.
+- Path is `/co/redemptions`, not `/compliance/redemptions` — intentionally mirrors the existing (frozen, already-shipped) `/co/redemptions/{id}/decide` route's prefix rather than this router's broader `/compliance/*` convention used elsewhere. See proposal §F-2 "Path note" for the full rationale; not silently reconciled.
+- RBAC: `Action.ONBOARDING_REVIEW` — the same action already gating `co_decide_redemption`, already granted to the COMPLIANCE role.
+
+**Done when:** a user carrying `ONBOARDING_REVIEW` calling `GET /co/redemptions` receives every allotment/redemption row (both kinds) with status codes matching `GET /pc/allotments`'s existing behavior; a user lacking that action gets 403.
+
+---
+
 ## 7. Frozen seam (from the proposal — verbatim)
 
 ### 7.1 The seam (verbatim from proposal §4.1)
@@ -689,6 +764,7 @@ This is the concrete test of D-1's safety claim: allotment/redemption must be in
 
 **Definition of done (this layer):**
 - [ ] BE-1 through BE-5 committed on `allotment-redemption-integration-be`; each commit left the branch green.
+- [ ] BE-6, BE-7 (addendum 2026-07-23) committed — on the parent branch directly, per the same precedent as the Frontend layer's FE-6/FE-7 addendum (a small, already-integrated-layer patch, not a fresh layer-branch run).
 - [ ] §8 unit tests all pass; `ruff check . && ruff format --check . && mypy app && pytest -q` green.
 - [ ] §7 matches the proposal's frozen seam verbatim. Checked against the proposal on the parent branch, not against the DB/FE layers' branches.
 - [ ] PR opened against `allotment-redemption-integration`; human owns the merge.
