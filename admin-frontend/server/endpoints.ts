@@ -20,6 +20,7 @@ export const ENDPOINTS = {
     PATCH_PERIOD:        (id: string) => `${PC}/allocation/periods/${id}`,
     ALLOTMENTS:      `${PC}/allotments`,
     ALLOTMENT_ACK:   (id: string) => `${PC}/allotments/${id}/acknowledge`,
+    REDEMPTION_DECIDE: (id: string) => `${PC}/redemptions/${id}/decide`,
   },
   RM: {
     CLIENTS: `${RM}/clients`,
@@ -55,5 +56,6 @@ export const ENDPOINTS = {
     ONBOARDING_VERDICT: (id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/verdict`,
     ONBOARDING_APPROVE: (id: string) => `${COMPLIANCE}/onboardings/${id}/approve`,
     ONBOARDING_REJECT:  (id: string) => `${COMPLIANCE}/onboardings/${id}/reject`,
+    REDEMPTION_DECIDE: (id: string) => `${COMPLIANCE}/redemptions/${id}/decide`,
   },
 } as const;

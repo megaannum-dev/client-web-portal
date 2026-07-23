@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllotRdmptDTO, BoardDTO, ClientEventDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
-  RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
+  RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
 export type { APIResult };
@@ -134,4 +134,18 @@ export async function fetchAllotments(): Promise<APIResult<AllotRdmptDTO[]>> {
 }
 export async function acknowledgeAllotment(id: string): Promise<APIResult<AllotRdmptDTO>> {
   return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.ALLOTMENT_ACK(id), { method: "POST" });
+}
+export async function pcDecideRedemption(
+  id: string, body: RedemptionDecisionReq,
+): Promise<APIResult<AllotRdmptDTO>> {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.REDEMPTION_DECIDE(id), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+export async function coDecideRedemption(
+  id: string, body: RedemptionDecisionReq,
+): Promise<APIResult<AllotRdmptDTO>> {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.COMPLIANCE.REDEMPTION_DECIDE(id), {
+    method: "POST", body: JSON.stringify(body),
+  });
 }
