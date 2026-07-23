@@ -294,6 +294,10 @@ Mirrors `GET /pc/allotments` (which already returns all `client_allotment_redemp
 | C-1 | Source modal dropdowns from live data | Recommend | S |
 | E-1 | PC/CO redemption decide endpoint wiring | MANDATORY | S |
 | E-2 | Wire PC redemptions tab to live data | MANDATORY | M |
+| F-1 | Wire CO redemptions tab to live data | MANDATORY | M |
+| F-2 | Fix PC/CO workflow-step order bug | MANDATORY | XS |
+| F-3 | Fix `mapAllotmentsToView` missing kind filter | MANDATORY | XS |
+| F-4 | Fix terminal-state fallback false-"Approved" display | MANDATORY | XS |
 
 ### E. Addendum — PC redemption table live-data wiring (2026-07-23, JQ)
 
@@ -313,8 +317,36 @@ The existing `GET /pc/allotments` returns all records (`kind: "allotment" | "red
 
 #### Known gaps (out of scope for this addendum)
 
-1. **CO redemptions read** — no `GET /co/redemptions` backend endpoint exists. CO's Redemptions tab stays on mock data until a backend read route is added (separate proposal).
-2. **Backend `AllotRdmptDTO` missing fields** — `emergent`, `expected_cash_out`, `decided_at`, `decided_by`, `reject_reason` exist as DB columns but the backend `_allotment_to_dto` mapper does not serialize them. The frontend `AllotRdmptDTO` widens these as **optional** fields — they render when present, degrade gracefully when absent.
+1. ~~**CO redemptions read** — no `GET /co/redemptions` backend endpoint exists.~~ Closed by the Backend-layer addendum (BE-7, 2026-07-23) — see § "Layer 2 — Backend" §F.
+2. ~~**Backend `AllotRdmptDTO` missing fields**~~ Closed by BE-6 (2026-07-23) — the 5 fields are now always serialized (non-optional, defaulted to match their nullable DB columns).
+
+### F. Addendum — CO redemption table live-data wiring (2026-07-23, JQ)
+
+**Motivation:** BE-6/BE-7 (Backend addendum) closed both gaps E left open — `GET /co/redemptions` now exists and `AllotRdmptDTO` now carries every approval field. This addendum wires the Compliance Review page's Redemptions tab to that live data, mirroring E-1/E-2's PC wiring.
+
+#### F-1. `Wire CO redemptions tab to live data` (MANDATORY)
+
+New `useCoRedemptions` hook (mirrors `useAllotments`' redemptions slice) fetches `GET /co/redemptions` and reuses the existing `mapRedemptionsToView` mapper (same `RedemptionView` shape PC already uses — no new type). The page filters to `amount > $300,000` (Compliance only ever acts on redemptions above the threshold; rows at or below it never leave PC's workflow and would just be noise here). Approve/reject buttons call the real `coDecideRedemption` action instead of local state mutation on `CR_REDEMPTIONS`.
+
+**Files:** `hooks/api/useCoRedemptions.ts` (new), `server/onboarding/index.ts`, `app/(roles)/compliance/review/actions.ts`, `app/(roles)/compliance/review/page.tsx`, `components/compliance/review/RedeemTable.tsx`, `components/compliance/review/CrDetailPanel.tsx`, `components/compliance/review/StatStrips.tsx`, `components/compliance/Shared.tsx` (`CrStatusChip` now takes the real `AllotRdmpStatus`, not the mock `CrStatus`)
+
+#### F-2. `Workflow-step order bug` (MANDATORY, found in passing)
+
+D-2 defines the sequential machine as `awaiting_co → (CO approves) → awaiting_pc → (PC approves) → approved` — **Compliance decides first**, PC gives the final sign-off. Both the CO mock's `CrDetailPanel` (inherited from the original design prototype) and PC's own `RedeemDetailPanel` (shipped in the E-2/FE-7 addendum) displayed the workflow **backwards** — "PC approval" as step 1 (marked done/current whenever `status !== awaiting_co`), "Compliance review" as step 2. Functionally harmless (the approve/reject button gating was already correct, keyed off the right status values) but the two-step visual and the accompanying copy ("already PC-approved... your sign-off is the final step") actively misinformed both roles about who acts when. Fixed in both panels: Compliance review now renders as step 1, "PC approval (final)" as step 2. For the terminal `rejected` status, since a redemption can be rejected at either gate and the DTO doesn't expose enough to attribute which one from the frontend alone, both panels now show a single neutral "This redemption was rejected during the approval workflow" line instead of guessing.
+
+**Files:** `components/compliance/review/CrDetailPanel.tsx`, `components/pc/allotment-redemption/RedeemDetailPanel.tsx`
+
+#### F-3. `mapAllotmentsToView missing kind filter` (MANDATORY, found in passing)
+
+While verifying F-1 against live dev data, a redemption-kind row (stale/pre-existing test data with an invalid `status="pending"` — a status BE-3's real `submit_redemption` never produces for a redemption) was found rendering in **both** the PC Allotments tab and the Redemptions tab. Root cause: `mapAllotmentsToView` (FE-5, `lib/onboarding/mappers.ts`) mapped every DTO unconditionally, unlike its sibling `mapRedemptionsToView` which already filtered `kind === "redemption"`. Fixed by adding the matching `d.kind === "allotment"` filter. This was inflating the "Pending allotments" stat and exposing a live "Acknowledge" button on a redemption row. A matching backend defense-in-depth gap (`acknowledge_allotment` doesn't check `kind` either) is flagged as a follow-up, not fixed here.
+
+**Files:** `lib/onboarding/mappers.ts`
+
+#### F-4. `Terminal-state fallback silently claimed "Approved" for any unrecognized status` (MANDATORY, found while live-testing)
+
+Both detail panels' non-actionable branch used a two-way ternary (`rejected ? X : "Approved"` / `rejected ? X : approved ? Y : "awaiting PC"`) that defaults to "Approved" for **any** status that isn't explicitly `rejected` (PC panel) or `rejected`/`approved` (CO panel). Surfaced against a real dev-DB row that had `status="pending"` on a `kind="redemption"` row — a combination the current `submit_redemption` never produces (leftover data from before that routing logic existed), but the fallback silently rendered it as "Approved" with a checkmark, hiding that the row was actually stuck in an unexpected state. Fixed both panels to enumerate every valid status explicitly and render `` `Unexpected status: ${r.status}` `` for anything else, rather than defaulting to a false-positive "success" reading.
+
+**Files:** `components/pc/allotment-redemption/RedeemDetailPanel.tsx`, `components/compliance/review/CrDetailPanel.tsx`
 
 ---
 
