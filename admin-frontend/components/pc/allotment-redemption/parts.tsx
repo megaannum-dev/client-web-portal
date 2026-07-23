@@ -4,7 +4,8 @@
 // ported faithfully from the prototype (ArDetailShell / ArFact / ArNotice /
 // arLabel).
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 
@@ -12,7 +13,11 @@ import type { LucideIcon } from "lucide-react";
 export const arLabelCls =
   "text-[11px] font-bold uppercase tracking-[0.05em] text-secondary";
 
-/** Slide-in detail shell — floating card anchored to the page's right edge. */
+/** Slide-in detail shell — floating card anchored to the page's right edge.
+    Portals into DashboardShell's #content-overlay-root (same pattern as
+    components/rm/Shared.tsx Modal) so the panel stays pinned to the visible
+    viewport instead of drifting with this page's own (possibly tall,
+    scrollable) content wrapper. */
 export function ArDetailShell({
   eyebrow, title, meta, statusSlot, onClose, children,
 }: {
@@ -23,11 +28,19 @@ export function ArDetailShell({
   onClose: () => void;
   children: ReactNode;
 }) {
-  return (
+  const [root, setRoot] = useState<Element | null>(null);
+  useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
+  if (!root) return null;
+
+  return createPortal(
     <>
-      <div onClick={onClose} className="absolute inset-0 z-[8]" style={{ background: "rgba(40,38,34,0.18)" }} />
       <div
-        className="absolute bottom-[18px] right-[18px] top-[18px] z-[9] flex w-[432px] flex-col overflow-hidden rounded-[18px] border border-outline-variant bg-surface-lowest shadow-overlay"
+        onClick={onClose}
+        className="pointer-events-auto absolute inset-0 z-[8]"
+        style={{ background: "rgba(40,38,34,0.18)" }}
+      />
+      <div
+        className="pointer-events-auto absolute bottom-[18px] right-[18px] top-[18px] z-[9] flex w-[432px] flex-col overflow-hidden rounded-[18px] border border-outline-variant bg-surface-lowest shadow-overlay"
         style={{ maxWidth: "calc(100% - 36px)" }}
       >
         <div className="flex-none border-b border-outline-variant px-[22px] pb-4 pt-[18px]">
@@ -52,7 +65,8 @@ export function ArDetailShell({
         </div>
         <div className="flex-1 overflow-y-auto px-[22px] py-5">{children}</div>
       </div>
-    </>
+    </>,
+    root,
   );
 }
 
