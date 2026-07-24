@@ -2,18 +2,28 @@
 
 import { useState } from "react";
 import clsx from "clsx";
-import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLine } from "@/lib/icons";
+import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLine, Check, ClipboardCheck } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { statusToChip } from "@/lib/rm/subscriptions";
 import type { AllotRdmpStatus } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
+import { TransactionDetailModal, type SettlementDetails } from "@/components/rm/TransactionDetailModal";
 
 export type OpenSubscriptionModal = (opts: {
   mode: "add-allotment" | "redemption";
   context: SubscriptionModalContext;
 }) => void;
+
+/** A row the user clicked to file settlement details for. */
+interface ActiveTxn {
+  id: string;
+  type: "Allotment" | "Redemption";
+  clientName: string;
+  modelName: string;
+  rawAmount: string;
+}
 
 const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In / Out", "Status"];
 const TXN_RIGHT = new Set(["Cash Amt", "Model ×", "Notional"]);
@@ -33,7 +43,13 @@ function FeePill({ label, accent }: { label: string; accent?: boolean }) {
   );
 }
 
-function TxnTable({ rows }: { rows: TxnRow[] }) {
+function TxnTable({
+  rows, filled, onFileDetails,
+}: {
+  rows: TxnRow[];
+  filled: Set<string>;
+  onFileDetails: (row: TxnRow) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[13px]">
@@ -50,18 +66,32 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
                 {h}
               </th>
             ))}
+            <th className="w-9 bg-surface-low" />
           </tr>
         </thead>
         <tbody>
           {rows.map((r, ri) => {
             const isNet = r[0] === "Net";
+            const txnId = r[10];
+            const status = r[9];
+            // Eligible for settlement-detail filing: a real transaction (has an
+            // id — mock/legacy rows don't) whose status resolves to the
+            // "settled" tone (Confirmed allotment or Approved redemption) —
+            // matches the prototype's `r[9] !== "Confirmed"` gate exactly,
+            // just expressed against the real AllotRdmpStatus enum.
+            const eligible = !isNet && txnId !== undefined && status !== "" && statusToChip(status as AllotRdmpStatus).tone === "active";
+            const done = eligible && filled.has(txnId!);
             // r[7]/r[8] are the original "Expected Cash In" / "Expected Redemption"
             // fields — only one is ever populated per row (the other is "—"),
             // so the merged column just shows whichever one has a value.
             const expected = r[7] === "—" ? r[8] : r[7];
             const cells = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], expected];
             return (
-              <tr key={ri} className={isNet ? "bg-surface-low" : undefined}>
+              <tr
+                key={ri}
+                onClick={eligible ? () => onFileDetails(r) : undefined}
+                className={clsx(isNet ? "bg-surface-low" : undefined, eligible && "cursor-pointer hover:bg-surface-container")}
+              >
                 {cells.map((v, ci) => (
                   <td
                     key={ci}
@@ -81,6 +111,19 @@ function TxnTable({ rows }: { rows: TxnRow[] }) {
                     return <Chip tone={tone} dot={false}>{label}</Chip>;
                   })()}
                 </td>
+                <td className="whitespace-nowrap border-t border-outline-variant px-2 py-2.5 text-center">
+                  {eligible && (
+                    done ? (
+                      <span title="Details submitted" className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[#e3f1e7] text-[#2f7a47]">
+                        <Check size={12} strokeWidth={2} />
+                      </span>
+                    ) : (
+                      <span title="Transaction details required" className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[#fff8f0] text-[#b9741f]">
+                        <ClipboardCheck size={12} strokeWidth={2} />
+                      </span>
+                    )
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -96,12 +139,16 @@ function ModelAccordionItem({
   open,
   onToggle,
   onOpenModal,
+  filled,
+  onFileDetails,
 }: {
   client: SubClient;
   model: SubModel;
   open: boolean;
   onToggle: () => void;
   onOpenModal: OpenSubscriptionModal;
+  filled: Set<string>;
+  onFileDetails: (txn: ActiveTxn) => void;
 }) {
   const context: SubscriptionModalContext = {
     clientName: client.name,
@@ -148,7 +195,17 @@ function ModelAccordionItem({
               PM notified on net size change
             </span>
           </div>
-          <TxnTable rows={model.rows} />
+          <TxnTable
+            rows={model.rows}
+            filled={filled}
+            onFileDetails={(row) => onFileDetails({
+              id: row[10]!,
+              type: row[0] as "Allotment" | "Redemption",
+              clientName: client.name,
+              modelName: model.name,
+              rawAmount: (row[4] || "").replace(/[()]/g, "").trim(),
+            })}
+          />
           <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
             <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
             <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
@@ -165,12 +222,16 @@ function ClientAccordionItem({
   onToggle,
   onOpenModal,
   initialOpenModelKey,
+  filled,
+  onFileDetails,
 }: {
   client: SubClient;
   open: boolean;
   onToggle: () => void;
   onOpenModal: OpenSubscriptionModal;
   initialOpenModelKey?: string;
+  filled: Set<string>;
+  onFileDetails: (txn: ActiveTxn) => void;
 }) {
   const [openModels, setOpenModels] = useState<Record<string, boolean>>(() =>
     initialOpenModelKey ? { [initialOpenModelKey]: true } : {},
@@ -215,6 +276,8 @@ function ClientAccordionItem({
                 open={!!openModels[key]}
                 onToggle={() => toggleModel(key)}
                 onOpenModal={onOpenModal}
+                filled={filled}
+                onFileDetails={onFileDetails}
               />
             );
           })}
@@ -238,6 +301,11 @@ export function SubscriptionAccordion({
   initialOpenModelKey?: string;
 }) {
   const [openClient, setOpenClient] = useState<string | null>(initialOpenClient ?? null);
+  // ponytail: no settlement-details persistence endpoint exists yet — filled
+  // ids and their entered details live here only, and reset on reload. See
+  // TransactionDetailModal.tsx's header comment for the upgrade path.
+  const [filled, setFilled] = useState<Record<string, SettlementDetails>>({});
+  const [activeTxn, setActiveTxn] = useState<ActiveTxn | null>(null);
   const toggle = (id: string) => {
     const next = openClient === id ? null : id;
     setOpenClient(next);
@@ -253,8 +321,23 @@ export function SubscriptionAccordion({
           onToggle={() => toggle(client.id)}
           onOpenModal={onOpenModal}
           initialOpenModelKey={client.id === openClient ? initialOpenModelKey : undefined}
+          filled={new Set(Object.keys(filled))}
+          onFileDetails={setActiveTxn}
         />
       ))}
+      {activeTxn && (
+        <TransactionDetailModal
+          type={activeTxn.type}
+          clientName={activeTxn.clientName}
+          modelName={activeTxn.modelName}
+          rawAmount={activeTxn.rawAmount}
+          onClose={() => setActiveTxn(null)}
+          onSave={(details) => {
+            setFilled((f) => ({ ...f, [activeTxn.id]: details }));
+            setActiveTxn(null);
+          }}
+        />
+      )}
     </div>
   );
 }
