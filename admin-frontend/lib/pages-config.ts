@@ -212,6 +212,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
     "pc.model-management": "OPERATE",
     "pc.allocation-matrix": "OPERATE",
     "pc.allotment-redemption": "OPERATE",
+    "mobo.post-trade-allocation": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
   PM: {},
