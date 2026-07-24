@@ -31,7 +31,6 @@ assert.deepEqual(rolesForPath("/rm/client-info").sort(),               ["ADMIN",
 assert.deepEqual(rolesForPath("/rm/client-info/some-uuid").sort(),     ["ADMIN", "RM"].sort());
 assert.deepEqual(rolesForPath("/pc/allocation-matrix").sort(),         ["ADMIN", "PC"].sort());
 assert.deepEqual(rolesForPath("/pc/allotment-redemption").sort(),      ["ADMIN", "PC"].sort());
-assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/compliance/review").sort(),           ["ADMIN", "COMPLIANCE"].sort());
 assert.deepEqual(rolesForPath("/monthly-reports").sort(),              ["ADMIN", "COMPLIANCE", "MOBO", "PC", "RM"].sort());
 assert.deepEqual(rolesForPath("/admin/enroll-user"),                   ["ADMIN"]);
@@ -51,11 +50,12 @@ assert.deepEqual(groupsFor("PC").map((g) => g.home), ["/pc/model-management"]);
 assert.deepEqual(groupsFor("COMPLIANCE").map((g) => g.home), ["/compliance/review"]);
 assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/admin/enroll-user",
+  "/admin/system-config",
   "/compliance/review",
   "/mobo/daily-exception-report",
   "/mobo/post-trade-allocation",
-  "/mobo/recon-overview",
   "/mobo/trade-reconciliation",
+  "/monthly-reports",
   "/pc/allocation-matrix",
   "/pc/allotment-redemption",
   "/pc/model-management",
@@ -65,7 +65,7 @@ assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/rm/requests",
 ].sort(), "ADMIN's single group must list every non-hidden page across every domain");
 // hideFromNav pages never appear as a nav child, even for ADMIN.
-assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/monthly-reports"));
+assert.ok(!groupsFor("ADMIN")[0].pages.some((p) => p.href === "/mobo/recon-overview"));
 // Roles with no grants and roles with no ROLE_NAV entry both render zero groups.
 assert.deepEqual(groupsFor("PM"), []);
 assert.deepEqual(groupsFor("BOGUS"), []);
