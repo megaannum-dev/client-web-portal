@@ -261,7 +261,7 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="mt-5 flex justify-end gap-3">
-          <Button variant="secondary" icon={Download}>Formation of Investment Guideline</Button>
+          <Button variant="secondary" icon={Download}>Investment Guideline</Button>
           <Button variant="secondary" icon={Download}>Client Monthly Report</Button>
         </div>
       </Card>
