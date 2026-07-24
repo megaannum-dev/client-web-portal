@@ -84,16 +84,10 @@ export interface Guideline {
   pm: string; client: string; effective: string; file: string;
   status: "active" | string; version: number;
 }
-export const GR_GUIDELINES: Guideline[] = [
-  { id: "gr1", ref: "OB-2026-011", name: "Global Growth Mandate — IPS 2026", mandate: "Discretionary · Growth",
-    pm: "James Liu", client: "Marcus Chen", effective: "01 Aug 2026", file: "IG_OB-2026-011_v1.pdf", status: "active", version: 1 },
-  { id: "gr2", ref: "OB-2026-009", name: "Fixed Income Guideline — IPS 2026", mandate: "Advisory · Income",
-    pm: "David Park", client: "Thomas Berg", effective: "20 Jul 2026", file: "IG_OB-2026-009_v2.pdf", status: "active", version: 2 },
-  { id: "gr3", ref: "OB-2026-013", name: "Multi-Asset Discretionary Guideline", mandate: "Discretionary · Balanced",
-    pm: "Sarah Chen", client: "Aiko Tanaka", effective: "15 Jul 2026", file: "IG_OB-2026-013_v1.pdf", status: "active", version: 1 },
-  { id: "gr4", ref: "OB-2026-007", name: "Concentrated Equity Guideline", mandate: "Discretionary · Growth",
-    pm: "James Liu", client: "Elena Vasquez", effective: "—", file: "IG_OB-2026-007_v1.pdf", status: "active", version: 1 },
-];
+// Empty: the only real client in this build (Wilson Lee, see
+// lib/pc/investment-guideline-mock.ts) hasn't had a guideline uploaded by
+// a PM yet — nothing exists here for Compliance to reference yet either.
+export const GR_GUIDELINES: Guideline[] = [];
 
 /* ---- renewals approaching (CO must re-verify docs on renewal) ----
    Same story: no "next renewal due date" tracking exists on the onboarding
@@ -102,9 +96,9 @@ export interface Renewal {
   client: string; rm: string; mandate: string; due: string; days: number;
 }
 export const CO_RENEWALS: Renewal[] = [
-  { client: "Nadia Rahman", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "21 Jul 2026", days: -2 },
-  { client: "Thomas Berg", rm: "David Park", mandate: "Advisory · Income", due: "26 Jul 2026", days: 3 },
-  { client: "Aiko Tanaka", rm: "James Liu", mandate: "Discretionary · Balanced", due: "31 Jul 2026", days: 8 },
-  { client: "Sofia Marchetti", rm: "David Park", mandate: "Advisory · Income", due: "13 Aug 2026", days: 21 },
-  { client: "Grace Okonkwo", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "20 Aug 2026", days: 28 },
+  // { client: "Nadia Rahman", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "21 Jul 2026", days: -2 },
+  // { client: "Thomas Berg", rm: "David Park", mandate: "Advisory · Income", due: "26 Jul 2026", days: 3 },
+  // { client: "Aiko Tanaka", rm: "James Liu", mandate: "Discretionary · Balanced", due: "31 Jul 2026", days: 8 },
+  // { client: "Sofia Marchetti", rm: "David Park", mandate: "Advisory · Income", due: "13 Aug 2026", days: 21 },
+  // { client: "Grace Okonkwo", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "20 Aug 2026", days: 28 },
 ];
