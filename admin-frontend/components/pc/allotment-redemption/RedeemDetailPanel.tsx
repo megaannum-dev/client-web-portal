@@ -19,7 +19,7 @@ function WorkflowStep({ label, sub, state }: { label: string; sub: string; state
     done: "var(--primary)",
     current: "var(--primary)",
     upcoming: "var(--outline)",
-    rejected: "#ba1a1a", // --color-error (no CSS alias)
+    rejected: "rgb(var(--color-error))",
   }[state];
   return (
     <div className="flex items-center gap-2">
