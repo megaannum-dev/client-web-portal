@@ -21,11 +21,7 @@ export interface InvestmentGuideline {
 }
 
 export const IG_CLIENTS: { label: string; code: string }[] = [
-  { label: "Marcus Chen", code: "MEGA-2044" },
-  { label: "Thomas Berg", code: "MEGA-2071" },
-  { label: "Aiko Tanaka", code: "MEGA-2119" },
   { label: "Wilson Lee", code: "MEGA-2156" },
-  { label: "Elena Vasquez", code: "MEGA-2183" },
 ];
 
 export const IG_MANDATES: string[] = [
@@ -36,13 +32,7 @@ export const IG_MANDATES: string[] = [
 ];
 
 export const IG_SEED: InvestmentGuideline[] = [
-  { id: "ig1", client: "Marcus Chen", code: "MEGA-2044", ref: "IG-2026-001", name: "Global Growth Mandate — IPS 2026", mandate: "Discretionary · Growth",
-    effective: "01 Aug 2026", uploaded: "11 Jul 2026", file: "IG_MEGA-2044_v1.pdf", status: "active", version: 1 },
-  { id: "ig2", client: "Thomas Berg", code: "MEGA-2071", ref: "IG-2026-002", name: "Fixed Income Guideline — IPS 2026", mandate: "Advisory · Income",
-    effective: "20 Jul 2026", uploaded: "09 Jul 2026", file: "IG_MEGA-2071_v2.pdf", status: "active", version: 2 },
-  { id: "ig3", client: "Aiko Tanaka", code: "MEGA-2119", ref: "IG-2026-003", name: "Multi-Asset Discretionary Guideline", mandate: "Discretionary · Balanced",
-    effective: "15 Jul 2026", uploaded: "08 Jul 2026", file: "IG_MEGA-2119_v1.pdf", status: "active", version: 1 },
-  { id: "ig4", client: "Wilson Lee", code: "MEGA-2156", ref: "IG-2026-004", name: "—", mandate: "—",
+  { id: "ig1", client: "Wilson Lee", code: "MEGA-2156", ref: "IG-2026-001", name: "—", mandate: "—",
     effective: "—", uploaded: "—", file: "", status: "pending", version: 0 },
 ];
 
