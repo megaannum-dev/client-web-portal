@@ -13,8 +13,8 @@ import type {
 
 export const COLUMN_LABELS: Record<keyof BoardDTO, string> = {
   initial: "Initial Onboarding",
+  pending_review: "Pending for Resubmit",
   reviewing: "Reviewing",
-  pending_review: "Pending for Review",
   active: "Active",
 };
 
