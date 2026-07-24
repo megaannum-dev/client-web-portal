@@ -221,6 +221,8 @@ export function getClientDetail(id: string): { client: RmClient; detail: ClientD
 export type TxnRow = [
   string, string, string, string, string, string, string, string, string,
   AllotRdmpStatus | "",   // NEW 10th element — "" for Net rows and any legacy mock row
+  string?,                // NEW 11th element — transaction id, for settlement-detail filing;
+                           // absent for Net rows and mock/legacy rows (nothing to file against)
 ];
 export type SubModel = {
   name: string;
