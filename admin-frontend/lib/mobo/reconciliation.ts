@@ -441,7 +441,9 @@ export function deriveCounters(trades: ReconTrade[]): ReconCounters {
     else if (legs.some((l) => l.state === "brk")) breaks += 1;
     else matched += 1;
   }
-  const pct = reconciled > 0 ? (matched / reconciled) * 100 : 0;
+  // Vacuously 100% when there's nothing to reconcile — an empty book isn't
+  // 0% matched, it has no unmatched trades left.
+  const pct = reconciled > 0 ? (matched / reconciled) * 100 : 100;
   return {
     reconciled,
     matched,

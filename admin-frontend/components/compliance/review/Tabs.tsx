@@ -1,18 +1,19 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { ClipboardCheck, Shield } from "@/lib/icons";
+import { ClipboardCheck, Shield, FileText } from "@/lib/icons";
 
-export type CoTab = "onboarding" | "redeem";
+export type CoTab = "onboarding" | "redeem" | "guideline";
 
-/* ---- Tab strip: Onboarding & Reviewing | Redemptions ------- */
+/* ---- Tab strip: Onboarding & Reviewing | Redemptions | Investment Guideline ---- */
 export function CoTabs({
-  tab, onTab, pendOb, pendCr,
+  tab, onTab, pendOb, pendCr, pendGr,
 }: {
   tab: CoTab;
   onTab: (t: CoTab) => void;
   pendOb: number;
   pendCr: number;
+  pendGr: number;
 }) {
   const Tab = (key: CoTab, Icon: LucideIcon, label: string, count: number, warn: boolean) => {
     const on = tab === key;
@@ -46,6 +47,7 @@ export function CoTabs({
     <div className="mb-[18px] flex gap-1 border-b border-outline-variant">
       {Tab("onboarding", ClipboardCheck, "Onboarding & Reviewing", pendOb, false)}
       {Tab("redeem", Shield, "Redemptions", pendCr, true)}
+      {Tab("guideline", FileText, "Investment Guideline", pendGr, false)}
     </div>
   );
 }

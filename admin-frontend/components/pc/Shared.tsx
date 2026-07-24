@@ -56,13 +56,17 @@ export function Ticks({
       {symbols.map((s) => (
         <span
           key={s}
-          className="inline-flex items-center gap-1 rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface"
+          className={[
+            "inline-flex items-center gap-1 rounded-[6px] bg-surface-container px-2 py-[3px] text-[12px] font-bold tabular-nums text-on-surface transition-colors duration-150",
+            onSymbol ? "hover:bg-primary-fixed hover:text-primary" : "",
+          ].filter(Boolean).join(" ")}
         >
           {onSymbol ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onSymbol(s); }}
-              className="cursor-pointer border-none bg-transparent p-0 font-bold tabular-nums text-on-surface"
+              title={`View ${s} audit trail`}
+              className="cursor-pointer border-none bg-transparent p-0 font-bold tabular-nums text-inherit"
             >
               {s}
             </button>

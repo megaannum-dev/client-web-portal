@@ -75,7 +75,7 @@ export function ModelTable({
   onDownloadLatest: (id: string) => void;
   onOpenSymbols: (id: string, symbol: string) => void;
 }) {
-  const headers = ["Model", "Model size", "Manager", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
+  const headers = ["Model", "Model size", "Category", "Symbols", "Mgmt %", "Incentive %", "Materials", "Latest"];
   const rightAligned = new Set([1, 4, 5, 7]);
   return (
     <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">

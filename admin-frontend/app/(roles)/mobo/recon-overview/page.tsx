@@ -15,24 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { MetricStat, SegBar } from "@/components/mobo/Shared";
 import { loadReconciliation } from "@/lib/mobo/reconciliation";
-import {
-  SEV_LABEL, SEV_TONE,
-  type Feed, type Exception,
-} from "@/lib/mobo/types";
-
-const FEED_DOT: Record<string, string> = { ok: "#16a34a", brk: "#ea580c", miss: "#ba1a1a" };
-
-function FeedRow({ f }: { f: Feed }) {
-  return (
-    <div className="flex items-center justify-between gap-2.5">
-      <span className="flex items-center gap-2.5 text-[13.5px] font-semibold text-on-surface">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: FEED_DOT[f.state] ?? "#8b7264" }} />
-        {f.name}
-      </span>
-      <span className="whitespace-nowrap text-[11.5px] text-secondary">{f.note}</span>
-    </div>
-  );
-}
+import { SEV_LABEL, SEV_TONE, type Exception } from "@/lib/mobo/types";
 
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
@@ -78,22 +61,24 @@ export default function MoboDashboardPage() {
 
   // SINGLE SOURCE: every figure on this page is read from the same bundle the
   // recon screen consumes, so the dashboard and recon never disagree.
-  const { settleDay, counters, exceptions, feeds } = loadReconciliation();
+  const { settleDay, counters, exceptions } = loadReconciliation();
 
   const openBreaks = counters.breaks + counters.unmatched;
   const carriedExceptions = exceptions.filter((e) => e.carried).length;
-  const top = exceptions.slice(0, 5);
-  const okFeeds = feeds.filter((f) => f.state === "ok").length;
+  // Row data is invented mock (see MOCK_EXCEPTIONS) shared with Trade
+  // Reconciliation / Daily Exceptions — leave those pages alone, just don't
+  // surface the fake rows here. Real backend rows will replace this.
+  const top: Exception[] = [];
 
   // Today's-reconciliation bar segments, derived from the single-source counts
   // (matched / breaks / unmatched) so the bar matches the legend below it. Each
   // segment is its own proportion (same method as the recon screen), so the
   // Breaks segment width tracks the Breaks count instead of absorbing rounding.
-  const segTotal = counters.reconciled || 1;
-  const pct = (n: number) => Math.round((n / segTotal) * 100);
-  const segOk = pct(counters.matched);
-  const segWarn = pct(counters.breaks);
-  const segBad = pct(counters.unmatched);
+  // Nothing to reconcile reads as fully matched (100%), not an empty/0% bar.
+  const pct = (n: number) => Math.round((n / counters.reconciled) * 100);
+  const segOk = counters.reconciled > 0 ? pct(counters.matched) : 100;
+  const segWarn = counters.reconciled > 0 ? pct(counters.breaks) : 0;
+  const segBad = counters.reconciled > 0 ? pct(counters.unmatched) : 0;
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
   const goExceptions = () => router.push("/mobo/daily-exception-report");
@@ -106,7 +91,7 @@ export default function MoboDashboardPage() {
           subtitle={`Middle & back office · Settlement day ${settleDay}`}
           actions={
             <>
-              <Button variant="secondary" icon={CalendarDays}>03 Jun 2026</Button>
+              <Button variant="secondary" icon={CalendarDays}>24 July 2026</Button>
               <Button icon={ArrowLeftRight} onClick={goRecon}>Run reconciliation</Button>
             </>
           }
@@ -181,21 +166,6 @@ export default function MoboDashboardPage() {
 
         {/* RIGHT column */}
         <div className="flex flex-col gap-6">
-          {/* Feeds & cutoffs */}
-          <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
-            <div className="mb-[15px] flex items-center justify-between">
-              <h3 className="text-[17px] font-semibold text-on-surface">Feeds &amp; cutoffs</h3>
-              <span className="text-[12.5px] font-bold text-secondary">{okFeeds} / {feeds.length}</span>
-            </div>
-            <div className="flex flex-col gap-[13px]">
-              {feeds.map((f, i) => <FeedRow key={i} f={f} />)}
-              <div className="mt-0.5 flex items-center justify-between border-t border-outline-variant pt-[13px]">
-                <span className="text-[12.5px] text-secondary">Settlement cutoff</span>
-                <span className="text-[13.5px] font-bold text-on-surface">18:00 GMT</span>
-              </div>
-            </div>
-          </section>
-
           {/* End-of-day report */}
           <section className={`${CARD} px-5 pb-5 pt-[18px]`}>
             <div className="mb-4 flex items-center justify-between">
