@@ -47,7 +47,7 @@ for (const role of ["RM", "MOBO", "PC", "COMPLIANCE", "ADMIN"] as const) {
   assert.equal(groups.length, 1, `${role} must have exactly one nav group`);
 }
 assert.deepEqual(groupsFor("PC").map((g) => g.home), ["/pc/model-management"]);
-assert.deepEqual(groupsFor("COMPLIANCE").map((g) => g.home), ["/compliance/review"]);
+assert.deepEqual(groupsFor("COMPLIANCE").map((g) => g.home), ["/compliance/overview"]);
 assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/admin/enroll-user",
   "/admin/system-config",

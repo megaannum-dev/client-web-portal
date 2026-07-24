@@ -7,7 +7,7 @@ export default function ComplianceLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/compliance/review")}>
+    <RoleGuard allowedRoles={rolesForPath("/compliance/overview")}>
       {children}
     </RoleGuard>
   );

@@ -8,7 +8,8 @@
 // Thin orchestrator holding UI state; queue tables + slide-in detail panels.
 // Both tabs wired to live data (FE-8: useCoRedemptions mirrors PC's FE-7).
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Filter, Download, Eye, Check, Shield, ShieldCheck, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -21,10 +22,28 @@ import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
 import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
+import { GuidelinePanel } from "@/components/compliance/review/GuidelinePanel";
+import { GuidelineDetailPanel } from "@/components/compliance/review/GuidelineDetailPanel";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
+import { GR_GUIDELINES } from "@/lib/compliance/mock";
 
 const COMPLIANCE_THRESHOLD = 300000;
+
+// Deep-link contract from Compliance Overview's tile/row jump-offs:
+// ?tab=onboarding|redeem|guideline&openObId=<id>|openCrId=<id>|openGrId=<id>.
+// Unknown/missing params fall back to the default onboarding tab, nothing open
+// (mirrors app/(roles)/rm/model-subscription/page.tsx's resolveDeepLink).
+function resolveDeepLink(params: URLSearchParams): { tab: CoTab; openObId: string | null; openCrId: string | null; openGrId: string | null } {
+  const tabParam = params.get("tab");
+  const tab: CoTab = tabParam === "redeem" || tabParam === "guideline" ? tabParam : "onboarding";
+  return {
+    tab,
+    openObId: params.get("openObId"),
+    openCrId: params.get("openCrId"),
+    openGrId: params.get("openGrId"),
+  };
+}
 
 // Rehydrate a base64 download payload into a Blob and trigger a save dialog
 // (mirrors app/(roles)/pc/model-management/page.tsx's saveBase64File).
@@ -35,8 +54,10 @@ function saveBase64File(filename: string, contentType: string, base64: string) {
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-export default function ComplianceReviewPage() {
-  const [tab, setTab] = useState<CoTab>("onboarding");
+function ComplianceReviewContent() {
+  const searchParams = useSearchParams();
+  const [deepLink] = useState(() => resolveDeepLink(searchParams));
+  const [tab, setTab] = useState<CoTab>(deepLink.tab);
   const { data: onboardingData, submitVerdict, approve, reject, download } = useComplianceQueue();
   const onboarding = onboardingData ?? [];
   const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
@@ -44,15 +65,18 @@ export default function ComplianceReviewPage() {
   // or below it never leave PC's workflow, so filter them out here rather
   // than showing PC-only history as noise on this page.
   const redemptions = (redemptionsData ?? []).filter((r) => r.amount > COMPLIANCE_THRESHOLD);
-  const [openObId, setOpenObId] = useState<string | null>(null);
-  const [openCrId, setOpenCrId] = useState<string | null>(null);
+  const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
+  const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
+  const [openGrId, setOpenGrId] = useState<string | null>(deepLink.openGrId);
   const [rejecting, setRejecting] = useState(false);
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
   const pendCr = redemptions.filter((r) => r.status === "awaiting_co").length;
+  const pendGr = GR_GUIDELINES.length;
 
   const openOb = onboarding.find((o) => o.id === openObId);
   const openCr = redemptions.find((r) => r.id === openCrId);
+  const openGr = GR_GUIDELINES.find((g) => g.id === openGrId);
 
   const doVerdict = (docType: string, v: "valid" | "issue") => {
     if (!openOb) return;
@@ -77,8 +101,9 @@ export default function ComplianceReviewPage() {
       if (!r.success) alert(`Could not submit decision: ${r.error}`);
     });
 
-  const rows = tab === "onboarding" ? onboarding : redemptions;
-  const isEmpty = rows.length === 0;
+  // Investment Guideline is a static reference table (never empty, no fetch) --
+  // only onboarding/redeem participate in the loading-driven empty state.
+  const isEmpty = tab !== "guideline" && (tab === "onboarding" ? onboarding.length === 0 : redemptions.length === 0);
 
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
@@ -96,10 +121,12 @@ export default function ComplianceReviewPage() {
           />
 
           <div className="mt-6">
-            <CoTabs tab={tab} onTab={setTab} pendOb={pendOb} pendCr={pendCr} />
+            <CoTabs tab={tab} onTab={setTab} pendOb={pendOb} pendCr={pendCr} pendGr={pendGr} />
           </div>
 
-          {isEmpty ? (
+          {tab === "guideline" ? (
+            <GuidelinePanel rows={GR_GUIDELINES} onRowClick={setOpenGrId} openId={openGrId} />
+          ) : isEmpty ? (
             <EmptyState />
           ) : tab === "onboarding" ? (
             <>
@@ -142,6 +169,15 @@ export default function ComplianceReviewPage() {
         <RejectModal o={openOb} onCancel={() => setRejecting(false)} onConfirm={confirmReject} />
       )}
       {openCr && <CrDetailPanel r={openCr} onClose={() => setOpenCrId(null)} onDecision={decideCr} />}
+      {openGr && <GuidelineDetailPanel g={openGr} onClose={() => setOpenGrId(null)} />}
     </div>
+  );
+}
+
+export default function ComplianceReviewPage() {
+  return (
+    <Suspense fallback={null}>
+      <ComplianceReviewContent />
+    </Suspense>
   );
 }
