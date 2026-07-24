@@ -1,9 +1,9 @@
 "use client";
 
-import { Inbox, Shield } from "@/lib/icons";
+import { Inbox, Shield, FileText } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 
-type TabKey = "allot" | "redeem";
+export type TabKey = "allot" | "redeem" | "guideline";
 
 function Tab({
   active, onClick, Icon, label, count, warn,
@@ -54,6 +54,7 @@ export function ArTabs({
     <div className="mb-[18px] flex gap-1 border-b border-outline-variant">
       <Tab active={tab === "allot"} onClick={() => onTab("allot")} Icon={Inbox} label="Allotments" count={pendAllot} warn={false} />
       <Tab active={tab === "redeem"} onClick={() => onTab("redeem")} Icon={Shield} label="Redemptions" count={pendRedeem} warn />
+      <Tab active={tab === "guideline"} onClick={() => onTab("guideline")} Icon={FileText} label="Investment Guideline" count={0} warn={false} />
     </div>
   );
 }

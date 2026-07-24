@@ -7,19 +7,31 @@ import { useState } from "react";
 import { Filter, Download, Inbox, Lock, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ArTabs } from "@/components/pc/allotment-redemption/Tabs";
+import { ArTabs, type TabKey } from "@/components/pc/allotment-redemption/Tabs";
 import { ArStatStrip } from "@/components/pc/allotment-redemption/StatStrip";
 import { AllotTable } from "@/components/pc/allotment-redemption/AllotTable";
 import { AllotDetailPanel } from "@/components/pc/allotment-redemption/AllotDetailPanel";
 import { RedeemTable } from "@/components/pc/allotment-redemption/RedeemTable";
 import { RedeemDetailPanel } from "@/components/pc/allotment-redemption/RedeemDetailPanel";
+import { GuidelineTable } from "@/components/pc/allotment-redemption/GuidelineTable";
+import { GuidelineDetailPanel } from "@/components/pc/allotment-redemption/GuidelineDetailPanel";
+import { GuidelineUploadModal } from "@/components/pc/allotment-redemption/GuidelineUploadModal";
 import { useAllotments } from "@/hooks/api/useAllotments";
+import {
+  IG_SEED, applyGuidelineUpload,
+  type GuidelineUploadInput, type InvestmentGuideline,
+} from "@/lib/pc/investment-guideline-mock";
 
 export default function AllotmentRedemptionPage() {
-  const [tab, setTab] = useState<"allot" | "redeem">("allot");
+  const [tab, setTab] = useState<TabKey>("allot");
   const { data: allotmentsData, redemptions: redemptionsData, acknowledge, decideRedemption } = useAllotments();
   const [openAllotId, setOpenAllotId] = useState<string | null>(null);
   const [openRedeemId, setOpenRedeemId] = useState<string | null>(null);
+
+  const [guidelines, setGuidelines] = useState<InvestmentGuideline[]>(IG_SEED);
+  const [openGuidelineId, setOpenGuidelineId] = useState<string | null>(null);
+  const [uploadExisting, setUploadExisting] = useState<InvestmentGuideline | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
 
   const allotments = allotmentsData ?? [];
   const redemptions = redemptionsData ?? [];
@@ -28,6 +40,21 @@ export default function AllotmentRedemptionPage() {
 
   const openAllot = allotments.find((a) => a.id === openAllotId);
   const openRedeem = redemptions.find((r) => r.id === openRedeemId);
+  const openGuideline = guidelines.find((g) => g.id === openGuidelineId);
+
+  const openUploadFor = (g: InvestmentGuideline | null) => {
+    setUploadExisting(g);
+    setShowUpload(true);
+  };
+  const handleGuidelineRowClick = (id: string) => {
+    const g = guidelines.find((x) => x.id === id);
+    if (g && g.status === "pending") openUploadFor(g);
+    else setOpenGuidelineId(id);
+  };
+  const handleGuidelineUpload = (data: GuidelineUploadInput) => {
+    setGuidelines((rows) => applyGuidelineUpload(rows, uploadExisting, data));
+    setUploadExisting(null);
+  };
 
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
@@ -48,15 +75,19 @@ export default function AllotmentRedemptionPage() {
 
           {tab === "allot" ? (
             <AllotTable rows={allotments} onRowClick={setOpenAllotId} onAcknowledge={acknowledge} />
-          ) : (
+          ) : tab === "redeem" ? (
             <RedeemTable rows={redemptions} onRowClick={setOpenRedeemId} />
+          ) : (
+            <GuidelineTable rows={guidelines} onRowClick={handleGuidelineRowClick} openId={openGuidelineId} />
           )}
 
-          <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
-            <span className="flex items-center gap-1.5"><Inbox size={13} strokeWidth={2} />Allotments are informational — PC acknowledges but does not block</span>
-            <span className="flex items-center gap-1.5"><Lock size={13} strokeWidth={2} />Redemptions require PC approval; &gt; US$300K also needs compliance</span>
-            <span className="flex items-center gap-1.5"><User size={13} strokeWidth={2} />Client identity is anonymized throughout</span>
-          </div>
+          {tab !== "guideline" && (
+            <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
+              <span className="flex items-center gap-1.5"><Inbox size={13} strokeWidth={2} />Allotments are informational — PC acknowledges but does not block</span>
+              <span className="flex items-center gap-1.5"><Lock size={13} strokeWidth={2} />Redemptions require PC approval; &gt; US$300K also needs compliance</span>
+              <span className="flex items-center gap-1.5"><User size={13} strokeWidth={2} />Client identity is anonymized throughout</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -68,6 +99,20 @@ export default function AllotmentRedemptionPage() {
           r={openRedeem}
           onClose={() => setOpenRedeemId(null)}
           onDecision={(id, verdict) => decideRedemption(id, { verdict })}
+        />
+      )}
+      {openGuideline && (
+        <GuidelineDetailPanel
+          g={openGuideline}
+          onClose={() => setOpenGuidelineId(null)}
+          onUploadVersion={(g) => { openUploadFor(g); setOpenGuidelineId(null); }}
+        />
+      )}
+      {showUpload && (
+        <GuidelineUploadModal
+          existing={uploadExisting}
+          onClose={() => { setShowUpload(false); setUploadExisting(null); }}
+          onSubmit={handleGuidelineUpload}
         />
       )}
     </div>
