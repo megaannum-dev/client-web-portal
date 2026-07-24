@@ -74,11 +74,11 @@ export default function MoboDashboardPage() {
   // (matched / breaks / unmatched) so the bar matches the legend below it. Each
   // segment is its own proportion (same method as the recon screen), so the
   // Breaks segment width tracks the Breaks count instead of absorbing rounding.
-  const segTotal = counters.reconciled || 1;
-  const pct = (n: number) => Math.round((n / segTotal) * 100);
-  const segOk = pct(counters.matched);
-  const segWarn = pct(counters.breaks);
-  const segBad = pct(counters.unmatched);
+  // Nothing to reconcile reads as fully matched (100%), not an empty/0% bar.
+  const pct = (n: number) => Math.round((n / counters.reconciled) * 100);
+  const segOk = counters.reconciled > 0 ? pct(counters.matched) : 100;
+  const segWarn = counters.reconciled > 0 ? pct(counters.breaks) : 0;
+  const segBad = counters.reconciled > 0 ? pct(counters.unmatched) : 0;
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
   const goExceptions = () => router.push("/mobo/daily-exception-report");
