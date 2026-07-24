@@ -70,6 +70,62 @@ export function ArDetailShell({
   );
 }
 
+/** Centered modal shell — portals into the same #content-overlay-root as
+    ArDetailShell, so it stays pinned to the viewport rather than drifting
+    with this page's own (possibly tall, scrollable) content wrapper. */
+export function ArModalShell({
+  title, subtitle, onClose, children, footer, width = 480,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  width?: number;
+}) {
+  const [root, setRoot] = useState<Element | null>(null);
+  useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
+  if (!root) return null;
+
+  return createPortal(
+    <>
+      <div
+        onClick={onClose}
+        className="pointer-events-auto absolute inset-0 z-[12]"
+        style={{ background: "rgba(40,38,34,0.28)" }}
+      />
+      <div
+        className="pointer-events-auto absolute left-1/2 top-1/2 z-[13] flex max-h-[90vh] flex-col overflow-hidden rounded-[18px] border border-outline-variant bg-surface-lowest shadow-overlay"
+        style={{ width, maxWidth: "calc(100vw - 40px)", transform: "translate(-50%, -50%)" }}
+      >
+        <div className="flex-none border-b border-outline-variant px-6 pb-4 pt-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[18px] font-bold text-on-surface">{title}</div>
+              {subtitle && <div className="mt-1 text-[13px] text-secondary">{subtitle}</div>}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex cursor-pointer p-[3px] text-secondary"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {footer && (
+          <div className="flex flex-none items-center justify-end gap-2 border-t border-outline-variant px-6 py-4">
+            {footer}
+          </div>
+        )}
+      </div>
+    </>,
+    root,
+  );
+}
+
 /** Labelled fact box. `span` stretches full width and enlarges the value. */
 export function ArFact({
   label, value, span,
