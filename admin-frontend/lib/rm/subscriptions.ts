@@ -78,6 +78,7 @@ export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null):
     isRedemption ? "—" : expected,   // Expected Cash In
     isRedemption ? expected : "—",   // Expected Redemption
     dto.status,                      // NEW 10th element
+    dto.id,                          // NEW 11th element — for settlement-detail filing
   ];
 }
 
