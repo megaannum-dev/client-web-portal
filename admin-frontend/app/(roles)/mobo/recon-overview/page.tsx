@@ -8,13 +8,14 @@
 import { useRouter } from "next/navigation";
 import {
   CalendarDays, ArrowLeftRight, Inbox, Link2, Unlink, ShieldAlert,
-  ArrowRight, FileText, Lock,
+  ArrowRight, Clock, ChevronRight, FileText, Lock,
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { MetricStat, SegBar } from "@/components/mobo/Shared";
 import { loadReconciliation } from "@/lib/mobo/reconciliation";
+import { SEV_LABEL, SEV_TONE, type Exception } from "@/lib/mobo/types";
 
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
@@ -22,6 +23,34 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
       <span className="h-[9px] w-[9px] rounded-[3px]" style={{ background: color }} />
       {label} <b className="tabular-nums text-on-surface">{value}</b>
     </span>
+  );
+}
+
+function ExcRow({ e, onClick }: { e: Exception; onClick: () => void }) {
+  return (
+    <tr
+      onClick={onClick}
+      className="cursor-pointer transition-colors duration-100 hover:bg-surface-container [&>td]:border-t [&>td]:border-outline-variant"
+    >
+      <td className="px-[18px] py-3">
+        <div className="font-bold text-on-surface">{e.ref}</div>
+        <div className="mt-px text-[12px] text-secondary">{e.book} · {e.inst}</div>
+      </td>
+      <td className="px-[18px] py-3 text-on-surface">{e.type}</td>
+      <td className="px-[18px] py-3"><Chip tone={SEV_TONE[e.sev]} dot={false}>{SEV_LABEL[e.sev]}</Chip></td>
+      <td
+        className="px-[18px] py-3 text-right tabular-nums"
+        style={{ fontWeight: e.carried ? 700 : 400, color: e.carried ? "#ba1a1a" : "var(--secondary)" }}
+      >
+        {e.carried && <Clock size={11} strokeWidth={2} className="mr-[3px] inline align-[-1px]" />}{e.age}
+      </td>
+      <td className="px-[18px] py-3" style={{ color: e.owner === "Unassigned" ? "var(--secondary)" : "var(--on-surface)" }}>
+        {e.owner}
+      </td>
+      <td className="px-[18px] py-3 text-right text-secondary">
+        <ChevronRight size={16} strokeWidth={2} className="inline" />
+      </td>
+    </tr>
   );
 }
 
@@ -36,6 +65,10 @@ export default function MoboDashboardPage() {
 
   const openBreaks = counters.breaks + counters.unmatched;
   const carriedExceptions = exceptions.filter((e) => e.carried).length;
+  // Row data is invented mock (see MOCK_EXCEPTIONS) shared with Trade
+  // Reconciliation / Daily Exceptions — leave those pages alone, just don't
+  // surface the fake rows here. Real backend rows will replace this.
+  const top: Exception[] = [];
 
   // Today's-reconciliation bar segments, derived from the single-source counts
   // (matched / breaks / unmatched) so the bar matches the legend below it. Each
@@ -95,6 +128,39 @@ export default function MoboDashboardPage() {
                 Continue reconciliation <ArrowRight size={15} strokeWidth={2} />
               </button>
             </div>
+          </section>
+
+          {/* Open exceptions */}
+          <section className={`${CARD} overflow-hidden`}>
+            <header className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+              <h3 className="text-[17px] font-semibold text-on-surface">Open exceptions</h3>
+              <button
+                type="button"
+                onClick={goExceptions}
+                className="text-[13px] font-bold text-primary hover:opacity-75"
+              >
+                View report →
+              </button>
+            </header>
+            <table className="w-full border-collapse text-[13.5px]">
+              <thead>
+                <tr>
+                  {["Ref / Book", "Type", "Severity", "Age", "Owner", ""].map((h, i) => (
+                    <th
+                      key={i}
+                      className={`bg-surface-low px-[18px] py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary ${i === 3 ? "text-right" : "text-left"}`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {top.map((e) => (
+                  <ExcRow key={e.id} e={e} onClick={goExceptions} />
+                ))}
+              </tbody>
+            </table>
           </section>
         </div>
 
