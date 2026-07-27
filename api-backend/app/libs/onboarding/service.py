@@ -32,6 +32,8 @@ from app.libs.onboarding.schemas import (
     SubmitAllotmentReq,
     SubmitRedemptionReq,
     SubscriptionDTO,
+    TransactionDetailDTO,
+    TransactionDetailRequest,
     VerdictReq,
 )
 from app.libs.trade_models.storage import get_storage
@@ -446,6 +448,19 @@ class OnboardingService:
             self.db.rollback()
             raise
         return self._allotment_to_dto(allotment)
+
+    # ponytail: BE-1 placeholder only -- these two exist solely so router.py's
+    # svc.file_transaction_detail(...)/svc.get_transaction_detail(...) calls
+    # (pinned verbatim, impl doc 017-...-be.md §6 BE-1) type-check under mypy.
+    # BE-2/BE-3 replace these bodies with the real filing/retrieval logic
+    # (impl doc §6 BE-2/BE-3) -- do not build on top of this stub.
+    def file_transaction_detail(
+        self, allotment_id: uuid.UUID, req: TransactionDetailRequest, *, filed_by: str
+    ) -> TransactionDetailDTO:
+        raise NotImplementedError("BE-2: transaction-detail filing not yet implemented")
+
+    def get_transaction_detail(self, allotment_id: uuid.UUID) -> TransactionDetailDTO:
+        raise NotImplementedError("BE-3: transaction-detail retrieval not yet implemented")
 
     def _needs_co(self, amount: Decimal) -> bool:
         return amount > _REDEMPTION_CO_THRESHOLD
