@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -179,6 +179,40 @@ class AllotRdmptDTO(BaseModel):
     decided_by: str | None = None
     decided_at: datetime | None = None
     reject_reason: str | None = None
+    # --- widened 2026-07-27 (proposal 017, BE-4): True when a
+    # transaction_details row exists for this allotment/redemption.
+    has_transaction_detail: bool = False
+
+
+class TransactionDetailRequest(BaseModel):
+    """POST .../transaction-detail body (proposal 017 §4.1, BE-1). currency is
+    kept as a plain str (not Literal/enum) -- validated against the fixed
+    7-member set in the SERVICE layer (BE-2) so the wire type doesn't need a
+    schema migration if the set widens later."""
+
+    bank_account: str
+    settlement_amount: Decimal
+    transaction_date: date
+    transaction_time: time
+    currency: str
+    reference_no: str | None = None
+
+
+class TransactionDetailDTO(BaseModel):
+    """Response DTO for both the POST (201) and GET (200) transaction-detail
+    routes (proposal 017 §4.1). settlement_amount is float only at this DTO
+    boundary -- Decimal end-to-end in service/repository."""
+
+    id: uuid.UUID
+    allotment_id: uuid.UUID
+    bank_account: str
+    settlement_amount: float
+    transaction_date: date
+    transaction_time: time
+    currency: str
+    reference_no: str | None
+    filed_by: str
+    filed_at: datetime
 
 
 class SubscriptionDTO(BaseModel):

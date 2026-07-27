@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -20,6 +20,7 @@ from app.models.onboarding import (
     DocStatus,
     OnboardingDocument,
     OnboardingStatus,
+    TransactionDetail,
 )
 from app.models.pc import ClientSubscription, Model
 from app.models.post_trade_allocation import ClientPortfolio
@@ -447,6 +448,40 @@ class OnboardingRepository:
 
     def get_allotment(self, allotment_id: uuid.UUID) -> ClientAllotmentRedemption | None:
         return self.db.get(ClientAllotmentRedemption, allotment_id)
+
+    # ---- mutate/read: transaction details (proposal 017, BE-2) -------------
+    def create_transaction_detail(
+        self,
+        *,
+        allotment_id: uuid.UUID,
+        bank_account: str,
+        settlement_amount: Decimal,
+        transaction_date: date,
+        transaction_time: time,
+        currency: str,
+        reference_no: str | None,
+        filed_by: str,
+    ) -> TransactionDetail:
+        detail = TransactionDetail(
+            id=uuid.uuid4(),
+            allotment_id=allotment_id,
+            bank_account=bank_account,
+            settlement_amount=settlement_amount,
+            transaction_date=transaction_date,
+            transaction_time=transaction_time,
+            currency=currency,
+            reference_no=reference_no,
+            filed_by=filed_by,
+        )
+        self.db.add(detail)
+        return detail
+
+    def get_transaction_detail(self, allotment_id: uuid.UUID) -> TransactionDetail | None:
+        return (
+            self.db.query(TransactionDetail)
+            .filter(TransactionDetail.allotment_id == allotment_id)
+            .one_or_none()
+        )
 
     def list_all_subscriptions(self) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
         """014 D (BE-9): every (client profile, subscription, model) row,

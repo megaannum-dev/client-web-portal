@@ -28,6 +28,8 @@ from app.libs.onboarding.schemas import (
     SubmitAllotmentReq,
     SubmitRedemptionReq,
     SubscriptionDTO,
+    TransactionDetailDTO,
+    TransactionDetailRequest,
     VerdictReq,
 )
 from app.libs.onboarding.service import OnboardingService
@@ -219,6 +221,32 @@ def submit_redemption(
     _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
 ) -> AllotRdmptDTO:
     return svc.submit_redemption(req)
+
+
+@router.post(
+    "/rm/allotments/{allotment_id}/transaction-detail",
+    response_model=TransactionDetailDTO,
+    status_code=201,
+)
+def file_transaction_detail(
+    allotment_id: uuid.UUID,
+    req: TransactionDetailRequest,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> TransactionDetailDTO:
+    return svc.file_transaction_detail(allotment_id, req, filed_by=user.firebase_uid)
+
+
+@router.get(
+    "/rm/allotments/{allotment_id}/transaction-detail",
+    response_model=TransactionDetailDTO,
+)
+def get_transaction_detail(
+    allotment_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> TransactionDetailDTO:
+    return svc.get_transaction_detail(allotment_id)
 
 
 # ---- Compliance ---------------------------------------------------------
