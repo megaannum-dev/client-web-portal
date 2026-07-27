@@ -47,6 +47,7 @@ from app.models.onboarding import (
     OnboardingDocument,
     OnboardingKind,
     OnboardingStatus,
+    TransactionDetail,
 )
 from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
@@ -62,6 +63,19 @@ ONBOARDING_SETTLEMENT_DAYS = max(0, int(os.getenv("ONBOARDING_SETTLEMENT_DAYS", 
 # BE-3 (D-2): redemptions strictly above this amount require Compliance
 # approval in addition to PC's.
 _REDEMPTION_CO_THRESHOLD = Decimal("300000")
+
+# 017 BE-2: fixed currency set transaction details may settle in -- kept off
+# the request DTO (plain `str`, see schemas.py) so this list can widen later
+# without a wire-schema migration.
+_VALID_CURRENCIES = {"USD", "CHF", "AUD", "GBP", "EUR", "CAD", "HKD"}
+
+# 017 BE-2: per-kind status a row must be in before RM can file settlement
+# details -- allotments are filed once PC has acknowledged them, redemptions
+# once fully approved.
+_SETTLEMENT_ELIGIBLE_STATUS = {
+    AllotRdmpKind.ALLOTMENT: AllotRdmpStatus.ACKNOWLEDGED,
+    AllotRdmpKind.REDEMPTION: AllotRdmpStatus.APPROVED,
+}
 
 
 class OnboardingService:
@@ -449,16 +463,50 @@ class OnboardingService:
             raise
         return self._allotment_to_dto(allotment)
 
-    # ponytail: BE-1 placeholder only -- these two exist solely so router.py's
-    # svc.file_transaction_detail(...)/svc.get_transaction_detail(...) calls
-    # (pinned verbatim, impl doc 017-...-be.md §6 BE-1) type-check under mypy.
-    # BE-2/BE-3 replace these bodies with the real filing/retrieval logic
-    # (impl doc §6 BE-2/BE-3) -- do not build on top of this stub.
+    # ---- RM: transaction-detail filing (proposal 017, BE-2) ----------------
     def file_transaction_detail(
         self, allotment_id: uuid.UUID, req: TransactionDetailRequest, *, filed_by: str
     ) -> TransactionDetailDTO:
-        raise NotImplementedError("BE-2: transaction-detail filing not yet implemented")
+        row = self.repo.get_allotment(allotment_id)
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment/redemption")
+        if row.status != _SETTLEMENT_ELIGIBLE_STATUS[row.kind]:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Transaction details can only be filed for a confirmed allotment "
+                "or an approved redemption",
+            )
+        if self.repo.get_transaction_detail(allotment_id) is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Transaction details already filed")
+        if req.currency not in _VALID_CURRENCIES:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unsupported currency")
+        if req.settlement_amount <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Settlement amount must be positive"
+            )
 
+        try:
+            detail = self.repo.create_transaction_detail(
+                allotment_id=allotment_id,
+                bank_account=req.bank_account,
+                settlement_amount=req.settlement_amount,
+                transaction_date=req.transaction_date,
+                transaction_time=req.transaction_time,
+                currency=req.currency,
+                reference_no=req.reference_no,
+                filed_by=filed_by,
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return self._transaction_detail_to_dto(detail)
+
+    # ponytail: BE-1 placeholder only -- exists solely so router.py's
+    # svc.get_transaction_detail(...) call (pinned verbatim, impl doc
+    # 017-...-be.md §6 BE-1) type-checks under mypy. BE-3 replaces this body
+    # with the real retrieval logic (impl doc §6 BE-3) -- do not build on top
+    # of this stub.
     def get_transaction_detail(self, allotment_id: uuid.UUID) -> TransactionDetailDTO:
         raise NotImplementedError("BE-3: transaction-detail retrieval not yet implemented")
 
@@ -818,4 +866,18 @@ class OnboardingService:
             decided_by=allotment.decided_by,
             decided_at=allotment.decided_at,
             reject_reason=allotment.reject_reason,
+        )
+
+    def _transaction_detail_to_dto(self, detail: TransactionDetail) -> TransactionDetailDTO:
+        return TransactionDetailDTO(
+            id=detail.id,
+            allotment_id=detail.allotment_id,
+            bank_account=detail.bank_account,
+            settlement_amount=float(detail.settlement_amount),
+            transaction_date=detail.transaction_date,
+            transaction_time=detail.transaction_time,
+            currency=detail.currency,
+            reference_no=detail.reference_no,
+            filed_by=detail.filed_by,
+            filed_at=detail.filed_at,
         )
