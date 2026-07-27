@@ -7,11 +7,6 @@
 
    Records the settlement details for one confirmed allotment / approved
    redemption row in the Model Subscription transaction history.
-
-   ponytail: no settlement-details persistence endpoint exists yet, so
-   the caller (SubscriptionAccordion) keeps "filled" state client-side
-   only — it resets on reload. Upgrade path: a PATCH endpoint keyed by
-   the transaction id (already threaded through TxnRow's 11th element).
    ============================================================ */
 
 import { useState, type ReactNode } from "react";
