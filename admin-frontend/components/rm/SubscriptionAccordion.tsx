@@ -6,23 +6,34 @@ import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLi
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { statusToChip } from "@/lib/rm/subscriptions";
-import type { AllotRdmpStatus } from "@/lib/onboarding/types";
+import type { AllotRdmpStatus, TransactionDetailDTO } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
-import { TransactionDetailModal, type SettlementDetails } from "@/components/rm/TransactionDetailModal";
+import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
+import { fileTransactionDetail, getTransactionDetail } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type OpenSubscriptionModal = (opts: {
   mode: "add-allotment" | "redemption";
   context: SubscriptionModalContext;
 }) => void;
 
-/** A row the user clicked to file settlement details for. */
-interface ActiveTxn {
+/** A row the user clicked to file/view transaction details for — bubbled up
+ *  from TxnTable through ModelAccordionItem (which has `client`/`row` in
+ *  closure) up to SubscriptionAccordion, which decides edit-vs-view mode. */
+interface TxnClick {
   id: string;
   type: "Allotment" | "Redemption";
   clientName: string;
   modelName: string;
   rawAmount: string;
+  clientId: string;
+  hasTransactionDetail: boolean;
+}
+
+/** SubscriptionAccordion's own state for the currently-open modal — same
+ *  fields as TxnClick minus the raw flag, plus the resolved mode. */
+interface ActiveTxn extends Omit<TxnClick, "hasTransactionDetail"> {
+  mode: "edit" | "view";
 }
 
 const TXN_COLS = ["Type", "Date", "IB Account", "Ccy", "Cash Amt", "Model ×", "Notional", "Expected Cash In / Out", "Status"];
@@ -44,10 +55,9 @@ function FeePill({ label, accent }: { label: string; accent?: boolean }) {
 }
 
 function TxnTable({
-  rows, filled, onFileDetails,
+  rows, onFileDetails,
 }: {
   rows: TxnRow[];
-  filled: Set<string>;
   onFileDetails: (row: TxnRow) => void;
 }) {
   return (
@@ -80,7 +90,9 @@ function TxnTable({
             // matches the prototype's `r[9] !== "Confirmed"` gate exactly,
             // just expressed against the real AllotRdmpStatus enum.
             const eligible = !isNet && txnId !== undefined && status !== "" && statusToChip(status as AllotRdmpStatus).tone === "active";
-            const done = eligible && filled.has(txnId!);
+            // FE-5: "filled" is derived straight from has_transaction_detail
+            // (the 12th TxnRow element), not from any client-side cache.
+            const done = eligible && !!r[11];
             // r[7]/r[8] are the original "Expected Cash In" / "Expected Redemption"
             // fields — only one is ever populated per row (the other is "—"),
             // so the merged column just shows whichever one has a value.
@@ -139,7 +151,6 @@ function ModelAccordionItem({
   open,
   onToggle,
   onOpenModal,
-  filled,
   onFileDetails,
 }: {
   client: SubClient;
@@ -147,8 +158,7 @@ function ModelAccordionItem({
   open: boolean;
   onToggle: () => void;
   onOpenModal: OpenSubscriptionModal;
-  filled: Set<string>;
-  onFileDetails: (txn: ActiveTxn) => void;
+  onFileDetails: (txn: TxnClick) => void;
 }) {
   const context: SubscriptionModalContext = {
     clientName: client.name,
@@ -197,13 +207,14 @@ function ModelAccordionItem({
           </div>
           <TxnTable
             rows={model.rows}
-            filled={filled}
             onFileDetails={(row) => onFileDetails({
               id: row[10]!,
               type: row[0] as "Allotment" | "Redemption",
               clientName: client.name,
               modelName: model.name,
               rawAmount: (row[4] || "").replace(/[()]/g, "").trim(),
+              clientId: client.id,
+              hasTransactionDetail: !!row[11],
             })}
           />
           <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
@@ -222,7 +233,6 @@ function ClientAccordionItem({
   onToggle,
   onOpenModal,
   initialOpenModelKey,
-  filled,
   onFileDetails,
 }: {
   client: SubClient;
@@ -230,8 +240,7 @@ function ClientAccordionItem({
   onToggle: () => void;
   onOpenModal: OpenSubscriptionModal;
   initialOpenModelKey?: string;
-  filled: Set<string>;
-  onFileDetails: (txn: ActiveTxn) => void;
+  onFileDetails: (txn: TxnClick) => void;
 }) {
   const [openModels, setOpenModels] = useState<Record<string, boolean>>(() =>
     initialOpenModelKey ? { [initialOpenModelKey]: true } : {},
@@ -276,7 +285,6 @@ function ClientAccordionItem({
                 open={!!openModels[key]}
                 onToggle={() => toggleModel(key)}
                 onOpenModal={onOpenModal}
-                filled={filled}
                 onFileDetails={onFileDetails}
               />
             );
@@ -293,24 +301,45 @@ export function SubscriptionAccordion({
   onClientOpen,
   initialOpenClient,
   initialOpenModelKey,
+  onTransactionDetailFiled,
 }: {
   clients: SubClient[];                          // NEW — live data, was a direct mock import
   onOpenModal: OpenSubscriptionModal;
   onClientOpen?: (clientId: string) => void;      // NEW
   initialOpenClient?: string;
   initialOpenModelKey?: string;
+  onTransactionDetailFiled?: (clientId: string) => void;   // NEW — invalidates the client's ledger after a successful file
 }) {
   const [openClient, setOpenClient] = useState<string | null>(initialOpenClient ?? null);
-  // ponytail: no settlement-details persistence endpoint exists yet — filled
-  // ids and their entered details live here only, and reset on reload. See
-  // TransactionDetailModal.tsx's header comment for the upgrade path.
-  const [filled, setFilled] = useState<Record<string, SettlementDetails>>({});
   const [activeTxn, setActiveTxn] = useState<ActiveTxn | null>(null);
+  const [viewDetails, setViewDetails] = useState<TransactionDetailDTO | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const toggle = (id: string) => {
     const next = openClient === id ? null : id;
     setOpenClient(next);
     if (next) onClientOpen?.(next);   // fire on open, not on close
   };
+
+  const handleFileDetails = (txn: TxnClick) => {
+    const mode: "edit" | "view" = txn.hasTransactionDetail ? "view" : "edit";
+    setActiveTxn({
+      id: txn.id, type: txn.type, clientName: txn.clientName, modelName: txn.modelName,
+      rawAmount: txn.rawAmount, clientId: txn.clientId, mode,
+    });
+    if (mode === "view") {
+      setViewDetails(null);
+      setViewLoading(true);
+      getTransactionDetail(txn.id).then((r) => {
+        setViewLoading(false);
+        if (r.success) setViewDetails(r.data);
+        // on failure, viewDetails stays null — modal shows an empty read-only
+        // panel rather than a fabricated error affordance; acceptable since a
+        // 404 here means the row's has_transaction_detail flag was stale
+        // (rare, self-corrects on the next data refetch).
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {clients.map((client) => (
@@ -321,8 +350,7 @@ export function SubscriptionAccordion({
           onToggle={() => toggle(client.id)}
           onOpenModal={onOpenModal}
           initialOpenModelKey={client.id === openClient ? initialOpenModelKey : undefined}
-          filled={new Set(Object.keys(filled))}
-          onFileDetails={setActiveTxn}
+          onFileDetails={handleFileDetails}
         />
       ))}
       {activeTxn && (
@@ -331,10 +359,28 @@ export function SubscriptionAccordion({
           clientName={activeTxn.clientName}
           modelName={activeTxn.modelName}
           rawAmount={activeTxn.rawAmount}
+          mode={activeTxn.mode}
+          details={viewDetails}
+          loading={viewLoading}
           onClose={() => setActiveTxn(null)}
-          onSave={(details) => {
-            setFilled((f) => ({ ...f, [activeTxn.id]: details }));
-            setActiveTxn(null);
+          onSave={async (details) => {
+            const r = await fileTransactionDetail(activeTxn.id, {
+              bank_account: details.bankAccount,
+              settlement_amount: parseFloat(details.amount.replace(/,/g, "")) || 0,
+              transaction_date: details.date,
+              transaction_time: details.time,
+              currency: details.ccy,
+              reference_no: details.ref || null,
+            });
+            if (r.success) {
+              setActiveTxn(null);
+              // Refresh this client's ledger so has_transaction_detail flips true
+              // on the row — reuses useSubscriptions().invalidateClientAllotments
+              // (016), threaded down from page.tsx.
+              onTransactionDetailFiled?.(activeTxn.clientId);
+            }
+            // on failure, the modal stays open — matches SubscriptionFormModal's
+            // (016) existing "never close on a failed submit" convention.
           }}
         />
       )}

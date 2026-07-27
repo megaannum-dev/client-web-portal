@@ -49,7 +49,7 @@ function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
   // `Number(dto.model_size ?? 0)` for the same coercion) -- Number() first,
   // or toLocaleString()/template interpolation just echoes the raw string.
   const amt = Number(sub.amount).toLocaleString("en-US");
-  return ["Net", "", "", "", amt, `${Number(sub.units)}×`, amt, "", "", ""]; // 10th = ""
+  return ["Net", "", "", "", amt, `${Number(sub.units)}×`, amt, "", "", "", undefined, undefined]; // 10th = ""
 }
 
 /** One ledger entry -> one TxnRow. Cash Amt and Notional are the SAME number
@@ -79,6 +79,7 @@ export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null):
     isRedemption ? expected : "—",   // Expected Redemption
     dto.status,                      // NEW 10th element
     dto.id,                          // NEW 11th element — for settlement-detail filing
+    dto.has_transaction_detail,      // NEW 12th element
   ];
 }
 

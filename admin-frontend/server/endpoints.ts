@@ -40,6 +40,7 @@ export const ENDPOINTS = {
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
     SUBMIT_REDEMPTION: `${RM}/redemption`,
+    TRANSACTION_DETAIL: (allotmentId: string) => `${RM}/allotments/${allotmentId}/transaction-detail`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,

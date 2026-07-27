@@ -223,6 +223,8 @@ export type TxnRow = [
   AllotRdmpStatus | "",   // NEW 10th element — "" for Net rows and any legacy mock row
   string?,                // NEW 11th element — transaction id, for settlement-detail filing;
                            // absent for Net rows and mock/legacy rows (nothing to file against)
+  boolean?,               // NEW 12th element — has_transaction_detail; absent/undefined for
+                          // Net rows and any legacy mock row (nothing to file against)
 ];
 export type SubModel = {
   name: string;
