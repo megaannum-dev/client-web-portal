@@ -86,6 +86,7 @@ function ModelSubscriptionContent() {
         onOpenModal={setModal}
         initialOpenClient={deepLink?.openClient}
         initialOpenModelKey={deepLink?.openModelKey}
+        onTransactionDetailFiled={invalidateClientAllotments}
       />
       {modal && (
         <SubscriptionFormModal
