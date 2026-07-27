@@ -179,6 +179,9 @@ class AllotRdmptDTO(BaseModel):
     decided_by: str | None = None
     decided_at: datetime | None = None
     reject_reason: str | None = None
+    # --- widened 2026-07-27 (proposal 017, BE-4): True when a
+    # transaction_details row exists for this allotment/redemption.
+    has_transaction_detail: bool = False
 
 
 class TransactionDetailRequest(BaseModel):

@@ -868,6 +868,7 @@ class OnboardingService:
             decided_by=allotment.decided_by,
             decided_at=allotment.decided_at,
             reject_reason=allotment.reject_reason,
+            has_transaction_detail=self.repo.get_transaction_detail(allotment.id) is not None,
         )
 
     def _transaction_detail_to_dto(self, detail: TransactionDetail) -> TransactionDetailDTO:
