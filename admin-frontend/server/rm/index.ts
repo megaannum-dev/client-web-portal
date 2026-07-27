@@ -3,7 +3,7 @@
 import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
 import type { ClientListDTO, ClientListItemDTO } from "@/lib/rm/clients";
-import type { AllotRdmptDTO, ClientSubscriptionsDTO, SubmitAllotmentReq, SubmitRedemptionReq } from "@/lib/onboarding/types";
+import type { AllotRdmptDTO, ClientSubscriptionsDTO, SubmitAllotmentReq, SubmitRedemptionReq, TransactionDetailDTO, TransactionDetailRequest } from "@/lib/onboarding/types";
 
 export type { APIResult };
 
@@ -36,4 +36,20 @@ export async function submitRedemption(req: SubmitRedemptionReq): Promise<APIRes
     method: "POST",
     body: JSON.stringify(req),
   });
+}
+
+export async function fileTransactionDetail(
+  allotmentId: string,
+  req: TransactionDetailRequest,
+): Promise<APIResult<TransactionDetailDTO>> {
+  return apiClient<TransactionDetailDTO>(ENDPOINTS.RM.TRANSACTION_DETAIL(allotmentId), {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function getTransactionDetail(
+  allotmentId: string,
+): Promise<APIResult<TransactionDetailDTO>> {
+  return apiClient<TransactionDetailDTO>(ENDPOINTS.RM.TRANSACTION_DETAIL(allotmentId));
 }
