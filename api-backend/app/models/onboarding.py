@@ -1,11 +1,12 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     UniqueConstraint,
     Uuid,
     func,
@@ -278,6 +280,38 @@ class ClientAllotmentRedemption(Base):
     __table_args__ = (
         Index("ix_client_allotment_redemptions_status", "status"),
         Index("ix_client_allotment_redemptions_kind", "kind"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# DB-1 (proposal 017) — transaction_details
+# ---------------------------------------------------------------------------
+
+
+class TransactionDetail(Base):
+    __tablename__ = "transaction_details"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    # 1:1 with client_allotment_redemptions — UNIQUE is load-bearing (file-once,
+    # audit-immutable). Mirrors the FK+unique convention already used for
+    # ClientAllotmentRedemption.source_onboarding_id (this same file, above).
+    allotment_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("client_allotment_redemptions.id"),
+        nullable=False,
+        unique=True,
+    )
+    bank_account: Mapped[str] = mapped_column(String(64), nullable=False)
+    settlement_amount: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
+    transaction_date: Mapped[date] = mapped_column(Date, nullable=False)
+    transaction_time: Mapped[time] = mapped_column(Time, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)  # ISO 4217
+    reference_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    filed_by: Mapped[str] = mapped_column(String(128), nullable=False)  # firebase_uid of the RM
+    filed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
