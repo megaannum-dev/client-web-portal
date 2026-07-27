@@ -18,6 +18,7 @@ import { useState, type ReactNode } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Check, Info } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
+import type { TransactionDetailDTO } from "@/lib/onboarding/types";
 
 export interface SettlementDetails {
   bankAccount: string;
@@ -31,6 +32,8 @@ export interface SettlementDetails {
 const CURRENCIES = ["USD", "CHF", "AUD", "GBP", "EUR", "CAD", "HKD"];
 const fieldClass =
   "w-full rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] font-medium leading-5 text-on-surface outline-none focus:border-primary";
+const viewValueClass =
+  "w-full rounded border border-outline-variant bg-surface-low px-3.5 py-2.5 text-[14px] font-medium leading-5 text-on-surface";
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
@@ -45,16 +48,20 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 export function TransactionDetailModal({
-  type, clientName, modelName, rawAmount, onClose, onSave,
+  type, clientName, modelName, rawAmount, mode = "edit", details, loading = false, onClose, onSave,
 }: {
   type: "Allotment" | "Redemption";
   clientName: string;
   modelName: string;
   rawAmount: string;
+  mode?: "edit" | "view";
+  details?: TransactionDetailDTO | null;
+  loading?: boolean;
   onClose: () => void;
   onSave: (details: SettlementDetails) => void;
 }) {
   const isRedemption = type === "Redemption";
+  const isView = mode === "view";
   const [bankAccount, setBankAccount] = useState("");
   const [amount, setAmount] = useState(rawAmount);
   const [date, setDate] = useState("");
@@ -82,40 +89,64 @@ export function TransactionDetailModal({
       width={480}
       centered
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>
-        </>
+        isView ? (
+          <Button variant="secondary" onClick={onClose} className="ml-auto">Close</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>
+          </>
+        )
       }
     >
       <div className="mb-3.5 flex items-center gap-2 rounded-md border border-[#f0dcc6] bg-[#fff8f0] px-3 py-2">
         <Info size={14} strokeWidth={1.75} className="flex-none text-[#b9741f]" />
         <span className="text-[12px] font-semibold text-[#8a6118]">
-          Record the settlement details for this {type.toLowerCase()} to complete the follow-up.
+          {isView
+            ? `Transaction details recorded${details ? ` on ${details.filed_at.slice(0, 10)}` : ""}.`
+            : `Record the settlement details for this ${type.toLowerCase()} to complete the follow-up.`}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Bank Account No." required>
-          <input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="e.g. HSBC-4471-001" className={fieldClass} />
-        </Field>
-        <Field label="Settlement Amount" required>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 180,000" className={fieldClass} />
-        </Field>
-        <Field label="Transaction Date" required>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={fieldClass} />
-        </Field>
-        <Field label="Transaction Time" required>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={fieldClass} />
-        </Field>
-        <Field label="Currency" required>
-          <select value={ccy} onChange={(e) => setCcy(e.target.value)} className={`${fieldClass} cursor-pointer`}>
-            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </Field>
-        <Field label="Reference No.">
-          <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. TXN-20260301-001" className={fieldClass} />
-        </Field>
-      </div>
+      {isView && loading ? (
+        <div className="py-6 text-center text-[13px] text-secondary">Loading transaction details…</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Bank Account No." required={!isView}>
+            {isView
+              ? <div className={viewValueClass}>{details?.bank_account}</div>
+              : <input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="e.g. HSBC-4471-001" className={fieldClass} />}
+          </Field>
+          <Field label="Settlement Amount" required={!isView}>
+            {isView
+              ? <div className={viewValueClass}>{details?.settlement_amount.toLocaleString("en-US")}</div>
+              : <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 180,000" className={fieldClass} />}
+          </Field>
+          <Field label="Transaction Date" required={!isView}>
+            {isView
+              ? <div className={viewValueClass}>{details?.transaction_date}</div>
+              : <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={fieldClass} />}
+          </Field>
+          <Field label="Transaction Time" required={!isView}>
+            {isView
+              ? <div className={viewValueClass}>{details?.transaction_time}</div>
+              : <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={fieldClass} />}
+          </Field>
+          <Field label="Currency" required={!isView}>
+            {isView
+              ? <div className={viewValueClass}>{details?.currency}</div>
+              : (
+                <select value={ccy} onChange={(e) => setCcy(e.target.value)} className={`${fieldClass} cursor-pointer`}>
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              )}
+          </Field>
+          <Field label="Reference No.">
+            {isView
+              ? <div className={viewValueClass}>{details?.reference_no || "—"}</div>
+              : <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. TXN-20260301-001" className={fieldClass} />}
+          </Field>
+        </div>
+      )}
     </Modal>
   );
 }
