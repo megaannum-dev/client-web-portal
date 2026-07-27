@@ -502,13 +502,15 @@ class OnboardingService:
             raise
         return self._transaction_detail_to_dto(detail)
 
-    # ponytail: BE-1 placeholder only -- exists solely so router.py's
-    # svc.get_transaction_detail(...) call (pinned verbatim, impl doc
-    # 017-...-be.md §6 BE-1) type-checks under mypy. BE-3 replaces this body
-    # with the real retrieval logic (impl doc §6 BE-3) -- do not build on top
-    # of this stub.
+    # ---- RM: transaction-detail retrieval (proposal 017, BE-3) -------------
     def get_transaction_detail(self, allotment_id: uuid.UUID) -> TransactionDetailDTO:
-        raise NotImplementedError("BE-3: transaction-detail retrieval not yet implemented")
+        row = self.repo.get_allotment(allotment_id)
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment/redemption")
+        detail = self.repo.get_transaction_detail(allotment_id)
+        if detail is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No transaction details filed yet")
+        return self._transaction_detail_to_dto(detail)
 
     def _needs_co(self, amount: Decimal) -> bool:
         return amount > _REDEMPTION_CO_THRESHOLD
