@@ -94,6 +94,30 @@ export interface AllotRdmptDTO {
   decided_by: string | null;
   decided_at: string | null;
   reject_reason: string | null;
+  has_transaction_detail: boolean;      // widened 2026-07-24 (proposal 017, BE-4) — true when a transaction_details row exists
+}
+
+/* ---- Transaction Detail (settlement filing) — proposal 017 §4.1 --------- */
+export interface TransactionDetailRequest {
+  bank_account: string;
+  settlement_amount: number;       // Decimal-as-number
+  transaction_date: string;        // "YYYY-MM-DD"
+  transaction_time: string;        // "HH:MM" or "HH:MM:SS"
+  currency: string;                // one of USD | CHF | AUD | GBP | EUR | CAD | HKD
+  reference_no?: string | null;
+}
+
+export interface TransactionDetailDTO {
+  id: string;
+  allotment_id: string;
+  bank_account: string;
+  settlement_amount: number;
+  transaction_date: string;
+  transaction_time: string;
+  currency: string;
+  reference_no: string | null;
+  filed_by: string;
+  filed_at: string;
 }
 
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
