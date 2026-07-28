@@ -41,6 +41,9 @@ export const ENDPOINTS = {
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
     SUBMIT_REDEMPTION: `${RM}/redemption`,
     TRANSACTION_DETAIL: (allotmentId: string) => `${RM}/allotments/${allotmentId}/transaction-detail`,
+    TICKETS:        `${RM}/tickets`,
+    TICKET:         (ref: string) => `${RM}/tickets/${encodeURIComponent(ref)}`,
+    TICKET_STATUS:  (ref: string) => `${RM}/tickets/${encodeURIComponent(ref)}/status`,
   },
   MOBO: {
     PTA:      `${MOBO}/post-trade-allocation`,

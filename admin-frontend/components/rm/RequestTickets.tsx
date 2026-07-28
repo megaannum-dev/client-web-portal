@@ -25,7 +25,8 @@ import {
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { TICKET_QUEUE, SUB_CLIENTS, type RequestTicket } from "@/lib/mock/rm-data";
+import { SUB_CLIENTS, type RequestTicket } from "@/lib/mock/rm-data";
+import { useRmTickets } from "@/hooks/api/useRmTickets";
 
 /* ---- shared type meta (icon + tint per ticket type) ---------- */
 const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; fg: string }> = {
@@ -65,13 +66,15 @@ const RIGHT = new Set(["Amount"]);
 export function RequestTicketsInbox() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("All");
+  const { data } = useRmTickets();
+  const tickets = data ?? [];
 
-  const count = (f: Filter) => (f === "All" ? TICKET_QUEUE.length : TICKET_QUEUE.filter((t) => t.type === f).length);
-  const rows = filter === "All" ? TICKET_QUEUE : TICKET_QUEUE.filter((t) => t.type === filter);
+  const count = (f: Filter) => (f === "All" ? tickets.length : tickets.filter((t) => t.type === f).length);
+  const rows = filter === "All" ? tickets : tickets.filter((t) => t.type === filter);
 
-  const newCount = TICKET_QUEUE.filter((t) => t.status === "New").length;
-  const progCount = TICKET_QUEUE.filter((t) => t.status === "In Progress").length;
-  const closedCount = TICKET_QUEUE.filter((t) => isClosed(t.status)).length;
+  const newCount = tickets.filter((t) => t.status === "New").length;
+  const progCount = tickets.filter((t) => t.status === "In Progress").length;
+  const closedCount = tickets.filter((t) => isClosed(t.status)).length;
 
   const STATS: { label: string; value: number; sub: string; icon: LucideIcon }[] = [
     { label: "Needs action", value: newCount, sub: "new from clients", icon: Inbox },
