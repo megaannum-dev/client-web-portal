@@ -145,3 +145,12 @@ class ClientPortalRepository:
 
     def get_ticket_by_ref(self, ref: str) -> ClientTicket | None:
         return self.db.query(ClientTicket).filter(ClientTicket.reference == ref).one_or_none()
+
+    # ---------- Requests & tickets (BE-13) ----------
+    def list_for_client(self, user_id: uuid.UUID) -> list[ClientTicket]:
+        return (
+            self.db.query(ClientTicket)
+            .filter(ClientTicket.user_id == user_id)
+            .order_by(ClientTicket.created_at.desc())
+            .all()
+        )

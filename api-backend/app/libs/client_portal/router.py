@@ -186,6 +186,14 @@ def raise_ticket(
     return svc.create_ticket(user.id, req)
 
 
+@router.get("/client/requests", response_model=list[ClientRequestDTO])
+def list_requests(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> list[ClientRequestDTO]:
+    return svc.list_requests(user.id)
+
+
 @router.get("/rm/tickets", response_model=list[RmTicketDTO])
 def list_rm_tickets(
     svc: Annotated[ClientPortalService, Depends(_service)],

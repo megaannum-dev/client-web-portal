@@ -40,7 +40,12 @@ from app.libs.onboarding.service import (
     OnboardingService,
 )
 from app.libs.trade_models.storage import StoredFile, get_storage
-from app.models.onboarding import ClientOnboarding, ClientTicket, OnboardingDocument
+from app.models.onboarding import (
+    ClientAllotmentRedemption,
+    ClientOnboarding,
+    ClientTicket,
+    OnboardingDocument,
+)
 from app.models.onboarding import TicketStatus as DbTicketStatus
 from app.models.pc import Model, ModelStatus
 from app.models.users import AdminRole, ClientProfile, User
@@ -50,6 +55,18 @@ _SCOPES = {"legal", "statements"}
 
 _TERMINAL = {TicketStatus.CLOSED, TicketStatus.DECLINED}
 _FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
+
+# ---------- Requests & tickets (BE-13) ----------
+# Exhaustive over every AllotRdmpStatus member (6) -- a status added to that
+# enum without a matching entry here must KeyError at read time (fail loud).
+_ALLOT_STATUS_MAP: dict[str, TicketStatus] = {
+    "pending": TicketStatus.IN_PROGRESS,
+    "awaiting_pc": TicketStatus.IN_PROGRESS,
+    "awaiting_co": TicketStatus.IN_PROGRESS,
+    "acknowledged": TicketStatus.REPLIED,
+    "approved": TicketStatus.CLOSED,
+    "rejected": TicketStatus.DECLINED,
+}
 
 # ---------- KYC panel (BE-10) ----------
 # Same os.getenv convention as ONBOARDING_RENEWAL_LOOKAHEAD_DAYS (scheduler.py) /
@@ -381,6 +398,27 @@ class ClientPortalService:
             amount=float(t.amount) if t.amount is not None else None,
             created_at=t.created_at,
             status=TicketStatus(t.status),
+        )
+
+    def list_requests(self, user_id: uuid.UUID) -> list[ClientRequestDTO]:
+        tickets = self.repo.list_for_client(user_id)
+        allotments = self.onboarding_repo.list_allotments_for_client(user_id)
+        rows = [self._ticket_to_request_dto(t) for t in tickets]
+        rows += [self._allotment_to_request_dto(a) for a in allotments]
+        return sorted(rows, key=lambda r: r.created_at, reverse=True)
+
+    def _allotment_to_request_dto(self, a: ClientAllotmentRedemption) -> ClientRequestDTO:
+        model = self.db.get(Model, a.model_id)
+        assert model is not None
+        return ClientRequestDTO(
+            source="allotment",
+            ref=a.reference,
+            kind=TicketKind.ALLOTMENT if a.kind.value == "allotment" else TicketKind.REDEMPTION,
+            subject=model.name,
+            model_name=model.name,
+            amount=float(a.multiplier * (model.model_size or Decimal("0"))),
+            created_at=a.created_at,
+            status=_ALLOT_STATUS_MAP[a.status.value],
         )
 
     # ---------- KYC panel (BE-10) ----------
