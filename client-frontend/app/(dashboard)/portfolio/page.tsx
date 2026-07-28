@@ -303,7 +303,7 @@ export default function PortfolioPage() {
                 {portfolio ? formatMoney(portfolio.change_amount) : "—"}
                 {" "}
                 <span className="font-normal text-secondary">
-                  {portfolio?.change_pct != null ? `(${portfolio.change_pct >= 0 ? "+" : ""}${portfolio.change_pct.toFixed(1)}%)` : "—"}
+                  {portfolio?.change_pct != null ? `(${portfolio.change_pct >= 0 ? "+" : ""}${(portfolio.change_pct * 100).toFixed(1)}%)` : "—"}
                 </span>
               </span>
             }
