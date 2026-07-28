@@ -10,7 +10,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
-from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
+from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
     AllotRdmpStatus,
@@ -301,6 +301,13 @@ class OnboardingRepository:
         doc.reviewed_by = reviewed_by
         doc.reviewed_at = datetime.utcnow()
         doc.issue_note = note
+        if status == DocStatus.VERIFIED:
+            spec = get_doc_spec(doc.doc_type)
+            if spec.periodic_review:
+                assert spec.review_interval_days is not None  # DocSpec invariant, not runtime input
+                doc.expires_at = doc.reviewed_at + timedelta(days=spec.review_interval_days)
+        # REJECTED (or any other non-VERIFIED verdict): expires_at is left untouched —
+        # a rejection is not a review clock (Backend C-6).
 
     def reset_for_reupload(self, doc: OnboardingDocument) -> None:
         """Renewal-scheduler path (BE-7): clears a periodic-review doc back to
