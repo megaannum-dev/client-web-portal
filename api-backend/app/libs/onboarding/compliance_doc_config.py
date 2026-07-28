@@ -27,7 +27,8 @@ REQUIRED_DOCS: tuple[DocSpec, ...] = (
         key="investment_policy_statement",
         label="Investment Policy Statement",
         required=True,
-        periodic_review=False,
+        periodic_review=True,
+        review_interval_days=365,
     ),
     DocSpec(
         key="fact_finder_questionnaire",
