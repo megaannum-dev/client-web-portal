@@ -415,6 +415,4 @@ class ClientTicket(Base):
         onupdate=func.now(),
     )
 
-    __table_args__ = (
-        Index("ix_client_tickets_rm_status", "assigned_rm_uid", "status"),
-    )
+    __table_args__ = (Index("ix_client_tickets_rm_status", "assigned_rm_uid", "status"),)
