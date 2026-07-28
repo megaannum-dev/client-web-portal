@@ -21,7 +21,6 @@ import {
 import {
   TrendingUp,
   TrendingDown,
-  CheckCircle2,
   Shield,
   ChevronLeft,
   ChevronRight,
@@ -33,10 +32,11 @@ import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
 import { useSubscriptions } from "@/lib/hooks/useSubscriptions";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { usePortfolioHistory } from "@/lib/hooks/usePortfolioHistory";
 import {
   MOCK_ALLOTMENT_REQUESTS,
   MOCK_RECOMMENDED_MODELS,
-  MOCK_PORTFOLIO_STATS,
   type AllotmentRequest,
 } from "@/lib/mock/data";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -46,38 +46,13 @@ import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const BAR_DATA = [
-  { name: "Model A", value: 18.4 },
-  { name: "Model B", value: -6.2 },
-  { name: "Model C", value: 9.7  },
-  { name: "Model D", value: 14.2 },
-  { name: "YTD Avg", value: 12.4 },
-];
-const BAR_COLORS = ["#06b6d4", "#6b7280", "#3b82f6", "#a855f7", "#f97316"];
+// Color cycle for per-model chart series; Cash and the synthetic "Total" bar/line get a fixed color.
+const PALETTE = ["#06b6d4", "#6b7280", "#3b82f6", "#a855f7", "#f97316", "#10b981", "#ef4444", "#eab308"];
+const CASH_COLOR = "#d4b8a8";
+const TOTAL_COLOR = "#f97316";
 
-const LINE_DATA = [
-  { month: "Jun", modelA: 100, modelB: 98,  modelC: 100, modelD: 100, ytdAvg: 99.5   },
-  { month: "Jul", modelA: 104, modelB: 97,  modelC: 102, modelD: 105, ytdAvg: 102.0  },
-  { month: "Aug", modelA: 109, modelB: 95,  modelC: 103, modelD: 108, ytdAvg: 103.75 },
-  { month: "Sep", modelA: 114, modelB: 94,  modelC: 105, modelD: 112, ytdAvg: 106.25 },
-  { month: "Oct", modelA: 119, modelB: 93,  modelC: 107, modelD: 116, ytdAvg: 108.75 },
-  { month: "Nov", modelA: 124, modelB: 92,  modelC: 110, modelD: 121, ytdAvg: 111.75 },
-];
-const LINE_SERIES = [
-  { key: "modelA", label: "Model A", color: "#06b6d4" },
-  { key: "modelB", label: "Model B", color: "#6b7280" },
-  { key: "modelC", label: "Model C", color: "#3b82f6" },
-  { key: "modelD", label: "Model D", color: "#a855f7" },
-];
-const YTD_AVG_LINE = { key: "ytdAvg", label: "YTD Avg", color: "#f97316" };
-
-const DONUT_DATA = [
-  { name: "Model A", value: 774072, color: "#f97316", display: "$774,072" },
-  { name: "Model B", value: 466428, color: "#6b7280", display: "$466,428" },
-  { name: "Model C", value: 120000, color: "#3b82f6", display: "$120,000" },
-  { name: "Model D", value: 95000,  color: "#a855f7", display: "$95,000"  },
-  { name: "Cash",    value: 85200,  color: "#d4b8a8", display: "$85,200"  },
-];
+const currencyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+function formatMoney(n: number) { return currencyFmt.format(n); }
 
 const BENCHMARK_VALUE = 0;
 const BENCHMARK_COLOR = "#585f6c";
@@ -104,8 +79,6 @@ const RECOMMENDED_COL_KEYS = [
   "portfolio.recommended_columns.market_material",
 ];
 
-const YTD_AVG_INDEX = BAR_DATA.findIndex((d) => d.name === "YTD Avg");
-
 const PAGE_SIZE = 7;
 
 // ── Chart helpers ─────────────────────────────────────────────────────────────
@@ -119,55 +92,49 @@ const TOOLTIP_STYLE = {
   boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
 };
 
-function YtdAvgBarLabel(props: { x?: number; y?: number; width?: number; value?: number; index?: number }) {
-  const { x = 0, y = 0, width = 0, value = 0, index } = props;
-  if (index !== YTD_AVG_INDEX) return <g />;
-  return (
-    <g>
-      <rect x={x + width / 2 - 28} y={y - 28} width={56} height={20} rx={4} fill="#f97316" />
-      <text x={x + width / 2} y={y - 14} fill="#fff" textAnchor="middle" fontSize={11} fontWeight={700}>
-        +{value}% avg
-      </text>
-    </g>
-  );
+// Highlight box drawn over the synthetic "Total" bar — index of that bar varies with
+// how many models the client holds, so the factory closes over the current index.
+function makeTotalBarLabel(totalIndex: number) {
+  return function TotalBarLabel(props: { x?: number; y?: number; width?: number; value?: number; index?: number }) {
+    const { x = 0, y = 0, width = 0, value = 0, index } = props;
+    if (index !== totalIndex) return <g />;
+    const text = `${value >= 0 ? "+" : ""}${formatMoney(value)}`;
+    return (
+      <g>
+        <rect x={x + width / 2 - Math.max(30, text.length * 3.2)} y={y - 28} width={Math.max(60, text.length * 6.4)} height={20} rx={4} fill={TOTAL_COLOR} />
+        <text x={x + width / 2} y={y - 14} fill="#fff" textAnchor="middle" fontSize={11} fontWeight={700}>
+          {text}
+        </text>
+      </g>
+    );
+  };
 }
 
-function YtdAvgEndLabel(props: { x?: number; y?: number; index?: number }) {
-  const { x = 0, y = 0, index } = props;
-  if (index !== LINE_DATA.length - 1) return <g />;
-  const color = YTD_AVG_LINE.color;
-  return (
-    <g>
-      <rect x={x + 8} y={y - 12} width={60} height={20} rx={4} fill={color} />
-      <text x={x + 38} y={y + 2} fill="#fff" textAnchor="middle" fontSize={10} fontWeight={700} letterSpacing={0.5}>
-        YTD AVG
-      </text>
-    </g>
-  );
-}
+type LineTooltipEntry = { dataKey: string; value: number | string; color?: string };
 
-function LineTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  const allSeries = [...LINE_SERIES, YTD_AVG_LINE];
-  return (
-    <div style={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 12px", minWidth: 140 }}>
-      <p style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>{label}</p>
-      {payload.map((entry: any) => {
-        const isYtd = entry.dataKey === YTD_AVG_LINE.key;
-        const name = allSeries.find((s) => s.key === entry.dataKey)?.label ?? entry.dataKey;
-        const val = `${(Number(entry.value) - 100).toFixed(1)}%`;
-        return (
-          <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 3 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: entry.color, flexShrink: 0 }} />
-              <span style={{ fontWeight: isYtd ? 700 : 400, color: isYtd ? entry.color : "#374151" }}>{name}</span>
-            </span>
-            <span style={{ fontWeight: isYtd ? 700 : 600, color: isYtd ? entry.color : "#111827" }}>{val}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+function makeLineTooltip(seriesList: { key: string; color: string }[]) {
+  return function LineTooltip({ active, payload, label }: { active?: boolean; payload?: LineTooltipEntry[]; label?: string }) {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 12px", minWidth: 140 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>{label}</p>
+        {payload.map((entry) => {
+          const isTotal = entry.dataKey === "total";
+          const meta = seriesList.find((s) => s.key === entry.dataKey);
+          const name = isTotal ? "Total" : entry.dataKey;
+          return (
+            <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 3 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: meta?.color ?? entry.color, flexShrink: 0 }} />
+                <span style={{ fontWeight: isTotal ? 700 : 400, color: isTotal ? TOTAL_COLOR : "#374151" }}>{name}</span>
+              </span>
+              <span style={{ fontWeight: isTotal ? 700 : 600, color: isTotal ? TOTAL_COLOR : "#111827" }}>{formatMoney(Number(entry.value))}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -255,6 +222,32 @@ export default function PortfolioPage() {
   const { data: subscribedModels, loading: subsLoading } = useSubscriptions();
   const mask = (v: string) => (censored ? "********" : v);
 
+  // ── Charts + stat cards (FE-2) — derived once per render from usePortfolio/usePortfolioHistory ──
+  const { data: portfolio } = usePortfolio();
+  const { data: history }   = usePortfolioHistory(6);
+
+  const donutData = [
+    ...(portfolio?.positions ?? []).map((p, i) => ({ name: p.model_name, value: p.amount, color: PALETTE[i % PALETTE.length] })),
+    { name: "Cash", value: portfolio?.cash_deposit ?? 0, color: CASH_COLOR },
+  ];
+
+  const modelKeys = history.length ? Object.keys(history[history.length - 1].per_model) : [];
+  const lineData  = history.map((h) => ({ month: h.month, total: h.total, ...h.per_model }));
+  const lineSeries = modelKeys.map((k, i) => ({ key: k, color: PALETTE[i % PALETTE.length] }));
+  const LineTooltip = makeLineTooltip(lineSeries);
+
+  const barData = modelKeys.map((k) => ({
+    name: k,
+    value: history.length ? history[history.length - 1].per_model[k] - history[0].per_model[k] : 0,
+  }));
+  const totalBarValue = history.length ? history[history.length - 1].total - history[0].total : 0;
+  const barChartData = [...barData, { name: "Total", value: totalBarValue }];
+  const totalBarIndex = barChartData.length - 1;
+  const TotalBarLabel = makeTotalBarLabel(totalBarIndex);
+
+  const modelLimitTotal = (portfolio?.positions ?? []).reduce((sum, p) => (p.model_limit != null ? sum + p.model_limit : sum), 0);
+  const isPositiveChange = (portfolio?.change_amount ?? 0) >= 0;
+
   // ── Historical requests — search + pagination ──────────────────────────────
   const [search,      setSearch]      = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -307,23 +300,35 @@ export default function PortfolioPage() {
         <div className="grid grid-cols-4 gap-4">
           <StatCard
             label={t("portfolio.total_value")}
-            value={mask(MOCK_PORTFOLIO_STATS.totalValue)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><TrendingUp size={14} strokeWidth={2} />{MOCK_PORTFOLIO_STATS.ytdChange} <span className="font-normal text-secondary">{t("portfolio.vs_last_month")}</span></span>}
+            value={mask(portfolio ? formatMoney(portfolio.total_value) : "—")}
           />
           <StatCard
             label={t("portfolio.cash_balance")}
-            value={mask(MOCK_PORTFOLIO_STATS.cashBalance)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-warning"><TrendingDown size={14} strokeWidth={2} />-1.2% <span className="font-normal text-secondary">{t("portfolio.unallocated")}</span></span>}
+            value={mask(portfolio ? formatMoney(portfolio.cash_deposit) : "—")}
           />
           <StatCard
-            label={t("portfolio.ytd_returns")}
-            value={mask(MOCK_PORTFOLIO_STATS.ytdReturns)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><CheckCircle2 size={14} strokeWidth={2} />{t("portfolio.outperforming")} <span className="font-normal text-secondary">{t("portfolio.benchmark")}</span></span>}
+            label="Amount in Trade"
+            value={mask(portfolio ? formatMoney(portfolio.amount_in_trade) : "—")}
+            sub={
+              <span className={clsx("flex items-center gap-1.5 text-body-sm font-semibold", isPositiveChange ? "text-success" : "text-warning")}>
+                {isPositiveChange ? <TrendingUp size={14} strokeWidth={2} /> : <TrendingDown size={14} strokeWidth={2} />}
+                {portfolio ? formatMoney(portfolio.change_amount) : "—"}
+                {" "}
+                <span className="font-normal text-secondary">
+                  {portfolio?.change_pct != null ? `(${portfolio.change_pct >= 0 ? "+" : ""}${portfolio.change_pct.toFixed(1)}%)` : "—"}
+                </span>
+              </span>
+            }
           />
           <StatCard
-            label={t("portfolio.portfolio_health")}
-            value={t("portfolio.optimal")}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><Shield size={14} strokeWidth={2} />{t("portfolio.risk_profile_stable")}</span>}
+            label={t("portfolio.subscribed_models")}
+            value={portfolio ? String(portfolio.positions.length) : "—"}
+            sub={
+              <span className="flex items-center gap-1.5 text-body-sm font-semibold text-secondary">
+                <Shield size={14} strokeWidth={2} />
+                {portfolio ? formatMoney(modelLimitTotal) : "—"} <span className="font-normal text-secondary">{t("portfolio.subscribed_columns.model_limit")}</span>
+              </span>
+            }
           />
         </div>
       </div>
@@ -336,24 +341,25 @@ export default function PortfolioPage() {
           <div className="flex flex-col gap-4">
             <ChartCard title={t("portfolio.return_loss_performance")}>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={BAR_DATA} barCategoryGap="35%" margin={{ top: 36, right: 16, left: -20, bottom: 0 }}>
+                <BarChart data={barChartData} barCategoryGap="35%" margin={{ top: 36, right: 16, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ede8e8" vertical={false} />
                   <XAxis dataKey="name"
                     tick={({ x, y, payload, index }) => (
                       <text x={x} y={(typeof y === "number" ? y : Number(y)) + 12} textAnchor="middle"
-                        fontSize={11} fill={index === 4 ? "#f97316" : "#6b7280"} fontWeight={index === 4 ? 700 : 500}>
+                        fontSize={11} fill={index === totalBarIndex ? TOTAL_COLOR : "#6b7280"} fontWeight={index === totalBarIndex ? 700 : 500}>
                         {payload.value}
                       </text>
                     )}
                     axisLine={false} tickLine={false}
                   />
                   <YAxis hide />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${Number(v) > 0 ? "+" : ""}${Number(v)}%`, t("portfolio.return_tooltip")]} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${Number(v) > 0 ? "+" : ""}${formatMoney(Number(v))}`, t("portfolio.return_tooltip")]} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                   <ReferenceLine y={BENCHMARK_VALUE} stroke={BENCHMARK_COLOR} strokeWidth={2} strokeDasharray="6 3"
                     label={{ value: `${t("portfolio.benchmark")} ${BENCHMARK_VALUE}%`, position: "insideTopRight", fontSize: 10, fill: BENCHMARK_COLOR, fontWeight: 700 }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {BAR_DATA.map((_, i) => <Cell key={i} fill={BAR_COLORS[i]} opacity={i === 4 ? 1 : 0.75} />)}
-                    <LabelList dataKey="value" content={YtdAvgBarLabel as any} />
+                    {barChartData.map((_, i) => <Cell key={i} fill={i === totalBarIndex ? TOTAL_COLOR : PALETTE[i % PALETTE.length]} opacity={i === totalBarIndex ? 1 : 0.75} />)}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- recharts' LabelContentType Props union doesn't structurally match a plain {x,y,width,value,index} shape; pre-existing pattern (was YtdAvgBarLabel as any before FE-2). */}
+                    <LabelList dataKey="value" content={TotalBarLabel as any} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -367,25 +373,21 @@ export default function PortfolioPage() {
 
             <ChartCard title={t("portfolio.historical_track")}>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={LINE_DATA} margin={{ top: 4, right: 76, left: -20, bottom: 0 }}>
+                <LineChart data={lineData} margin={{ top: 4, right: 76, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ede8e8" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b7280", fontWeight: 500 }} axisLine={false} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip content={<LineTooltip />} />
-                  {LINE_SERIES.map((s) => (
+                  {/* content takes a component reference (not <LineTooltip/>) — recharts clones+calls it,
+                      and a materialized element here breaks the test harness's recharts mock
+                      (JSON.stringify chokes on the element's circular _owner fiber ref). `any` because
+                      recharts' generic ContentType doesn't structurally match our prop shape — same
+                      pre-existing pattern this file already used for YtdAvgBarLabel/YtdAvgEndLabel. */}
+                  <Tooltip content={/* eslint-disable-line @typescript-eslint/no-explicit-any */ LineTooltip as any} />
+                  {lineSeries.map((s) => (
                     <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color}
                       strokeWidth={1.5} strokeOpacity={0.6} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                   ))}
-                  <Line type="monotone" dataKey={YTD_AVG_LINE.key} stroke={YTD_AVG_LINE.color}
-                    strokeWidth={3} strokeDasharray="8 4" dot={false}
-                    activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff", fill: YTD_AVG_LINE.color }}
-                    label={<YtdAvgEndLabel />} />
-                  <Legend iconType="circle" iconSize={8}
-                    formatter={(v) => {
-                      if (v === YTD_AVG_LINE.key) return <span style={{ color: YTD_AVG_LINE.color, fontWeight: 700 }}>YTD Avg</span>;
-                      return LINE_SERIES.find((s) => s.key === v)?.label ?? v;
-                    }}
-                    wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -395,9 +397,9 @@ export default function PortfolioPage() {
             <div className="flex flex-col items-center gap-6">
               <div className="relative">
                 <PieChart width={200} height={200}>
-                  <Pie data={DONUT_DATA} cx={100} cy={100} innerRadius={62} outerRadius={90}
+                  <Pie data={donutData} cx={100} cy={100} innerRadius={62} outerRadius={90}
                     dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                    {DONUT_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
                 </PieChart>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -408,13 +410,13 @@ export default function PortfolioPage() {
                 </div>
               </div>
               <div className="w-full flex flex-col gap-2">
-                {DONUT_DATA.map((entry) => (
+                {donutData.map((entry) => (
                   <div key={entry.name} className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
                       <span className="text-body-sm text-on-surface truncate">{entry.name}</span>
                     </div>
-                    <span className="text-body-sm font-semibold text-on-surface shrink-0">{entry.display}</span>
+                    <span className="text-body-sm font-semibold text-on-surface shrink-0">{formatMoney(entry.value)}</span>
                   </div>
                 ))}
               </div>
