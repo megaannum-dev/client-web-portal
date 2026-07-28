@@ -49,6 +49,7 @@
     "contact_rm": "聯絡您的客戶經理",
     "email": "電子郵件",
     "whatsapp": "WhatsApp",
+    "phone": "電話",
     "occupation": "職業",
     "occupation_value": "投資組合經理",
     "view_full_profile": "查看完整檔案",
@@ -330,9 +331,6 @@
     "theme_system": "系統",
     "theme_hint": "變更會立即套用，並與標題列的切換按鈕保持同步。"
   },
-  "support": {
-    "title": "支援"
-  },
   "ticket": {
     "raise_ticket": "提出申請",
     "allotment_ticket": "申購申請",
@@ -389,77 +387,6 @@
       "enter_subject": "請輸入主旨。",
       "describe_request": "請描述您的申請。",
       "confirm_reviewed": "請確認您已檢視您的申請。"
-    }
-  },
-  "mock": {
-    "latest_events": {
-      "signature-required": {
-        "title": "需要簽署",
-        "description": "贖回申請 #RR-429 需於今日營業時間結束前完成授權。"
-      },
-      "compliance-review": {
-        "title": "合規審查",
-        "description": "本季 KYC 更新已收到，目前正在審核中。"
-      },
-      "kyc-verified": {
-        "title": "KYC 已驗證",
-        "description": "您的身分文件已成功驗證。"
-      },
-      "kyc-review": {
-        "title": "KYC 文件審核中",
-        "description": "您提交的 KYC 文件正在審核中，通常需要 1–3 個工作天。"
-      }
-    },
-    "event_items": {
-      "event-fed-rate": {
-        "title": "聯準會利率決策公布",
-        "time": "2 小時前",
-        "description": "聯邦準備理事會已公布最新利率決策，影響市場波動與投資組合收益。與您相關的歷史消息與提醒現已更新至您的儀表板。",
-        "primary": "閱讀完整報告",
-        "secondary": "標示為已讀"
-      },
-      "event-kyc-reminder": {
-        "title": "KYC 上傳提醒",
-        "time": "5 小時前",
-        "description": "您的 KYC 文件年度續期將於 10 天內到期。請確保近期合規文件已上傳，以免造成處理延誤。",
-        "primary": "前往上傳",
-        "secondary": "標示為已讀"
-      },
-      "event-compliance-policy": {
-        "title": "新合規政策更新",
-        "time": "昨天",
-        "description": "我們已更新機構 AML 聲明程序以符合最新的區域法規。請檢視變更內容，確保您的帳戶維持合規。",
-        "primary": "檢視政策",
-        "secondary": "忽略"
-      },
-      "event-tech-rebound": {
-        "title": "市場洞察：科技類股反彈",
-        "time": "2023 年 10 月 18 日",
-        "description": "我們的分析師已發布一份新簡報，探討主要供應商最新財報後科技產業的預期成長。",
-        "primary": "檢視洞察",
-        "secondary": "標示為已讀"
-      },
-      "event-security-alert": {
-        "title": "安全警示：偵測到新登入",
-        "time": "2023 年 10 月 17 日",
-        "description": "偵測到在 macOS 上使用 Chrome 瀏覽器的新登入。如果這並非您本人，請立即透過變更密碼來保護您的帳戶。",
-        "primary": "管理裝置",
-        "secondary": "我認得此登入"
-      },
-      "event-annual-review": {
-        "title": "已安排年度投資組合審查",
-        "time": "2023 年 10 月 10 日",
-        "description": "您的年度投資組合審查已與您的客戶經理安排於下個月進行。行事曆邀請將寄送至您註冊的電子郵件地址。",
-        "primary": "確認",
-        "secondary": "標示為已讀"
-      },
-      "event-kyc-upload": {
-        "title": "KYC 文件已提交審核",
-        "time": "剛剛",
-        "description": "您的 KYC 文件已上傳，目前正在審核中。此程序通常需要 1~3 個工作天。",
-        "primary": "檢視詳情",
-        "secondary": "標示為已讀"
-      }
     }
   }
 }

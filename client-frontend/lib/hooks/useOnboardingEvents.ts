@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { fetchEvents, type ClientEventDTO } from "@/lib/api/onboarding";
-import type { EventEntry, EventCategory } from "@/lib/mock/data";
+import type { EventEntry, EventCategory } from "@/types/portal";
 
 const FILTER_CATEGORIES: EventCategory[] = ["Market News", "Account Notification", "Requests Status", "Others"];
 

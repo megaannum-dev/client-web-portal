@@ -59,10 +59,7 @@ export function HeaderActions() {
                   <Phone size={14} strokeWidth={1.75} className="text-primary" />
                 </div>
                 <div>
-                  {/* ponytail: no "header.phone" i18n key exists yet and public/locales/*.json is
-                      out of this unit's file scope — hardcoded label, add a real key when FE-13
-                      (or a future i18n pass) touches translation.json. */}
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-secondary mb-0.5">Phone</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-secondary mb-0.5">{t("header.phone")}</p>
                   <p className="text-[12px] text-on-surface">{rm?.phone ?? t("header.empty")}</p>
                 </div>
               </div>

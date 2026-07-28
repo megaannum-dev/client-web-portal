@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "@/lib/icons";
-import type { ActionLevel } from "@/lib/mock/data";
+import type { ActionLevel } from "@/types/portal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
 import { EyeToggle }  from "@/components/ui/EyeToggle";

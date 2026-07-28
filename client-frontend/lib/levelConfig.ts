@@ -1,6 +1,6 @@
 import { ShieldAlert, AlertCircle, Shield, TrendingUp } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
-import type { ActionLevel } from "@/lib/mock/data";
+import type { ActionLevel } from "@/types/portal";
 
 export const LEVEL_CONFIG: Record<ActionLevel, {
   card: string; icon: string; title: string; Icon: LucideIcon;

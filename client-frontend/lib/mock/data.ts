@@ -9,11 +9,14 @@
  */
 
 // ── Shared types ───────────────────────────────────────────────────────────────
+// ActionLevel/ActionVariant/EventCategory/EventIconType/EventEntry now live in
+// @/types/portal (FE-13) — re-exported here since the mock constants below
+// still reference them.
+
+import type { ActionLevel, ActionVariant, EventCategory, EventIconType, EventEntry } from "@/types/portal";
+export type { ActionLevel, ActionVariant, EventCategory, EventIconType, EventEntry };
 
 export type KycStatus   = "due" | "processing" | "verified";
-export type ActionLevel = "urgent" | "caution" | "primary" | "info" | "neutral";
-export type ActionVariant = "filled" | "outline";
-export type EventCategory = "Market News" | "Account Notification" | "Requests Status" | "Others";
 
 export interface LatestEvent {
   id: string;
@@ -31,22 +34,6 @@ export interface AllotmentRequest {
   date: string;
   status: "Sent" | "Received" | "Processing" | "Fulfilled";
   subject?: string; // free-text subject, "Others" tickets only
-}
-
-// Serialisable event entry — icon resolved at render time via ICON_MAP
-export type EventIconType = "trending-up" | "alarm-clock" | "file-text" | "bar-chart" | "shield" | "briefcase";
-
-export interface EventEntry {
-  id: string;
-  iconType: EventIconType;
-  level: ActionLevel;
-  title: string;
-  time: string;
-  description: string;
-  category: EventCategory;
-  primaryLabel: string;
-  primaryVariant: ActionVariant;
-  secondaryLabel: string;
 }
 
 // ── Defaults written to localStorage on first load ────────────────────────────

@@ -19,7 +19,7 @@ import {
   type EventIconType,
   type EventCategory,
   type ActionVariant,
-} from "@/lib/mock/data";
+} from "@/types/portal";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
