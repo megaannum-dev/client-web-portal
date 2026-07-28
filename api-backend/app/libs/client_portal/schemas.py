@@ -66,6 +66,12 @@ class PortfolioDTO(BaseModel):
     positions: list[PositionDTO]  # one per client_subscriptions row, name-sorted
 
 
+class HistoryPointDTO(BaseModel):
+    month: str  # "YYYY-MM" -- one point per CALENDAR MONTH, not per run
+    total: float  # cumulative amount_in_trade at month end
+    per_model: dict[str, float]  # model_name -> cumulative allocated at month end
+
+
 # ---------- Documents (BE-7) ----------
 class StoredFileDTO(BaseModel):
     key: str  # opaque storage key; the ONLY thing the FE echoes back

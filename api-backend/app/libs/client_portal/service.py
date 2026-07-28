@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from collections import defaultdict
+from datetime import date, datetime
 from decimal import Decimal
 from typing import BinaryIO
 
@@ -16,6 +17,7 @@ from app.libs.client_portal.schemas import (
     ClientProfileDTO,
     ClientProfilePatch,
     ClientRequestDTO,
+    HistoryPointDTO,
     PortfolioDTO,
     PositionDTO,
     RaiseTicketReq,
@@ -39,6 +41,23 @@ _SCOPES = {"legal", "statements"}
 
 _TERMINAL = {TicketStatus.CLOSED, TicketStatus.DECLINED}
 _FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
+
+
+# ---------- Portfolio history (BE-4) ----------
+def _month_key(dt: date) -> str:
+    return dt.strftime("%Y%m")
+
+
+def _month_range(end: str, count: int) -> list[str]:
+    """`count` calendar-month keys ("YYYYMM") ending at `end` inclusive, oldest first."""
+    y, m = int(end[:4]), int(end[4:6])
+    months = []
+    for _ in range(count):
+        months.append(f"{y:04d}{m:02d}")
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return list(reversed(months))
 
 
 class ClientPortalService:
@@ -124,6 +143,47 @@ class ClientPortalService:
             updated_at=row.updated_at if row else None,
             positions=positions,
         )
+
+    def portfolio_history(self, user_id: uuid.UUID, months: int) -> list[HistoryPointDTO]:
+        window = _month_range(_month_key(datetime.utcnow().date()), months)
+        window_start = window[0]
+
+        total_rows = self.repo.history_delta_rows(user_id)
+        model_rows = self.repo.history_per_model_rows(user_id)
+        model_names = sorted({name for _, name, _ in model_rows})
+
+        # cumulative BEFORE the window -- makes the first point's total correct,
+        # not a partial sum starting from zero (proposal § Layer 2 B).
+        total_before = sum((d for mo, d in total_rows if mo < window_start), Decimal("0"))
+        per_model_before: dict[str, Decimal] = {n: Decimal("0") for n in model_names}
+        for mo, name, amt in model_rows:
+            if mo < window_start:
+                per_model_before[name] += amt
+
+        by_month_total: dict[str, Decimal] = defaultdict(Decimal)
+        for mo, d in total_rows:
+            if mo in window:
+                by_month_total[mo] += d
+        by_month_model: dict[str, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
+        for mo, name, amt in model_rows:
+            if mo in window:
+                by_month_model[mo][name] += amt
+
+        points: list[HistoryPointDTO] = []
+        running_total = total_before
+        running_model = dict(per_model_before)
+        for mo in window:
+            running_total += by_month_total.get(mo, Decimal("0"))
+            for name in model_names:
+                running_model[name] += by_month_model.get(mo, {}).get(name, Decimal("0"))
+            points.append(
+                HistoryPointDTO(
+                    month=f"{mo[:4]}-{mo[4:]}",
+                    total=float(running_total),
+                    per_model={n: float(v) for n, v in running_model.items()},
+                )
+            )
+        return points
 
     # ---------- Documents (BE-7) ----------
     def _scope_subdir(self, scope: str, user_id: uuid.UUID) -> str:

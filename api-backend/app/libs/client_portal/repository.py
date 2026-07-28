@@ -11,13 +11,18 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Row
+from sqlalchemy import Row, func
 from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
 from app.models.onboarding import TicketStatus as DbTicketStatus
 from app.models.pc import ClientSubscription, Model
-from app.models.post_trade_allocation import ClientPortfolio
+from app.models.post_trade_allocation import (
+    ClientPortfolio,
+    ClientPortfolioRunDelta,
+    PostTradeAllocation,
+    PostTradeAllocationRun,
+)
 from app.models.users import AdminProfile, User
 
 
@@ -47,6 +52,38 @@ class ClientPortalRepository:
             .all()
         )
         return rows  # type: ignore[return-value]
+
+    # ---------- Portfolio history (BE-4) ----------
+    def history_delta_rows(self, user_id: uuid.UUID) -> list[tuple[str, Decimal]]:
+        """(month "YYYYMM", delta) for every client_portfolio_run_deltas row of
+        this client, oldest first. No date parsing: substr() on the existing
+        YYYYMMDD token."""
+        month = func.substr(PostTradeAllocationRun.trade_date, 1, 6)
+        rows = (
+            self.db.query(month.label("month"), ClientPortfolioRunDelta.delta)
+            .join(
+                PostTradeAllocationRun, PostTradeAllocationRun.id == ClientPortfolioRunDelta.run_id
+            )
+            .filter(ClientPortfolioRunDelta.user_id == user_id)
+            .order_by(PostTradeAllocationRun.trade_date.asc())
+            .all()
+        )
+        return [(r.month, r.delta) for r in rows]
+
+    def history_per_model_rows(self, user_id: uuid.UUID) -> list[tuple[str, str, Decimal]]:
+        """(month, model_name, allocated) for every post_trade_allocations row
+        of this client, oldest first."""
+        month = func.substr(PostTradeAllocationRun.trade_date, 1, 6)
+        rows = (
+            self.db.query(
+                month.label("month"), PostTradeAllocation.model_name, PostTradeAllocation.allocated
+            )
+            .join(PostTradeAllocationRun, PostTradeAllocationRun.id == PostTradeAllocation.run_id)
+            .filter(PostTradeAllocation.user_id == user_id)
+            .order_by(PostTradeAllocationRun.trade_date.asc())
+            .all()
+        )
+        return [(r.month, r.model_name, r.allocated) for r in rows]
 
     # ---------- Tickets (BE-12) ----------
     def create_ticket(

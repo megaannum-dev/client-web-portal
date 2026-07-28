@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.libs.client_portal.schemas import (
     ClientProfileDTO,
     ClientProfilePatch,
     ClientRequestDTO,
+    HistoryPointDTO,
     PortfolioDTO,
     RaiseTicketReq,
     RmTicketDTO,
@@ -74,6 +75,17 @@ def get_portfolio(
     user: Annotated[User, Depends(get_current_client_user)],
 ) -> PortfolioDTO:
     return svc.portfolio(user.id)
+
+
+@router.get("/client/portfolio/history", response_model=list[HistoryPointDTO])
+def get_portfolio_history(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+    months: int = 6,
+) -> list[HistoryPointDTO]:
+    if not (1 <= months <= 24):
+        raise HTTPException(422, "months must be between 1 and 24")
+    return svc.portfolio_history(user.id, months)
 
 
 # ---- Documents (BE-7) ----
