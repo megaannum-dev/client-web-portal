@@ -15,13 +15,10 @@ import {
 import type { ActionLevel } from "@/lib/mock/data";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
-import { EyeToggle }  from "@/components/ui/EyeToggle";
-import { useLatestEvents } from "@/lib/hooks/useLatestEvents";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { useClientEvents } from "@/lib/hooks/useOnboardingEvents";
 import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
-import {
-  MOCK_ALLOTMENT_REQUESTS,
-  MOCK_PORTFOLIO_STATS,
-} from "@/lib/mock/data";
+import { MOCK_ALLOTMENT_REQUESTS } from "@/lib/mock/data";
 
 const STATUS_BADGE: Record<"Sent" | "Received" | "Processing" | "Fulfilled", string> = {
   Sent:       "badge-caution",
@@ -215,12 +212,11 @@ function SectionHeader({ title, linkLabel, linkHref }: { title: string; linkLabe
 
 export default function OverviewPage() {
   const { t } = useTranslation();
-  const [censored, setCensored] = useState(true);
-  const latestEvents = useLatestEvents().slice(0, 3);
+  const { data: portfolio } = usePortfolio();
+  const latestEvents = useClientEvents().slice(0, 3);
   const { dynamic: dynamicRequests } = useAllotmentRequests();
   const recentRequests = [...dynamicRequests, ...MOCK_ALLOTMENT_REQUESTS].slice(0, 3);
-  const stats = MOCK_PORTFOLIO_STATS;
-  const mask = (v: string) => (censored ? "********" : v);
+  const changePct = portfolio?.change_pct ?? null;
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -241,25 +237,22 @@ export default function OverviewPage() {
 
           {/* Account Summary */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-headline-md font-semibold text-on-surface">{t("overview.account_summary")}</h2>
-              <EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />
-            </div>
+            <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("overview.account_summary")}</h2>
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 label={t("overview.total_portfolio_value")}
-                value={mask(stats.totalValue)}
-                sub={
-                  <span className="flex items-center gap-1.5 text-body-sm font-semibold text-primary">
-                    <TrendingUp size={14} strokeWidth={2} />
-                    {stats.ytdChange} {t("common.vs_last_month")}
-                  </span>
-                }
+                value={portfolio ? `$${portfolio.total_value.toFixed(2)}` : "—"}
               />
               <StatCard
-                label={t("overview.ytd_returns")}
-                value={mask(stats.ytdReturns)}
-                sub={<span className="text-body-sm text-secondary">{t("overview.benchmark_label", { value: stats.benchmark })}</span>}
+                label={t("overview.amount_in_trade", { defaultValue: "Amount in Trade" })}
+                value={portfolio ? `$${portfolio.amount_in_trade.toFixed(2)}` : "—"}
+                sub={
+                  <span className="text-body-sm text-secondary">
+                    {changePct !== null
+                      ? `${changePct >= 0 ? "+" : ""}${(changePct * 100).toFixed(2)}% ${t("common.vs_last_month")}`
+                      : "—"}
+                  </span>
+                }
               />
             </div>
           </div>
@@ -314,8 +307,9 @@ export default function OverviewPage() {
               const cardBorder = isUrgent ? "border-white/40" : "border-white/25";
               const iconBg     = isVerified ? "bg-[#c4e84db2]" : "bg-white/20";
 
-              const content = (
-                <>
+              const cls = `flex items-start gap-4 p-4 rounded-md border shadow-sm ${cardBg} ${cardBorder}`;
+              return (
+                <div key={event.id} className={cls}>
                   <div className={`shrink-0 w-10 h-10 rounded-md flex items-center justify-center ${iconBg}`}>
                     <EventIcon size={18} strokeWidth={1.75} className="text-white" />
                   </div>
@@ -323,17 +317,6 @@ export default function OverviewPage() {
                     <p className="text-base font-bold text-white leading-6">{t(`mock.latest_events.${event.id}.title`, { defaultValue: event.title })}</p>
                     <p className="text-sm text-white/90 leading-5">{t(`mock.latest_events.${event.id}.description`, { defaultValue: event.description })}</p>
                   </div>
-                </>
-              );
-
-              const cls = `flex items-start gap-4 p-4 rounded-md border shadow-sm ${cardBg} ${cardBorder}`;
-              return event.href ? (
-                <Link key={event.id} href={event.href} className={`${cls} hover:opacity-85 transition-opacity cursor-pointer`}>
-                  {content}
-                </Link>
-              ) : (
-                <div key={event.id} className={cls}>
-                  {content}
                 </div>
               );
             })}
