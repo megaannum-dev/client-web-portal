@@ -335,3 +335,86 @@ class ClientEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-1 (proposal 018) — client_tickets
+# ---------------------------------------------------------------------------
+
+
+class TicketKind(str, enum.Enum):
+    ALLOTMENT = "allotment"
+    REDEMPTION = "redemption"
+    OTHER = "other"
+
+
+class TicketStatus(str, enum.Enum):
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    REPLIED = "replied"
+    CLOSED = "closed"
+    DECLINED = "declined"
+
+
+class ClientTicket(Base):
+    __tablename__ = "client_tickets"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("users.id"), nullable=False, index=True
+    )
+    # Denormalised snapshot of client_profiles.assigned_rm_uid taken at raise
+    # time -- deliberately NOT a live FK lookup. client_profiles.assigned_rm_uid
+    # can be reassigned; an inbox must not silently move a historical ticket
+    # to a different RM when that happens (proposal 018, B-1). NULL when the
+    # client had no RM assigned at raise time.
+    assigned_rm_uid: Mapped[str | None] = mapped_column(
+        String(128), ForeignKey("users.firebase_uid"), nullable=True
+    )
+    reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    kind: Mapped[TicketKind] = mapped_column(
+        SAEnum(
+            TicketKind,
+            native_enum=False,
+            length=16,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+    )
+    status: Mapped[TicketStatus] = mapped_column(
+        SAEnum(
+            TicketStatus,
+            native_enum=False,
+            length=16,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        server_default=TicketStatus.NEW.value,
+    )
+    model_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("models.id"), nullable=True
+    )
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    multiplier: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, server_default="USD")
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    responded_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    response_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        Index("ix_client_tickets_rm_status", "assigned_rm_uid", "status"),
+    )

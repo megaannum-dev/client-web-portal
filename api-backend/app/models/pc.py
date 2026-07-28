@@ -70,6 +70,17 @@ class Model(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     model_size: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    # Risk-management business cap on the model — deliberately NOT derived
+    # from model_size. model_size prices ONE UNIT and is load-bearing
+    # allocation-matrix arithmetic (SUM(cs.multiplier * m.model_size), frozen
+    # into allocation_model_snapshots at confirm time); model_limit is an
+    # unrelated business fact that merely shares a currency unit (D-9,
+    # proposal 018 B-5). PLACEHOLDER COLUMN ONLY (proposal 018 Non-Goals): no
+    # form, no route, no service write path exists for this anywhere in the
+    # codebase as of this proposal -- the exact rule for setting it is
+    # pending a risk-management SOP from stakeholders. Stays NULL forever
+    # until a future, separate proposal builds an authoring path.
+    model_limit: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     category: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     subscription_redemption: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[ModelStatus] = mapped_column(
