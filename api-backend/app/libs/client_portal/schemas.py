@@ -7,10 +7,13 @@ classes here.
 
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 # ---------- Profile (BE-2) ----------
@@ -71,3 +74,83 @@ class StoredFileDTO(BaseModel):
     modified_at: datetime | None
     category: str | None  # legal scope: immediate sub-folder name; statements: None
     period: str | None  # statements scope: "YYYY-MM" parsed from a leading date token; else None
+
+
+# ---------- Requests & tickets (BE-12) ----------
+class TicketKind(str, enum.Enum):
+    ALLOTMENT = "allotment"
+    REDEMPTION = "redemption"
+    OTHER = "other"
+
+
+class TicketStatus(str, enum.Enum):
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    REPLIED = "replied"
+    CLOSED = "closed"
+    DECLINED = "declined"
+
+
+class RaiseTicketReq(BaseModel):
+    kind: TicketKind
+    model_id: uuid.UUID | None = None
+    subject: str | None = None
+    category: str | None = None
+    amount: Decimal | None = None
+    multiplier: Decimal | None = None
+    currency: str = "USD"
+    message: str
+
+    @model_validator(mode="after")
+    def _check_kind_fields(self) -> "RaiseTicketReq":
+        if self.kind == TicketKind.OTHER:
+            if not self.subject:
+                raise ValueError("subject is required when kind is 'other'")
+            if self.model_id is not None:
+                raise ValueError("model_id must be absent when kind is 'other'")
+        elif self.model_id is None:
+            raise ValueError("model_id is required unless kind is 'other'")
+        return self
+
+
+class RmTicketStatusReq(BaseModel):
+    status: TicketStatus
+    note: str | None = None  # persisted to client_tickets.response_note
+
+
+class RmTicketDTO(BaseModel):
+    ref: str
+    client_id: uuid.UUID
+    client: str  # client_profiles.name
+    contact: str | None  # client_profiles.authorized_person
+    email: str | None  # users.email
+    account: str | None  # client_profiles.ib_account
+    model: str | None
+    kind: TicketKind
+    currency: str
+    amount: float | None
+    multiplier: float | None
+    notional: float | None  # amount * multiplier; None when either is None
+    subject: str | None
+    message: str
+    status: TicketStatus
+    created_at: datetime
+    responded_by: str | None
+    responded_at: datetime | None
+    response_note: str | None
+
+
+class ClientRequestDTO(BaseModel):
+    """One merged row for the client's request history. `source` tells the FE
+    which table it came from; both render in the same table. (BE-13 adds the
+    allotment-side producer + the GET /client/requests route that reuses this
+    DTO -- BE-12 only needs it as its own POST /client/tickets return type.)"""
+
+    source: Literal["ticket", "allotment"]
+    ref: str  # tickets: "REQ-3F9A2C"; allotments: existing `reference`
+    kind: TicketKind  # allotment rows map AllotRdmpKind -> TicketKind
+    subject: str  # tickets: subject or model_name; allotments: model_name
+    model_name: str | None
+    amount: float | None  # None renders as the existing "—"
+    created_at: datetime
+    status: TicketStatus  # allotment rows map via Backend C-12's table

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import BinaryIO
 
@@ -14,18 +15,30 @@ from app.libs.client_portal.repository import ClientPortalRepository
 from app.libs.client_portal.schemas import (
     ClientProfileDTO,
     ClientProfilePatch,
+    ClientRequestDTO,
     PortfolioDTO,
     PositionDTO,
+    RaiseTicketReq,
     RmContactDTO,
+    RmTicketDTO,
+    RmTicketStatusReq,
     StoredFileDTO,
+    TicketKind,
+    TicketStatus,
 )
 from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.service import OnboardingService
 from app.libs.trade_models.storage import StoredFile, get_storage
-from app.models.users import ClientProfile, User
+from app.models.onboarding import ClientTicket
+from app.models.onboarding import TicketStatus as DbTicketStatus
+from app.models.pc import Model, ModelStatus
+from app.models.users import AdminRole, ClientProfile, User
 
 _PERIOD_RE = re.compile(r"^(\d{4}-\d{2})[_-]")
 _SCOPES = {"legal", "statements"}
+
+_TERMINAL = {TicketStatus.CLOSED, TicketStatus.DECLINED}
+_FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
 
 
 class ClientPortalService:
@@ -150,4 +163,109 @@ class ClientPortalService:
             modified_at=f.modified_at,
             category=f.category if scope == "legal" else None,
             period=period,
+        )
+
+    # ---------- Tickets (BE-12) ----------
+    def create_ticket(self, user_id: uuid.UUID, req: RaiseTicketReq) -> ClientRequestDTO:
+        if req.kind != TicketKind.OTHER:
+            model = self.db.get(Model, req.model_id)
+            if model is None or model.status != ModelStatus.LIVE:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown or non-live model"
+                )
+        profile = self._require_profile(user_id)
+        ticket = self.repo.create_ticket(
+            user_id=user_id,
+            assigned_rm_uid=profile.assigned_rm_uid,
+            kind=req.kind.value,
+            model_id=req.model_id,
+            subject=req.subject,
+            category=req.category,
+            amount=req.amount,
+            multiplier=req.multiplier,
+            currency=req.currency,
+            message=req.message,
+        )
+        self.onboarding_repo.create_event(
+            user_id=user_id,
+            category="Requests Status",
+            title=f"Ticket {ticket.reference} submitted",
+            body=req.message,
+        )
+        self.db.commit()
+        return self._ticket_to_request_dto(ticket)
+
+    def list_rm_tickets(self, *, rm_uid: str, role: AdminRole) -> list[RmTicketDTO]:
+        full_visibility = role in _FULL_VISIBILITY_ROLES
+        tickets = self.repo.list_for_rm(rm_uid=rm_uid, full_visibility=full_visibility)
+        return [self._ticket_to_rm_dto(t) for t in tickets]
+
+    def _require_rm_visible_ticket(self, ref: str, *, rm_uid: str, role: AdminRole) -> ClientTicket:
+        ticket = self.repo.get_ticket_by_ref(ref)
+        if ticket is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
+        if role not in _FULL_VISIBILITY_ROLES and ticket.assigned_rm_uid != rm_uid:
+            # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
+        return ticket
+
+    def _require_rm_visible_ticket_dto(
+        self, ref: str, *, rm_uid: str, role: AdminRole
+    ) -> RmTicketDTO:
+        ticket = self._require_rm_visible_ticket(ref, rm_uid=rm_uid, role=role)
+        return self._ticket_to_rm_dto(ticket)
+
+    def set_rm_ticket_status(
+        self, ref: str, req: RmTicketStatusReq, *, rm_uid: str, role: AdminRole
+    ) -> RmTicketDTO:
+        ticket = self._require_rm_visible_ticket(ref, rm_uid=rm_uid, role=role)
+        if TicketStatus(ticket.status) in _TERMINAL:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Ticket is already closed")
+        ticket.status = DbTicketStatus(req.status.value)
+        ticket.response_note = req.note
+        ticket.responded_by = rm_uid
+        ticket.responded_at = datetime.utcnow()
+        self.db.commit()
+        return self._ticket_to_rm_dto(ticket)
+
+    def _ticket_to_rm_dto(self, t: ClientTicket) -> RmTicketDTO:
+        profile = self.db.query(ClientProfile).filter_by(user_id=t.user_id).one_or_none()
+        user = self.db.get(User, t.user_id)
+        model = self.db.get(Model, t.model_id) if t.model_id else None
+        amount = float(t.amount) if t.amount is not None else None
+        multiplier = float(t.multiplier) if t.multiplier is not None else None
+        notional = amount * multiplier if amount is not None and multiplier is not None else None
+        return RmTicketDTO(
+            ref=t.reference,
+            client_id=t.user_id,
+            client=(profile.name if profile else None) or "",
+            contact=profile.authorized_person if profile else None,
+            email=user.email if user else None,
+            account=profile.ib_account if profile else None,
+            model=model.name if model else None,
+            kind=TicketKind(t.kind),
+            currency=t.currency,
+            amount=amount,
+            multiplier=multiplier,
+            notional=notional,
+            subject=t.subject,
+            message=t.message,
+            status=TicketStatus(t.status),
+            created_at=t.created_at,
+            responded_by=t.responded_by,
+            responded_at=t.responded_at,
+            response_note=t.response_note,
+        )
+
+    def _ticket_to_request_dto(self, t: ClientTicket) -> ClientRequestDTO:
+        model = self.db.get(Model, t.model_id) if t.model_id else None
+        return ClientRequestDTO(
+            source="ticket",
+            ref=t.reference,
+            kind=TicketKind(t.kind),
+            subject=t.subject or (model.name if model else ""),
+            model_name=model.name if model else None,
+            amount=float(t.amount) if t.amount is not None else None,
+            created_at=t.created_at,
+            status=TicketStatus(t.status),
         )

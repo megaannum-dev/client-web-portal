@@ -8,16 +8,22 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.libs.auth.deps import get_current_client_user
+from app.libs.auth.actions import Action
+from app.libs.auth.deps import get_current_client_user, require_action
 from app.libs.client_portal.schemas import (
     ClientProfileDTO,
     ClientProfilePatch,
+    ClientRequestDTO,
     PortfolioDTO,
+    RaiseTicketReq,
+    RmTicketDTO,
+    RmTicketStatusReq,
     StoredFileDTO,
 )
 from app.libs.client_portal.service import ClientPortalService
 from app.libs.onboarding.schemas import ClientEventDTO, SubscriptionDTO
-from app.models.users import User
+from app.libs.users.repository import AdminProfileRepository
+from app.models.users import AdminRole, User
 
 router = APIRouter(tags=["client_portal"])
 
@@ -93,3 +99,54 @@ def download_client_document(
         media_type=content_type or "application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---- Tickets (BE-12) ----
+def _caller_role(
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    db: Annotated[Session, Depends(get_db)],
+) -> AdminRole:
+    """Same small local role lookup as onboarding/router.py's own
+    _get_subscriptions_caller_role -- kept local rather than importing a
+    private cross-package name (house convention)."""
+    profile = AdminProfileRepository(db).get_by_user_id(user.id)
+    return AdminRole(profile.role)  # type: ignore[union-attr]
+
+
+@router.post("/client/tickets", response_model=ClientRequestDTO, status_code=201)
+def raise_ticket(
+    req: RaiseTicketReq,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> ClientRequestDTO:
+    return svc.create_ticket(user.id, req)
+
+
+@router.get("/rm/tickets", response_model=list[RmTicketDTO])
+def list_rm_tickets(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_caller_role)],
+) -> list[RmTicketDTO]:
+    return svc.list_rm_tickets(rm_uid=user.firebase_uid, role=role)
+
+
+@router.get("/rm/tickets/{ref}", response_model=RmTicketDTO)
+def get_rm_ticket(
+    ref: str,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_caller_role)],
+) -> RmTicketDTO:
+    return svc._require_rm_visible_ticket_dto(ref, rm_uid=user.firebase_uid, role=role)
+
+
+@router.post("/rm/tickets/{ref}/status", response_model=RmTicketDTO)
+def set_rm_ticket_status(
+    ref: str,
+    req: RmTicketStatusReq,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_caller_role)],
+) -> RmTicketDTO:
+    return svc.set_rm_ticket_status(ref, req, rm_uid=user.firebase_uid, role=role)
