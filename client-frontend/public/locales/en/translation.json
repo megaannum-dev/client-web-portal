@@ -136,11 +136,6 @@
     "redemption": "Redemption",
     "others": "Others"
   },
-  "risk": {
-    "high": "High",
-    "medium": "Medium",
-    "low": "Low"
-  },
   "portfolio": {
     "title": "Portfolio Details",
     "subtitle": "Global Opportunities Fund • Portfolio ID: #AT-8842",
@@ -177,22 +172,16 @@
     "next_page": "Next page",
     "subscribed_columns": {
       "model_name": "Model Name",
-      "symbol": "Symbol",
-      "country": "Country",
-      "sector": "Sector",
-      "model_limit": "Model Limit",
       "amount": "Amount ($)",
       "multiplier": "Multiplier",
+      "model_limit": "Model Limit",
       "ib_account": "IB Account"
     },
     "recommended_columns": {
       "model_name": "Model Name",
-      "symbol": "Symbol",
-      "country": "Country",
-      "sector": "Sector",
+      "category": "Category",
       "model_limit": "Model Limit",
-      "min_investment": "Min. Investment ($)",
-      "risk_level": "Risk Level",
+      "subscription_redemption": "Subscription/Redemption",
       "market_material": "Market Material"
     },
     "ticket_columns": {

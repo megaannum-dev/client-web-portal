@@ -136,11 +136,6 @@
     "redemption": "贖回",
     "others": "其他"
   },
-  "risk": {
-    "high": "高",
-    "medium": "中",
-    "low": "低"
-  },
   "portfolio": {
     "title": "投資組合詳情",
     "subtitle": "全球機會基金 • 投資組合編號：#AT-8842",
@@ -177,22 +172,16 @@
     "next_page": "下一頁",
     "subscribed_columns": {
       "model_name": "模型名稱",
-      "symbol": "代號",
-      "country": "國家",
-      "sector": "產業",
-      "model_limit": "模型上限",
       "amount": "金額（$）",
       "multiplier": "倍數",
+      "model_limit": "模型上限",
       "ib_account": "IB 帳戶"
     },
     "recommended_columns": {
       "model_name": "模型名稱",
-      "symbol": "代號",
-      "country": "國家",
-      "sector": "產業",
+      "category": "類別",
       "model_limit": "模型上限",
-      "min_investment": "最低投資額（$）",
-      "risk_level": "風險等級",
+      "subscription_redemption": "申購／贖回",
       "market_material": "市場資料"
     },
     "ticket_columns": {
