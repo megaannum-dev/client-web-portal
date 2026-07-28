@@ -3,8 +3,9 @@
 import { useTranslation } from "react-i18next";
 import { FileText, Download, BookOpen } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { downloadAs } from "@/lib/downloadFile";
-import { MOCK_LEGAL_DOCUMENTS } from "@/lib/mock/data";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { downloadDocument, type StoredFileDTO } from "@/lib/api/documents";
+import { useDocuments } from "@/lib/hooks/useDocuments";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -14,19 +15,33 @@ const CATEGORY_KEYS: Record<string, string> = {
   "Compliance":       "documents.categories.compliance",
 };
 
-const LEGAL_BY_CATEGORY = MOCK_LEGAL_DOCUMENTS.reduce<Record<string, typeof MOCK_LEGAL_DOCUMENTS>>(
-  (acc, doc) => {
-    if (!acc[doc.category]) acc[doc.category] = [];
-    acc[doc.category].push(doc);
+function groupByCategory(docs: StoredFileDTO[]): Record<string, StoredFileDTO[]> {
+  return docs.reduce<Record<string, StoredFileDTO[]>>((acc, doc) => {
+    const category = doc.category ?? "";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(doc);
     return acc;
-  },
-  {},
-);
+  }, {});
+}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function LegalReportsPage() {
   const { t } = useTranslation();
+  const { getIdToken } = useAuth();
+  const { data } = useDocuments("legal");
+  const legalByCategory = groupByCategory(data);
+
+  async function handleDownload(doc: StoredFileDTO) {
+    const token = await getIdToken();
+    const blob = await downloadDocument(token, "legal", doc.key);
+    const href = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), { href, download: doc.filename });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+  }
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -45,7 +60,7 @@ export default function LegalReportsPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          {Object.entries(LEGAL_BY_CATEGORY).map(([category, docs]) => (
+          {Object.entries(legalByCategory).map(([category, docs]) => (
             <div key={category}>
               <p className="text-label-md font-bold uppercase tracking-[0.08em] text-secondary mb-3">
                 {CATEGORY_KEYS[category] ? t(CATEGORY_KEYS[category]) : category}
@@ -59,22 +74,22 @@ export default function LegalReportsPage() {
                   </colgroup>
                   <tbody className="bg-surface-lowest divide-y divide-outline-variant">
                     {docs.map((doc) => (
-                      <tr key={doc.filename} className="hover:bg-surface-container/40 transition-colors duration-100">
+                      <tr key={doc.key} className="hover:bg-surface-container/40 transition-colors duration-100">
                         <td className="px-5 py-4">
                           <span className="flex items-center gap-2.5">
                             <FileText size={15} strokeWidth={1.75} className="shrink-0 text-primary" />
-                            <span className="text-body-sm font-semibold text-on-surface">{doc.name}</span>
+                            <span className="text-body-sm font-semibold text-on-surface">{doc.filename}</span>
                           </span>
                         </td>
                         <td className="px-5 py-4 text-body-sm text-secondary hidden md:table-cell">
-                          {doc.description}
+                          {doc.filename.replace(/\.[^.]+$/, "")}
                         </td>
                         <td className="px-5 py-4 text-center">
                           <button
                             type="button"
-                            onClick={() => downloadAs("/dummy-EoM-Report.pdf", doc.filename)}
+                            onClick={() => handleDownload(doc)}
                             className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:opacity-70 transition-opacity"
-                            aria-label={t("documents.download_aria", { name: doc.name })}
+                            aria-label={t("documents.download_aria", { name: doc.filename })}
                           >
                             <Download size={14} strokeWidth={2} />
                             {t("common.download")}
