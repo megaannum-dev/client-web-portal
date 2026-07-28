@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.libs.auth.deps import get_current_client_user
-from app.libs.client_portal.schemas import ClientProfileDTO, ClientProfilePatch
+from app.libs.client_portal.schemas import ClientProfileDTO, ClientProfilePatch, PortfolioDTO
 from app.libs.client_portal.service import ClientPortalService
 from app.libs.onboarding.schemas import ClientEventDTO, SubscriptionDTO
 from app.models.users import User
@@ -53,3 +53,12 @@ def patch_profile(
     user: Annotated[User, Depends(get_current_client_user)],
 ) -> ClientProfileDTO:
     return svc.update_profile(user.id, patch)
+
+
+# ---- Portfolio (BE-3) ----
+@router.get("/client/portfolio", response_model=PortfolioDTO)
+def get_portfolio(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> PortfolioDTO:
+    return svc.portfolio(user.id)

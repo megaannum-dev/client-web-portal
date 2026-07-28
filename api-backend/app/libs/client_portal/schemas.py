@@ -7,7 +7,8 @@ classes here.
 
 from __future__ import annotations
 
-from datetime import date
+import uuid
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -39,3 +40,24 @@ class ClientProfilePatch(BaseModel):  # every field optional; unset = unchanged
     address: str | None = None
     country_of_residence: str | None = None
     # email / phone / date_of_birth are NOT patchable here -- 422 if present.
+
+
+# ---------- Portfolio (BE-3) ----------
+class PositionDTO(BaseModel):
+    model_id: uuid.UUID
+    model_name: str  # models.name
+    units: float  # client_subscriptions.multiplier
+    amount: float  # units * models.model_size
+    model_limit: float | None  # models.model_limit -- a distinct cap, not model_size
+    ib_account: str | None  # client_profiles.ib_account (per-client, echoed per-row)
+
+
+class PortfolioDTO(BaseModel):
+    cash_deposit: float  # client_portfolios.cash_deposit (0 if no row -- DB B-3)
+    amount_in_trade: float
+    previous_amount_in_trade: float
+    total_value: float  # cash_deposit + amount_in_trade
+    change_amount: float  # amount_in_trade - previous_amount_in_trade
+    change_pct: float | None  # None when previous == 0
+    updated_at: datetime | None
+    positions: list[PositionDTO]  # one per client_subscriptions row, name-sorted

@@ -2,12 +2,19 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.libs.client_portal.repository import ClientPortalRepository
-from app.libs.client_portal.schemas import ClientProfileDTO, ClientProfilePatch, RmContactDTO
+from app.libs.client_portal.schemas import (
+    ClientProfileDTO,
+    ClientProfilePatch,
+    PortfolioDTO,
+    PositionDTO,
+    RmContactDTO,
+)
 from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.service import OnboardingService
 from app.models.users import ClientProfile, User
@@ -61,3 +68,37 @@ class ClientPortalService:
             setattr(profile, field, value)
         self.db.commit()
         return self.profile(user_id)
+
+    # ---------- Portfolio (BE-3) ----------
+    def portfolio(self, user_id: uuid.UUID) -> PortfolioDTO:
+        row = self.repo.get_portfolio(user_id)
+        profile = self._require_profile(user_id)
+        ib_account = profile.ib_account
+
+        cash_deposit = row.cash_deposit if row else Decimal("0")
+        amount_in_trade = row.amount_in_trade if row else Decimal("0")
+        previous = row.previous_amount_in_trade if row else Decimal("0")
+        change_amount = amount_in_trade - previous
+        change_pct = float(change_amount / previous) if previous != 0 else None
+
+        positions = [
+            PositionDTO(
+                model_id=model.id,
+                model_name=model.name,
+                units=float(sub.multiplier),
+                amount=float(sub.multiplier * (model.model_size or Decimal("0"))),
+                model_limit=float(model.model_limit) if model.model_limit is not None else None,
+                ib_account=ib_account,
+            )
+            for sub, model in self.repo.positions_for_client(user_id)
+        ]
+        return PortfolioDTO(
+            cash_deposit=float(cash_deposit),
+            amount_in_trade=float(amount_in_trade),
+            previous_amount_in_trade=float(previous),
+            total_value=float(cash_deposit + amount_in_trade),
+            change_amount=float(change_amount),
+            change_pct=change_pct,
+            updated_at=row.updated_at if row else None,
+            positions=positions,
+        )
