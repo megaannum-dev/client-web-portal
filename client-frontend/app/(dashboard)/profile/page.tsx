@@ -18,22 +18,19 @@ import {
 } from "@/lib/icons";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useProfile } from "@/lib/hooks/useProfile";
 import {
-  DEFAULT_PROFILE_INFO,
   MOCK_PORTFOLIO_STATS,
   STORE_KEYS,
   SUPPORTING_DOC_CATEGORIES,
   type KycStatus,
-  type ProfileInfo,
   type SupportingDoc,
 } from "@/lib/mock/data";
 import {
   appendEventItem,
   appendLatestEvent,
   appendSupportingDoc,
-  getProfileInfo,
   getSupportingDocs,
-  saveProfileInfo,
 } from "@/lib/mock/store";
 import { PageHeader }  from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
@@ -353,20 +350,32 @@ export default function ProfilePage() {
   }
 
   // ── Profile info edit state ────────────────────────────────────────────────
-  const [editing, setEditing] = useState(false);
-  const [saved, setSaved]     = useState<ProfileInfo>(() => getProfileInfo());
-  const [draft, setDraft]     = useState<ProfileInfo>(saved);
+  const { data: profile, save } = useProfile();
+  const [editing, setEditing]     = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ name: "", occupation: "", address: "", country_of_residence: "" });
 
-  function startEdit() { setDraft(saved); setEditing(true); }
-  function cancelEdit() { setDraft(saved); setEditing(false); }
-  function commitEdit() {
-    saveProfileInfo(draft);
-    setSaved(draft);
-    setEditing(false);
+  function startEdit() {
+    setDraft({
+      name: profile?.name ?? "",
+      occupation: profile?.occupation ?? "",
+      address: profile?.address ?? "",
+      country_of_residence: profile?.country_of_residence ?? "",
+    });
+    setSaveError(null);
+    setEditing(true);
   }
-  function patchDraft(key: keyof ProfileInfo, value: string) {
+  function cancelEdit() { setEditing(false); setSaveError(null); }
+  async function commitEdit() {
+    const result = await save(draft);
+    setEditing(false);
+    setSaveError(result.ok ? null : result.error);
+  }
+  function patchDraft(key: keyof typeof draft, value: string) {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }
+
+  const dob = profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : "—";
 
   // ── Supporting docs state ──────────────────────────────────────────────────
   const [supportingDocs, setSupportingDocs] = useState<SupportingDoc[]>(() => getSupportingDocs());
@@ -376,10 +385,6 @@ export default function ProfilePage() {
     setSupportingDocs((prev) => [doc, ...prev]);
     setSupportingOpen(false);
   }
-
-  const displayName = saved.fullName || user?.displayName || DEFAULT_PROFILE_INFO.fullName;
-  const email       = user?.email ?? "alex.thompson@example.com";
-  const phone       = "+1 (555) 0123-4567";
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -412,13 +417,16 @@ export default function ProfilePage() {
           )
         }
       >
+        {saveError && (
+          <p className="text-body-sm text-error px-1 -mt-1">{saveError}</p>
+        )}
         <div className="flex gap-10 items-start">
           {/* Avatar */}
           <div className="flex flex-col items-center gap-2 shrink-0 mx-20">
             <div className="size-24 rounded-full overflow-hidden shadow-card">
               <div className="size-full bg-gradient-to-br from-yellow-200 via-green-300 to-teal-600 flex items-center justify-center">
                 <span className="text-headline-md font-bold text-white/80 select-none">
-                  {displayName[0].toUpperCase()}
+                  {(profile?.name ?? user?.displayName ?? "?")[0]?.toUpperCase() ?? "?"}
                 </span>
               </div>
             </div>
@@ -432,14 +440,14 @@ export default function ProfilePage() {
 
             {/* Full Name — editable */}
             {editing ? (
-              <EditableField label={t("profile.full_name")} value={draft.fullName} onChange={(v) => patchDraft("fullName", v)} />
+              <EditableField label={t("profile.full_name")} value={draft.name} onChange={(v) => patchDraft("name", v)} />
             ) : (
-              <ProfileField label={t("profile.full_name")} value={saved.fullName} />
+              <ProfileField label={t("profile.full_name")} value={profile?.name ?? "—"} />
             )}
 
             <div className="grid grid-cols-2 gap-6">
               {/* Phone — read-only (managed in Settings) */}
-              <ReadOnlyField label={t("profile.phone_number")} value={phone}
+              <ReadOnlyField label={t("profile.phone_number")} value={profile?.phone ?? "—"}
                 note={editing ? (
                   <Link href="/settings" className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary hover:text-primary transition-colors">
                     <Settings size={11} strokeWidth={2} />{t("profile.edit_in_settings")}
@@ -447,7 +455,7 @@ export default function ProfilePage() {
                 ) : undefined}
               />
               {/* Email — read-only (managed in Settings) */}
-              <ReadOnlyField label={t("profile.email")} value={email}
+              <ReadOnlyField label={t("profile.email")} value={profile?.email ?? "—"}
                 note={editing ? (
                   <Link href="/settings" className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary hover:text-primary transition-colors">
                     <Settings size={11} strokeWidth={2} />{t("profile.edit_in_settings")}
@@ -458,28 +466,24 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-2 gap-6">
               {editing ? (
-                <>
-                  <EditableField label={t("profile.company")}    value={draft.company}    onChange={(v) => patchDraft("company", v)} />
-                  <EditableField label={t("profile.occupation")} value={draft.occupation} onChange={(v) => patchDraft("occupation", v)} />
-                </>
+                <EditableField label={t("profile.occupation")} value={draft.occupation} onChange={(v) => patchDraft("occupation", v)} />
               ) : (
-                <>
-                  <ProfileField label={t("profile.company")}    value={saved.company}    />
-                  <ProfileField label={t("profile.occupation")} value={saved.occupation} />
-                </>
+                <ProfileField label={t("profile.occupation")} value={profile?.occupation ?? "—"} />
               )}
+              {/* Date of Birth — read-only, never editable */}
+              <ReadOnlyField label={t("profile.date_of_birth")} value={dob} />
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               {editing ? (
                 <>
-                  <EditableField label={t("profile.residential_address")}   value={draft.residentialAddress}  onChange={(v) => patchDraft("residentialAddress", v)} />
-                  <EditableField label={t("profile.location_of_residence")} value={draft.locationOfResidence} onChange={(v) => patchDraft("locationOfResidence", v)} />
+                  <EditableField label={t("profile.residential_address")}   value={draft.address}               onChange={(v) => patchDraft("address", v)} />
+                  <EditableField label={t("profile.location_of_residence")} value={draft.country_of_residence}  onChange={(v) => patchDraft("country_of_residence", v)} />
                 </>
               ) : (
                 <>
-                  <ProfileField label={t("profile.residential_address")}   value={saved.residentialAddress}  />
-                  <ProfileField label={t("profile.location_of_residence")} value={saved.locationOfResidence} />
+                  <ProfileField label={t("profile.residential_address")}   value={profile?.address ?? "—"} />
+                  <ProfileField label={t("profile.location_of_residence")} value={profile?.country_of_residence ?? "—"} />
                 </>
               )}
             </div>
