@@ -138,4 +138,13 @@ export {
   Paperclip,
   // CRM — Compliance workspace
   FileSearch,
+  // CRM — Admin (Enroll User / System Config)
+  Phone,
+  MapPin,
+  Save,
+  CircleDot,
+  Ban,
+  RotateCcw,
+  MoreVertical,
+  Undo2,
 } from "lucide-react";

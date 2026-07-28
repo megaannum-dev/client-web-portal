@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk } from "next/font/google";
+import { Toaster } from "sonner";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
 
@@ -26,6 +27,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${hankenGrotesk.variable} font-sans antialiased`}>
         <AuthProvider>{children}</AuthProvider>
+        <Toaster richColors position="bottom-center" />
       </body>
     </html>
   );
