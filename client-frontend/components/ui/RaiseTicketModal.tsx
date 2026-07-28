@@ -10,20 +10,19 @@ import {
   Ticket,
   X,
 } from "@/lib/icons";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
+import { submitTicket, type ClientRequestDTO, type RaiseTicketReq } from "@/lib/api/tickets";
+import type { RecommendedModelDTO } from "@/lib/api/models";
+import type { PositionDTO } from "@/lib/api/portfolio";
 import {
-  submitAllotmentRequest,
-  submitRedemptionRequest,
-  submitOtherTicket,
-} from "@/lib/mock/store";
-import {
-  MOCK_RECOMMENDED_MODELS,
-  MOCK_SUBSCRIBED_MODELS,
   MOCK_PORTFOLIO_STATS,
   SUPPORTING_DOC_CATEGORIES,
-  type AllotmentRequest,
-  type SubscribedModel,
-  type RecommendedModel,
 } from "@/lib/mock/data";
+
+const currencyFmt = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
 // ── Shared form utilities ─────────────────────────────────────────────────────
 
@@ -39,44 +38,53 @@ function fieldCls(err?: string) {
 
 function AllotmentForm({ onClose, onConfirm }: {
   onClose: () => void;
-  onConfirm: (req: AllotmentRequest) => void;
+  onConfirm: (req: ClientRequestDTO) => void;
 }) {
   const { t } = useTranslation();
-  const [selectedModel, setSelectedModel] = useState<RecommendedModel | null>(null);
+  const { getIdToken } = useAuth();
+  const { data: models } = useRecommendedModels();
+  const [selectedModel, setSelectedModel] = useState<RecommendedModelDTO | null>(null);
   const [amount,        setAmount]        = useState("");
   const [multiplier,    setMultiplier]    = useState("1.0");
   const cashOption = t("ticket.cash_balance", { amount: MOCK_PORTFOLIO_STATS.cashBalance });
   const [fundingSource, setFundingSource] = useState(cashOption);
   const [confirmed,     setConfirmed]     = useState(false);
   const [errors,        setErrors]        = useState<Record<string, string>>({});
-
-  const RISK_LABEL: Record<"High" | "Medium" | "Low", { text: string; cls: string }> = {
-    High:   { text: t("ticket.risk_high"),   cls: "text-warning" },
-    Medium: { text: t("ticket.risk_medium"), cls: "text-caution" },
-    Low:    { text: t("ticket.risk_low"),    cls: "text-success"  },
-  };
-
-  const minAmt = selectedModel ? parseFloat(selectedModel.minInvestment.replace(/[$,]/g, "")) : 0;
+  const [submitError,   setSubmitError]   = useState<string | null>(null);
+  const [submitting,    setSubmitting]    = useState(false);
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!selectedModel)                                          e.model     = t("ticket.errors.select_model");
+    if (!selectedModel)                          e.model      = t("ticket.errors.select_model");
     const amt = parseFloat(amount);
     const mul = parseFloat(multiplier);
-    if (!amount || isNaN(amt) || amt <= 0)                      e.amount     = t("ticket.errors.valid_amount");
-    else if (selectedModel && amt < minAmt)                      e.amount     = t("ticket.errors.minimum_allotment", { amount: selectedModel.minInvestment });
-    if (!multiplier || isNaN(mul) || mul <= 0)                  e.multiplier = t("ticket.errors.valid_multiplier");
-    if (!confirmed)                                              e.confirmed  = t("ticket.errors.confirm_rm");
+    if (!amount || isNaN(amt) || amt <= 0)       e.amount     = t("ticket.errors.valid_amount");
+    if (!multiplier || isNaN(mul) || mul <= 0)   e.multiplier = t("ticket.errors.valid_multiplier");
+    if (!confirmed)                              e.confirmed  = t("ticket.errors.confirm_rm");
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate() || !selectedModel) return;
-    const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(parseFloat(amount));
-    const id  = submitAllotmentRequest({ model: selectedModel.name, amount: fmt });
-    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    onConfirm({ id, type: "Allotment", model: selectedModel.name, amount: fmt, date, status: "Sent" });
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const token = await getIdToken();
+      const req: RaiseTicketReq = {
+        kind: "allotment",
+        model_id: selectedModel.model_id,
+        amount: parseFloat(amount),
+        multiplier: parseFloat(multiplier),
+        message: `Allotment request: ${selectedModel.name}, amount ${currencyFmt(parseFloat(amount))}, multiplier ${multiplier}x.`,
+      };
+      const dto = await submitTicket(token, req);
+      onConfirm(dto);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit request");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -89,15 +97,15 @@ function AllotmentForm({ onClose, onConfirm }: {
           <select
             value={selectedModel?.name ?? ""}
             onChange={(e) => {
-              const m = MOCK_RECOMMENDED_MODELS.find((x) => x.name === e.target.value) ?? null;
+              const m = models.find((x) => x.name === e.target.value) ?? null;
               setSelectedModel(m);
               setErrors((p) => ({ ...p, model: "" }));
             }}
             className={fieldCls(errors.model)}
           >
             <option value="">{t("ticket.select_model_placeholder")}</option>
-            {MOCK_RECOMMENDED_MODELS.map((m) => (
-              <option key={m.name} value={m.name}>{m.name} ({m.symbol})</option>
+            {models.map((m) => (
+              <option key={m.model_id} value={m.name}>{m.name}</option>
             ))}
           </select>
         </div>
@@ -109,11 +117,10 @@ function AllotmentForm({ onClose, onConfirm }: {
         <div className="bg-surface-container rounded-xl px-4 py-3.5 flex items-center justify-between">
           <div>
             <p className="text-body-sm font-bold text-on-surface">{selectedModel.name}</p>
-            <p className="text-label-md text-secondary mt-0.5">{selectedModel.assetClass}</p>
+            {selectedModel.category && (
+              <p className="text-label-md text-secondary mt-0.5">{selectedModel.category.join(", ")}</p>
+            )}
           </div>
-          <span className={`text-[11px] font-extrabold tracking-wide ${RISK_LABEL[selectedModel.risk].cls}`}>
-            {RISK_LABEL[selectedModel.risk].text}
-          </span>
         </div>
       )}
 
@@ -123,10 +130,7 @@ function AllotmentForm({ onClose, onConfirm }: {
         <input type="number" min={0} placeholder="0.00" value={amount}
           onChange={(e) => { setAmount(e.target.value); setErrors((p) => ({ ...p, amount: "" })); }}
           className={fieldCls(errors.amount)} />
-        {errors.amount
-          ? <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.amount}</p>
-          : selectedModel && <p className="flex items-center gap-1 text-[11px] text-secondary"><AlertCircle size={11} strokeWidth={1.75} />{t("ticket.minimum_allotment", { amount: selectedModel.minInvestment })}</p>
-        }
+        {errors.amount && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.amount}</p>}
       </div>
 
       {/* Multiplier */}
@@ -170,15 +174,18 @@ function AllotmentForm({ onClose, onConfirm }: {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-outline-variant">
-        <button type="button" onClick={onClose}
-          className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
-          {t("common.cancel")}
-        </button>
-        <button type="button" onClick={handleSubmit}
-          className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity">
-          {t("ticket.submit_allotment")}
-        </button>
+      <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
+        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            {t("common.cancel")}
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            {t("ticket.submit_allotment")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -188,15 +195,20 @@ function AllotmentForm({ onClose, onConfirm }: {
 
 function RedemptionForm({ onClose, onConfirm }: {
   onClose: () => void;
-  onConfirm: (req: AllotmentRequest) => void;
+  onConfirm: (req: ClientRequestDTO) => void;
 }) {
   const { t } = useTranslation();
-  const [selectedModel, setSelectedModel] = useState<SubscribedModel | null>(null);
+  const { getIdToken } = useAuth();
+  const { data: portfolio } = usePortfolio();
+  const positions = portfolio?.positions ?? [];
+  const [selectedModel, setSelectedModel] = useState<PositionDTO | null>(null);
   const [redeemAll,  setRedeemAll]  = useState(false);
   const [amount,     setAmount]     = useState("");
   const [returnTo,   setReturnTo]   = useState("Cash Balance");
   const [confirmed,  setConfirmed]  = useState(false);
   const [errors,     setErrors]     = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -210,14 +222,26 @@ function RedemptionForm({ onClose, onConfirm }: {
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate() || !selectedModel) return;
-    const rawAmt = redeemAll
-      ? selectedModel.amount
-      : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(parseFloat(amount));
-    const id   = submitRedemptionRequest({ model: selectedModel.name, amount: rawAmt, redeemAll });
-    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    onConfirm({ id, type: "Redemption", model: selectedModel.name, amount: rawAmt, date, status: "Sent" });
+    const redeemAmount = redeemAll ? selectedModel.amount : parseFloat(amount);
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const token = await getIdToken();
+      const req: RaiseTicketReq = {
+        kind: "redemption",
+        model_id: selectedModel.model_id,
+        amount: redeemAmount,
+        message: `Redemption request: ${selectedModel.model_name}, amount ${currencyFmt(redeemAmount)}${redeemAll ? " (full redemption)" : ""}.`,
+      };
+      const dto = await submitTicket(token, req);
+      onConfirm(dto);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit request");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -227,17 +251,17 @@ function RedemptionForm({ onClose, onConfirm }: {
       <div className="flex flex-col gap-1.5">
         <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.select_subscribed_model")}</label>
         <select
-          value={selectedModel?.name ?? ""}
+          value={selectedModel?.model_name ?? ""}
           onChange={(e) => {
-            const m = MOCK_SUBSCRIBED_MODELS.find((x) => x.name === e.target.value) ?? null;
+            const m = positions.find((x) => x.model_name === e.target.value) ?? null;
             setSelectedModel(m);
             setErrors((p) => ({ ...p, model: "" }));
           }}
           className={fieldCls(errors.model)}
         >
           <option value="">{t("ticket.select_subscribed_placeholder")}</option>
-          {MOCK_SUBSCRIBED_MODELS.map((m) => (
-            <option key={m.name} value={m.name}>{m.name} ({m.symbol}) · {m.amount}</option>
+          {positions.map((m) => (
+            <option key={m.model_id} value={m.model_name}>{m.model_name}</option>
           ))}
         </select>
         {errors.model && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
@@ -248,9 +272,9 @@ function RedemptionForm({ onClose, onConfirm }: {
         <div className="bg-surface-container rounded-xl px-4 py-3.5 flex items-center justify-between">
           <div>
             <p className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary mb-0.5">{t("ticket.selected_model")}</p>
-            <p className="text-body-sm font-bold text-on-surface">{selectedModel.name}</p>
+            <p className="text-body-sm font-bold text-on-surface">{selectedModel.model_name}</p>
           </div>
-          <span className="text-[15px] font-bold text-primary">{selectedModel.amount}</span>
+          <span className="text-[15px] font-bold text-primary">{currencyFmt(selectedModel.amount)}</span>
         </div>
       )}
 
@@ -323,15 +347,18 @@ function RedemptionForm({ onClose, onConfirm }: {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-outline-variant">
-        <button type="button" onClick={onClose}
-          className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
-          {t("common.cancel")}
-        </button>
-        <button type="button" onClick={handleSubmit}
-          className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity">
-          {t("ticket.submit_redemption")}
-        </button>
+      <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
+        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            {t("common.cancel")}
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            {t("ticket.submit_redemption")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -341,14 +368,17 @@ function RedemptionForm({ onClose, onConfirm }: {
 
 function OthersForm({ onClose, onConfirm }: {
   onClose: () => void;
-  onConfirm: (req: AllotmentRequest) => void;
+  onConfirm: (req: ClientRequestDTO) => void;
 }) {
   const { t } = useTranslation();
+  const { getIdToken } = useAuth();
   const [subject,     setSubject]     = useState("");
   const [category,    setCategory]    = useState<string>(SUPPORTING_DOC_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [confirmed,   setConfirmed]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting,  setSubmitting]  = useState(false);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -359,11 +389,25 @@ function OthersForm({ onClose, onConfirm }: {
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!validate()) return;
-    const id   = submitOtherTicket({ subject: subject.trim(), category, description: description.trim() });
-    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-    onConfirm({ id, type: "Others", model: subject.trim() || t("ticket.general_inquiry"), amount: "—", date, status: "Sent", subject: subject.trim() });
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const token = await getIdToken();
+      const req: RaiseTicketReq = {
+        kind: "other",
+        subject: subject.trim(),
+        category,
+        message: description.trim(),
+      };
+      const dto = await submitTicket(token, req);
+      onConfirm(dto);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit request");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -415,15 +459,18 @@ function OthersForm({ onClose, onConfirm }: {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 pt-2 border-t border-outline-variant">
-        <button type="button" onClick={onClose}
-          className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
-          {t("common.cancel")}
-        </button>
-        <button type="button" onClick={handleSubmit}
-          className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity">
-          {t("ticket.submit_ticket")}
-        </button>
+      <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
+        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose}
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            {t("common.cancel")}
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            {t("ticket.submit_ticket")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -441,7 +488,7 @@ const TICKET_TYPES: { type: TicketType; labelKey: string; descKey: string; color
 
 export function RaiseTicketModal({ onClose, onConfirm }: {
   onClose: () => void;
-  onConfirm: (req: AllotmentRequest) => void;
+  onConfirm: (req: ClientRequestDTO) => void;
 }) {
   const { t } = useTranslation();
   const [step, setStep]             = useState<1 | 2>(1);

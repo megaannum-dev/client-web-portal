@@ -8,7 +8,7 @@ import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { downloadDocument } from "@/lib/api/documents";
 import { useDocuments } from "@/lib/hooks/useDocuments";
-import type { AllotmentRequest } from "@/lib/mock/data";
+import type { ClientRequestDTO } from "@/lib/api/tickets";
 
 type ActionId = "ticket" | "download" | "faq";
 
@@ -57,7 +57,7 @@ export function FloatingActionButton() {
     // faq: no-op until implemented
   }
 
-  function handleConfirm(_req: AllotmentRequest) {
+  function handleConfirm(_req: ClientRequestDTO) {
     setTicketOpen(false);
   }
 
