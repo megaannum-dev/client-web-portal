@@ -743,7 +743,7 @@ class RmTicketDTO(BaseModel):
 
 | Layer | Contributes | Assumes |
 |---|---|---|
-| Database | `client_tickets` with the exact `TicketKind`/`TicketStatus` value sets in §4.1; `client_profiles.occupation` and `models.model_limit` nullable columns | Backend never writes a status outside the 5 values; a ticket's `assigned_rm_uid` is a snapshot and may go stale |
+| Database | `client_tickets` with the exact `TicketKind`/`TicketStatus` value sets in §4.1; `client_profiles.occupation`/`.date_of_birth` and `models.model_limit` nullable columns | Backend never writes a status outside the 5 values; a ticket's `assigned_rm_uid` is a snapshot and may go stale |
 | Backend | Every route above at its exact path, DTO, and status codes; all derivations (`total_value`, `amount`, `notional`, status maps) computed server-side | DB B-1/B-2 present; `client_portfolios` row may be **absent** for pre-014 clients → serve zeros, never 404 |
 | Frontend (client) | Consumes the DTOs verbatim; renders `None`/`null` as the existing `—`; performs no arithmetic beyond formatting | Backend returns DTOs exactly as in §4.1; money arrives as a `float`, formatting is FE-side |
 | Frontend (admin) | `RequestTickets.tsx` and its detail page consume `RmTicketDTO`; status actions POST `RmTicketStatusReq` | Backend enforces RM scoping; `ref` is URL-safe and stable |
