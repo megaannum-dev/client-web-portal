@@ -61,3 +61,13 @@ class PortfolioDTO(BaseModel):
     change_pct: float | None  # None when previous == 0
     updated_at: datetime | None
     positions: list[PositionDTO]  # one per client_subscriptions row, name-sorted
+
+
+# ---------- Documents (BE-7) ----------
+class StoredFileDTO(BaseModel):
+    key: str  # opaque storage key; the ONLY thing the FE echoes back
+    filename: str
+    size_bytes: int | None
+    modified_at: datetime | None
+    category: str | None  # legal scope: immediate sub-folder name; statements: None
+    period: str | None  # statements scope: "YYYY-MM" parsed from a leading date token; else None
