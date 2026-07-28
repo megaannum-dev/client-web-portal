@@ -15,6 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from app.libs.onboarding.schemas import DocumentDTO  # reused verbatim, D-8
+
 
 # ---------- Profile (BE-2) ----------
 class RmContactDTO(BaseModel):
@@ -91,6 +93,20 @@ class StoredFileDTO(BaseModel):
     modified_at: datetime | None
     category: str | None  # legal scope: immediate sub-folder name; statements: None
     period: str | None  # statements scope: "YYYY-MM" parsed from a leading date token; else None
+
+
+# ---------- KYC panel (BE-10) ----------
+class KycPanelDTO(BaseModel):
+    overall: Literal["due", "processing", "verified"]  # derived, see Backend C-9
+    documents: list[DocumentDTO]  # REUSED VERBATIM from app/libs/onboarding/schemas.py
+    next_review_at: datetime | None  # the periodic doc's expires_at; None if never verified
+    # --- renewal upload window (panel-level, not per-document) ---
+    renewal_doc_type: str | None  # e.g. "investment_policy_statement", or None if no periodic doc
+    upload_opens_at: datetime | None  # expires_at - CLIENT_UPLOAD_WINDOW_DAYS
+    can_upload: bool  # server-computed; the FE never recomputes this
+    upload_blocked_reason: (
+        Literal["window_not_open", "in_review", "cycle_not_editable", "no_cycle"] | None
+    )  # None iff can_upload is True
 
 
 # ---------- Requests & tickets (BE-12) ----------

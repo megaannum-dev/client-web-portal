@@ -1,12 +1,13 @@
 # api-backend/app/libs/client_portal/service.py
 from __future__ import annotations
 
+import os
 import re
 import uuid
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import BinaryIO
+from typing import BinaryIO, Literal
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from app.libs.client_portal.schemas import (
     ClientProfilePatch,
     ClientRequestDTO,
     HistoryPointDTO,
+    KycPanelDTO,
     PortfolioDTO,
     PositionDTO,
     RaiseTicketReq,
@@ -29,10 +31,16 @@ from app.libs.client_portal.schemas import (
     TicketKind,
     TicketStatus,
 )
+from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
 from app.libs.onboarding.repository import OnboardingRepository
-from app.libs.onboarding.service import OnboardingService
+from app.libs.onboarding.schemas import DocumentDTO
+from app.libs.onboarding.service import (
+    _CAN_REUPLOAD_STATUSES,
+    _EDITABLE_STATUSES,
+    OnboardingService,
+)
 from app.libs.trade_models.storage import StoredFile, get_storage
-from app.models.onboarding import ClientTicket
+from app.models.onboarding import ClientOnboarding, ClientTicket, OnboardingDocument
 from app.models.onboarding import TicketStatus as DbTicketStatus
 from app.models.pc import Model, ModelStatus
 from app.models.users import AdminRole, ClientProfile, User
@@ -42,6 +50,26 @@ _SCOPES = {"legal", "statements"}
 
 _TERMINAL = {TicketStatus.CLOSED, TicketStatus.DECLINED}
 _FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
+
+# ---------- KYC panel (BE-10) ----------
+# Same os.getenv convention as ONBOARDING_RENEWAL_LOOKAHEAD_DAYS (scheduler.py) /
+# ONBOARDING_SETTLEMENT_DAYS (onboarding/service.py) -- a feature-local tunable,
+# not a Settings field.
+CLIENT_UPLOAD_WINDOW_DAYS = max(0, int(os.getenv("CLIENT_UPLOAD_WINDOW_DAYS", "14")))
+
+_PERIODIC_DOC_TYPES = {d.key for d in REQUIRED_DOCS if d.periodic_review}  # exactly one today
+
+
+def assert_upload_window_valid() -> None:
+    """Startup check (C-8's invariant): the client window must never exceed the
+    scheduler's own reopen lookahead, or a client could be offered an upload
+    before the cycle is even reopened for it."""
+    from app.libs.onboarding.scheduler import _RENEWAL_LOOKAHEAD_DAYS
+
+    assert CLIENT_UPLOAD_WINDOW_DAYS <= _RENEWAL_LOOKAHEAD_DAYS, (
+        f"CLIENT_UPLOAD_WINDOW_DAYS ({CLIENT_UPLOAD_WINDOW_DAYS}) must be <= "
+        f"ONBOARDING_RENEWAL_LOOKAHEAD_DAYS ({_RENEWAL_LOOKAHEAD_DAYS})"
+    )
 
 
 # ---------- Portfolio history (BE-4) ----------
@@ -353,4 +381,101 @@ class ClientPortalService:
             amount=float(t.amount) if t.amount is not None else None,
             created_at=t.created_at,
             status=TicketStatus(t.status),
+        )
+
+    # ---------- KYC panel (BE-10) ----------
+    def _renewal_window(
+        self, onboarding: ClientOnboarding, doc: OnboardingDocument | None
+    ) -> tuple[
+        datetime | None,
+        bool,
+        Literal["window_not_open", "in_review", "cycle_not_editable", "no_cycle"] | None,
+    ]:
+        """Read-only mirror of upload_document's own guards (C-9) -- this
+        function's answer and that route's 403/409 must never disagree."""
+        if doc is None or doc.expires_at is None:
+            return None, False, "no_cycle"
+        opens_at = doc.expires_at - timedelta(days=CLIENT_UPLOAD_WINDOW_DAYS)
+        if onboarding.status not in _EDITABLE_STATUSES:
+            return opens_at, False, "cycle_not_editable"
+        if doc.status not in _CAN_REUPLOAD_STATUSES:
+            return opens_at, False, "in_review"
+        if datetime.utcnow() < opens_at:
+            return opens_at, False, "window_not_open"
+        return opens_at, True, None
+
+    def kyc_panel(self, user_id: uuid.UUID) -> KycPanelDTO:
+        onboarding = self.onboarding_repo.get_by_user_id(user_id)
+        if onboarding is None:
+            return KycPanelDTO(
+                overall="due",
+                documents=[],
+                next_review_at=None,
+                renewal_doc_type=None,
+                upload_opens_at=None,
+                can_upload=False,
+                upload_blocked_reason="no_cycle",
+            )
+        documents = self.onboarding.detail(onboarding.id).documents  # public method, D-8 reuse
+        periodic_doc = next(
+            (
+                d
+                for d in self.onboarding_repo.documents_for(onboarding.id)
+                if d.doc_type in _PERIODIC_DOC_TYPES
+            ),
+            None,
+        )
+        opens_at, can_upload, reason = self._renewal_window(onboarding, periodic_doc)
+        return KycPanelDTO(
+            overall=self._overall_status(documents),
+            documents=documents,
+            next_review_at=periodic_doc.expires_at if periodic_doc else None,
+            renewal_doc_type=periodic_doc.doc_type if periodic_doc else None,
+            upload_opens_at=opens_at,
+            can_upload=can_upload,
+            upload_blocked_reason=reason,
+        )
+
+    @staticmethod
+    def _overall_status(documents: list[DocumentDTO]) -> Literal["due", "processing", "verified"]:
+        required = [d for d in documents if d.required]
+        if required and all(d.status == "verified" for d in required):
+            return "verified"
+        if any(d.status in ("uploaded", "in_review") for d in required) and not any(
+            d.status in ("rejected", "expired") for d in required
+        ):
+            return "processing"
+        return "due"
+
+    def upload_renewal_document(
+        self,
+        user_id: uuid.UUID,
+        doc_type: str,
+        *,
+        stream: BinaryIO,
+        filename: str,
+        content_type: str | None,
+        caller_uid: str,
+    ) -> DocumentDTO:
+        if doc_type not in _PERIODIC_DOC_TYPES:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "This document does not accept a client-initiated renewal upload",
+            )
+        onboarding = self.onboarding_repo.get_by_user_id(user_id)
+        if onboarding is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No onboarding cycle")
+        doc = self.onboarding_repo.get_document(onboarding.id, doc_type)
+        _, can_upload, reason = self._renewal_window(onboarding, doc)
+        if not can_upload:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, reason or "window_not_open")
+        # Delegates to the EXISTING, UNMODIFIED method -- its own 409 guards still
+        # apply underneath this route's own 403 (Backend C-7).
+        return self.onboarding.upload_document(
+            onboarding.id,
+            doc_type,
+            stream=stream,
+            filename=filename,
+            content_type=content_type,
+            caller_uid=caller_uid,
         )

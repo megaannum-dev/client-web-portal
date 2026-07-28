@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.libs.client_portal.schemas import (
     ClientProfilePatch,
     ClientRequestDTO,
     HistoryPointDTO,
+    KycPanelDTO,
     PortfolioDTO,
     RaiseTicketReq,
     RecommendedModelDTO,
@@ -24,7 +25,7 @@ from app.libs.client_portal.schemas import (
     StoredFileDTO,
 )
 from app.libs.client_portal.service import ClientPortalService
-from app.libs.onboarding.schemas import ClientEventDTO, SubscriptionDTO
+from app.libs.onboarding.schemas import ClientEventDTO, DocumentDTO, SubscriptionDTO
 from app.libs.users.repository import AdminProfileRepository
 from app.models.users import AdminRole, User
 
@@ -110,6 +111,32 @@ def download_model_material(
         stream,
         media_type=content_type or "application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---- KYC panel (BE-10) ----
+@router.get("/client/kyc", response_model=KycPanelDTO)
+def get_kyc_panel(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> KycPanelDTO:
+    return svc.kyc_panel(user.id)
+
+
+@router.post("/client/kyc/{doc_type}", response_model=DocumentDTO)
+async def upload_kyc_document(
+    doc_type: str,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+    file: UploadFile = File(...),
+) -> DocumentDTO:
+    return svc.upload_renewal_document(
+        user.id,
+        doc_type,
+        stream=file.file,
+        filename=file.filename or doc_type,
+        content_type=file.content_type,
+        caller_uid=user.firebase_uid,
     )
 
 
