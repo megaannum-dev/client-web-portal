@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { Bell, HelpCircle, Mail, MessageCircle } from "@/lib/icons";
+import { Phone } from "lucide-react";
+import { Bell, HelpCircle, Mail } from "@/lib/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { MOCK_RM_CONTACT } from "@/lib/mock/data";
+import { useProfile } from "@/lib/hooks/useProfile";
 
 export function HeaderActions() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { data: profile } = useProfile();
+  const rm = profile?.assigned_rm ?? null;
 
   const displayName = user?.displayName ?? "Alex Thompson";
 
@@ -39,7 +42,7 @@ export function HeaderActions() {
           <div className="bg-white border border-outline-variant rounded-xl shadow-overlay p-4">
             <p className="text-[14px] font-bold text-on-surface mb-0.5">{t("header.contact_rm")}</p>
             <p className="text-[11px] text-secondary mb-4">
-              {MOCK_RM_CONTACT.name}
+              {rm?.name ?? t("header.empty")}
             </p>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
@@ -48,16 +51,19 @@ export function HeaderActions() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-secondary mb-0.5">{t("header.email")}</p>
-                  <p className="text-[12px] text-on-surface truncate">{MOCK_RM_CONTACT.email}</p>
+                  <p className="text-[12px] text-on-surface truncate">{rm?.email ?? t("header.empty")}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="size-8 rounded-lg bg-[#25D366]/10 flex items-center justify-center shrink-0">
-                  <MessageCircle size={14} strokeWidth={1.75} className="text-[#25D366]" />
+                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Phone size={14} strokeWidth={1.75} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-secondary mb-0.5">{t("header.whatsapp")}</p>
-                  <p className="text-[12px] text-on-surface">{MOCK_RM_CONTACT.whatsappNumber}</p>
+                  {/* ponytail: no "header.phone" i18n key exists yet and public/locales/*.json is
+                      out of this unit's file scope — hardcoded label, add a real key when FE-13
+                      (or a future i18n pass) touches translation.json. */}
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-secondary mb-0.5">Phone</p>
+                  <p className="text-[12px] text-on-surface">{rm?.phone ?? t("header.empty")}</p>
                 </div>
               </div>
             </div>
