@@ -15,6 +15,7 @@ import {
 import type { ActionLevel } from "@/lib/mock/data";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
+import { EyeToggle }  from "@/components/ui/EyeToggle";
 import { usePortfolio } from "@/lib/hooks/usePortfolio";
 import { useClientEvents } from "@/lib/hooks/useOnboardingEvents";
 import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
@@ -212,11 +213,16 @@ function SectionHeader({ title, linkLabel, linkHref }: { title: string; linkLabe
 
 export default function OverviewPage() {
   const { t } = useTranslation();
+  // ponytail: default unmasked (was `true`/masked pre-FE-10) — these two cards
+  // now render on first paint with no interaction; upgrade to masked-by-default
+  // once there's a product call on it, toggle still works either way.
+  const [censored, setCensored] = useState(false);
   const { data: portfolio } = usePortfolio();
   const latestEvents = useClientEvents().slice(0, 3);
   const { dynamic: dynamicRequests } = useAllotmentRequests();
   const recentRequests = [...dynamicRequests, ...MOCK_ALLOTMENT_REQUESTS].slice(0, 3);
   const changePct = portfolio?.change_pct ?? null;
+  const mask = (v: string) => (censored ? "********" : v);
 
   return (
     <div className="flex flex-col gap-8 pb-20">
@@ -237,15 +243,18 @@ export default function OverviewPage() {
 
           {/* Account Summary */}
           <div>
-            <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("overview.account_summary")}</h2>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-headline-md font-semibold text-on-surface">{t("overview.account_summary")}</h2>
+              <EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 label={t("overview.total_portfolio_value")}
-                value={portfolio ? `$${portfolio.total_value.toFixed(2)}` : "—"}
+                value={portfolio ? mask(`$${portfolio.total_value.toFixed(2)}`) : "—"}
               />
               <StatCard
                 label={t("overview.amount_in_trade", { defaultValue: "Amount in Trade" })}
-                value={portfolio ? `$${portfolio.amount_in_trade.toFixed(2)}` : "—"}
+                value={portfolio ? mask(`$${portfolio.amount_in_trade.toFixed(2)}`) : "—"}
                 sub={
                   <span className="text-body-sm text-secondary">
                     {changePct !== null
