@@ -16,10 +16,6 @@ import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
 import { submitTicket, type ClientRequestDTO, type RaiseTicketReq } from "@/lib/api/tickets";
 import type { RecommendedModelDTO } from "@/lib/api/models";
 import type { PositionDTO } from "@/lib/api/portfolio";
-import {
-  MOCK_PORTFOLIO_STATS,
-  SUPPORTING_DOC_CATEGORIES,
-} from "@/lib/mock/data";
 
 const currencyFmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -43,10 +39,13 @@ function AllotmentForm({ onClose, onConfirm }: {
   const { t } = useTranslation();
   const { getIdToken } = useAuth();
   const { data: models } = useRecommendedModels();
+  const { data: portfolio } = usePortfolio();
   const [selectedModel, setSelectedModel] = useState<RecommendedModelDTO | null>(null);
   const [amount,        setAmount]        = useState("");
   const [multiplier,    setMultiplier]    = useState("1.0");
-  const cashOption = t("ticket.cash_balance", { amount: MOCK_PORTFOLIO_STATS.cashBalance });
+  const cashOption = t("ticket.cash_balance", {
+    amount: portfolio ? currencyFmt(portfolio.cash_deposit) : "—",
+  });
   const [fundingSource, setFundingSource] = useState(cashOption);
   const [confirmed,     setConfirmed]     = useState(false);
   const [errors,        setErrors]        = useState<Record<string, string>>({});
@@ -366,6 +365,8 @@ function RedemptionForm({ onClose, onConfirm }: {
 
 // ── Others Form (inside RaiseTicketModal) ─────────────────────────────────────
 
+const OTHER_TICKET_CATEGORIES = ["Questionnaire", "Others"] as const;
+
 function OthersForm({ onClose, onConfirm }: {
   onClose: () => void;
   onConfirm: (req: ClientRequestDTO) => void;
@@ -373,7 +374,7 @@ function OthersForm({ onClose, onConfirm }: {
   const { t } = useTranslation();
   const { getIdToken } = useAuth();
   const [subject,     setSubject]     = useState("");
-  const [category,    setCategory]    = useState<string>(SUPPORTING_DOC_CATEGORIES[0]);
+  const [category,    setCategory]    = useState<string>(OTHER_TICKET_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [confirmed,   setConfirmed]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
@@ -419,7 +420,7 @@ function OthersForm({ onClose, onConfirm }: {
         <div className="relative">
           <select value={category} onChange={(e) => setCategory(e.target.value)}
             className={fieldCls()}>
-            {SUPPORTING_DOC_CATEGORIES.map((c) => (
+            {OTHER_TICKET_CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

@@ -17,10 +17,10 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useKyc } from "@/lib/hooks/useKyc";
-import { MOCK_PORTFOLIO_STATS } from "@/lib/mock/data";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
 // ponytail: Supporting Documents shelved (D-5) — the SUPPORTING_DOC_CATEGORIES/
-// SupportingDoc types and the lib/mock/store.ts helpers this used live only in
-// the commented block below now; see it for the full import list they need.
+// SupportingDoc types and the mock store helpers this used were deleted in
+// FE-14; see the commented block below for the full import list they needed.
 import { PageHeader }  from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EyeToggle }   from "@/components/ui/EyeToggle";
@@ -88,6 +88,9 @@ function BalanceItem({ label, value, censored }: { label: string; value: string;
     </div>
   );
 }
+
+const moneyFmt = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ── KYC Upload Modal ───────────────────────────────────────────────────────────
 
@@ -200,11 +203,8 @@ function KycUploadModal({
 // client must hold several files of one kind. JSX/state kept below, commented,
 // so a future proposal restores rather than rewrites this.
 //
-// import {
-//   SUPPORTING_DOC_CATEGORIES,
-//   type SupportingDoc,
-// } from "@/lib/mock/data";
-// import { appendSupportingDoc, getSupportingDocs } from "@/lib/mock/store";
+// import { SUPPORTING_DOC_CATEGORIES, type SupportingDoc } from the (now-deleted) mock data module;
+// import { appendSupportingDoc, getSupportingDocs } from the (now-deleted) mock store module;
 //
 // function SupportingDocModal({
 //   onClose,
@@ -388,6 +388,11 @@ export default function ProfilePage() {
   const kycOverall = kyc?.overall;
   const nextReviewLabel = kyc?.next_review_at ? new Date(kyc.next_review_at).toLocaleDateString() : "—";
 
+  // ── Account balance ────────────────────────────────────────────────────────
+  const { data: portfolio } = usePortfolio();
+  const totalValueLabel = portfolio ? moneyFmt(portfolio.total_value) : "—";
+  const cashBalanceLabel = portfolio ? moneyFmt(portfolio.cash_deposit) : "—";
+
   // ── Profile info edit state ────────────────────────────────────────────────
   const { data: profile, save } = useProfile();
   const [editing, setEditing]     = useState(false);
@@ -538,8 +543,8 @@ export default function ProfilePage() {
         action={<EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />}
       >
         <div className="grid grid-cols-2 gap-8">
-          <BalanceItem label={t("profile.total_portfolio_value")} value={MOCK_PORTFOLIO_STATS.totalValue}  censored={censored} />
-          <BalanceItem label={t("profile.total_cash_value")}      value={MOCK_PORTFOLIO_STATS.cashBalance} censored={censored} />
+          <BalanceItem label={t("profile.total_portfolio_value")} value={totalValueLabel}  censored={censored} />
+          <BalanceItem label={t("profile.total_cash_value")}      value={cashBalanceLabel} censored={censored} />
         </div>
       </SectionCard>
 
