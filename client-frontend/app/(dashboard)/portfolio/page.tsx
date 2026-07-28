@@ -30,12 +30,12 @@ import {
 } from "@/lib/icons";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
-import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
+import { useRequests } from "@/lib/hooks/useRequests";
 import { usePortfolio } from "@/lib/hooks/usePortfolio";
 import { usePortfolioHistory } from "@/lib/hooks/usePortfolioHistory";
 import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
 import { modelMaterialDownloadUrl } from "@/lib/api/models";
-import { MOCK_ALLOTMENT_REQUESTS, type AllotmentRequest } from "@/lib/mock/data";
+import type { ClientRequestDTO, TicketStatus, TicketKind } from "@/lib/api/requests";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
 import { EyeToggle }  from "@/components/ui/EyeToggle";
@@ -50,6 +50,8 @@ const TOTAL_COLOR = "#f97316";
 
 const currencyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 function formatMoney(n: number) { return currencyFmt.format(n); }
+// ponytail: mirrors the inline toLocaleDateString call already used in monthly-reports/page.tsx — no shared date util yet.
+function formatDate(iso: string) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }); }
 
 const BENCHMARK_VALUE = 0;
 const BENCHMARK_COLOR = "#585f6c";
@@ -130,31 +132,38 @@ function makeLineTooltip(seriesList: { key: string; color: string }[]) {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function TicketStatusBadge({ status }: { status: AllotmentRequest["status"] }) {
+function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const { t } = useTranslation();
-  const config: Record<AllotmentRequest["status"], { dot: string; cls: string }> = {
-    Sent:       { dot: "bg-secondary",             cls: "bg-secondary/10 text-secondary border-secondary/20" },
-    Received:   { dot: "bg-primary",               cls: "bg-primary/10 text-primary border-primary/20"       },
-    Processing: { dot: "bg-caution animate-pulse", cls: "bg-caution/10 text-caution border-caution/20"       },
-    Fulfilled:  { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
+  const config: Record<TicketStatus, { dot: string; cls: string }> = {
+    new:         { dot: "bg-secondary",             cls: "bg-secondary/10 text-secondary border-secondary/20" },
+    replied:     { dot: "bg-primary",               cls: "bg-primary/10 text-primary border-primary/20"       },
+    in_progress: { dot: "bg-caution animate-pulse", cls: "bg-caution/10 text-caution border-caution/20"       },
+    closed:      { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
+    declined:    { dot: "bg-warning",               cls: "bg-warning/10 text-warning border-warning/20"       },
   };
   const { dot, cls } = config[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold border ${cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
-      {t(`status.${status.toLowerCase()}`)}
+      {t(`status.${status}`)}
     </span>
   );
 }
 
-function TypeBadge({ type }: { type: AllotmentRequest["type"] }) {
+const TYPE_I18N_KEY: Record<TicketKind, string> = {
+  allotment:  "request_type.allotment",
+  redemption: "request_type.redemption",
+  other:      "request_type.others",
+};
+
+function TypeBadge({ type }: { type: TicketKind }) {
   const { t } = useTranslation();
-  const cls: Record<AllotmentRequest["type"], string> = {
-    Allotment:  "text-primary",
-    Redemption: "text-warning",
-    Others:     "text-secondary",
+  const cls: Record<TicketKind, string> = {
+    allotment:  "text-primary",
+    redemption: "text-warning",
+    other:      "text-secondary",
   };
-  return <span className={`text-body-sm font-bold ${cls[type]}`}>{t(`request_type.${type.toLowerCase()}`)}</span>;
+  return <span className={`text-body-sm font-bold ${cls[type]}`}>{t(TYPE_I18N_KEY[type])}</span>;
 }
 
 function ModelTable({ columns, gridTemplate, children }: {
@@ -199,7 +208,7 @@ export default function PortfolioPage() {
   const { t } = useTranslation();
   const [censored,    setCensored]    = useState(true);
   const [ticketOpen,  setTicketOpen]  = useState(false);
-  const { dynamic, addRequest }       = useAllotmentRequests();
+  const { data: requests, refetch: refetchRequests } = useRequests();
   const { data: recommended, loading: recommendedLoading } = useRecommendedModels();
   const mask = (v: string) => (censored ? "********" : v);
 
@@ -233,25 +242,23 @@ export default function PortfolioPage() {
   const [search,      setSearch]      = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const allRequests = useMemo(() => [...dynamic, ...MOCK_ALLOTMENT_REQUESTS], [dynamic]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allRequests;
-    return allRequests.filter(
+    if (!q) return requests;
+    return requests.filter(
       (r) =>
-        r.id.toLowerCase().includes(q) ||
-        r.type.toLowerCase().includes(q) ||
-        r.model.toLowerCase().includes(q) ||
+        r.ref.toLowerCase().includes(q) ||
+        r.kind.toLowerCase().includes(q) ||
+        (r.model_name ?? "").toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q),
     );
-  }, [allRequests, search]);
+  }, [requests, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageData   = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function handleSearch(q: string) { setSearch(q); setCurrentPage(1); }
-  function handleConfirm(req: AllotmentRequest) { addRequest(req); setTicketOpen(false); }
+  function handleConfirm(req: ClientRequestDTO) { void req; refetchRequests(); setTicketOpen(false); }
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -499,12 +506,12 @@ export default function PortfolioPage() {
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_tickets_match")}</div>
           ) : (
             pageData.map((r) => (
-              <div key={r.id} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-                <div className="px-5 py-4 flex items-center font-mono text-[12px] text-secondary">{r.id}</div>
-                <div className="px-5 py-4 flex items-center"><TypeBadge type={r.type} /></div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm font-semibold text-on-surface">{r.amount}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-secondary">{r.date}</div>
+              <div key={r.ref} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+                <div className="px-5 py-4 flex items-center font-mono text-[12px] text-secondary">{r.ref}</div>
+                <div className="px-5 py-4 flex items-center"><TypeBadge type={r.kind} /></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model_name ?? r.subject}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-semibold text-on-surface">{r.amount != null ? formatMoney(r.amount) : "—"}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-secondary">{formatDate(r.created_at)}</div>
                 <div className="px-5 py-4 flex items-center"><TicketStatusBadge status={r.status} /></div>
               </div>
             ))

@@ -18,15 +18,24 @@ import { StatCard }   from "@/components/ui/StatCard";
 import { EyeToggle }  from "@/components/ui/EyeToggle";
 import { usePortfolio } from "@/lib/hooks/usePortfolio";
 import { useClientEvents } from "@/lib/hooks/useOnboardingEvents";
-import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
-import { MOCK_ALLOTMENT_REQUESTS } from "@/lib/mock/data";
+import { useRequests } from "@/lib/hooks/useRequests";
+import type { TicketStatus, TicketKind } from "@/lib/api/requests";
 
-const STATUS_BADGE: Record<"Sent" | "Received" | "Processing" | "Fulfilled", string> = {
-  Sent:       "badge-caution",
-  Received:   "badge-caution",
-  Processing: "badge-caution",
-  Fulfilled:  "badge-success",
+const STATUS_BADGE: Record<TicketStatus, string> = {
+  new:         "badge-caution",
+  in_progress: "badge-caution",
+  replied:     "badge-caution",
+  closed:      "badge-success",
+  declined:    "badge-warning",
 };
+
+const REQUEST_TYPE_I18N_KEY: Record<TicketKind, string> = {
+  allotment:  "request_type.allotment",
+  redemption: "request_type.redemption",
+  other:      "request_type.others",
+};
+
+function formatRequestDate(iso: string) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }); }
 
 // Icons used within the on-primary Latest Events panel only.
 const PANEL_ICONS = {
@@ -185,11 +194,11 @@ function HeroBanner() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: keyof typeof STATUS_BADGE }) {
+function StatusBadge({ status }: { status: TicketStatus }) {
   const { t } = useTranslation();
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${STATUS_BADGE[status]}`}>
-      {t(`status.${status.toLowerCase()}`)}
+      {t(`status.${status}`)}
     </span>
   );
 }
@@ -219,8 +228,7 @@ export default function OverviewPage() {
   const [censored, setCensored] = useState(false);
   const { data: portfolio } = usePortfolio();
   const latestEvents = useClientEvents().slice(0, 3);
-  const { dynamic: dynamicRequests } = useAllotmentRequests();
-  const recentRequests = [...dynamicRequests, ...MOCK_ALLOTMENT_REQUESTS].slice(0, 3);
+  const recentRequests = useRequests().data.slice(0, 3);
   const changePct = portfolio?.change_pct ?? null;
   const mask = (v: string) => (censored ? "********" : v);
 
@@ -288,12 +296,12 @@ export default function OverviewPage() {
                 </thead>
                 <tbody className="bg-surface-lowest divide-y divide-outline-variant">
                   {recentRequests.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-5 py-4 text-body-sm text-on-surface">{t(`request_type.${r.type.toLowerCase()}`)}</td>
-                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model}</td>
-                      <td className="px-5 py-4 text-body-sm text-secondary">{r.date}</td>
+                    <tr key={r.ref}>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{t(REQUEST_TYPE_I18N_KEY[r.kind])}</td>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model_name ?? r.subject}</td>
+                      <td className="px-5 py-4 text-body-sm text-secondary">{formatRequestDate(r.created_at)}</td>
                       <td className="px-5 py-4"><StatusBadge status={r.status} /></td>
-                      <td className="px-5 py-4 text-body-sm font-semibold text-on-surface">{r.amount}</td>
+                      <td className="px-5 py-4 text-body-sm font-semibold text-on-surface">{r.amount != null ? `$${r.amount.toLocaleString("en-US")}` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
