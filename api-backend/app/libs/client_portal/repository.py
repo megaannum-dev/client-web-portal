@@ -11,12 +11,12 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Row, func
+from sqlalchemy import Row, exists, func
 from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import ClientSubscription, Model, ModelMaterial, ModelStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     ClientPortfolioRunDelta,
@@ -84,6 +84,24 @@ class ClientPortalRepository:
             .all()
         )
         return [(r.month, r.model_name, r.allocated) for r in rows]
+
+    # ---------- Models (BE-5) ----------
+    def recommended_models(self, exclude_ids: set[uuid.UUID]) -> list[Model]:
+        q = self.db.query(Model).filter(Model.status == ModelStatus.LIVE)
+        if exclude_ids:
+            q = q.filter(~Model.id.in_(exclude_ids))
+        return q.order_by(Model.name).all()
+
+    def has_material(self, model_id: uuid.UUID) -> bool:
+        return self.db.query(exists().where(ModelMaterial.model_id == model_id)).scalar()
+
+    def latest_material(self, model_id: uuid.UUID) -> ModelMaterial | None:
+        return (
+            self.db.query(ModelMaterial)
+            .filter(ModelMaterial.model_id == model_id)
+            .order_by(ModelMaterial.version_no.desc())
+            .first()
+        )
 
     # ---------- Tickets (BE-12) ----------
     def create_ticket(

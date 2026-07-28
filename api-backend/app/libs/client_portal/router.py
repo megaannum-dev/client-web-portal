@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -17,6 +18,7 @@ from app.libs.client_portal.schemas import (
     HistoryPointDTO,
     PortfolioDTO,
     RaiseTicketReq,
+    RecommendedModelDTO,
     RmTicketDTO,
     RmTicketStatusReq,
     StoredFileDTO,
@@ -86,6 +88,29 @@ def get_portfolio_history(
     if not (1 <= months <= 24):
         raise HTTPException(422, "months must be between 1 and 24")
     return svc.portfolio_history(user.id, months)
+
+
+# ---- Models (BE-5) ----
+@router.get("/client/models/recommended", response_model=list[RecommendedModelDTO])
+def get_recommended_models(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> list[RecommendedModelDTO]:
+    return svc.recommended_models(user.id)
+
+
+@router.get("/client/models/{model_id}/material")
+def download_model_material(
+    model_id: UUID,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    _user: Annotated[User, Depends(get_current_client_user)],
+) -> StreamingResponse:
+    stream, filename, content_type = svc.model_material_stream(model_id)
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---- Documents (BE-7) ----

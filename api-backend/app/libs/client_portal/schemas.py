@@ -72,6 +72,17 @@ class HistoryPointDTO(BaseModel):
     per_model: dict[str, float]  # model_name -> cumulative allocated at month end
 
 
+# ---------- Models (BE-5) ----------
+class RecommendedModelDTO(BaseModel):
+    model_id: uuid.UUID
+    name: str
+    category: list[str] | None  # models.category (JSON) -- a real model attribute
+    model_limit: float | None  # models.model_limit
+    subscription_redemption: str | None
+    description: str | None
+    has_material: bool  # a model_materials row exists
+
+
 # ---------- Documents (BE-7) ----------
 class StoredFileDTO(BaseModel):
     key: str  # opaque storage key; the ONLY thing the FE echoes back

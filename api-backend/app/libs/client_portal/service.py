@@ -21,6 +21,7 @@ from app.libs.client_portal.schemas import (
     PortfolioDTO,
     PositionDTO,
     RaiseTicketReq,
+    RecommendedModelDTO,
     RmContactDTO,
     RmTicketDTO,
     RmTicketStatusReq,
@@ -184,6 +185,30 @@ class ClientPortalService:
                 )
             )
         return points
+
+    # ---------- Models (BE-5) ----------
+    def recommended_models(self, user_id: uuid.UUID) -> list[RecommendedModelDTO]:
+        subscribed_ids = {m.id for _, m in self.repo.positions_for_client(user_id)}
+        return [
+            RecommendedModelDTO(
+                model_id=m.id,
+                name=m.name,
+                category=m.category,
+                model_limit=float(m.model_limit) if m.model_limit is not None else None,
+                subscription_redemption=m.subscription_redemption,
+                description=m.description,
+                has_material=self.repo.has_material(m.id),
+            )
+            for m in self.repo.recommended_models(subscribed_ids)
+        ]
+
+    def model_material_stream(self, model_id: uuid.UUID) -> tuple[BinaryIO, str, str | None]:
+        material = self.repo.latest_material(model_id)
+        if material is None or material.storage_key is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, "No material uploaded for this model"
+            )
+        return get_storage().open(material.storage_key), material.filename, material.content_type
 
     # ---------- Documents (BE-7) ----------
     def _scope_subdir(self, scope: str, user_id: uuid.UUID) -> str:
