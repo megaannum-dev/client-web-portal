@@ -148,13 +148,35 @@ def upgrade() -> None:
         sa.Column("model_limit", sa.Numeric(precision=28, scale=10), nullable=True),
     )
 
-    # NOTE (W2): DB-6's seven client_profiles RM columns land here, added by a
-    # later agent -- this comment marks the insertion point, not the change.
+    # --- DB-6: client_profiles RM relationship-management columns ------------
+    op.add_column("client_profiles", sa.Column("anniversary", sa.Date(), nullable=True))
+    op.add_column(
+        "client_profiles", sa.Column("spouse_name", sa.String(length=255), nullable=True)
+    )
+    op.add_column("client_profiles", sa.Column("children", sa.Text(), nullable=True))
+    op.add_column(
+        "client_profiles", sa.Column("personal_interests", sa.Text(), nullable=True)
+    )
+    op.add_column(
+        "client_profiles", sa.Column("communication_preferences", sa.Text(), nullable=True)
+    )
+    op.add_column(
+        "client_profiles", sa.Column("gift_hospitality_preferences", sa.Text(), nullable=True)
+    )
+    op.add_column(
+        "client_profiles", sa.Column("relationship_notes", sa.Text(), nullable=True)
+    )
 
 
 def downgrade() -> None:
-    # NOTE (W2): DB-6's seven client_profiles column drops land here first,
-    # ahead of DB-5's reversal below -- added by a later agent.
+    # --- DB-6 reversal ----------------------------------------------------------
+    op.drop_column("client_profiles", "relationship_notes")
+    op.drop_column("client_profiles", "gift_hospitality_preferences")
+    op.drop_column("client_profiles", "communication_preferences")
+    op.drop_column("client_profiles", "personal_interests")
+    op.drop_column("client_profiles", "children")
+    op.drop_column("client_profiles", "spouse_name")
+    op.drop_column("client_profiles", "anniversary")
 
     # --- DB-5 reversal ---------------------------------------------------------
     op.drop_column("models", "model_limit")

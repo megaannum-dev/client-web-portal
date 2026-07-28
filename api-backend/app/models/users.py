@@ -150,6 +150,20 @@ class ClientProfile(Base):
     # absent from ClientProfilePatch; a client cannot self-edit a fact
     # Compliance has already verified against an identity document.
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)  # proposal 018, B-2
+    # RM relationship-management notes -- free text, all nullable, no business
+    # logic reads these. anniversary is a plain Date (recurring by month/day,
+    # not tied to a specific year's event); the rest are Text since they're
+    # free-form (e.g. "children" is names AND ages together, not a list).
+    # DB-only (proposal 018, B-6): NOT on ClientProfileDTO/ClientProfilePatch
+    # or any client-facing surface -- a client must never read or write their
+    # own RM's notes about them. Exposing these is a future, separate proposal.
+    anniversary: Mapped[date | None] = mapped_column(Date, nullable=True)
+    spouse_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    children: Mapped[str | None] = mapped_column(Text, nullable=True)
+    personal_interests: Mapped[str | None] = mapped_column(Text, nullable=True)
+    communication_preferences: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gift_hospitality_preferences: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relationship_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
