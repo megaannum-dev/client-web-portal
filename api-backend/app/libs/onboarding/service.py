@@ -773,6 +773,12 @@ class OnboardingService:
 
     def _doc_to_dto(self, doc: OnboardingDocument) -> DocumentDTO:
         spec = get_doc_spec(doc.doc_type)
+        onboarding = self.repo.get_by_id(doc.onboarding_id)
+        uploaded_by = self.repo._resolve_uid_to_display_name_with_role(doc.uploaded_by)
+        if uploaded_by is not None and onboarding is not None and doc.uploaded_by is not None:
+            user = self.db.query(User).filter(User.firebase_uid == doc.uploaded_by).one_or_none()
+            if user is not None and user.id == onboarding.user_id:
+                uploaded_by = f"{uploaded_by} (client)"
         return DocumentDTO(
             doc_type=doc.doc_type,
             label=spec.label,
@@ -784,7 +790,7 @@ class OnboardingService:
             reviewed_at=doc.reviewed_at,
             expires_at=doc.expires_at,
             can_reupload=doc.status in _CAN_REUPLOAD_STATUSES,
-            uploaded_by=self.repo._resolve_uid_to_display_name_with_role(doc.uploaded_by),
+            uploaded_by=uploaded_by,
             uploaded_at=doc.uploaded_at,
             approved_at=doc.reviewed_at if doc.status == DocStatus.VERIFIED else None,
         )
