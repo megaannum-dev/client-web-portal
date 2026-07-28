@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.libs.auth.deps import get_current_client_user
+from app.libs.client_portal.schemas import ClientProfileDTO, ClientProfilePatch
 from app.libs.client_portal.service import ClientPortalService
 from app.libs.onboarding.schemas import ClientEventDTO, SubscriptionDTO
 from app.models.users import User
@@ -34,3 +35,21 @@ def get_client_events(
     user: Annotated[User, Depends(get_current_client_user)],
 ) -> list[ClientEventDTO]:
     return svc.onboarding.client_events(user.id)
+
+
+# ---- Profile (BE-2) ----
+@router.get("/client/profile", response_model=ClientProfileDTO)
+def get_profile(
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> ClientProfileDTO:
+    return svc.profile(user.id)
+
+
+@router.patch("/client/profile", response_model=ClientProfileDTO)
+def patch_profile(
+    patch: ClientProfilePatch,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> ClientProfileDTO:
+    return svc.update_profile(user.id, patch)
