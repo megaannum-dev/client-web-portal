@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { fetchEvents, type ClientEventDTO } from "@/lib/api/onboarding";
-import type { EventEntry, EventCategory } from "@/types/portal";
+import type { EventEntry, EventCategory, ActionLevel } from "@/types/portal";
 
 const FILTER_CATEGORIES: EventCategory[] = ["Market News", "Account Notification", "Requests Status", "Others"];
 
@@ -18,16 +18,25 @@ function formatRelativeTime(iso: string): string {
   return `${Math.round(diffHr / 24)}d ago`;
 }
 
-/** Fixed chrome for a server-sourced event — the DTO carries no icon/level/action
- *  metadata (§1 seam gap), so every row gets the same "shield/info" treatment;
- *  category now comes from the real column, falling back to "Others" for any
- *  value outside the known filter set. */
+/** The DTO carries no icon/level metadata (§1 seam gap) -- classify from the
+ *  title text the backend already writes (e.g. "...declined", "...approved",
+ *  "...submitted") so a rejected request reads visually distinct from a
+ *  routine submission instead of every event getting the same treatment. */
+function classify(title: string): { iconType: EventEntry["iconType"]; level: ActionLevel } {
+  const t = title.toLowerCase();
+  if (t.includes("declined") || t.includes("rejected")) return { iconType: "shield", level: "urgent" };
+  if (t.includes("approved")) return { iconType: "trending-up", level: "primary" };
+  if (t.includes("submitted")) return { iconType: "file-text", level: "info" };
+  return { iconType: "shield", level: "info" };
+}
+
 function mapEvent(dto: ClientEventDTO): EventEntry {
   const category = FILTER_CATEGORIES.includes(dto.category as EventCategory)
     ? (dto.category as EventCategory)
     : "Others";
+  const { iconType, level } = classify(dto.title);
   return {
-    id: dto.id, iconType: "shield", level: "info",
+    id: dto.id, iconType, level,
     title: dto.title, time: formatRelativeTime(dto.created_at), description: dto.body,
     category,
     primaryLabel: "Acknowledge", primaryVariant: "outline", secondaryLabel: "Mark as Read",
