@@ -26,7 +26,14 @@ import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SUB_CLIENTS, type RequestTicket } from "@/lib/mock/rm-data";
-import { useRmTickets } from "@/hooks/api/useRmTickets";
+import { useRmTickets, useRmTicket } from "@/hooks/api/useRmTickets";
+// ponytail: lazy dynamic import — this "use server" action pulls in server-only
+// code; a static import would eagerly evaluate that chain for every consumer of
+// this client component (e.g. the inbox view, which never calls it).
+async function setTicketStatus(...args: Parameters<typeof import("@/app/(roles)/rm/requests/actions")["setTicketStatus"]>) {
+  const { setTicketStatus: impl } = await import("@/app/(roles)/rm/requests/actions");
+  return impl(...args);
+}
 
 /* ---- shared type meta (icon + tint per ticket type) ---------- */
 const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; fg: string }> = {
@@ -299,6 +306,21 @@ function ActOnTradePanel({
 }) {
   const [reason, setReason] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const { refetch } = useRmTicket(ticket.ref);
+
+  async function handleAct() {
+    const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
+    if (result.success) refetch();
+    else setInlineError(result.error);
+    onAct();
+  }
+
+  async function handleDecline() {
+    const result = await setTicketStatus(ticket.ref, { status: "declined", note: reason ?? undefined });
+    if (result.success) refetch();
+    else setInlineError(result.error);
+  }
 
   return (
     <Card title="Act on Request">
@@ -316,7 +338,7 @@ function ActOnTradePanel({
           </span>
         </div>
 
-        <Button iconRight={ArrowRight} full disabled={disabled} onClick={onAct}>
+        <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
           Act on request — open Model Subscription
         </Button>
 
@@ -351,7 +373,11 @@ function ActOnTradePanel({
             Add a note to the client explaining why this request can&apos;t be actioned…
           </div>
         </div>
-        <Button variant="secondary" icon={X} full disabled={closed}>Decline request</Button>
+        <Button variant="secondary" icon={X} full disabled={closed} onClick={handleDecline}>Decline request</Button>
+
+        {inlineError && (
+          <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>
+        )}
 
         <div className="flex items-center gap-2 text-[12px] text-secondary">
           <Mail size={14} strokeWidth={1.75} /> The client is notified by email either way.
@@ -364,6 +390,16 @@ function ActOnTradePanel({
 /* ---- action panel B · other → email reply ---------------------- */
 function ReplyPanel({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
   const firstName = ticket.contact.split(" ")[0];
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const { refetch } = useRmTicket(ticket.ref);
+
+  async function handleSendReply() {
+    const replyBody = `Hi ${firstName},\n\nThanks for getting in touch regarding "${ticket.subject?.toLowerCase()}".`;
+    const result = await setTicketStatus(ticket.ref, { status: "replied", note: replyBody });
+    if (result.success) refetch();
+    else setInlineError(result.error);
+  }
+
   return (
     <Card title="Reply to Client">
       <div className="flex flex-col gap-3.5">
@@ -392,8 +428,11 @@ function ReplyPanel({ ticket, closed }: { ticket: RequestTicket; closed: boolean
         </div>
         <div className="flex gap-2.5">
           <Button variant="secondary" className="flex-1" disabled={closed}>Save draft</Button>
-          <Button icon={Send} className="flex-1" disabled={closed}>Send email</Button>
+          <Button icon={Send} className="flex-1" disabled={closed} onClick={handleSendReply}>Send email</Button>
         </div>
+        {inlineError && (
+          <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>
+        )}
         <div className="flex items-center gap-2 rounded-md bg-[#fff3e8] px-3 py-2 text-[12px] font-semibold text-[#994700]">
           <Mail size={14} strokeWidth={2} /> Sends to {ticket.email}; ticket is marked Replied.
         </div>
