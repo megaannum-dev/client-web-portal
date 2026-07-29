@@ -280,8 +280,8 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
             <Fact k="Account" v={ticket.account} />
           </div>
           <div className="mt-5 border-t border-outline-variant pt-[18px]">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{ticket.subject}</div>
-            <p className="text-[14.5px] leading-relaxed text-on-surface">{ticket.message}</p>
+            <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject}</h3>
+            <p className="mt-2 text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
           </div>
         </Card>
       )}
