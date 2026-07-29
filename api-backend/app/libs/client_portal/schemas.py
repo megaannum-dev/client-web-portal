@@ -102,6 +102,7 @@ class KycPanelDTO(BaseModel):
     next_review_at: datetime | None  # the periodic doc's expires_at; None if never verified
     # --- renewal upload window (panel-level, not per-document) ---
     renewal_doc_type: str | None  # e.g. "investment_policy_statement", or None if no periodic doc
+    renewal_doc_label: str | None  # DocSpec.label for renewal_doc_type; None iff renewal_doc_type is None
     upload_opens_at: datetime | None  # expires_at - CLIENT_UPLOAD_WINDOW_DAYS
     can_upload: bool  # server-computed; the FE never recomputes this
     upload_blocked_reason: (

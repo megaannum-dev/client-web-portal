@@ -31,7 +31,7 @@ from app.libs.client_portal.schemas import (
     TicketKind,
     TicketStatus,
 )
-from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
+from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.schemas import DocumentDTO
 from app.libs.onboarding.service import (
@@ -450,6 +450,7 @@ class ClientPortalService:
                 documents=[],
                 next_review_at=None,
                 renewal_doc_type=None,
+                renewal_doc_label=None,
                 upload_opens_at=None,
                 can_upload=False,
                 upload_blocked_reason="no_cycle",
@@ -469,6 +470,7 @@ class ClientPortalService:
             documents=documents,
             next_review_at=periodic_doc.expires_at if periodic_doc else None,
             renewal_doc_type=periodic_doc.doc_type if periodic_doc else None,
+            renewal_doc_label=get_doc_spec(periodic_doc.doc_type).label if periodic_doc else None,
             upload_opens_at=opens_at,
             can_upload=can_upload,
             upload_blocked_reason=reason,
