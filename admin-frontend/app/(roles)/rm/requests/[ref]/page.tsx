@@ -6,7 +6,7 @@ import { useRmTicket } from "@/hooks/api/useRmTickets";
 
 export default function RequestTicketDetailPage() {
   const { ref } = useParams<{ ref: string }>();
-  const { data: ticket, loading, error } = useRmTicket(ref);
+  const { data: ticket, loading, error, refetch } = useRmTicket(ref);
 
   if (!loading && !ticket && !error) notFound(); // Next.js 404
 
@@ -28,7 +28,7 @@ export default function RequestTicketDetailPage() {
 
   return (
     <div className="mx-auto">
-      <RequestTicketDetail ticket={ticket} />
+      <RequestTicketDetail ticket={ticket} onRefetch={refetch} />
     </div>
   );
 }

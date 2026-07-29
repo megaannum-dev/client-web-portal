@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { RequestTicket } from "@/lib/rm/tickets";
 import { isTerminalStatus } from "@/lib/rm/tickets";
-import { useRmTickets, useRmTicket } from "@/hooks/api/useRmTickets";
+import { useRmTickets } from "@/hooks/api/useRmTickets";
 // ponytail: lazy dynamic import — this "use server" action pulls in server-only
 // code; a static import would eagerly evaluate that chain for every consumer of
 // this client component (e.g. the inbox view, which never calls it).
@@ -209,7 +209,7 @@ function resolveActTarget(t: RequestTicket): string | null {
   return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}`;
 }
 
-export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
+export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTicket; onRefetch: () => void }) {
   const router = useRouter();
   const m = TYPE_META[ticket.type];
   const Icon = m.icon;
@@ -249,8 +249,8 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
       </div>
 
       {trade ? (
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-          <Card title="Client Request">
+        <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+          <Card title="Client Request" className="h-full">
             <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
               <Fact k="Client" v={ticket.client} />
               <Fact k="Subscribed model" v={ticket.model ?? "—"} />
@@ -260,11 +260,13 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
               <Fact k="Model multiple" v={ticket.mult} />
             </div>
             <div className="mt-5 border-t border-outline-variant pt-[18px]">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Client note</div>
-              <p className="text-[14.5px] leading-relaxed text-on-surface">{ticket.message}</p>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
+              <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject ?? ticket.model ?? ticket.type}</h3>
+              <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
+              <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
             </div>
           </Card>
-          <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} />
+          <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} onStatusChange={onRefetch} />
         </div>
       ) : (
         <Card title="Client Message">
@@ -275,10 +277,12 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
             <Fact k="Account" v={ticket.account} />
           </div>
           <div className="mt-5 border-t border-outline-variant pt-[18px]">
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
             <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject}</h3>
-            <p className="mt-2 text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
+            <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
+            <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
           </div>
-          <TicketActions ticket={ticket} closed={closed} />
+          <TicketActions ticket={ticket} closed={closed} onStatusChange={onRefetch} />
         </Card>
       )}
     </div>
@@ -294,24 +298,24 @@ const DECLINE_REASONS = [
 ];
 
 function ActOnTradePanel({
-  ticket, closed, disabled, onAct,
+  ticket, closed, disabled, onAct, onStatusChange,
 }: {
   ticket: RequestTicket;
   closed: boolean;
   disabled: boolean;
   onAct: () => void;
+  onStatusChange: () => void;
 }) {
   const [reason, setReason] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
   const [customNote, setCustomNote] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
-  const { refetch } = useRmTicket(ticket.ref);
   const isCustomReason = reason === "Other — add a note";
   const declineDisabled = closed || (isCustomReason && !customNote.trim());
 
   async function handleAct() {
     const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
-    if (result.success) refetch();
+    if (result.success) onStatusChange();
     else setInlineError(result.error);
     onAct();
   }
@@ -319,12 +323,12 @@ function ActOnTradePanel({
   async function handleDecline() {
     const note = isCustomReason ? customNote.trim() : (reason ?? undefined);
     const result = await setTicketStatus(ticket.ref, { status: "declined", note });
-    if (result.success) refetch();
+    if (result.success) onStatusChange();
     else setInlineError(result.error);
   }
 
   return (
-    <Card title="Act on Request">
+    <Card title="Act on Request" className="h-full">
       <div className="flex flex-col gap-4">
         <div className="rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Requested {ticket.type.toLowerCase()}</div>
@@ -399,11 +403,16 @@ function ActOnTradePanel({
 }
 
 /* ---- action row B · other → resolve / decline ------------------ */
-function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
+function TicketActions({
+  ticket, closed, onStatusChange,
+}: {
+  ticket: RequestTicket;
+  closed: boolean;
+  onStatusChange: () => void;
+}) {
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [customNote, setCustomNote] = useState("");
-  const { refetch } = useRmTicket(ticket.ref);
   // No preset reason dropdown for "Other" tickets — just a single
   // always-required note before Decline is clickable (adapted from
   // ActOnTradePanel's customNote/declineDisabled pattern).
@@ -412,7 +421,7 @@ function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: bool
   async function run(status: "resolved" | "declined") {
     const note = status === "declined" ? customNote.trim() : undefined;
     const result = await setTicketStatus(ticket.ref, { status, note });
-    if (result.success) refetch();
+    if (result.success) onStatusChange();
     else setInlineError(result.error);
   }
 
