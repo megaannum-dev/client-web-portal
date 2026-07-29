@@ -1,9 +1,29 @@
 // ADM-1 — pure DTO->view mapping, no fetch logic, mirroring lib/rm/clients.ts's /
-// lib/pc/models.ts's mapper convention. Reuses the EXISTING RequestTicket type
-// from lib/mock/rm-data.ts verbatim -- this file produces values of that type,
-// it does not redefine it.
+// lib/pc/models.ts's mapper convention.
+// ADM-5: RequestTicket now lives here (its canonical home) rather than in
+// lib/mock/rm-data.ts, which no longer has any mock ticket data to anchor it to.
+// rm-data.ts re-exports it so existing `from "@/lib/mock/rm-data"` imports keep working.
 import type { ChipTone } from "@/components/ui/Chip";
-import type { RequestTicket } from "@/lib/mock/rm-data";
+
+/** Client-raised inbox ticket (RM acts on the client's behalf). */
+export type RequestTicket = {
+  ref: string;
+  client: string;
+  contact: string;
+  email: string;
+  model?: string;
+  account: string;
+  type: "Allotment" | "Redemption" | "Other";
+  ccy: string;
+  cash: string;
+  mult: string;
+  notional: string;
+  date: string;
+  status: string;
+  tone: ChipTone;
+  subject?: string;
+  message: string;
+};
 
 export type TicketKind = "allotment" | "redemption" | "other";
 export type TicketStatus = "new" | "in_progress" | "replied" | "closed" | "declined";
@@ -54,7 +74,7 @@ function fmtMultiplier(n: number | null): string {
   return n < 0 ? `−${Math.abs(n)}×` : `${n}×`;
 }
 
-/** ISO timestamp -> `"Jun 06"`, matching TICKET_QUEUE's short mock date style. */
+/** ISO timestamp -> `"Jun 06"`, matching the original mock ticket data's short date style. */
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
