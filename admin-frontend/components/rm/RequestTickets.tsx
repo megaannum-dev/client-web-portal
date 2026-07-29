@@ -20,12 +20,21 @@ import type { LucideIcon } from "lucide-react";
 import {
   Inbox, Loader2, CheckCheck, ChevronRight, ChevronDown,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeft, ArrowRight,
-  Mail, Printer, Info, X, Send, Paperclip,
+  Mail, Printer, Info, X, Copy, Check,
 } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { TICKET_QUEUE, SUB_CLIENTS, type RequestTicket } from "@/lib/mock/rm-data";
+import type { RequestTicket } from "@/lib/rm/tickets";
+import { isTerminalStatus } from "@/lib/rm/tickets";
+import { useRmTickets } from "@/hooks/api/useRmTickets";
+// ponytail: lazy dynamic import — this "use server" action pulls in server-only
+// code; a static import would eagerly evaluate that chain for every consumer of
+// this client component (e.g. the inbox view, which never calls it).
+async function setTicketStatus(...args: Parameters<typeof import("@/app/(roles)/rm/requests/actions")["setTicketStatus"]>) {
+  const { setTicketStatus: impl } = await import("@/app/(roles)/rm/requests/actions");
+  return impl(...args);
+}
 
 /* ---- shared type meta (icon + tint per ticket type) ---------- */
 const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; fg: string }> = {
@@ -35,7 +44,6 @@ const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; f
 };
 
 const isTrade = (type: RequestTicket["type"]) => type === "Allotment" || type === "Redemption";
-const isClosed = (status: string) => status === "Closed" || status === "Declined" || status === "Replied";
 
 function TypeCell({ type }: { type: RequestTicket["type"] }) {
   const m = TYPE_META[type];
@@ -65,18 +73,20 @@ const RIGHT = new Set(["Amount"]);
 export function RequestTicketsInbox() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("All");
+  const { data } = useRmTickets();
+  const tickets = data ?? [];
 
-  const count = (f: Filter) => (f === "All" ? TICKET_QUEUE.length : TICKET_QUEUE.filter((t) => t.type === f).length);
-  const rows = filter === "All" ? TICKET_QUEUE : TICKET_QUEUE.filter((t) => t.type === filter);
+  const count = (f: Filter) => (f === "All" ? tickets.length : tickets.filter((t) => t.type === f).length);
+  const rows = filter === "All" ? tickets : tickets.filter((t) => t.type === filter);
 
-  const newCount = TICKET_QUEUE.filter((t) => t.status === "New").length;
-  const progCount = TICKET_QUEUE.filter((t) => t.status === "In Progress").length;
-  const closedCount = TICKET_QUEUE.filter((t) => isClosed(t.status)).length;
+  const newCount = tickets.filter((t) => t.status === "New").length;
+  const progCount = tickets.filter((t) => t.status === "In Progress").length;
+  const resolvedCount = tickets.filter((t) => isTerminalStatus(t.status)).length;
 
   const STATS: { label: string; value: number; sub: string; icon: LucideIcon }[] = [
     { label: "Needs action", value: newCount, sub: "new from clients", icon: Inbox },
     { label: "In progress", value: progCount, sub: "being actioned", icon: Loader2 },
-    { label: "Closed", value: closedCount, sub: "resolved tickets", icon: CheckCheck },
+    { label: "Resolved", value: resolvedCount, sub: "resolved tickets", icon: CheckCheck },
   ];
 
   return (
@@ -189,25 +199,22 @@ function Fact({ k, v }: { k: string; v: string }) {
 }
 
 /** Resolves the pre-filled Model Subscription URL for an Allotment/Redemption
- *  ticket, matching the receiving contract on /rm/model-subscription. Returns
- *  null (button disabled) if the client/model can't be found in SUB_CLIENTS —
- *  this is mock data so most tickets resolve, but we don't assume all do. */
+ *  ticket, from the ticket's own real client/model ids (RmTicketDTO.client_id /
+ *  model_id) -- no name-matching against fixture data. Returns null (button
+ *  disabled) only when the ticket has no subscribed model, which "other"
+ *  tickets never reach anyway (isTrade gates that). */
 function resolveActTarget(t: RequestTicket): string | null {
-  if (!isTrade(t.type)) return null;
-  const client = SUB_CLIENTS.find((c) => c.name === t.client);
-  if (!client) return null;
-  const modelIndex = client.models.findIndex((m) => m.name === t.model);
-  if (modelIndex === -1) return null;
+  if (!isTrade(t.type) || !t.modelId) return null;
   const mode = t.type === "Redemption" ? "redemption" : "add-allotment";
-  return `/rm/model-subscription?client=${client.id}&model=${modelIndex}&mode=${mode}`;
+  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}`;
 }
 
-export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
+export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTicket; onRefetch: () => void }) {
   const router = useRouter();
   const m = TYPE_META[ticket.type];
   const Icon = m.icon;
   const trade = isTrade(ticket.type);
-  const closed = isClosed(ticket.status);
+  const closed = isTerminalStatus(ticket.status);
   const actTarget = resolveActTarget(ticket);
 
   return (
@@ -241,39 +248,43 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
         <Button variant="secondary" icon={Printer}>Print</Button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-        {/* left — what the client asked for */}
-        <Card title={trade ? "Client Request" : "Client Message"}>
-          {trade ? (
+      {trade ? (
+        <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+          <Card title="Client Request" className="h-full">
             <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
               <Fact k="Client" v={ticket.client} />
-              <Fact k="Raised by" v={ticket.contact} />
               <Fact k="Subscribed model" v={ticket.model ?? "—"} />
               <Fact k="IB account" v={ticket.account} />
               <Fact k="Request type" v={ticket.type} />
-              <Fact k="Cash amount" v={`${ticket.ccy} ${ticket.cash}`} />
+              <Fact k="Notional amount" v={`${ticket.ccy} ${ticket.notional}`} />
               <Fact k="Model multiple" v={ticket.mult} />
-              <Fact k="Notional" v={`${ticket.ccy} ${ticket.notional}`} />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
-              <Fact k="Client" v={ticket.client} />
-              <Fact k="Raised by" v={ticket.contact} />
-              <Fact k="Reply-to" v={ticket.email} />
-              <Fact k="Account" v={ticket.account} />
+            <div className="mt-5 border-t border-outline-variant pt-[18px]">
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
+              <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject ?? ticket.model ?? ticket.type}</h3>
+              <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
+              <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
             </div>
-          )}
-          <div className="mt-5 border-t border-outline-variant pt-[18px]">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{trade ? "Client note" : ticket.subject}</div>
-            <p className="text-[14.5px] leading-relaxed text-on-surface">{ticket.message}</p>
+          </Card>
+          <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} onStatusChange={onRefetch} />
+        </div>
+      ) : (
+        <Card title="Client Message">
+          <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
+            <Fact k="Client" v={ticket.client} />
+            <Fact k="Raised by" v={ticket.contact} />
+            <Fact k="Reply-to" v={ticket.email} />
+            <Fact k="Account" v={ticket.account} />
           </div>
+          <div className="mt-5 border-t border-outline-variant pt-[18px]">
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
+            <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject}</h3>
+            <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
+            <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
+          </div>
+          <TicketActions ticket={ticket} closed={closed} onStatusChange={onRefetch} />
         </Card>
-
-        {/* right — the RM action panel */}
-        {trade
-          ? <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} />
-          : <ReplyPanel ticket={ticket} closed={closed} />}
-      </div>
+      )}
     </div>
   );
 }
@@ -287,18 +298,37 @@ const DECLINE_REASONS = [
 ];
 
 function ActOnTradePanel({
-  ticket, closed, disabled, onAct,
+  ticket, closed, disabled, onAct, onStatusChange,
 }: {
   ticket: RequestTicket;
   closed: boolean;
   disabled: boolean;
   onAct: () => void;
+  onStatusChange: () => void;
 }) {
   const [reason, setReason] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
+  const [customNote, setCustomNote] = useState("");
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const isCustomReason = reason === "Other — add a note";
+  const declineDisabled = closed || (isCustomReason && !customNote.trim());
+
+  async function handleAct() {
+    const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
+    if (result.success) onStatusChange();
+    else setInlineError(result.error);
+    onAct();
+  }
+
+  async function handleDecline() {
+    const note = isCustomReason ? customNote.trim() : (reason ?? undefined);
+    const result = await setTicketStatus(ticket.ref, { status: "declined", note });
+    if (result.success) onStatusChange();
+    else setInlineError(result.error);
+  }
 
   return (
-    <Card title="Act on Request">
+    <Card title="Act on Request" className="h-full">
       <div className="flex flex-col gap-4">
         <div className="rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Requested {ticket.type.toLowerCase()}</div>
@@ -313,7 +343,7 @@ function ActOnTradePanel({
           </span>
         </div>
 
-        <Button iconRight={ArrowRight} full disabled={disabled} onClick={onAct}>
+        <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
           Act on request — open Model Subscription
         </Button>
 
@@ -344,11 +374,25 @@ function ActOnTradePanel({
               ))}
             </div>
           )}
-          <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
-            Add a note to the client explaining why this request can&apos;t be actioned…
-          </div>
+          {isCustomReason ? (
+            <textarea
+              value={customNote}
+              onChange={(e) => setCustomNote(e.target.value)}
+              disabled={closed}
+              placeholder="Add a note to the client explaining why this request can't be actioned…"
+              className="mt-2.5 min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          ) : (
+            <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
+              {reason ? `Client will see: "${reason}"` : "Add a note to the client explaining why this request can't be actioned…"}
+            </div>
+          )}
         </div>
-        <Button variant="secondary" icon={X} full disabled={closed}>Decline request</Button>
+        <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>
+
+        {inlineError && (
+          <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>
+        )}
 
         <div className="flex items-center gap-2 text-[12px] text-secondary">
           <Mail size={14} strokeWidth={1.75} /> The client is notified by email either way.
@@ -358,43 +402,57 @@ function ActOnTradePanel({
   );
 }
 
-/* ---- action panel B · other → email reply ---------------------- */
-function ReplyPanel({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
-  const firstName = ticket.contact.split(" ")[0];
+/* ---- action row B · other → resolve / decline ------------------ */
+function TicketActions({
+  ticket, closed, onStatusChange,
+}: {
+  ticket: RequestTicket;
+  closed: boolean;
+  onStatusChange: () => void;
+}) {
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [customNote, setCustomNote] = useState("");
+  // No preset reason dropdown for "Other" tickets — just a single
+  // always-required note before Decline is clickable (adapted from
+  // ActOnTradePanel's customNote/declineDisabled pattern).
+  const declineDisabled = closed || !customNote.trim();
+
+  async function run(status: "resolved" | "declined") {
+    const note = status === "declined" ? customNote.trim() : undefined;
+    const result = await setTicketStatus(ticket.ref, { status, note });
+    if (result.success) onStatusChange();
+    else setInlineError(result.error);
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(`[##RE ${ticket.ref}] "${ticket.subject}"`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
-    <Card title="Reply to Client">
-      <div className="flex flex-col gap-3.5">
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">To</div>
-          <div className="flex items-center gap-2 rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] text-secondary">
-            <Mail size={15} strokeWidth={1.75} />
-            <span className="font-semibold text-on-surface">{ticket.contact}</span>
-            <span>&lt;{ticket.email}&gt;</span>
-          </div>
-        </div>
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
-          <div className="rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] font-semibold text-on-surface">Re: {ticket.subject}</div>
-        </div>
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
-          <div className="min-h-[156px] rounded border border-outline bg-white px-3.5 py-3 text-[14px] leading-relaxed text-on-surface">
-            Hi {firstName},<br /><br />
-            Thanks for getting in touch regarding &ldquo;{ticket.subject?.toLowerCase()}&rdquo;.<br /><br />
-            <span className="text-secondary">Type your reply here — this will be sent to the client by email and logged against the ticket…</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-[12px] text-secondary">
-          <Paperclip size={14} strokeWidth={1.75} /> Attach a document
-        </div>
-        <div className="flex gap-2.5">
-          <Button variant="secondary" className="flex-1" disabled={closed}>Save draft</Button>
-          <Button icon={Send} className="flex-1" disabled={closed}>Send email</Button>
-        </div>
-        <div className="flex items-center gap-2 rounded-md bg-[#fff3e8] px-3 py-2 text-[12px] font-semibold text-[#994700]">
-          <Mail size={14} strokeWidth={2} /> Sends to {ticket.email}; ticket is marked Replied.
-        </div>
+    <div className="mt-5 border-t border-outline-variant pt-[18px]">
+      <div className="flex gap-2.5">
+        <Button variant="secondary" icon={Copy} className="flex-1" onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy ticket reference"}
+        </Button>
+        <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>
       </div>
-    </Card>
+
+      <div className="mt-3.5">
+        <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Or decline with a note</div>
+        <textarea
+          value={customNote}
+          onChange={(e) => setCustomNote(e.target.value)}
+          disabled={closed}
+          placeholder="Add a note to the client explaining why this request is being declined…"
+          className="min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>
+      </div>
+
+      {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
+    </div>
   );
 }

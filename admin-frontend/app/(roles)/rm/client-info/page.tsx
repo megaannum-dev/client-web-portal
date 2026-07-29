@@ -20,17 +20,19 @@ import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
 import {
   RENEWALS_DUE,
-  REQUEST_TICKETS,
   getMockOverlay,
   type SummaryItem,
+  type CountItem,
 } from "@/lib/mock/rm-data";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useClientBook } from "@/hooks/api/useClientBook";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { useRmTickets } from "@/hooks/api/useRmTickets";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
+import { isTerminalStatus } from "@/lib/rm/tickets";
 
 // Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
 // duplicated rather than shared since that file doesn't export it (FE-4 scope).
@@ -62,6 +64,7 @@ export default function RmDashboardPage() {
   const rmName = useAuth().portalUser?.name;
   const { data, loading, error } = useClientBook();
   const { data: board } = useOnboardingBoard();
+  const { data: tickets } = useRmTickets();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -109,8 +112,17 @@ export default function RmDashboardPage() {
   const openClient = (id: string) => router.push(`/rm/client-info/${id}`);
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
-  // Requests + Renewals — from mock data (lib/mock/rm-data.ts).
-  const ticketsTotal = REQUEST_TICKETS.reduce((sum, i) => sum + i.n, 0);
+  // Requests — live data via useRmTickets() (ADM-5); "open" = not terminal
+  // (New/In Progress), per lib/rm/tickets.ts's shared isTerminalStatus.
+  const openTickets = (tickets ?? []).filter((t) => !isTerminalStatus(t.status));
+  const ticketCounts: CountItem[] = [
+    { id: "allotment", c: "Allotment", n: openTickets.filter((t) => t.type === "Allotment").length, t: "primary" },
+    { id: "redemption", c: "Redemption", n: openTickets.filter((t) => t.type === "Redemption").length, t: "primary" },
+    { id: "others", c: "Others", n: openTickets.filter((t) => t.type === "Other").length, t: "muted" },
+  ];
+  const ticketsTotal = ticketCounts.reduce((sum, i) => sum + i.n, 0);
+
+  // Renewals — from mock data (lib/mock/rm-data.ts).
   const renewalsOverdue = RENEWALS_DUE.filter((i) => i.t === "overdue").length;
 
   // Onboarding — real onboarding board (013 integration): every column except
@@ -433,7 +445,7 @@ export default function RmDashboardPage() {
               value: String(ticketsTotal),
               sub: "across 3 types",
               mode: "count",
-              items: REQUEST_TICKETS,
+              items: ticketCounts,
               footerLabel: "Review requests",
               onFooter: () => {},
             },

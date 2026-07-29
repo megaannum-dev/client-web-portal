@@ -4,6 +4,7 @@ import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
 import type { ClientListDTO, ClientListItemDTO } from "@/lib/rm/clients";
 import type { AllotRdmptDTO, ClientSubscriptionsDTO, SubmitAllotmentReq, SubmitRedemptionReq, TransactionDetailDTO, TransactionDetailRequest } from "@/lib/onboarding/types";
+import type { RmTicketDTO, TicketStatus } from "@/lib/rm/tickets";
 
 export type { APIResult };
 
@@ -52,4 +53,22 @@ export async function getTransactionDetail(
   allotmentId: string,
 ): Promise<APIResult<TransactionDetailDTO>> {
   return apiClient<TransactionDetailDTO>(ENDPOINTS.RM.TRANSACTION_DETAIL(allotmentId));
+}
+
+export async function getTickets(): Promise<APIResult<RmTicketDTO[]>> {
+  return apiClient<RmTicketDTO[]>(ENDPOINTS.RM.TICKETS);
+}
+
+export async function getTicket(ref: string): Promise<APIResult<RmTicketDTO>> {
+  return apiClient<RmTicketDTO>(ENDPOINTS.RM.TICKET(ref));
+}
+
+export async function setTicketStatus(
+  ref: string,
+  body: { status: TicketStatus; note?: string },
+): Promise<APIResult<RmTicketDTO>> {
+  return apiClient<RmTicketDTO>(ENDPOINTS.RM.TICKET_STATUS(ref), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

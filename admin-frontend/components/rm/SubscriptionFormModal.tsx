@@ -37,6 +37,7 @@ export interface SubscriptionModalContext {
   modelAccount?: string;
   mgmtFee?: string;
   incentiveFee?: string;
+  sourceTicketRef?: string;
 }
 
 const fmtUsd = (n: number) => n.toLocaleString("en-US");
@@ -143,6 +144,7 @@ export function SubscriptionFormModal({
           multiplier: emergent ? 0 : parseFloat(multiplier) || 0,
           expected_cash_out: emergent ? null : (dateVal || null),
           emergent,
+          source_ticket_ref: context.sourceTicketRef,
         })
       : await submitAllotment({
           client_id: clientId,
@@ -151,6 +153,7 @@ export function SubscriptionFormModal({
           expected_cash_in: dateVal || null,
           mgmt_fee: isNew ? parseFloat(mgmtFee) || null : null,
           incentive_fee: isNew ? parseFloat(incentiveFee) || null : null,
+          source_ticket_ref: context.sourceTicketRef,
         });
     setSubmitting(false);
     if (!result.success) {

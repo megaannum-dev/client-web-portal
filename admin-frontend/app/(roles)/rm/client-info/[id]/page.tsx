@@ -29,11 +29,11 @@ const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X,
 // is next touched for an unrelated reason.
 const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
   not_started: "neutral", uploaded: "pending", in_review: "review",
-  verified: "active", rejected: "failed", expired: "overdue",
+  verified: "active", pending: "pending", rejected: "failed", expired: "overdue",
 };
 const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
-  verified: "Verified", rejected: "Rejected", expired: "Expired",
+  verified: "Verified", pending: "Pending", rejected: "Rejected", expired: "Expired",
 };
 // Matches OnboardingBoard.tsx's own DOC_ICON glyph choice per tone exactly
 // (Check/Clock/Clock/X/TriangleAlert/Clock) -- these two lookups must stay
@@ -42,12 +42,20 @@ const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
   active: "check", pending: "clock", review: "clock", overdue: "warning", failed: "x", neutral: "clock",
 };
 
+// Mirrors OnboardingBoard.tsx's AUDIT_VISIBLE_STATUSES: a not_started/
+// rejected/expired doc's stale uploaded_by/approved_at would otherwise read
+// as if a renewal reset never happened.
+const AUDIT_VISIBLE_STATUSES = new Set<DocStatus>(["uploaded", "in_review", "verified", "pending"]);
+
 /** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
 function docFromDto(doc: DocumentDTO): ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null } {
   const tone = DOC_STATUS_TONE[doc.status];
+  const showAudit = AUDIT_VISIBLE_STATUSES.has(doc.status);
   return {
     name: doc.label, status: DOC_STATUS_LABEL[doc.status], tone, icon: DOC_ICON_KEY[tone] ?? "clock",
-    uploadedBy: doc.uploaded_by, uploadedAt: doc.uploaded_at, approvedAt: doc.approved_at,
+    uploadedBy: showAudit ? doc.uploaded_by : null,
+    uploadedAt: showAudit ? doc.uploaded_at : null,
+    approvedAt: showAudit ? doc.approved_at : null,
   };
 }
 
