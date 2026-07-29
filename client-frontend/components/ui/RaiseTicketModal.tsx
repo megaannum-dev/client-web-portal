@@ -117,18 +117,6 @@ function AllotmentForm({ onClose, onConfirm }: {
         {errors.model && <p id="allotment-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
       </div>
 
-      {/* Model detail card */}
-      {selectedModel && (
-        <div className="bg-surface-container rounded-xl px-4 py-3.5 flex items-center justify-between">
-          <div>
-            <p className="text-body-sm font-bold text-on-surface">{selectedModel.name}</p>
-            {selectedModel.category && (
-              <p className="text-label-md text-secondary mt-0.5">{selectedModel.category.join(", ")}</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Multiplier */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="allotment-multiplier" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
