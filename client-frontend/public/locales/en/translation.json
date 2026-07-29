@@ -113,7 +113,7 @@
     "latest_events": "Latest Events",
     "columns": {
       "request_type": "Request Type",
-      "model_fund": "Model / Fund",
+      "model_fund": "Model",
       "subject": "Subject",
       "submitted": "Submitted",
       "status": "Status",

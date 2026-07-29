@@ -113,7 +113,7 @@
     "latest_events": "最新動態",
     "columns": {
       "request_type": "申請類型",
-      "model_fund": "模型 / 基金",
+      "model_fund": "模型",
       "subject": "主旨",
       "submitted": "提交時間",
       "status": "狀態",
