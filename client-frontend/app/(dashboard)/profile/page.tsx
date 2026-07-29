@@ -18,6 +18,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useKyc } from "@/lib/hooks/useKyc";
 import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { downloadKycDocument } from "@/lib/api/kyc";
 // ponytail: Supporting Documents shelved (D-5) — the SUPPORTING_DOC_CATEGORIES/
 // SupportingDoc types and the mock store helpers this used were deleted in
 // FE-14; see the commented block below for the full import list they needed.
@@ -379,7 +380,7 @@ function KycUploadModal({
 
 export default function ProfilePage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, getIdToken } = useAuth();
 
   // ── KYC state ──────────────────────────────────────────────────────────────
   const [censored, setCensored] = useState(true);
@@ -387,6 +388,19 @@ export default function ProfilePage() {
   const { data: kyc, upload: uploadKyc } = useKyc();
   const kycOverall = kyc?.overall;
   const nextReviewLabel = kyc?.next_review_at ? new Date(kyc.next_review_at).toLocaleDateString() : "—";
+
+  async function handleViewKycDocument() {
+    if (!kyc?.renewal_doc_type) return;
+    const doc = kyc.documents.find((d) => d.doc_type === kyc.renewal_doc_type);
+    const token = await getIdToken();
+    const blob = await downloadKycDocument(token, kyc.renewal_doc_type);
+    const href = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), { href, download: doc?.filename ?? kyc.renewal_doc_type });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+  }
 
   // ── Account balance ────────────────────────────────────────────────────────
   const { data: portfolio } = usePortfolio();
@@ -583,8 +597,8 @@ export default function ProfilePage() {
               {kycOverall === "processing" && <span className="text-secondary">{t("profile.submitted", { date: nextReviewLabel })}</span>}
               {kycOverall === "due"        && <><span>{t("profile.annual_update_due")}</span><span className="text-warning font-bold">{nextReviewLabel}</span></>}
             </p>
-            {kycOverall === "verified"   && <button type="button" className="w-full border border-success/30 text-success-on-container font-bold text-body-sm rounded-lg py-3 hover:bg-success-container transition-colors">{t("profile.view_document")}</button>}
-            {kycOverall === "processing" && <button type="button" className="w-full border border-outline-variant font-bold text-body-sm rounded-lg py-3 hover:bg-secondary/5 transition-colors">{t("profile.view_kyc_document")}</button>}
+            {kycOverall === "verified"   && <button type="button" onClick={handleViewKycDocument} className="w-full border border-success/30 text-success-on-container font-bold text-body-sm rounded-lg py-3 hover:bg-success-container transition-colors">{t("profile.view_document")}</button>}
+            {kycOverall === "processing" && <button type="button" onClick={handleViewKycDocument} className="w-full border border-outline-variant font-bold text-body-sm rounded-lg py-3 hover:bg-secondary/5 transition-colors">{t("profile.view_kyc_document")}</button>}
             {kycOverall === "due" && (
               kyc?.can_upload ? (
                 <button type="button" onClick={() => setKycOpen(true)} className="w-full bg-warning text-white font-bold text-body-sm rounded-lg py-3 hover:opacity-90 transition-opacity">{t("profile.upload_kyc")}</button>

@@ -6,6 +6,7 @@ import { getApiBase } from "@/lib/auth-api";
 export interface DocumentDTO {
   doc_type: string;
   status: "not_started" | "uploaded" | "in_review" | "verified" | "rejected" | "expired";
+  filename: string | null;
   uploaded_by: string | null;
   uploaded_at: string | null;
   reviewed_at: string | null;
@@ -54,4 +55,23 @@ export async function uploadKycDocument(token: string | null, docType: string, f
     throw new Error(`${detail} (${res.status} ${path})`);
   }
   return (await res.json()) as DocumentDTO;
+}
+
+/** GET /api/client/kyc/{doc_type}/download — file stream, not JSON. Same
+ *  fetch-blob convention as lib/api/documents.ts's downloadDocument. */
+export async function downloadKycDocument(token: string | null, docType: string): Promise<Blob> {
+  const path = `/api/client/kyc/${encodeURIComponent(docType)}/download`;
+  const res = await fetch(`${getApiBase()}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body: unknown = await res.json();
+      if (typeof body === "object" && body !== null && "detail" in body) {
+        const d = (body as { detail?: unknown }).detail;
+        if (typeof d === "string") detail = d;
+      }
+    } catch { /* noop */ }
+    throw new Error(`${detail} (${res.status} ${path})`);
+  }
+  return res.blob();
 }
