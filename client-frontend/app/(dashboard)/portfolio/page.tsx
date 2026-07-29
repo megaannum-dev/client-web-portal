@@ -142,7 +142,10 @@ function TicketStatusBadge({ status }: { status: TicketStatus }) {
     resolved:    { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
     declined:    { dot: "bg-warning",               cls: "bg-warning/10 text-warning border-warning/20"       },
   };
-  const { dot, cls } = config[status];
+  // Falls back to a neutral badge for any status value the frontend doesn't
+  // recognize (e.g. a backend/DB deploy that hasn't landed yet) instead of
+  // crashing the page on an unrecognized string.
+  const { dot, cls } = config[status] ?? { dot: "bg-secondary", cls: "bg-secondary/10 text-secondary border-secondary/20" };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold border ${cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
