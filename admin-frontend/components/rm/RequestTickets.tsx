@@ -25,7 +25,7 @@ import {
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { SUB_CLIENTS, type RequestTicket } from "@/lib/mock/rm-data";
+import type { RequestTicket } from "@/lib/rm/tickets";
 import { useRmTickets, useRmTicket } from "@/hooks/api/useRmTickets";
 // ponytail: lazy dynamic import — this "use server" action pulls in server-only
 // code; a static import would eagerly evaluate that chain for every consumer of
@@ -199,17 +199,14 @@ function Fact({ k, v }: { k: string; v: string }) {
 }
 
 /** Resolves the pre-filled Model Subscription URL for an Allotment/Redemption
- *  ticket, matching the receiving contract on /rm/model-subscription. Returns
- *  null (button disabled) if the client/model can't be found in SUB_CLIENTS —
- *  this is mock data so most tickets resolve, but we don't assume all do. */
+ *  ticket, from the ticket's own real client/model ids (RmTicketDTO.client_id /
+ *  model_id) -- no name-matching against fixture data. Returns null (button
+ *  disabled) only when the ticket has no subscribed model, which "other"
+ *  tickets never reach anyway (isTrade gates that). */
 function resolveActTarget(t: RequestTicket): string | null {
-  if (!isTrade(t.type)) return null;
-  const client = SUB_CLIENTS.find((c) => c.name === t.client);
-  if (!client) return null;
-  const modelIndex = client.models.findIndex((m) => m.name === t.model);
-  if (modelIndex === -1) return null;
+  if (!isTrade(t.type) || !t.modelId) return null;
   const mode = t.type === "Redemption" ? "redemption" : "add-allotment";
-  return `/rm/model-subscription?client=${client.id}&model=${modelIndex}&mode=${mode}`;
+  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}`;
 }
 
 export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
@@ -308,8 +305,11 @@ function ActOnTradePanel({
 }) {
   const [reason, setReason] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
+  const [customNote, setCustomNote] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const { refetch } = useRmTicket(ticket.ref);
+  const isCustomReason = reason === "Other — add a note";
+  const declineDisabled = closed || (isCustomReason && !customNote.trim());
 
   async function handleAct() {
     const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
@@ -319,7 +319,8 @@ function ActOnTradePanel({
   }
 
   async function handleDecline() {
-    const result = await setTicketStatus(ticket.ref, { status: "declined", note: reason ?? undefined });
+    const note = isCustomReason ? customNote.trim() : (reason ?? undefined);
+    const result = await setTicketStatus(ticket.ref, { status: "declined", note });
     if (result.success) refetch();
     else setInlineError(result.error);
   }
@@ -371,11 +372,21 @@ function ActOnTradePanel({
               ))}
             </div>
           )}
-          <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
-            Add a note to the client explaining why this request can&apos;t be actioned…
-          </div>
+          {isCustomReason ? (
+            <textarea
+              value={customNote}
+              onChange={(e) => setCustomNote(e.target.value)}
+              disabled={closed}
+              placeholder="Add a note to the client explaining why this request can't be actioned…"
+              className="mt-2.5 min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          ) : (
+            <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
+              {reason ? `Client will see: "${reason}"` : "Add a note to the client explaining why this request can't be actioned…"}
+            </div>
+          )}
         </div>
-        <Button variant="secondary" icon={X} full disabled={closed} onClick={handleDecline}>Decline request</Button>
+        <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>
 
         {inlineError && (
           <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>

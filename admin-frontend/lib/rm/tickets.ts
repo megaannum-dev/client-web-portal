@@ -8,10 +8,12 @@ import type { ChipTone } from "@/components/ui/Chip";
 /** Client-raised inbox ticket (RM acts on the client's behalf). */
 export type RequestTicket = {
   ref: string;
+  clientId: string;
   client: string;
   contact: string;
   email: string;
   model?: string;
+  modelId?: string;
   account: string;
   type: "Allotment" | "Redemption" | "Other";
   ccy: string;
@@ -36,6 +38,7 @@ export interface RmTicketDTO {
   email: string | null;
   account: string | null;
   model: string | null;
+  model_id: string | null;
   kind: TicketKind;
   currency: string;
   amount: number | null;
@@ -87,12 +90,14 @@ function fmtDate(iso: string): string {
 export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
   return {
     ref: dto.ref,
+    clientId: dto.client_id,
     client: dto.client,
     contact: dto.contact ?? "—",
     email: dto.email ?? "—",
     // model is optional on RequestTicket and RequestTicketDetail/inbox already
     // apply their own `ticket.model ?? "—"` fallback — don't pre-empt it.
     model: dto.model ?? undefined,
+    modelId: dto.model_id ?? undefined,
     account: dto.account ?? "—",
     type: KIND_LABEL[dto.kind],
     ccy: dto.currency,
