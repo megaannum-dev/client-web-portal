@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Plus } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -11,26 +11,27 @@ import {
   type SubscriptionModalMode,
   type SubscriptionModalContext,
 } from "@/components/rm/SubscriptionFormModal";
-import { SUB_CLIENTS, OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import { OB_MODEL_CATALOG, type SubClient } from "@/lib/mock/rm-data";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
 
-/** Resolve the "Request Tickets" deep-link contract emitted by a parallel
- *  feature: ?client=<SUB_CLIENTS id>&model=<index into that client's .models
- *  array>&mode=<add-allotment|redemption>. Returns null on any missing/invalid
+/** Resolve the "Request Tickets" deep-link contract: ?client=<real client_id>
+ *  &model=<real model_id>&mode=<add-allotment|redemption>, matched against the
+ *  caller's own live subscription data (both ids are real backend uuids now,
+ *  not a mock fixture / array index). Returns null on any missing/invalid
  *  part — callers fall back to today's default view (no throw, no error state). */
-function resolveDeepLink(params: URLSearchParams): { openClient: string; openModelKey: string; modal: ModalState } | null {
+function resolveDeepLink(params: URLSearchParams, clients: SubClient[]): { openClient: string; openModelKey: string; modal: ModalState } | null {
   const modeParam = params.get("mode");
   if (modeParam !== "add-allotment" && modeParam !== "redemption") return null;
   const clientId = params.get("client");
-  const modelParam = params.get("model");
-  if (!clientId || !modelParam) return null;
-  const modelIdx = Number(modelParam);
-  if (!Number.isInteger(modelIdx)) return null;
-  const client = SUB_CLIENTS.find((c) => c.id === clientId);
-  const model = client?.models[modelIdx];
-  if (!client || !model) return null;
+  const modelId = params.get("model");
+  if (!clientId || !modelId) return null;
+  const client = clients.find((c) => c.id === clientId);
+  if (!client) return null;
+  const modelIdx = client.models.findIndex((m) => m.modelId === modelId);
+  const model = modelIdx === -1 ? undefined : client.models[modelIdx];
+  if (!model) return null;
   return {
     openClient: client.id,
     openModelKey: `${client.id}-${modelIdx}`,
@@ -50,9 +51,20 @@ function resolveDeepLink(params: URLSearchParams): { openClient: string; openMod
 
 function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
-  const [deepLink] = useState(() => resolveDeepLink(searchParams));
-  const [modal, setModal] = useState<ModalState | null>(() => deepLink?.modal ?? null);
   const { clients, ensureAllotmentsLoaded, refetch, invalidateClientAllotments } = useSubscriptions();
+  const [deepLink, setDeepLink] = useState<{ openClient: string; openModelKey: string } | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const deepLinkApplied = useRef(false);
+
+  useEffect(() => {
+    if (deepLinkApplied.current || !clients) return;
+    deepLinkApplied.current = true;
+    const resolved = resolveDeepLink(searchParams, clients);
+    if (resolved) {
+      setDeepLink({ openClient: resolved.openClient, openModelKey: resolved.openModelKey });
+      setModal(resolved.modal);
+    }
+  }, [clients, searchParams]);
 
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
