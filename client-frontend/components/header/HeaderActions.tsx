@@ -14,7 +14,7 @@ export function HeaderActions() {
   const { data: profile } = useProfile();
   const rm = profile?.assigned_rm ?? null;
 
-  const displayName = user?.displayName ?? "Alex Thompson";
+  const displayName = profile?.name ?? user?.displayName ?? t("header.empty");
 
   return (
     <div className="flex items-center gap-5">
@@ -115,7 +115,7 @@ export function HeaderActions() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-secondary mb-1">{t("header.occupation")}</p>
-              <p className="text-[13px] text-on-surface">{t("header.occupation_value")}</p>
+              <p className="text-[13px] text-on-surface">{profile?.occupation ?? t("header.empty")}</p>
             </div>
           </div>
 
