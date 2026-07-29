@@ -147,4 +147,6 @@ export {
   RotateCcw,
   MoreVertical,
   Undo2,
+  // CRM — RM Contact Log (client-info detail)
+  Video,
 } from "lucide-react";
