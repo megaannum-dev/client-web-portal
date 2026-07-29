@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
+  BarChart2,
   ChevronLeft,
   ChevronRight,
   Ticket,
@@ -93,9 +94,10 @@ function AllotmentForm({ onClose, onConfirm }: {
 
       {/* Model selector */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.select_model")}</label>
+        <label htmlFor="allotment-model" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.select_model")}</label>
         <div className="relative">
           <select
+            id="allotment-model"
             value={selectedModel?.name ?? ""}
             onChange={(e) => {
               const m = models.find((x) => x.name === e.target.value) ?? null;
@@ -103,6 +105,8 @@ function AllotmentForm({ onClose, onConfirm }: {
               setErrors((p) => ({ ...p, model: "" }));
             }}
             className={fieldCls(errors.model)}
+            aria-invalid={!!errors.model}
+            aria-describedby={errors.model ? "allotment-model-error" : undefined}
           >
             <option value="">{t("ticket.select_model_placeholder")}</option>
             {models.map((m) => (
@@ -110,7 +114,7 @@ function AllotmentForm({ onClose, onConfirm }: {
             ))}
           </select>
         </div>
-        {errors.model && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
+        {errors.model && <p id="allotment-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
       </div>
 
       {/* Model detail card */}
@@ -126,28 +130,26 @@ function AllotmentForm({ onClose, onConfirm }: {
       )}
 
       {/* Multiplier */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1.5">
-          {errors.weighting && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.weighting}</p>}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
-          <input type="number" min={0} step={0.1} placeholder="1.0" value={multiplier}
-            onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
-            className={fieldCls(errors.multiplier)} />
-          {errors.multiplier && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="allotment-multiplier" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
+        <input id="allotment-multiplier" type="number" min={0} step={0.1} placeholder="1.0" value={multiplier}
+          onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
+          className={fieldCls(errors.multiplier)}
+          aria-invalid={!!errors.multiplier}
+          aria-describedby={errors.multiplier ? "allotment-multiplier-error" : undefined} />
+        {errors.multiplier && <p id="allotment-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
       </div>
 
       {/* Computed notional summary */}
       <div className="bg-surface-container rounded-lg border border-outline-variant px-4 py-3.5 flex flex-col gap-1.5">
-        <p className="text-body-sm text-on-surface">
+        <p className="flex items-center gap-1.5 text-body-sm text-on-surface">
+          <BarChart2 size={13} strokeWidth={1.75} className="text-secondary shrink-0" />
           <span className="text-secondary">{t("ticket.model_size")}: </span>
           <span className="font-semibold">{currencyFmt(selectedModel?.model_size ?? 0)}</span>
         </p>
         <p className="text-body-sm text-on-surface">
           <span className="text-secondary">{t("ticket.notional")}: </span>
-          <span className="font-bold text-primary">{currencyFmt(notional)}</span>
+          <span className="font-bold text-primary text-[15px]">{currencyFmt(notional)}</span>
         </p>
       </div>
 
@@ -166,32 +168,36 @@ function AllotmentForm({ onClose, onConfirm }: {
 
       {/* Subject */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
-        <input type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
+        <label htmlFor="allotment-subject" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
+        <input id="allotment-subject" type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
           onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
-          className={fieldCls(errors.subject)} />
-        {errors.subject && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+          className={fieldCls(errors.subject)}
+          aria-invalid={!!errors.subject}
+          aria-describedby={errors.subject ? "allotment-subject-error" : undefined} />
+        {errors.subject && <p id="allotment-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
       </div>
 
       {/* Description */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
-        <textarea rows={4} placeholder={t("ticket.description_placeholder")} value={description}
+        <label htmlFor="allotment-description" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
+        <textarea id="allotment-description" rows={4} placeholder={t("ticket.description_placeholder")} value={description}
           onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
-          className={clsx("resize-none", fieldCls(errors.description))} />
-        {errors.description && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
+          className={clsx("resize-none", fieldCls(errors.description))}
+          aria-invalid={!!errors.description}
+          aria-describedby={errors.description ? "allotment-description-error" : undefined} />
+        {errors.description && <p id="allotment-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
-            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_allotment")}
           </button>
         </div>
@@ -264,8 +270,9 @@ function RedemptionForm({ onClose, onConfirm }: {
 
       {/* Model selector */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.select_subscribed_model")}</label>
+        <label htmlFor="redemption-model" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.select_subscribed_model")}</label>
         <select
+          id="redemption-model"
           value={selectedModel?.model_name ?? ""}
           onChange={(e) => {
             const m = positions.find((x) => x.model_name === e.target.value) ?? null;
@@ -273,13 +280,15 @@ function RedemptionForm({ onClose, onConfirm }: {
             setErrors((p) => ({ ...p, model: "" }));
           }}
           className={fieldCls(errors.model)}
+          aria-invalid={!!errors.model}
+          aria-describedby={errors.model ? "redemption-model-error" : undefined}
         >
           <option value="">{t("ticket.select_subscribed_placeholder")}</option>
           {positions.map((m) => (
             <option key={m.model_id} value={m.model_name}>{m.model_name}</option>
           ))}
         </select>
-        {errors.model && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
+        {errors.model && <p id="redemption-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
       </div>
 
       {/* Selected model card */}
@@ -320,22 +329,25 @@ function RedemptionForm({ onClose, onConfirm }: {
 
       {/* Multiplier */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
-        <input type="number" min={0} step={0.1} placeholder="1.0" value={redeemAll ? "" : multiplier} disabled={redeemAll}
+        <label htmlFor="redemption-multiplier" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
+        <input id="redemption-multiplier" type="number" min={0} step={0.1} placeholder="1.0" value={redeemAll ? "" : multiplier} disabled={redeemAll}
           onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
-          className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.multiplier))} />
-        {errors.multiplier && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+          className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.multiplier))}
+          aria-invalid={!!errors.multiplier}
+          aria-describedby={errors.multiplier ? "redemption-multiplier-error" : undefined} />
+        {errors.multiplier && <p id="redemption-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
       </div>
 
       {/* Computed notional summary */}
       <div className="bg-surface-container rounded-lg border border-outline-variant px-4 py-3.5 flex flex-col gap-1.5">
-        <p className="text-body-sm text-on-surface">
+        <p className="flex items-center gap-1.5 text-body-sm text-on-surface">
+          <BarChart2 size={13} strokeWidth={1.75} className="text-secondary shrink-0" />
           <span className="text-secondary">{t("ticket.model_size")}: </span>
           <span className="font-semibold">{currencyFmt(selectedModel?.model_size ?? 0)}</span>
         </p>
         <p className="text-body-sm text-on-surface">
           <span className="text-secondary">{t("ticket.notional")}: </span>
-          <span className="font-bold text-primary">{currencyFmt(notional)}</span>
+          <span className="font-bold text-primary text-[15px]">{currencyFmt(notional)}</span>
         </p>
       </div>
 
@@ -359,32 +371,36 @@ function RedemptionForm({ onClose, onConfirm }: {
 
       {/* Subject */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
-        <input type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
+        <label htmlFor="redemption-subject" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
+        <input id="redemption-subject" type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
           onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
-          className={fieldCls(errors.subject)} />
-        {errors.subject && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+          className={fieldCls(errors.subject)}
+          aria-invalid={!!errors.subject}
+          aria-describedby={errors.subject ? "redemption-subject-error" : undefined} />
+        {errors.subject && <p id="redemption-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
       </div>
 
       {/* Description */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
-        <textarea rows={4} placeholder={t("ticket.description_placeholder")} value={description}
+        <label htmlFor="redemption-description" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
+        <textarea id="redemption-description" rows={4} placeholder={t("ticket.description_placeholder")} value={description}
           onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
-          className={clsx("resize-none", fieldCls(errors.description))} />
-        {errors.description && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
+          className={clsx("resize-none", fieldCls(errors.description))}
+          aria-invalid={!!errors.description}
+          aria-describedby={errors.description ? "redemption-description-error" : undefined} />
+        {errors.description && <p id="redemption-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
-            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_redemption")}
           </button>
         </div>
@@ -406,7 +422,6 @@ function OthersForm({ onClose, onConfirm }: {
   const [subject,     setSubject]     = useState("");
   const [category,    setCategory]    = useState<string>(OTHER_TICKET_CATEGORIES[0]);
   const [description, setDescription] = useState("");
-  const [confirmed,   setConfirmed]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting,  setSubmitting]  = useState(false);
@@ -415,7 +430,6 @@ function OthersForm({ onClose, onConfirm }: {
     const e: Record<string, string> = {};
     if (!subject.trim())     e.subject     = t("ticket.errors.enter_subject");
     if (!description.trim()) e.description = t("ticket.errors.describe_request");
-    if (!confirmed)          e.confirmed   = t("ticket.errors.confirm_reviewed");
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -446,9 +460,9 @@ function OthersForm({ onClose, onConfirm }: {
 
       {/* Category */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.category")}</label>
+        <label htmlFor="others-category" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.category")}</label>
         <div className="relative">
-          <select value={category} onChange={(e) => setCategory(e.target.value)}
+          <select id="others-category" value={category} onChange={(e) => setCategory(e.target.value)}
             className={fieldCls()}>
             {OTHER_TICKET_CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -460,45 +474,36 @@ function OthersForm({ onClose, onConfirm }: {
 
       {/* Subject */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
-        <input type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
+        <label htmlFor="others-subject" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
+        <input id="others-subject" type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
           onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
-          className={fieldCls(errors.subject)} />
-        {errors.subject && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+          className={fieldCls(errors.subject)}
+          aria-invalid={!!errors.subject}
+          aria-describedby={errors.subject ? "others-subject-error" : undefined} />
+        {errors.subject && <p id="others-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
       </div>
 
       {/* Description */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
-        <textarea rows={4} placeholder={t("ticket.description_placeholder")} value={description}
+        <label htmlFor="others-description" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
+        <textarea id="others-description" rows={4} placeholder={t("ticket.description_placeholder")} value={description}
           onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
-          className={clsx("resize-none", fieldCls(errors.description))} />
-        {errors.description && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
-      </div>
-
-      {/* Confirmation */}
-      <div className="flex flex-col gap-1.5">
-        <label className={`flex items-start gap-3 cursor-pointer select-none ${errors.confirmed ? "text-red-600" : "text-secondary"}`}>
-          <input type="checkbox" checked={confirmed}
-            onChange={(e) => { setConfirmed(e.target.checked); setErrors((p) => ({ ...p, confirmed: "" })); }}
-            className="mt-0.5 accent-primary w-4 h-4 shrink-0" />
-          <span className="text-body-sm leading-relaxed">
-            {t("ticket.confirm_others")}
-          </span>
-        </label>
-        {errors.confirmed && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600 ml-7"><AlertCircle size={11} strokeWidth={2} />{errors.confirmed}</p>}
+          className={clsx("resize-none", fieldCls(errors.description))}
+          aria-invalid={!!errors.description}
+          aria-describedby={errors.description ? "others-description-error" : undefined} />
+        {errors.description && <p id="others-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
-            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors">
+            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed">
+            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_ticket")}
           </button>
         </div>
