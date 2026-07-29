@@ -147,4 +147,10 @@ export {
   RotateCcw,
   MoreVertical,
   Undo2,
+  // CRM — PC Allocation Matrix SOP tooltip
+  MailCheck,
+  ArrowRightLeft,
+  // CRM — PC Monthly Reports comment feature
+  MessageSquarePlus,
+  MessageSquareText,
 } from "lucide-react";

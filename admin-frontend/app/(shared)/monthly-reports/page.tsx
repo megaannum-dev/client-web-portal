@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Download, ChevronLeft, ChevronRight } from "@/lib/icons";
+import { FileText, Download, ChevronLeft, ChevronRight, MessageSquarePlus, MessageSquareText } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { downloadAs } from "@/lib/downloadFile";
 import { MOCK_EOM_REPORTS } from "@/lib/mock/eom-reports";
+import { CommentModal } from "@/components/monthly-reports/CommentModal";
+import { useAuth } from "@/components/auth/AuthProvider";
 import clsx from "clsx";
 
 const PAGE_SIZE = 5;
 
 export default function MonthlyReportsPage() {
+  const { portalUser } = useAuth();
+  const isPC = portalUser?.role === "PC";
+
   const [currentPage, setCurrentPage] = useState(1);
+  const [comments, setComments] = useState<Record<number, string>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(MOCK_EOM_REPORTS.length / PAGE_SIZE));
   const pageData   = MOCK_EOM_REPORTS.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -19,6 +26,7 @@ export default function MonthlyReportsPage() {
     { label: "Report Name",      center: false },
     { label: "Reporting Period", center: false },
     { label: "Generated Date",   center: false },
+    { label: "Comment",          center: false },
     { label: "Download",         center: true  },
   ];
 
@@ -40,9 +48,10 @@ export default function MonthlyReportsPage() {
         <div className="border border-outline-variant rounded-lg overflow-hidden">
           <table className="w-full text-left border-collapse table-fixed">
             <colgroup>
-              <col className="w-[30%]" />
-              <col className="w-[30%]" />
-              <col className="w-[30%]" />
+              <col className="w-[28%]" />
+              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[28%]" />
               <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-surface-container">
@@ -61,28 +70,65 @@ export default function MonthlyReportsPage() {
               </tr>
             </thead>
             <tbody className="bg-surface-lowest divide-y divide-outline-variant">
-              {pageData.map((r, i) => (
-                <tr key={i} className="hover:bg-surface-container/40 transition-colors duration-100">
-                  <td className="px-5 py-4">
-                    <span className="flex items-center gap-2.5">
-                      <FileText size={16} strokeWidth={1.75} className="shrink-0 text-primary" />
-                      <span className="text-body-sm font-medium text-on-surface">{r.name}</span>
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-body-sm text-secondary">{r.period}</td>
-                  <td className="px-5 py-4 text-body-sm text-secondary">{r.generated}</td>
-                  <td className="px-5 py-4 text-center">
-                    <button
-                      type="button"
-                      onClick={() => downloadAs("/dummy-EoM-Report.pdf", r.name)}
-                      className="text-primary hover:opacity-70 transition-opacity"
-                      aria-label={`Download ${r.name}`}
-                    >
-                      <Download size={16} strokeWidth={1.75} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {pageData.map((r, i) => {
+                const idx = (currentPage - 1) * PAGE_SIZE + i;
+                const hasComment = !!comments[idx];
+                return (
+                  <tr key={idx} className="hover:bg-surface-container/40 transition-colors duration-100">
+                    <td className="px-5 py-4">
+                      <span className="flex items-center gap-2.5">
+                        <FileText size={16} strokeWidth={1.75} className="shrink-0 text-primary" />
+                        <span className="text-body-sm font-medium text-on-surface">{r.name}</span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-body-sm text-secondary">{r.period}</td>
+                    <td className="px-5 py-4 text-body-sm text-secondary">{r.generated}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        {hasComment ? (
+                          <span
+                            className="min-w-0 truncate text-body-sm text-secondary"
+                            title={comments[idx]}
+                          >
+                            {comments[idx]}
+                          </span>
+                        ) : (
+                          <span className="text-body-sm text-outline-variant">—</span>
+                        )}
+                        {isPC && (
+                          /* View/Edit Gate Function */
+                          <button
+                            type="button"
+                            onClick={() => setEditingIndex(idx)}
+                            title={hasComment ? comments[idx] : "Add comment"}
+                            aria-label={`${hasComment ? "Edit" : "Add"} comment on ${r.name}`}
+                            className={clsx(
+                              "inline-flex flex-none items-center rounded px-2 py-[5px] transition-colors",
+                              hasComment
+                                ? "border border-outline-variant bg-white text-primary"
+                                : "border border-transparent text-secondary hover:bg-surface-container"
+                            )}
+                          >
+                            {hasComment
+                              ? <MessageSquareText size={16} strokeWidth={1.75} />
+                              : <MessageSquarePlus size={16} strokeWidth={1.75} />}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => downloadAs("/dummy-EoM-Report.pdf", r.name)}
+                        className="text-primary hover:opacity-70 transition-opacity"
+                        aria-label={`Download ${r.name}`}
+                      >
+                        <Download size={16} strokeWidth={1.75} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -131,6 +177,18 @@ export default function MonthlyReportsPage() {
           </div>
         </div>
       </section>
+
+      {isPC && editingIndex !== null && (
+        <CommentModal
+          report={MOCK_EOM_REPORTS[editingIndex]}
+          value={comments[editingIndex]}
+          onSave={(text) => {
+            setComments((prev) => ({ ...prev, [editingIndex]: text }));
+            setEditingIndex(null);
+          }}
+          onClose={() => setEditingIndex(null)}
+        />
+      )}
     </div>
   );
 }
