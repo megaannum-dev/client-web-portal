@@ -96,6 +96,24 @@ export function SegBar({ ok, warn, bad, height = 12 }: { ok: number; warn: numbe
   );
 }
 
+/* ---- three-system source badge (CRM / IB / PC) ------------- */
+const SYS_CLR: Record<"CRM" | "IB" | "PC", string> = {
+  CRM: "var(--primary)",
+  IB: "#3f6196",
+  PC: "#6b6a6a",
+};
+
+export function SysBadge({ sys }: { sys: "CRM" | "IB" | "PC" }) {
+  return (
+    <span
+      className="inline-flex min-w-[50px] items-center justify-center rounded-[5px] px-[8px] py-[3px] text-[11px] font-bold text-white"
+      style={{ background: SYS_CLR[sys] }}
+    >
+      {sys}
+    </span>
+  );
+}
+
 /* ---- render {b}…{/b} as a highlighted (break) span --------- */
 export function richSub(s: string | null): ReactNode {
   if (!s) return null;

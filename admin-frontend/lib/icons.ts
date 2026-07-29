@@ -147,4 +147,8 @@ export {
   RotateCcw,
   MoreVertical,
   Undo2,
+  // CRM — MOBO recon/commission redesign
+  Calendar,
+  Percent,
+  Receipt,
 } from "lucide-react";

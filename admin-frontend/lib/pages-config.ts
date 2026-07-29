@@ -6,7 +6,6 @@ import {
   Grid3x3,
   Inbox,
   ArrowLeftRight,
-  ShieldAlert,
   CalendarDays,
   UserPlus,
   Shield,
@@ -17,6 +16,7 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react";
+import { Receipt } from "@/lib/icons";
 
 export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
 
@@ -29,7 +29,7 @@ export type PageId =
   | "rm.request-tickets"
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
-  | "mobo.daily-exception-report"
+  | "mobo.commission-tracking"
   | "mobo.post-trade-allocation"
   | "pc.model-management"
   | "pc.allocation-matrix"
@@ -125,11 +125,11 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: ArrowLeftRight,
     subgroup: "Trade Management",
   },
-  "mobo.daily-exception-report": {
-    id: "mobo.daily-exception-report",
-    path: "/mobo/daily-exception-report",
-    label: "Daily Exceptions",
-    icon: ShieldAlert,
+  "mobo.commission-tracking": {
+    id: "mobo.commission-tracking",
+    path: "/mobo/commission-tracking",
+    label: "Commission Tracking",
+    icon: Receipt,
     subgroup: "Trade Management",
   },
   "pc.model-management": {
@@ -204,7 +204,7 @@ export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
   MOBO: {
     "mobo.recon-overview": "OPERATE",
     "mobo.trade-reconciliation": "OPERATE",
-    "mobo.daily-exception-report": "OPERATE",
+    "mobo.commission-tracking": "OPERATE",
     "mobo.post-trade-allocation": "OPERATE",
     "shared.monthly-reports": "OPERATE",
   },
