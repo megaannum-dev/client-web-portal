@@ -52,7 +52,7 @@ assert.deepEqual(groupsFor("ADMIN")[0].pages.map((p) => p.href).sort(), [
   "/admin/enroll-user",
   "/admin/system-config",
   "/compliance/review",
-  "/mobo/daily-exception-report",
+  "/mobo/commission-tracking",
   "/mobo/post-trade-allocation",
   "/mobo/trade-reconciliation",
   "/monthly-reports",

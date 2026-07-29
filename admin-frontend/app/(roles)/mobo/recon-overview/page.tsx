@@ -7,15 +7,16 @@
 
 import { useRouter } from "next/navigation";
 import {
-  CalendarDays, ArrowLeftRight, Inbox, Link2, Unlink, ShieldAlert,
-  ArrowRight, Clock, ChevronRight, FileText, Lock,
+  CalendarDays, ArrowLeftRight, Inbox, Link2, Unlink, Receipt,
+  ArrowRight, ChevronRight, FileText, Lock,
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { MetricStat, SegBar } from "@/components/mobo/Shared";
+import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
 import { loadReconciliation } from "@/lib/mobo/reconciliation";
-import { SEV_LABEL, SEV_TONE, type Exception } from "@/lib/mobo/types";
+import { loadCommissions, computeFeeTotals, fmtFeeShort } from "@/lib/mobo/commissions";
+import type { ReconTrade } from "@/lib/mobo/types";
 
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
@@ -26,27 +27,40 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   );
 }
 
-function ExcRow({ e, onClick }: { e: Exception; onClick: () => void }) {
+/* ---- broken-trade row helpers (ported from MoboDashboard.jsx) --- */
+const MARKET_LABEL: Record<string, string> = { US: "NYSE / NASDAQ", LN: "LSE" };
+function marketFor(inst: string): string {
+  if (inst.includes("/")) return "FX";
+  const suf = inst.split(" ").pop() ?? "";
+  return MARKET_LABEL[suf] || suf;
+}
+function stockFor(inst: string): string {
+  return inst.includes("/") ? inst : inst.split(" ")[0];
+}
+function qtyFor(ls: string | null): string {
+  if (!ls) return "—";
+  const parts = ls.replace(/\{\/?b\}/g, "").split("·").map((s) => s.trim());
+  return (parts[1] || "—").split("@")[0].trim() || "—";
+}
+function sysForTrade(t: ReconTrade): "CRM" | "IB" | "PC" {
+  if (!t.ib) return "IB";
+  if (!t.crm) return "PC";
+  if (t.ti.state !== "ok") return "IB";
+  if (t.ic.state !== "ok") return "PC";
+  return "CRM";
+}
+
+function ExcRow({ t, settleDay, onClick }: { t: ReconTrade; settleDay: string; onClick: () => void }) {
   return (
     <tr
       onClick={onClick}
       className="cursor-pointer transition-colors duration-100 hover:bg-surface-container [&>td]:border-t [&>td]:border-outline-variant"
     >
-      <td className="px-[18px] py-3">
-        <div className="font-bold text-on-surface">{e.ref}</div>
-        <div className="mt-px text-[12px] text-secondary">{e.book} · {e.inst}</div>
-      </td>
-      <td className="px-[18px] py-3 text-on-surface">{e.type}</td>
-      <td className="px-[18px] py-3"><Chip tone={SEV_TONE[e.sev]} dot={false}>{SEV_LABEL[e.sev]}</Chip></td>
-      <td
-        className="px-[18px] py-3 text-right tabular-nums"
-        style={{ fontWeight: e.carried ? 700 : 400, color: e.carried ? "#ba1a1a" : "var(--secondary)" }}
-      >
-        {e.carried && <Clock size={11} strokeWidth={2} className="mr-[3px] inline align-[-1px]" />}{e.age}
-      </td>
-      <td className="px-[18px] py-3" style={{ color: e.owner === "Unassigned" ? "var(--secondary)" : "var(--on-surface)" }}>
-        {e.owner}
-      </td>
+      <td className="px-[18px] py-3"><SysBadge sys={sysForTrade(t)} /></td>
+      <td className="px-[18px] py-3 text-on-surface">{settleDay}</td>
+      <td className="px-[18px] py-3 text-secondary">{marketFor(t.inst)}</td>
+      <td className="px-[18px] py-3 font-bold text-on-surface">{stockFor(t.inst)}</td>
+      <td className="px-[18px] py-3 text-right tabular-nums text-on-surface">{qtyFor(t.ti.ls)}</td>
       <td className="px-[18px] py-3 text-right text-secondary">
         <ChevronRight size={16} strokeWidth={2} className="inline" />
       </td>
@@ -61,14 +75,12 @@ export default function MoboDashboardPage() {
 
   // SINGLE SOURCE: every figure on this page is read from the same bundle the
   // recon screen consumes, so the dashboard and recon never disagree.
-  const { settleDay, counters, exceptions } = loadReconciliation();
+  const { settleDay, counters, trades } = loadReconciliation();
+  const { totalBillable } = computeFeeTotals(loadCommissions().rows);
 
   const openBreaks = counters.breaks + counters.unmatched;
-  const carriedExceptions = exceptions.filter((e) => e.carried).length;
-  // Row data is invented mock (see MOCK_EXCEPTIONS) shared with Trade
-  // Reconciliation / Daily Exceptions — leave those pages alone, just don't
-  // surface the fake rows here. Real backend rows will replace this.
-  const top: Exception[] = [];
+  const brokenTrades = trades.filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok");
+  const top = brokenTrades.slice(0, 5);
 
   // Today's-reconciliation bar segments, derived from the single-source counts
   // (matched / breaks / unmatched) so the bar matches the legend below it. Each
@@ -81,7 +93,7 @@ export default function MoboDashboardPage() {
   const segBad = counters.reconciled > 0 ? pct(counters.unmatched) : 0;
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
-  const goExceptions = () => router.push("/mobo/daily-exception-report");
+  const goCommissions = () => router.push("/mobo/commission-tracking");
 
   return (
     <div className="w-full">
@@ -103,7 +115,7 @@ export default function MoboDashboardPage() {
         <MetricStat label="Trades to reconcile" value={counters.reconciled.toLocaleString("en-US")} icon={Inbox} />
         <MetricStat label="Auto-matched" value={counters.autoMatchedPct} sub={counters.matched.toLocaleString("en-US")} tone="ok" icon={Link2} />
         <MetricStat label="Open breaks" value={openBreaks} sub={`${counters.breaks} field · ${counters.unmatched} unmatched`} tone="warn" icon={Unlink} onClick={goRecon} />
-        <MetricStat label="Open exceptions" value={exceptions.length} sub={`${carriedExceptions} carried fwd`} tone="bad" icon={ShieldAlert} onClick={goExceptions} />
+        <MetricStat label="Fees billable · May" value={fmtFeeShort(totalBillable)} sub="management + incentive" icon={Receipt} onClick={goCommissions} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
@@ -136,7 +148,7 @@ export default function MoboDashboardPage() {
               <h3 className="text-[17px] font-semibold text-on-surface">Open exceptions</h3>
               <button
                 type="button"
-                onClick={goExceptions}
+                onClick={goRecon}
                 className="text-[13px] font-bold text-primary hover:opacity-75"
               >
                 View report →
@@ -145,10 +157,10 @@ export default function MoboDashboardPage() {
             <table className="w-full border-collapse text-[13.5px]">
               <thead>
                 <tr>
-                  {["Ref / Book", "Type", "Severity", "Age", "Owner", ""].map((h, i) => (
+                  {["System", "Trade Date", "Market", "Stock", "Quantity", ""].map((h, i) => (
                     <th
                       key={i}
-                      className={`bg-surface-low px-[18px] py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary ${i === 3 ? "text-right" : "text-left"}`}
+                      className={`bg-surface-low px-[18px] py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary ${i === 4 ? "text-right" : "text-left"}`}
                     >
                       {h}
                     </th>
@@ -156,8 +168,8 @@ export default function MoboDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {top.map((e) => (
-                  <ExcRow key={e.id} e={e} onClick={goExceptions} />
+                {top.map((t) => (
+                  <ExcRow key={t.id} t={t} settleDay={settleDay} onClick={goRecon} />
                 ))}
               </tbody>
             </table>
@@ -181,7 +193,11 @@ export default function MoboDashboardPage() {
               <Chip tone="active" dot={false}>Signed off</Chip>
             </div>
             <div className="flex gap-2.5">
-              <Button variant="secondary" icon={FileText} full onClick={goExceptions}>Preview</Button>
+              {/* ponytail: the prototype points this at a new MOBO "Monthly Reports"
+                  (EOD-aggregation) screen — out of this task's scope. Redirect to the
+                  existing shared Monthly Reports page instead. */}
+              <Button variant="secondary" icon={FileText} full onClick={() => router.push("/monthly-reports")}>Preview</Button>
+              {/* View/Edit Gate Function */}
               <Button icon={Lock} full disabled>Sign off</Button>
             </div>
             <p className="mt-3 text-[11.5px] leading-[1.45] text-secondary">
