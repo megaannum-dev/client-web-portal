@@ -8,6 +8,8 @@ export interface PositionDTO {
   model_limit: number | null;
   model_size: number | null;
   ib_account: string | null;
+  category: string[] | null;
+  has_material: boolean;
 }
 
 export interface PortfolioDTO {

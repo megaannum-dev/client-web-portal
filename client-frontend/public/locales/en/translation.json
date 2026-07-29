@@ -176,13 +176,17 @@
     "subscribed_columns": {
       "model_name": "Model Name",
       "amount": "Amount ($)",
-      "multiplier": "Multiplier",
+      "category": "Category",
+      "multiplier": "Unit Subscribed",
       "model_limit": "Model Limit",
-      "ib_account": "IB Account"
+      "ib_account": "IB Account",
+      "market_material": "Market Material"
     },
     "recommended_columns": {
       "model_name": "Model Name",
+      "model_size": "Model Size",
       "category": "Category",
+      "unit_subscribed": "Unit Subscribed",
       "model_limit": "Model Limit",
       "subscription_redemption": "Subscription/Redemption",
       "market_material": "Market Material"

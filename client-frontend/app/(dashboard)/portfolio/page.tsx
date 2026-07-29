@@ -60,15 +60,17 @@ const BENCHMARK_COLOR = "#585f6c";
 const SUBSCRIBED_COL_KEYS = [
   "portfolio.subscribed_columns.model_name",
   "portfolio.subscribed_columns.amount",
+  "portfolio.subscribed_columns.category",
   "portfolio.subscribed_columns.multiplier",
   "portfolio.subscribed_columns.model_limit",
-  "portfolio.subscribed_columns.ib_account",
+  "portfolio.subscribed_columns.market_material",
 ];
 const RECOMMENDED_COL_KEYS = [
   "portfolio.recommended_columns.model_name",
+  "portfolio.recommended_columns.model_size",
   "portfolio.recommended_columns.category",
+  "portfolio.recommended_columns.unit_subscribed",
   "portfolio.recommended_columns.model_limit",
-  "portfolio.recommended_columns.subscription_redemption",
   "portfolio.recommended_columns.market_material",
 ];
 
@@ -419,19 +421,29 @@ export default function PortfolioPage() {
       {/* ── Subscribed Models ────────────────────────────────────────────── */}
       <section id="subscribed-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.subscribed_models")}</h2>
-        <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(4, 1fr)">
+        <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(5, 1fr)">
           {!portfolio ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
           ) : portfolio.positions.length === 0 ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_results")}</div>
           ) : (
             portfolio.positions.map((p) => (
-              <ModelRow key={p.model_id} gridTemplate="15rem repeat(4, 1fr)">
+              <ModelRow key={p.model_id} gridTemplate="15rem repeat(5, 1fr)">
                 <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{p.model_name}</span></div>
                 <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{formatMoney(p.amount)}</div>
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{p.category?.join(", ") ?? "—"}</span></div>
                 <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{`${p.units.toFixed(1)}x`}</div>
                 <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{p.model_limit != null ? formatMoney(p.model_limit) : "—"}</div>
-                <div className="px-5 py-4 flex items-center font-mono text-[12px] font-semibold text-primary">{p.ib_account ?? "—"}</div>
+                <div className="px-5 py-4 flex items-center">
+                  {p.has_material && (
+                    <a
+                      href={modelMaterialDownloadUrl(p.model_id)}
+                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all"
+                    >
+                      <Download size={15} strokeWidth={2.5} />{t("common.download")}
+                    </a>
+                  )}
+                </div>
               </ModelRow>
             ))
           )}
@@ -441,18 +453,19 @@ export default function PortfolioPage() {
       {/* ── Recommended Models ────────────────────────────────────────────── */}
       <section id="recommended-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.recommended_models")}</h2>
-        <ModelTable columns={RECOMMENDED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(4, 1fr)">
+        <ModelTable columns={RECOMMENDED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(5, 1fr)">
           {recommendedLoading ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
           ) : recommended.length === 0 ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_results")}</div>
           ) : (
             recommended.map((m) => (
-              <ModelRow key={m.model_id} gridTemplate="15rem repeat(4, 1fr)">
+              <ModelRow key={m.model_id} gridTemplate="15rem repeat(5, 1fr)">
                 <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.model_size != null ? formatMoney(m.model_size) : "—"}</div>
                 <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.category?.join(", ") ?? "—"}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{"—"}</div>
                 <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.model_limit != null ? formatMoney(m.model_limit) : "—"}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.subscription_redemption ?? "—"}</div>
                 <div className="px-5 py-4 flex items-center">
                   {m.has_material && (
                     <a

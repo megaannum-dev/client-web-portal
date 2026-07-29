@@ -176,13 +176,17 @@
     "subscribed_columns": {
       "model_name": "模型名稱",
       "amount": "金額（$）",
-      "multiplier": "倍數",
+      "category": "類別",
+      "multiplier": "已申購單位",
       "model_limit": "模型上限",
-      "ib_account": "IB 帳戶"
+      "ib_account": "IB 帳戶",
+      "market_material": "市場資料"
     },
     "recommended_columns": {
       "model_name": "模型名稱",
+      "model_size": "模型規模",
       "category": "類別",
+      "unit_subscribed": "已申購單位",
       "model_limit": "模型上限",
       "subscription_redemption": "申購／贖回",
       "market_material": "市場資料"
