@@ -86,33 +86,28 @@ export default function MonthlyReportsPage() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         {hasComment ? (
-                          <span
-                            className="min-w-0 truncate text-body-sm text-secondary"
+                          <button
+                            type="button"
+                            onClick={() => setEditingIndex(idx)}
                             title={comments[idx]}
+                            aria-label={`${isPC ? "Edit" : "View"} comment on ${r.name}`}
+                            className="inline-flex flex-none items-center rounded border border-outline-variant bg-white px-2 py-[5px] text-primary transition-colors"
                           >
-                            {comments[idx]}
-                          </span>
-                        ) : (
-                          <span className="text-body-sm text-outline-variant">—</span>
-                        )}
-                        {isPC && (
+                            <MessageSquareText size={16} strokeWidth={1.75} />
+                          </button>
+                        ) : isPC ? (
                           /* View/Edit Gate Function */
                           <button
                             type="button"
                             onClick={() => setEditingIndex(idx)}
-                            title={hasComment ? comments[idx] : "Add comment"}
-                            aria-label={`${hasComment ? "Edit" : "Add"} comment on ${r.name}`}
-                            className={clsx(
-                              "inline-flex flex-none items-center rounded px-2 py-[5px] transition-colors",
-                              hasComment
-                                ? "border border-outline-variant bg-white text-primary"
-                                : "border border-transparent text-secondary hover:bg-surface-container"
-                            )}
+                            title="Add comment"
+                            aria-label={`Add comment on ${r.name}`}
+                            className="inline-flex flex-none items-center rounded border border-transparent px-2 py-[5px] text-secondary transition-colors hover:bg-surface-container"
                           >
-                            {hasComment
-                              ? <MessageSquareText size={16} strokeWidth={1.75} />
-                              : <MessageSquarePlus size={16} strokeWidth={1.75} />}
+                            <MessageSquarePlus size={16} strokeWidth={1.75} />
                           </button>
+                        ) : (
+                          <span className="text-body-sm text-secondary">No comment</span>
                         )}
                       </div>
                     </td>
@@ -178,10 +173,11 @@ export default function MonthlyReportsPage() {
         </div>
       </section>
 
-      {isPC && editingIndex !== null && (
+      {editingIndex !== null && (
         <CommentModal
           report={MOCK_EOM_REPORTS[editingIndex]}
           value={comments[editingIndex]}
+          readOnly={!isPC}
           onSave={(text) => {
             setComments((prev) => ({ ...prev, [editingIndex]: text }));
             setEditingIndex(null);
