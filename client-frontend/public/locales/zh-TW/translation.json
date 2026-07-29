@@ -127,10 +127,11 @@
     }
   },
   "status": {
-    "sent": "已送出",
-    "received": "已收到",
-    "processing": "處理中",
-    "fulfilled": "已完成"
+    "new": "新申請",
+    "in_progress": "處理中",
+    "replied": "已回覆",
+    "closed": "已結案",
+    "declined": "已婉拒"
   },
   "request_type": {
     "allotment": "申購",

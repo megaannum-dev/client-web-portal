@@ -127,10 +127,11 @@
     }
   },
   "status": {
-    "sent": "Sent",
-    "received": "Received",
-    "processing": "Processing",
-    "fulfilled": "Fulfilled"
+    "new": "New",
+    "in_progress": "In Progress",
+    "replied": "Replied",
+    "closed": "Closed",
+    "declined": "Declined"
   },
   "request_type": {
     "allotment": "Allotment",
