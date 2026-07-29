@@ -858,7 +858,16 @@ class OnboardingService:
         if uploaded_by is not None and onboarding is not None and doc.uploaded_by is not None:
             user = self.db.query(User).filter(User.firebase_uid == doc.uploaded_by).one_or_none()
             if user is not None and user.id == onboarding.user_id:
-                uploaded_by = f"{uploaded_by} (client)"
+                # _resolve_uid_to_display_name_with_role only knows AdminProfile,
+                # so a client uploader falls through its coalesce to Uploader.email
+                # -- look up the client's own display name instead.
+                profile = (
+                    self.db.query(ClientProfile)
+                    .filter(ClientProfile.user_id == user.id)
+                    .one_or_none()
+                )
+                client_name = (profile.name if profile else None) or user.email or uploaded_by
+                uploaded_by = f"{client_name} (client)"
         return DocumentDTO(
             doc_type=doc.doc_type,
             label=spec.label,
