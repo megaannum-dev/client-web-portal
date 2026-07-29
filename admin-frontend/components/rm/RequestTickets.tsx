@@ -20,7 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Inbox, Loader2, CheckCheck, ChevronRight, ChevronDown,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeft, ArrowRight,
-  Mail, Printer, Info, X, Send, Paperclip,
+  Mail, Printer, Info, X,
 } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -251,10 +251,9 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
         <Button variant="secondary" icon={Printer}>Print</Button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-        {/* left — what the client asked for */}
-        <Card title={trade ? "Client Request" : "Client Message"}>
-          {trade ? (
+      {trade ? (
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+          <Card title="Client Request">
             <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
               <Fact k="Client" v={ticket.client} />
               <Fact k="Raised by" v={ticket.contact} />
@@ -265,25 +264,27 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
               <Fact k="Model multiple" v={ticket.mult} />
               <Fact k="Notional" v={`${ticket.ccy} ${ticket.notional}`} />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
-              <Fact k="Client" v={ticket.client} />
-              <Fact k="Raised by" v={ticket.contact} />
-              <Fact k="Reply-to" v={ticket.email} />
-              <Fact k="Account" v={ticket.account} />
+            <div className="mt-5 border-t border-outline-variant pt-[18px]">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Client note</div>
+              <p className="text-[14.5px] leading-relaxed text-on-surface">{ticket.message}</p>
             </div>
-          )}
+          </Card>
+          <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} />
+        </div>
+      ) : (
+        <Card title="Client Message">
+          <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
+            <Fact k="Client" v={ticket.client} />
+            <Fact k="Raised by" v={ticket.contact} />
+            <Fact k="Reply-to" v={ticket.email} />
+            <Fact k="Account" v={ticket.account} />
+          </div>
           <div className="mt-5 border-t border-outline-variant pt-[18px]">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{trade ? "Client note" : ticket.subject}</div>
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{ticket.subject}</div>
             <p className="text-[14.5px] leading-relaxed text-on-surface">{ticket.message}</p>
           </div>
         </Card>
-
-        {/* right — the RM action panel */}
-        {trade
-          ? <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} />
-          : <ReplyPanel ticket={ticket} closed={closed} />}
-      </div>
+      )}
     </div>
   );
 }
@@ -381,60 +382,6 @@ function ActOnTradePanel({
 
         <div className="flex items-center gap-2 text-[12px] text-secondary">
           <Mail size={14} strokeWidth={1.75} /> The client is notified by email either way.
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/* ---- action panel B · other → email reply ---------------------- */
-function ReplyPanel({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
-  const firstName = ticket.contact.split(" ")[0];
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const { refetch } = useRmTicket(ticket.ref);
-
-  async function handleSendReply() {
-    const replyBody = `Hi ${firstName},\n\nThanks for getting in touch regarding "${ticket.subject?.toLowerCase()}".`;
-    const result = await setTicketStatus(ticket.ref, { status: "replied", note: replyBody });
-    if (result.success) refetch();
-    else setInlineError(result.error);
-  }
-
-  return (
-    <Card title="Reply to Client">
-      <div className="flex flex-col gap-3.5">
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">To</div>
-          <div className="flex items-center gap-2 rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] text-secondary">
-            <Mail size={15} strokeWidth={1.75} />
-            <span className="font-semibold text-on-surface">{ticket.contact}</span>
-            <span>&lt;{ticket.email}&gt;</span>
-          </div>
-        </div>
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
-          <div className="rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] font-semibold text-on-surface">Re: {ticket.subject}</div>
-        </div>
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
-          <div className="min-h-[156px] rounded border border-outline bg-white px-3.5 py-3 text-[14px] leading-relaxed text-on-surface">
-            Hi {firstName},<br /><br />
-            Thanks for getting in touch regarding &ldquo;{ticket.subject?.toLowerCase()}&rdquo;.<br /><br />
-            <span className="text-secondary">Type your reply here — this will be sent to the client by email and logged against the ticket…</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-[12px] text-secondary">
-          <Paperclip size={14} strokeWidth={1.75} /> Attach a document
-        </div>
-        <div className="flex gap-2.5">
-          <Button variant="secondary" className="flex-1" disabled={closed}>Save draft</Button>
-          <Button icon={Send} className="flex-1" disabled={closed} onClick={handleSendReply}>Send email</Button>
-        </div>
-        {inlineError && (
-          <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>
-        )}
-        <div className="flex items-center gap-2 rounded-md bg-[#fff3e8] px-3 py-2 text-[12px] font-semibold text-[#994700]">
-          <Mail size={14} strokeWidth={2} /> Sends to {ticket.email}; ticket is marked Replied.
         </div>
       </div>
     </Card>
