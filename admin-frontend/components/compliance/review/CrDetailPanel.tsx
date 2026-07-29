@@ -45,6 +45,7 @@ export function CrDetailPanel({
       statusSlot={<CrStatusChip status={r.status} />}
       onClose={onClose}
     >
+      {/* View/Edit Gate Function */}
       {r.emergent && (
         <div className="mb-2.5">
           <Notice tone="bad" icon={TriangleAlert}>
@@ -52,6 +53,7 @@ export function CrDetailPanel({
           </Notice>
         </div>
       )}
+      {/* View/Edit Gate Function */}
       <Notice tone="warn" icon={Shield}>
         <b>Compliance gate</b> — exceeds US${COMPLIANCE_THRESHOLD.toLocaleString()} ({coMoney(r.amount)}). Compliance decides first; PC gives the final sign-off before release.
       </Notice>
@@ -88,7 +90,9 @@ export function CrDetailPanel({
       <div className="mt-5 flex justify-end gap-2">
         {pending ? (
           <>
+            {/* View/Edit Gate Function */}
             <Button variant="secondary" icon={X} onClick={() => onDecision(r.id, "reject")}>Reject</Button>
+            {/* View/Edit Gate Function */}
             <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
           </>
         ) : (

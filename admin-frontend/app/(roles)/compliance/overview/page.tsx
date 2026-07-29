@@ -8,9 +8,8 @@
 // Ported from the design prototype (CoOverview.jsx).
 
 import { useRouter } from "next/navigation";
-import { Filter, Download, ClipboardCheck, RefreshCw, Shield, FileText } from "@/lib/icons";
+import { ClipboardCheck, RefreshCw, Shield, FileText } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { OvTile, OvPanel, OvRow, UrgTag } from "@/components/compliance/overview/OverviewWidgets";
@@ -46,12 +45,6 @@ export default function ComplianceOverviewPage() {
         <PageHeader
           title="Compliance Overview"
           subtitle={name ? `Hello, ${name} — here's today's compliance workload.` : "Here's today's compliance workload."}
-          actions={
-            <>
-              <Button variant="secondary" icon={Filter}>Filters</Button>
-              <Button variant="secondary" icon={Download}>Export log</Button>
-            </>
-          }
         />
       </div>
 
@@ -113,18 +106,6 @@ export default function ComplianceOverviewPage() {
                 />
               );
             })}
-          </OvPanel>
-          <OvPanel
-            icon={FileText} title="Investment Guidelines" count={GR_GUIDELINES.length}
-            viewLabel="View tab" onViewAll={() => goReview("tab=guideline")}
-          >
-            {GR_GUIDELINES.map((g) => (
-              <OvRow
-                key={g.id} kind="guideline" title={g.name} sub={`${g.client} · ${g.mandate}`}
-                onClick={() => goReview(`tab=guideline&openGrId=${g.id}`)}
-                right={<span className="rounded-md bg-surface-container px-2 py-0.5 text-[11.5px] font-bold text-secondary">v{g.version}</span>}
-              />
-            ))}
           </OvPanel>
         </div>
       </div>
