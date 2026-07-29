@@ -32,6 +32,7 @@ function resolveDeepLink(params: URLSearchParams, clients: SubClient[]): { openC
   const modelIdx = client.models.findIndex((m) => m.modelId === modelId);
   const model = modelIdx === -1 ? undefined : client.models[modelIdx];
   if (!model) return null;
+  const ticket = params.get("ticket");
   return {
     openClient: client.id,
     openModelKey: `${client.id}-${modelIdx}`,
@@ -46,6 +47,7 @@ function resolveDeepLink(params: URLSearchParams, clients: SubClient[]): { openC
         modelAccount: model.account,
         mgmtFee: model.mgmtFee,
         incentiveFee: model.incentiveFee,
+        sourceTicketRef: ticket ?? undefined,
       },
     },
   };

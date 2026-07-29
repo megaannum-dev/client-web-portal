@@ -67,6 +67,7 @@ export interface SubmitAllotmentReq {
   expected_cash_in: string | null;  // ISO date "YYYY-MM-DD", nullable
   mgmt_fee?: number | null;      // only populated for new-subscription mode
   incentive_fee?: number | null; // only populated for new-subscription mode
+  source_ticket_ref?: string;    // originating ticket ref, when submitted via Act-on-request deep-link
 }
 
 export interface SubmitRedemptionReq {
@@ -75,6 +76,7 @@ export interface SubmitRedemptionReq {
   multiplier: number;             // units to redeem
   expected_cash_out: string | null;
   emergent?: boolean;             // default false
+  source_ticket_ref?: string;     // originating ticket ref, when submitted via Act-on-request deep-link
 }
 
 export interface RedemptionDecisionReq {
