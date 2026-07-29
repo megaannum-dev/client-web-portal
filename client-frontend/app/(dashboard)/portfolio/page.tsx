@@ -237,6 +237,9 @@ export default function PortfolioPage() {
 
   const modelLimitTotal = (portfolio?.positions ?? []).reduce((sum, p) => (p.model_limit != null ? sum + p.model_limit : sum), 0);
   const isPositiveChange = (portfolio?.change_amount ?? 0) >= 0;
+  const allocatedPct = portfolio && portfolio.total_value > 0
+    ? ((portfolio.total_value - portfolio.cash_deposit) / portfolio.total_value) * 100
+    : 0;
 
   // ── Historical requests — search + pagination ──────────────────────────────
   const [search,      setSearch]      = useState("");
@@ -392,7 +395,7 @@ export default function PortfolioPage() {
                 </PieChart>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="text-center">
-                    <p className="text-[18px] font-bold text-on-surface leading-tight">100%</p>
+                    <p className="text-[18px] font-bold text-on-surface leading-tight">{`${allocatedPct.toFixed(0)}%`}</p>
                     <p className="text-[9px] font-semibold text-secondary uppercase tracking-widest">{t("portfolio.allocated")}</p>
                   </div>
                 </div>
