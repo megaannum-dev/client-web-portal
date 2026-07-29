@@ -1,10 +1,14 @@
 "use client";
 
 /* ============================================================
-   RM — "Start Onboarding" modal: 3-step form (Basic Info → Trade
-   Info → Documents) an RM fills out to create a client record and
-   kick off KYC. Ported faithfully from the design handoff prototype
-   (Screens.jsx `OnboardingModal`, ~L1563-1738). "Onboard Client"
+   RM — "Start Onboarding" modal: 4-step form (Basic Info → Client
+   Preference → Trade Info → Documents) an RM fills out to create a
+   client record and kick off KYC. Ported faithfully from the design
+   handoff prototype (Screens.jsx `OnboardingModal`, ~L1563-1832).
+   Client Preference is local-UI-only scaffolding for now: its 7
+   fields live in `form` state but are deliberately NOT sent in the
+   startOnboarding(...) call below — the backend has no support for
+   them yet. "Onboard Client"
    calls the real POST /api/rm/onboardings route (FE-3), then
    uploads any files staged in the Documents step against the new
    onboarding id (real POST .../documents/{doc_type} calls, same as
@@ -16,14 +20,14 @@ import { Fragment, useEffect, useState, type ChangeEvent, type ReactNode } from 
 import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
-import { UserRoundPlus, Check, File, Upload, Info } from "@/lib/icons";
+import { UserRoundPlus, Check, File, Upload, Info, Lock } from "@/lib/icons";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
 import { parseFeePercent } from "@/lib/onboarding/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
-const OB_STEPS = ["Basic Info", "Trade Info", "Documents"];
+const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents"];
 
 const inputCls =
   "h-10 rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary";
@@ -38,6 +42,8 @@ interface ObForm {
   idType: string;
   idNumber: string;
   assignedRm: string;
+  birthday: string;
+  occupation: string;
   ibhkId: string;
   swId: string;
   model: string;
@@ -45,6 +51,15 @@ interface ObForm {
   initialCashDeposit: string;
   mgmtFee: string;
   incentiveFee: string;
+  // Client Preference (step 2) — local UI state only, not yet sent to the
+  // backend; see the file header note in OnboardingModal.tsx.
+  anniversary: string;
+  spouseName: string;
+  childrenNames: string;
+  personalInterests: string;
+  commPrefs: string;
+  giftPrefs: string;
+  otherPrefNotes: string;
 }
 
 function ObField({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
@@ -72,8 +87,9 @@ export function OnboardingModal({
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
-    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "",
+    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "", birthday: "", occupation: "",
     ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
+    anniversary: "", spouseName: "", childrenNames: "", personalInterests: "", commPrefs: "", giftPrefs: "", otherPrefNotes: "",
   });
   // Keyed by doc_type (not label) — staged Files to upload against the real
   // onboarding id once it exists, right before closing (FE bug: this used to
@@ -133,7 +149,7 @@ export function OnboardingModal({
     /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim() &&
     depositMeetsFloor
   );
-  const stepValid = [page1Valid, page2Valid, true];
+  const stepValid = [page1Valid, true, page2Valid, true];
   const canSubmit = page1Valid && page2Valid;
 
   async function handleSubmit() {
@@ -182,7 +198,7 @@ export function OnboardingModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto" disabled={submitting}>Cancel</Button>
           {page > 1 && <Button variant="secondary" onClick={() => setPage(page - 1)} disabled={submitting}>Back</Button>}
-          {page < 3 ? (
+          {page < 4 ? (
             <Button onClick={() => setPage(page + 1)}>Next</Button>
           ) : (
             <Button icon={UserRoundPlus} disabled={!canSubmit || submitting} onClick={handleSubmit}>
@@ -231,6 +247,12 @@ export function OnboardingModal({
           <ObField label="Email" required>
             <input className={inputCls} type="email" value={form.email} onChange={set("email")} placeholder="name@company.com" />
           </ObField>
+          <ObField label="Birthday">
+            <input className={inputCls} type="date" value={form.birthday} onChange={set("birthday")} />
+          </ObField>
+          <ObField label="Occupation">
+            <input className={inputCls} value={form.occupation} onChange={set("occupation")} placeholder="e.g. Managing Partner" />
+          </ObField>
           <div className="col-span-2">
             <ObField label="Address" required>
               <input className={inputCls} value={form.address} onChange={set("address")} placeholder="Registered address" />
@@ -256,6 +278,53 @@ export function OnboardingModal({
       )}
 
       {page === 2 && (
+        <div>
+          <div className="mb-4 flex items-start gap-2.5 rounded-[10px] border border-outline-variant bg-surface-low p-3">
+            <Lock size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-secondary" />
+            <span className="text-[12.5px] leading-relaxed text-secondary">
+              Visible only to authorised internal users, primarily the assigned RM. Never shown in any client-facing interface.
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* View/Edit Gate Function */}
+            <ObField label="Anniversary">
+              <input className={inputCls} type="date" value={form.anniversary} onChange={set("anniversary")} />
+            </ObField>
+            {/* View/Edit Gate Function */}
+            <ObField label="Spouse's Name">
+              <input className={inputCls} value={form.spouseName} onChange={set("spouseName")} placeholder="e.g. Jamie Lin" />
+            </ObField>
+            <div className="col-span-2">
+              {/* View/Edit Gate Function */}
+              <ObField label="Children's Names and Ages">
+                <input className={inputCls} value={form.childrenNames} onChange={set("childrenNames")} placeholder="e.g. Ava (12), Noah (9)" />
+              </ObField>
+            </div>
+            <div className="col-span-2">
+              {/* View/Edit Gate Function */}
+              <ObField label="Personal Interests">
+                <input className={inputCls} value={form.personalInterests} onChange={set("personalInterests")} placeholder="e.g. Golf, sailing, contemporary art" />
+              </ObField>
+            </div>
+            {/* View/Edit Gate Function */}
+            <ObField label="Communication Preferences">
+              <input className={inputCls} value={form.commPrefs} onChange={set("commPrefs")} placeholder="e.g. Prefers calls over email" />
+            </ObField>
+            {/* View/Edit Gate Function */}
+            <ObField label="Gift / Hospitality Preferences">
+              <input className={inputCls} value={form.giftPrefs} onChange={set("giftPrefs")} placeholder="e.g. No alcohol, enjoys fine dining" />
+            </ObField>
+            <div className="col-span-2">
+              {/* View/Edit Gate Function */}
+              <ObField label="Other Relationship Notes">
+                <input className={inputCls} value={form.otherPrefNotes} onChange={set("otherPrefNotes")} placeholder="Anything else relevant to the relationship" />
+              </ObField>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {page === 3 && (
         <div className="grid grid-cols-2 gap-4">
           <ObField label="IBHK Account ID" required>
             <input className={inputCls} value={form.ibhkId} onChange={set("ibhkId")} placeholder="e.g. IB-8801" />
@@ -309,7 +378,7 @@ export function OnboardingModal({
         </div>
       )}
 
-      {page === 3 && (
+      {page === 4 && (
         <div>
           <p className="mb-3.5 text-[13px] leading-relaxed text-secondary">
             Upload any of the documents below now, or skip and click <b className="text-on-surface">Onboard Client</b> — documents

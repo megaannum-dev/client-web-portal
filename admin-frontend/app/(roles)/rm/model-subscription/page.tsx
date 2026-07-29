@@ -90,6 +90,7 @@ function ModelSubscriptionContent() {
           title="Model Subscription"
           subtitle={`Client book → subscribed models → full transaction history. ${totalClients} clients · ${totalModels} subscriptions.`}
           actions={
+            /* View/Edit Gate Function */
             <Button icon={Plus} onClick={() => setModal({ mode: "new-subscription", context: {} })}>
               Subscribe Client
             </Button>

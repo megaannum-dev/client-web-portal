@@ -151,4 +151,6 @@ export {
   Calendar,
   Percent,
   Receipt,
+  // CRM — RM Contact Log (client-info detail)
+  Video,
 } from "lucide-react";

@@ -6,7 +6,7 @@ import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
   ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
-  ChevronRight, Search, Clock, X, TriangleAlert, Download,
+  ChevronRight, ChevronDown, ChevronUp, Search, Clock, X, TriangleAlert, Download,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -17,7 +17,8 @@ import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
-import { type ClientDoc, type HistoryEntry } from "@/lib/mock/rm-data";
+import { getClientDetail, type ClientDoc, type HistoryEntry } from "@/lib/mock/rm-data";
+import { ContactLogCard } from "@/components/rm/ContactLog";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
@@ -165,8 +166,18 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, loading, error, notFound: nf } = useClient(id);
   const [censored, setCensored] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const { data: onboarding } = useOnboardingByClient(id);
   const { data: events } = useClientEvents(id);
+  // Preferences/Contact Log aren't backend fields yet -- overlaid from the mock
+  // fixtures the same way the client-book list page overlays getMockOverlay(r.id)
+  // (see client-info/page.tsx): a direct rm-data.ts lookup keyed by id, not a
+  // change to useClient/ClientRow. getClientDetail returns null for ids outside
+  // the (currently empty) mock RM_CLIENTS fixture, in which case both fields
+  // just render as empty/"—".
+  const mockDetail = getClientDetail(id)?.detail;
+  const preferences = mockDetail?.preferences;
+  const contactLog = mockDetail?.contactLog ?? [];
 
   if (nf) notFound(); // Next.js 404
 
@@ -268,6 +279,23 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
+        <div className="mt-5 border-t border-outline-variant pt-4">
+          <Button variant="ghost" icon={prefsOpen ? ChevronUp : ChevronDown} onClick={() => setPrefsOpen((v) => !v)}>
+            {prefsOpen ? "Hide further information" : "Show further information"}
+          </Button>
+          {prefsOpen && (
+            <div className="mt-4 grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+              <InfoField label="Anniversary" value={preferences?.anniversary || "—"} />
+              <InfoField label="Spouse's Name" value={preferences?.spouseName || "—"} />
+              <InfoField label="Children's Names and Ages" value={preferences?.childrenNames || "—"} />
+              <InfoField label="Personal Interests" value={preferences?.personalInterests || "—"} />
+              <InfoField label="Communication Preferences" value={preferences?.commPrefs || "—"} />
+              <InfoField label="Gift / Hospitality Preferences" value={preferences?.giftPrefs || "—"} />
+              <InfoField label="Other Relationship Notes" value={preferences?.otherPrefNotes || "—"} />
+            </div>
+          )}
+        </div>
+
         <div className="mt-5 flex justify-end gap-3">
           <Button variant="secondary" icon={Download}>Investment Guideline</Button>
           <Button variant="secondary" icon={Download}>Client Monthly Report</Button>
@@ -330,19 +358,23 @@ export default function ClientDetailPage() {
         </Card>
       </div>
 
-      {/* History */}
-      <Card title="History" action={<span className="text-[12px] text-secondary">{(events ?? []).length} events</span>}>
-        <div className="relative max-h-[268px] overflow-y-auto pl-[22px] pr-1.5">
-          <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
-          {(events ?? []).map((e, i, arr) => (
-            <HistoryItem
-              key={e.id}
-              item={{ t: e.title, d: fmtTimestamp(e.created_at), detail: [e.body] }}
-              last={i === arr.length - 1}
-            />
-          ))}
-        </div>
-      </Card>
+      {/* History + Contact Log */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.7fr]">
+        <Card title="History" action={<span className="text-[12px] text-secondary">{(events ?? []).length} events</span>}>
+          <div className="relative h-[440px] overflow-y-auto pl-[22px] pr-1.5">
+            <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
+            {(events ?? []).map((e, i, arr) => (
+              <HistoryItem
+                key={e.id}
+                item={{ t: e.title, d: fmtTimestamp(e.created_at), detail: [e.body] }}
+                last={i === arr.length - 1}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <ContactLogCard key={id} clientName={data.name ?? "—"} entries={contactLog} />
+      </div>
     </div>
   );
 }

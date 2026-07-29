@@ -22,26 +22,22 @@ import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
 import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
-import { GuidelinePanel } from "@/components/compliance/review/GuidelinePanel";
-import { GuidelineDetailPanel } from "@/components/compliance/review/GuidelineDetailPanel";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
-import { GR_GUIDELINES } from "@/lib/compliance/mock";
 
 const COMPLIANCE_THRESHOLD = 300000;
 
 // Deep-link contract from Compliance Overview's tile/row jump-offs:
-// ?tab=onboarding|redeem|guideline&openObId=<id>|openCrId=<id>|openGrId=<id>.
+// ?tab=onboarding|redeem&openObId=<id>|openCrId=<id>.
 // Unknown/missing params fall back to the default onboarding tab, nothing open
 // (mirrors app/(roles)/rm/model-subscription/page.tsx's resolveDeepLink).
-function resolveDeepLink(params: URLSearchParams): { tab: CoTab; openObId: string | null; openCrId: string | null; openGrId: string | null } {
+function resolveDeepLink(params: URLSearchParams): { tab: CoTab; openObId: string | null; openCrId: string | null } {
   const tabParam = params.get("tab");
-  const tab: CoTab = tabParam === "redeem" || tabParam === "guideline" ? tabParam : "onboarding";
+  const tab: CoTab = tabParam === "redeem" ? tabParam : "onboarding";
   return {
     tab,
     openObId: params.get("openObId"),
     openCrId: params.get("openCrId"),
-    openGrId: params.get("openGrId"),
   };
 }
 
@@ -67,16 +63,13 @@ function ComplianceReviewContent() {
   const redemptions = (redemptionsData ?? []).filter((r) => r.amount > COMPLIANCE_THRESHOLD);
   const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
   const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
-  const [openGrId, setOpenGrId] = useState<string | null>(deepLink.openGrId);
   const [rejecting, setRejecting] = useState(false);
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
   const pendCr = redemptions.filter((r) => r.status === "awaiting_co").length;
-  const pendGr = GR_GUIDELINES.length;
 
   const openOb = onboarding.find((o) => o.id === openObId);
   const openCr = redemptions.find((r) => r.id === openCrId);
-  const openGr = GR_GUIDELINES.find((g) => g.id === openGrId);
 
   const doVerdict = (docType: string, v: "valid" | "issue") => {
     if (!openOb) return;
@@ -101,9 +94,7 @@ function ComplianceReviewContent() {
       if (!r.success) alert(`Could not submit decision: ${r.error}`);
     });
 
-  // Investment Guideline is a static reference table (never empty, no fetch) --
-  // only onboarding/redeem participate in the loading-driven empty state.
-  const isEmpty = tab !== "guideline" && (tab === "onboarding" ? onboarding.length === 0 : redemptions.length === 0);
+  const isEmpty = tab === "onboarding" ? onboarding.length === 0 : redemptions.length === 0;
 
   return (
     <div className="relative -mx-16 -my-8 min-h-[calc(100vh_-_64px)]">
@@ -121,12 +112,10 @@ function ComplianceReviewContent() {
           />
 
           <div className="mt-6">
-            <CoTabs tab={tab} onTab={setTab} pendOb={pendOb} pendCr={pendCr} pendGr={pendGr} />
+            <CoTabs tab={tab} onTab={setTab} pendOb={pendOb} pendCr={pendCr} />
           </div>
 
-          {tab === "guideline" ? (
-            <GuidelinePanel rows={GR_GUIDELINES} onRowClick={setOpenGrId} openId={openGrId} />
-          ) : isEmpty ? (
+          {isEmpty ? (
             <EmptyState />
           ) : tab === "onboarding" ? (
             <>
@@ -169,7 +158,6 @@ function ComplianceReviewContent() {
         <RejectModal o={openOb} onCancel={() => setRejecting(false)} onConfirm={confirmReject} />
       )}
       {openCr && <CrDetailPanel r={openCr} onClose={() => setOpenCrId(null)} onDecision={decideCr} />}
-      {openGr && <GuidelineDetailPanel g={openGr} onClose={() => setOpenGrId(null)} />}
     </div>
   );
 }

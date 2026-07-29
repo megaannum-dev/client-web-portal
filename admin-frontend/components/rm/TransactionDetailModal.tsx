@@ -89,6 +89,7 @@ export function TransactionDetailModal({
         ) : (
           <>
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            {/* View/Edit Gate Function */}
             <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>
           </>
         )

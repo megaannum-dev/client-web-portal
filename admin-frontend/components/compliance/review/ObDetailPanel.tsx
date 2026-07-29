@@ -160,6 +160,7 @@ export function ObDetailPanel({
         )}
         <div className="border-t border-outline-variant">
           {o.documents.map((d, i) => (
+            /* View/Edit Gate Function */
             <DocRow
               key={d.doc_type}
               doc={d}
@@ -173,7 +174,9 @@ export function ObDetailPanel({
       <div className="mt-5 flex items-center justify-end gap-2">
         {pending ? (
           <>
+            {/* View/Edit Gate Function */}
             {hasIssue && <Button variant="secondary" icon={X} onClick={() => onReject(o.id)}>Reject</Button>}
+            {/* View/Edit Gate Function */}
             <ApproveButton canApprove={canApprove} allReviewed={allReviewed} onApprove={() => onApprove(o.id)} />
           </>
         ) : (
