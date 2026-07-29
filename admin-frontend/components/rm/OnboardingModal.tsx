@@ -42,6 +42,8 @@ interface ObForm {
   idType: string;
   idNumber: string;
   assignedRm: string;
+  birthday: string;
+  occupation: string;
   ibhkId: string;
   swId: string;
   model: string;
@@ -85,7 +87,7 @@ export function OnboardingModal({
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
-    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "",
+    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "", birthday: "", occupation: "",
     ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
     anniversary: "", spouseName: "", childrenNames: "", personalInterests: "", commPrefs: "", giftPrefs: "", otherPrefNotes: "",
   });
@@ -244,6 +246,12 @@ export function OnboardingModal({
           </ObField>
           <ObField label="Email" required>
             <input className={inputCls} type="email" value={form.email} onChange={set("email")} placeholder="name@company.com" />
+          </ObField>
+          <ObField label="Birthday">
+            <input className={inputCls} type="date" value={form.birthday} onChange={set("birthday")} />
+          </ObField>
+          <ObField label="Occupation">
+            <input className={inputCls} value={form.occupation} onChange={set("occupation")} placeholder="e.g. Managing Partner" />
           </ObField>
           <div className="col-span-2">
             <ObField label="Address" required>
