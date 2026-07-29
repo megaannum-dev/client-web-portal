@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.libs.auth.actions import Action
-from app.libs.auth.deps import get_current_client_user, require_action
+from app.libs.auth.deps import require_action
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
@@ -27,7 +27,6 @@ from app.libs.onboarding.schemas import (
     StartOnboardingReq,
     SubmitAllotmentReq,
     SubmitRedemptionReq,
-    SubscriptionDTO,
     TransactionDetailDTO,
     TransactionDetailRequest,
     VerdictReq,
@@ -350,20 +349,3 @@ def get_co_redemptions(
     _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
 ) -> list[AllotRdmptDTO]:
     return svc.list_allotments()
-
-
-# ---- Client ---------------------------------------------------------------
-@router.get("/client/subscriptions", response_model=list[SubscriptionDTO])
-def get_client_subscriptions(
-    svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(get_current_client_user)],
-) -> list[SubscriptionDTO]:
-    return svc.client_subscriptions(user.id)
-
-
-@router.get("/client/events", response_model=list[ClientEventDTO])
-def get_client_events(
-    svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(get_current_client_user)],
-) -> list[ClientEventDTO]:
-    return svc.client_events(user.id)

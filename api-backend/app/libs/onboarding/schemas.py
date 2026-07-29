@@ -10,7 +10,9 @@ from pydantic import BaseModel, EmailStr
 
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
-DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "rejected", "expired"]
+DocStatus = Literal[
+    "not_started", "uploaded", "in_review", "verified", "pending", "rejected", "expired"
+]
 AllotRdmpStatus = Literal[
     "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
 ]
@@ -133,6 +135,7 @@ class SubmitAllotmentReq(BaseModel):
     expected_cash_in: date | None = None
     mgmt_fee: Decimal | None = None
     incentive_fee: Decimal | None = None
+    source_ticket_ref: str | None = None
 
 
 class SubmitRedemptionReq(BaseModel):
@@ -141,6 +144,7 @@ class SubmitRedemptionReq(BaseModel):
     multiplier: Decimal
     expected_cash_out: date | None = None
     emergent: bool = False
+    source_ticket_ref: str | None = None
 
 
 class RedemptionDecisionReq(BaseModel):

@@ -43,16 +43,18 @@ from app.models.onboarding import (
     AllotRdmpStatus,
     ClientAllotmentRedemption,
     ClientOnboarding,
+    ClientTicket,
     DocStatus,
     OnboardingDocument,
     OnboardingKind,
     OnboardingStatus,
+    TicketStatus,
     TransactionDetail,
 )
 from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
-_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
+_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
 _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 
 # Widened 2026-07-20 (D-9/C-7): settlement lag used to compute
@@ -82,6 +84,29 @@ class OnboardingService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repo = OnboardingRepository(db)
+
+    # ---- ticket <-> allotment linking (018 follow-up) ----------------------
+    def _link_ticket_if_requested(
+        self, allotment: ClientAllotmentRedemption, source_ticket_ref: str | None
+    ) -> None:
+        if not source_ticket_ref:
+            return
+        ticket = self.db.query(ClientTicket).filter_by(reference=source_ticket_ref).one_or_none()
+        if ticket is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, f"Unknown ticket reference: {source_ticket_ref}"
+            )
+        ticket.linked_allotment_id = allotment.id
+
+    def _linked_ticket(self, allotment_id: uuid.UUID) -> ClientTicket | None:
+        return self.db.query(ClientTicket).filter_by(linked_allotment_id=allotment_id).one_or_none()
+
+    def _guard_against_rm_decline(self, allotment_id: uuid.UUID) -> None:
+        ticket = self._linked_ticket(allotment_id)
+        if ticket is not None and ticket.status == TicketStatus.DECLINED:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+            )
 
     # ---- RM: start / documents / submit -----------------------------------
     def start(
@@ -212,7 +237,9 @@ class OnboardingService:
             )
         docs = self.repo.documents_for(onboarding_id)
         missing = [
-            d for d in docs if get_doc_spec(d.doc_type).required and d.status == "not_started"
+            d
+            for d in docs
+            if get_doc_spec(d.doc_type).required and d.status in ("not_started", "pending")
         ]
         if missing:
             raise HTTPException(
@@ -351,7 +378,14 @@ class OnboardingService:
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.reject_reason = reason
         for doc in due_docs:
-            self.repo.reset_for_reupload(doc)
+            self.repo.flag_pending_renewal(doc)
+        labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
+        self.repo.create_event(
+            user_id=onboarding.user_id,
+            category="Account Notification",
+            title="KYC renewal required",
+            body=f"Your {labels} is due for renewal. Please upload an updated document.",
+        )
         self.db.commit()
 
     # ---- Board / list reads -------------------------------------------------
@@ -450,6 +484,7 @@ class OnboardingService:
                     else None
                 ),
             )
+            self._link_ticket_if_requested(allotment, req.source_ticket_ref)
             self.repo.shift_portfolio_for_allotment(req.client_id, amount)
             self.repo.create_event(
                 user_id=req.client_id,
@@ -559,6 +594,7 @@ class OnboardingService:
                 ),
                 emergent=req.emergent,
             )
+            self._link_ticket_if_requested(allotment, req.source_ticket_ref)
             self.repo.create_event(
                 user_id=req.client_id,
                 category="Account Notification",
@@ -590,10 +626,31 @@ class OnboardingService:
             if req.verdict == "reject":
                 if not req.reason:
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                ticket = self._linked_ticket(row.id)
+                if ticket is not None and ticket.status == TicketStatus.DECLINED:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+                    )
                 row.status = AllotRdmpStatus.REJECTED
                 row.reject_reason = req.reason
                 row.decided_by = decided_by
                 row.decided_at = datetime.utcnow()
+                if ticket is not None:
+                    ticket.status = TicketStatus.DECLINED
+                    ticket.response_note = req.reason
+                    ticket.responded_by = decided_by
+                    ticket.responded_at = datetime.utcnow()
+                reject_model = self.db.get(Model, row.model_id)
+                self.repo.create_event(
+                    user_id=row.user_id,
+                    category="Requests Status",
+                    title="Redemption declined",
+                    body=(
+                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"{reject_model.name if reject_model else 'your model'} was declined. "
+                        f'Reason: "{req.reason}"'
+                    ),
+                )
             else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
                 # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
                 self._execute_redemption_approval(row, decided_by=decided_by)
@@ -614,6 +671,7 @@ class OnboardingService:
         decided_at, (6) insert client_events. No commit here -- caller's txn
         boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
         its only caller, lives here."""
+        self._guard_against_rm_decline(row.id)
         model = self.db.get(Model, row.model_id)
         assert model is not None
         agg_before = self.repo.sum_subscription_multiplier(row.model_id)
@@ -657,10 +715,31 @@ class OnboardingService:
             if req.verdict == "reject":
                 if not req.reason:
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                ticket = self._linked_ticket(row.id)
+                if ticket is not None and ticket.status == TicketStatus.DECLINED:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+                    )
                 row.status = AllotRdmpStatus.REJECTED
                 row.reject_reason = req.reason
                 row.decided_by = decided_by
                 row.decided_at = datetime.utcnow()
+                if ticket is not None:
+                    ticket.status = TicketStatus.DECLINED
+                    ticket.response_note = req.reason
+                    ticket.responded_by = decided_by
+                    ticket.responded_at = datetime.utcnow()
+                reject_model = self.db.get(Model, row.model_id)
+                self.repo.create_event(
+                    user_id=row.user_id,
+                    category="Requests Status",
+                    title="Redemption declined",
+                    body=(
+                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"{reject_model.name if reject_model else 'your model'} was declined. "
+                        f'Reason: "{req.reason}"'
+                    ),
+                )
             else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
                 # to PC. Never transitions straight to approved -- PC still owes
                 # the terminal decision (BE-4's _execute_redemption_approval),
@@ -682,6 +761,7 @@ class OnboardingService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment")
         if allotment.status != "pending":
             raise HTTPException(status.HTTP_409_CONFLICT, "Allotment already acknowledged")
+        self._guard_against_rm_decline(allotment.id)
 
         allotment.status = AllotRdmpStatus.ACKNOWLEDGED
         allotment.acknowledged_by = acked_by
@@ -773,6 +853,21 @@ class OnboardingService:
 
     def _doc_to_dto(self, doc: OnboardingDocument) -> DocumentDTO:
         spec = get_doc_spec(doc.doc_type)
+        onboarding = self.repo.get_by_id(doc.onboarding_id)
+        uploaded_by = self.repo._resolve_uid_to_display_name_with_role(doc.uploaded_by)
+        if uploaded_by is not None and onboarding is not None and doc.uploaded_by is not None:
+            user = self.db.query(User).filter(User.firebase_uid == doc.uploaded_by).one_or_none()
+            if user is not None and user.id == onboarding.user_id:
+                # _resolve_uid_to_display_name_with_role only knows AdminProfile,
+                # so a client uploader falls through its coalesce to Uploader.email
+                # -- look up the client's own display name instead.
+                profile = (
+                    self.db.query(ClientProfile)
+                    .filter(ClientProfile.user_id == user.id)
+                    .one_or_none()
+                )
+                client_name = (profile.name if profile else None) or user.email or uploaded_by
+                uploaded_by = f"{client_name} (client)"
         return DocumentDTO(
             doc_type=doc.doc_type,
             label=spec.label,
@@ -784,7 +879,7 @@ class OnboardingService:
             reviewed_at=doc.reviewed_at,
             expires_at=doc.expires_at,
             can_reupload=doc.status in _CAN_REUPLOAD_STATUSES,
-            uploaded_by=self.repo._resolve_uid_to_display_name_with_role(doc.uploaded_by),
+            uploaded_by=uploaded_by,
             uploaded_at=doc.uploaded_at,
             approved_at=doc.reviewed_at if doc.status == DocStatus.VERIFIED else None,
         )

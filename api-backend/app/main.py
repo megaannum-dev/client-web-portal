@@ -12,6 +12,8 @@ from app.core.database import Base, engine
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
+from app.libs.client_portal.router import router as client_portal_router
+from app.libs.client_portal.service import assert_upload_window_valid
 from app.libs.clients.router import router as clients_router
 from app.libs.eod.router import router as eod_router
 from app.libs.onboarding.router import router as onboarding_router
@@ -35,6 +37,7 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
             "Fail-closed: dev_mode/firebase_auth_disabled cannot be enabled when "
             "APP_ENV=production."
         )
+    assert_upload_window_valid()
     Base.metadata.create_all(bind=engine)
     logger.info("Database metadata ensured (create_all).")
     scheduler_task = start_scheduler()
@@ -71,6 +74,7 @@ app.include_router(eod_router, prefix="/api")
 app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes
+app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 
 # --- Dev-only (mounted iff dev_mode) ---
 if get_settings().dev_mode:
