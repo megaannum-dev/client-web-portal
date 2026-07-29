@@ -114,6 +114,15 @@ class PostTradeAllocation(Base):
 # ---------------------------------------------------------------------------
 
 
+# Invariant (proposal 018, B-3): a row here is NOT guaranteed to exist for
+# every client. Rows are seeded at intake by 014 C-9
+# (app/libs/onboarding/repository.py); clients onboarded before that flow
+# has none. The Backend layer MUST treat a missing row as
+# cash_deposit = amount_in_trade = previous_amount_in_trade = 0,
+# updated_at = None -- never a 404. Backfilling zero rows for pre-existing
+# clients is explicitly rejected: it would write rows the intake flow itself
+# expects to create, and would misrepresent "never onboarded through 014"
+# as "onboarded with a zero balance".
 class ClientPortfolio(Base):
     __tablename__ = "client_portfolios"
 
