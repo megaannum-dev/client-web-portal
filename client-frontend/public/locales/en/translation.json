@@ -354,6 +354,8 @@
     "select_subscribed_placeholder": "— Choose a subscribed model —",
     "amount": "Amount ($)",
     "multiplier": "Multiplier (x)",
+    "model_size": "Model Size",
+    "notional": "Notional (Model Size × Multiplier)",
     "funding_source": "Funding Source",
     "cash_balance": "Cash Balance: {{amount}}",
     "external_transfer": "External Transfer",

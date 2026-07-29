@@ -354,6 +354,8 @@
     "select_subscribed_placeholder": "— 選擇一個已申購模型 —",
     "amount": "金額（$）",
     "multiplier": "倍數（x）",
+    "model_size": "模型規模",
+    "notional": "名目金額（模型規模 × 倍數）",
     "funding_source": "資金來源",
     "cash_balance": "現金餘額：{{amount}}",
     "external_transfer": "外部轉帳",

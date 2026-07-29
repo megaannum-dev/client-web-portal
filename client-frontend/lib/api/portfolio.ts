@@ -6,6 +6,7 @@ export interface PositionDTO {
   units: number;
   amount: number;
   model_limit: number | null;
+  model_size: number | null;
   ib_account: string | null;
 }
 

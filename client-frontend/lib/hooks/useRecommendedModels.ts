@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { fetchRecommendedModels, type RecommendedModelDTO } from "@/lib/api/models";
 
 /** Mirrors useSubscriptions's useEffect+useState shape. */
-export function useRecommendedModels() {
+export function useRecommendedModels(includeSubscribed = false) {
   const { getIdToken } = useAuth();
   const [data, setData] = useState<RecommendedModelDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,7 @@ export function useRecommendedModels() {
     (async () => {
       try {
         const token = await getIdToken();
-        const dtos = await fetchRecommendedModels(token);
+        const dtos = await fetchRecommendedModels(token, includeSubscribed);
         if (!cancelled) setData(dtos);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load recommended models");
@@ -25,7 +25,7 @@ export function useRecommendedModels() {
       }
     })();
     return () => { cancelled = true; };
-  }, [getIdToken]);
+  }, [getIdToken, includeSubscribed]);
 
   return { data, loading, error };
 }

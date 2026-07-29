@@ -38,28 +38,29 @@ function AllotmentForm({ onClose, onConfirm }: {
 }) {
   const { t } = useTranslation();
   const { getIdToken } = useAuth();
-  const { data: models } = useRecommendedModels();
+  const { data: models } = useRecommendedModels(true);
   const { data: portfolio } = usePortfolio();
   const [selectedModel, setSelectedModel] = useState<RecommendedModelDTO | null>(null);
-  const [amount,        setAmount]        = useState("");
   const [multiplier,    setMultiplier]    = useState("1.0");
   const cashOption = t("ticket.cash_balance", {
     amount: portfolio ? currencyFmt(portfolio.cash_deposit) : "—",
   });
   const [fundingSource, setFundingSource] = useState(cashOption);
-  const [confirmed,     setConfirmed]     = useState(false);
+  const [subject,       setSubject]       = useState("");
+  const [description,   setDescription]  = useState("");
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const [submitError,   setSubmitError]   = useState<string | null>(null);
   const [submitting,    setSubmitting]    = useState(false);
 
+  const notional = (selectedModel?.model_size ?? 0) * (parseFloat(multiplier) || 0);
+
   function validate() {
     const e: Record<string, string> = {};
     if (!selectedModel)                          e.model      = t("ticket.errors.select_model");
-    const amt = parseFloat(amount);
     const mul = parseFloat(multiplier);
-    if (!amount || isNaN(amt) || amt <= 0)       e.amount     = t("ticket.errors.valid_amount");
     if (!multiplier || isNaN(mul) || mul <= 0)   e.multiplier = t("ticket.errors.valid_multiplier");
-    if (!confirmed)                              e.confirmed  = t("ticket.errors.confirm_rm");
+    if (!subject.trim())                         e.subject    = t("ticket.errors.enter_subject");
+    if (!description.trim())                     e.description = t("ticket.errors.describe_request");
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -73,9 +74,10 @@ function AllotmentForm({ onClose, onConfirm }: {
       const req: RaiseTicketReq = {
         kind: "allotment",
         model_id: selectedModel.model_id,
-        amount: parseFloat(amount),
+        amount: notional,
         multiplier: parseFloat(multiplier),
-        message: `Allotment request: ${selectedModel.name}, amount ${currencyFmt(parseFloat(amount))}, multiplier ${multiplier}x.`,
+        subject: subject.trim(),
+        message: description.trim(),
       };
       const dto = await submitTicket(token, req);
       onConfirm(dto);
@@ -123,15 +125,6 @@ function AllotmentForm({ onClose, onConfirm }: {
         </div>
       )}
 
-      {/* Amount */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.amount")}</label>
-        <input type="number" min={0} placeholder="0.00" value={amount}
-          onChange={(e) => { setAmount(e.target.value); setErrors((p) => ({ ...p, amount: "" })); }}
-          className={fieldCls(errors.amount)} />
-        {errors.amount && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.amount}</p>}
-      </div>
-
       {/* Multiplier */}
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
@@ -144,6 +137,18 @@ function AllotmentForm({ onClose, onConfirm }: {
             className={fieldCls(errors.multiplier)} />
           {errors.multiplier && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
         </div>
+      </div>
+
+      {/* Computed notional summary */}
+      <div className="bg-surface-container rounded-lg border border-outline-variant px-4 py-3.5 flex flex-col gap-1.5">
+        <p className="text-body-sm text-on-surface">
+          <span className="text-secondary">{t("ticket.model_size")}: </span>
+          <span className="font-semibold">{currencyFmt(selectedModel?.model_size ?? 0)}</span>
+        </p>
+        <p className="text-body-sm text-on-surface">
+          <span className="text-secondary">{t("ticket.notional")}: </span>
+          <span className="font-bold text-primary">{currencyFmt(notional)}</span>
+        </p>
       </div>
 
       {/* Funding Source */}
@@ -159,17 +164,22 @@ function AllotmentForm({ onClose, onConfirm }: {
         </div>
       </div>
 
-      {/* Confirmation checkbox */}
+      {/* Subject */}
       <div className="flex flex-col gap-1.5">
-        <label className={`flex items-start gap-3 cursor-pointer select-none ${errors.confirmed ? "text-red-600" : "text-secondary"}`}>
-          <input type="checkbox" checked={confirmed}
-            onChange={(e) => { setConfirmed(e.target.checked); setErrors((p) => ({ ...p, confirmed: "" })); }}
-            className="mt-0.5 accent-primary w-4 h-4 shrink-0" />
-          <span className="text-body-sm leading-relaxed">
-            {t("ticket.confirm_rm_allotment")}
-          </span>
-        </label>
-        {errors.confirmed && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600 ml-7"><AlertCircle size={11} strokeWidth={2} />{errors.confirmed}</p>}
+        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
+        <input type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
+          onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
+          className={fieldCls(errors.subject)} />
+        {errors.subject && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+      </div>
+
+      {/* Description */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
+        <textarea rows={4} placeholder={t("ticket.description_placeholder")} value={description}
+          onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
+          className={clsx("resize-none", fieldCls(errors.description))} />
+        {errors.description && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
@@ -201,29 +211,34 @@ function RedemptionForm({ onClose, onConfirm }: {
   const { data: portfolio } = usePortfolio();
   const positions = portfolio?.positions ?? [];
   const [selectedModel, setSelectedModel] = useState<PositionDTO | null>(null);
-  const [redeemAll,  setRedeemAll]  = useState(false);
-  const [amount,     setAmount]     = useState("");
-  const [returnTo,   setReturnTo]   = useState("Cash Balance");
-  const [confirmed,  setConfirmed]  = useState(false);
-  const [errors,     setErrors]     = useState<Record<string, string>>({});
+  const [redeemAll,   setRedeemAll]   = useState(false);
+  const [multiplier,  setMultiplier]  = useState("1.0");
+  const [returnTo,    setReturnTo]    = useState("Cash Balance");
+  const [subject,     setSubject]     = useState("");
+  const [description, setDescription] = useState("");
+  const [errors,      setErrors]      = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
+
+  const notional = redeemAll
+    ? (selectedModel?.amount ?? 0)
+    : (selectedModel?.model_size ?? 0) * (parseFloat(multiplier) || 0);
 
   function validate() {
     const e: Record<string, string> = {};
     if (!selectedModel) e.model = t("ticket.errors.select_model");
     if (!redeemAll) {
-      const amt = parseFloat(amount);
-      if (!amount || isNaN(amt) || amt <= 0) e.amount = t("ticket.errors.valid_redemption_amount");
+      const mul = parseFloat(multiplier);
+      if (!multiplier || isNaN(mul) || mul <= 0) e.multiplier = t("ticket.errors.valid_multiplier");
     }
-    if (!confirmed) e.confirmed = t("ticket.errors.confirm_rm");
+    if (!subject.trim())     e.subject     = t("ticket.errors.enter_subject");
+    if (!description.trim()) e.description = t("ticket.errors.describe_request");
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   async function handleSubmit() {
     if (!validate() || !selectedModel) return;
-    const redeemAmount = redeemAll ? selectedModel.amount : parseFloat(amount);
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -231,8 +246,9 @@ function RedemptionForm({ onClose, onConfirm }: {
       const req: RaiseTicketReq = {
         kind: "redemption",
         model_id: selectedModel.model_id,
-        amount: redeemAmount,
-        message: `Redemption request: ${selectedModel.model_name}, amount ${currencyFmt(redeemAmount)}${redeemAll ? " (full redemption)" : ""}.`,
+        amount: notional,
+        subject: subject.trim(),
+        message: description.trim(),
       };
       const dto = await submitTicket(token, req);
       onConfirm(dto);
@@ -293,7 +309,7 @@ function RedemptionForm({ onClose, onConfirm }: {
                   active ? "border-primary bg-primary/5 text-on-surface" : "border-outline-variant text-secondary hover:border-primary/50",
                 )}>
                 <input type="radio" name="redemptionType" checked={active}
-                  onChange={() => { setRedeemAll(opt.id === "Redeem All"); setErrors((p) => ({ ...p, amount: "" })); }}
+                  onChange={() => { setRedeemAll(opt.id === "Redeem All"); setErrors((p) => ({ ...p, multiplier: "" })); }}
                   className="accent-primary w-4 h-4 shrink-0" />
                 {opt.label}
               </label>
@@ -302,16 +318,25 @@ function RedemptionForm({ onClose, onConfirm }: {
         </div>
       </div>
 
-      {/* Redemption Amount */}
+      {/* Multiplier */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.redemption_amount")}</label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-body-sm select-none">$</span>
-          <input type="number" min={0} placeholder="0.00" value={redeemAll ? "" : amount} disabled={redeemAll}
-            onChange={(e) => { setAmount(e.target.value); setErrors((p) => ({ ...p, amount: "" })); }}
-            className={clsx("pl-7 disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.amount))} />
-        </div>
-        {errors.amount && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.amount}</p>}
+        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
+        <input type="number" min={0} step={0.1} placeholder="1.0" value={redeemAll ? "" : multiplier} disabled={redeemAll}
+          onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
+          className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.multiplier))} />
+        {errors.multiplier && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+      </div>
+
+      {/* Computed notional summary */}
+      <div className="bg-surface-container rounded-lg border border-outline-variant px-4 py-3.5 flex flex-col gap-1.5">
+        <p className="text-body-sm text-on-surface">
+          <span className="text-secondary">{t("ticket.model_size")}: </span>
+          <span className="font-semibold">{currencyFmt(selectedModel?.model_size ?? 0)}</span>
+        </p>
+        <p className="text-body-sm text-on-surface">
+          <span className="text-secondary">{t("ticket.notional")}: </span>
+          <span className="font-bold text-primary">{currencyFmt(notional)}</span>
+        </p>
       </div>
 
       {/* Returning To */}
@@ -332,17 +357,22 @@ function RedemptionForm({ onClose, onConfirm }: {
         {t("ticket.redemption_processing_note")}
       </p>
 
-      {/* Confirmation checkbox */}
+      {/* Subject */}
       <div className="flex flex-col gap-1.5">
-        <label className={`flex items-start gap-3 cursor-pointer select-none ${errors.confirmed ? "text-red-600" : "text-secondary"}`}>
-          <input type="checkbox" checked={confirmed}
-            onChange={(e) => { setConfirmed(e.target.checked); setErrors((p) => ({ ...p, confirmed: "" })); }}
-            className="mt-0.5 accent-primary w-4 h-4 shrink-0" />
-          <span className="text-body-sm leading-relaxed">
-            {t("ticket.confirm_rm_redemption")}
-          </span>
-        </label>
-        {errors.confirmed && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600 ml-7"><AlertCircle size={11} strokeWidth={2} />{errors.confirmed}</p>}
+        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
+        <input type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
+          onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
+          className={fieldCls(errors.subject)} />
+        {errors.subject && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+      </div>
+
+      {/* Description */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
+        <textarea rows={4} placeholder={t("ticket.description_placeholder")} value={description}
+          onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
+          className={clsx("resize-none", fieldCls(errors.description))} />
+        {errors.description && <p className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
