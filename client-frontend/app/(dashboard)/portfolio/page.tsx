@@ -21,7 +21,6 @@ import {
 import {
   TrendingUp,
   TrendingDown,
-  CheckCircle2,
   Shield,
   ChevronLeft,
   ChevronRight,
@@ -31,14 +30,12 @@ import {
 } from "@/lib/icons";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
-import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
-import { useSubscriptions } from "@/lib/hooks/useSubscriptions";
-import {
-  MOCK_ALLOTMENT_REQUESTS,
-  MOCK_RECOMMENDED_MODELS,
-  MOCK_PORTFOLIO_STATS,
-  type AllotmentRequest,
-} from "@/lib/mock/data";
+import { useRequests } from "@/lib/hooks/useRequests";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { usePortfolioHistory } from "@/lib/hooks/usePortfolioHistory";
+import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
+import { modelMaterialDownloadUrl } from "@/lib/api/models";
+import type { ClientRequestDTO, TicketStatus, TicketKind } from "@/lib/api/requests";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
 import { EyeToggle }  from "@/components/ui/EyeToggle";
@@ -46,38 +43,15 @@ import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const BAR_DATA = [
-  { name: "Model A", value: 18.4 },
-  { name: "Model B", value: -6.2 },
-  { name: "Model C", value: 9.7  },
-  { name: "Model D", value: 14.2 },
-  { name: "YTD Avg", value: 12.4 },
-];
-const BAR_COLORS = ["#06b6d4", "#6b7280", "#3b82f6", "#a855f7", "#f97316"];
+// Color cycle for per-model chart series; Cash and the synthetic "Total" bar/line get a fixed color.
+const PALETTE = ["#06b6d4", "#6b7280", "#3b82f6", "#a855f7", "#f97316", "#10b981", "#ef4444", "#eab308"];
+const CASH_COLOR = "#d4b8a8";
+const TOTAL_COLOR = "#f97316";
 
-const LINE_DATA = [
-  { month: "Jun", modelA: 100, modelB: 98,  modelC: 100, modelD: 100, ytdAvg: 99.5   },
-  { month: "Jul", modelA: 104, modelB: 97,  modelC: 102, modelD: 105, ytdAvg: 102.0  },
-  { month: "Aug", modelA: 109, modelB: 95,  modelC: 103, modelD: 108, ytdAvg: 103.75 },
-  { month: "Sep", modelA: 114, modelB: 94,  modelC: 105, modelD: 112, ytdAvg: 106.25 },
-  { month: "Oct", modelA: 119, modelB: 93,  modelC: 107, modelD: 116, ytdAvg: 108.75 },
-  { month: "Nov", modelA: 124, modelB: 92,  modelC: 110, modelD: 121, ytdAvg: 111.75 },
-];
-const LINE_SERIES = [
-  { key: "modelA", label: "Model A", color: "#06b6d4" },
-  { key: "modelB", label: "Model B", color: "#6b7280" },
-  { key: "modelC", label: "Model C", color: "#3b82f6" },
-  { key: "modelD", label: "Model D", color: "#a855f7" },
-];
-const YTD_AVG_LINE = { key: "ytdAvg", label: "YTD Avg", color: "#f97316" };
-
-const DONUT_DATA = [
-  { name: "Model A", value: 774072, color: "#f97316", display: "$774,072" },
-  { name: "Model B", value: 466428, color: "#6b7280", display: "$466,428" },
-  { name: "Model C", value: 120000, color: "#3b82f6", display: "$120,000" },
-  { name: "Model D", value: 95000,  color: "#a855f7", display: "$95,000"  },
-  { name: "Cash",    value: 85200,  color: "#d4b8a8", display: "$85,200"  },
-];
+const currencyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+function formatMoney(n: number) { return currencyFmt.format(n); }
+// ponytail: mirrors the inline toLocaleDateString call already used in monthly-reports/page.tsx — no shared date util yet.
+function formatDate(iso: string) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }); }
 
 const BENCHMARK_VALUE = 0;
 const BENCHMARK_COLOR = "#585f6c";
@@ -85,26 +59,20 @@ const BENCHMARK_COLOR = "#585f6c";
 // Table column header translation keys
 const SUBSCRIBED_COL_KEYS = [
   "portfolio.subscribed_columns.model_name",
-  "portfolio.subscribed_columns.symbol",
-  "portfolio.subscribed_columns.country",
-  "portfolio.subscribed_columns.sector",
-  "portfolio.subscribed_columns.model_limit",
   "portfolio.subscribed_columns.amount",
+  "portfolio.subscribed_columns.category",
   "portfolio.subscribed_columns.multiplier",
-  "portfolio.subscribed_columns.ib_account",
+  "portfolio.subscribed_columns.model_limit",
+  "portfolio.subscribed_columns.market_material",
 ];
 const RECOMMENDED_COL_KEYS = [
   "portfolio.recommended_columns.model_name",
-  "portfolio.recommended_columns.symbol",
-  "portfolio.recommended_columns.country",
-  "portfolio.recommended_columns.sector",
+  "portfolio.recommended_columns.model_size",
+  "portfolio.recommended_columns.category",
+  "portfolio.recommended_columns.unit_subscribed",
   "portfolio.recommended_columns.model_limit",
-  "portfolio.recommended_columns.min_investment",
-  "portfolio.recommended_columns.risk_level",
   "portfolio.recommended_columns.market_material",
 ];
-
-const YTD_AVG_INDEX = BAR_DATA.findIndex((d) => d.name === "YTD Avg");
 
 const PAGE_SIZE = 7;
 
@@ -119,94 +87,87 @@ const TOOLTIP_STYLE = {
   boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
 };
 
-function YtdAvgBarLabel(props: { x?: number; y?: number; width?: number; value?: number; index?: number }) {
-  const { x = 0, y = 0, width = 0, value = 0, index } = props;
-  if (index !== YTD_AVG_INDEX) return <g />;
-  return (
-    <g>
-      <rect x={x + width / 2 - 28} y={y - 28} width={56} height={20} rx={4} fill="#f97316" />
-      <text x={x + width / 2} y={y - 14} fill="#fff" textAnchor="middle" fontSize={11} fontWeight={700}>
-        +{value}% avg
-      </text>
-    </g>
-  );
+// Highlight box drawn over the synthetic "Total" bar — index of that bar varies with
+// how many models the client holds, so the factory closes over the current index.
+function makeTotalBarLabel(totalIndex: number) {
+  return function TotalBarLabel(props: { x?: number; y?: number; width?: number; value?: number; index?: number }) {
+    const { x = 0, y = 0, width = 0, value = 0, index } = props;
+    if (index !== totalIndex) return <g />;
+    const text = `${value >= 0 ? "+" : ""}${formatMoney(value)}`;
+    return (
+      <g>
+        <rect x={x + width / 2 - Math.max(30, text.length * 3.2)} y={y - 28} width={Math.max(60, text.length * 6.4)} height={20} rx={4} fill={TOTAL_COLOR} />
+        <text x={x + width / 2} y={y - 14} fill="#fff" textAnchor="middle" fontSize={11} fontWeight={700}>
+          {text}
+        </text>
+      </g>
+    );
+  };
 }
 
-function YtdAvgEndLabel(props: { x?: number; y?: number; index?: number }) {
-  const { x = 0, y = 0, index } = props;
-  if (index !== LINE_DATA.length - 1) return <g />;
-  const color = YTD_AVG_LINE.color;
-  return (
-    <g>
-      <rect x={x + 8} y={y - 12} width={60} height={20} rx={4} fill={color} />
-      <text x={x + 38} y={y + 2} fill="#fff" textAnchor="middle" fontSize={10} fontWeight={700} letterSpacing={0.5}>
-        YTD AVG
-      </text>
-    </g>
-  );
-}
+type LineTooltipEntry = { dataKey: string; value: number | string; color?: string };
 
-function LineTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  const allSeries = [...LINE_SERIES, YTD_AVG_LINE];
-  return (
-    <div style={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 12px", minWidth: 140 }}>
-      <p style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>{label}</p>
-      {payload.map((entry: any) => {
-        const isYtd = entry.dataKey === YTD_AVG_LINE.key;
-        const name = allSeries.find((s) => s.key === entry.dataKey)?.label ?? entry.dataKey;
-        const val = `${(Number(entry.value) - 100).toFixed(1)}%`;
-        return (
-          <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 3 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: entry.color, flexShrink: 0 }} />
-              <span style={{ fontWeight: isYtd ? 700 : 400, color: isYtd ? entry.color : "#374151" }}>{name}</span>
-            </span>
-            <span style={{ fontWeight: isYtd ? 700 : 600, color: isYtd ? entry.color : "#111827" }}>{val}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+function makeLineTooltip(seriesList: { key: string; color: string }[]) {
+  return function LineTooltip({ active, payload, label }: { active?: boolean; payload?: LineTooltipEntry[]; label?: string }) {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", padding: "8px 12px", minWidth: 140 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>{label}</p>
+        {payload.map((entry) => {
+          const isTotal = entry.dataKey === "total";
+          const meta = seriesList.find((s) => s.key === entry.dataKey);
+          const name = isTotal ? "Total" : entry.dataKey;
+          return (
+            <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 3 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: meta?.color ?? entry.color, flexShrink: 0 }} />
+                <span style={{ fontWeight: isTotal ? 700 : 400, color: isTotal ? TOTAL_COLOR : "#374151" }}>{name}</span>
+              </span>
+              <span style={{ fontWeight: isTotal ? 700 : 600, color: isTotal ? TOTAL_COLOR : "#111827" }}>{formatMoney(Number(entry.value))}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function RiskBadge({ level }: { level: "High" | "Medium" | "Low" }) {
+function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const { t } = useTranslation();
-  const cls = { High: "badge-warning", Medium: "badge-caution", Low: "badge-success" } as const;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide border ${cls[level]}`}>
-      {t(`risk.${level.toLowerCase()}`)}
-    </span>
-  );
-}
-
-function TicketStatusBadge({ status }: { status: AllotmentRequest["status"] }) {
-  const { t } = useTranslation();
-  const config: Record<AllotmentRequest["status"], { dot: string; cls: string }> = {
-    Sent:       { dot: "bg-secondary",             cls: "bg-secondary/10 text-secondary border-secondary/20" },
-    Received:   { dot: "bg-primary",               cls: "bg-primary/10 text-primary border-primary/20"       },
-    Processing: { dot: "bg-caution animate-pulse", cls: "bg-caution/10 text-caution border-caution/20"       },
-    Fulfilled:  { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
+  const config: Record<TicketStatus, { dot: string; cls: string }> = {
+    new:         { dot: "bg-secondary",             cls: "bg-secondary/10 text-secondary border-secondary/20" },
+    in_progress: { dot: "bg-caution animate-pulse", cls: "bg-caution/10 text-caution border-caution/20"       },
+    resolved:    { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
+    declined:    { dot: "bg-warning",               cls: "bg-warning/10 text-warning border-warning/20"       },
   };
-  const { dot, cls } = config[status];
+  // Falls back to a neutral badge for any status value the frontend doesn't
+  // recognize (e.g. a backend/DB deploy that hasn't landed yet) instead of
+  // crashing the page on an unrecognized string.
+  const { dot, cls } = config[status] ?? { dot: "bg-secondary", cls: "bg-secondary/10 text-secondary border-secondary/20" };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold border ${cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
-      {t(`status.${status.toLowerCase()}`)}
+      {t(`status.${status}`)}
     </span>
   );
 }
 
-function TypeBadge({ type }: { type: AllotmentRequest["type"] }) {
+const TYPE_I18N_KEY: Record<TicketKind, string> = {
+  allotment:  "request_type.allotment",
+  redemption: "request_type.redemption",
+  other:      "request_type.others",
+};
+
+function TypeBadge({ type }: { type: TicketKind }) {
   const { t } = useTranslation();
-  const cls: Record<AllotmentRequest["type"], string> = {
-    Allotment:  "text-primary",
-    Redemption: "text-warning",
-    Others:     "text-secondary",
+  const cls: Record<TicketKind, string> = {
+    allotment:  "text-primary",
+    redemption: "text-warning",
+    other:      "text-secondary",
   };
-  return <span className={`text-body-sm font-bold ${cls[type]}`}>{t(`request_type.${type.toLowerCase()}`)}</span>;
+  return <span className={`text-body-sm font-bold ${cls[type]}`}>{t(TYPE_I18N_KEY[type])}</span>;
 }
 
 function ModelTable({ columns, gridTemplate, children }: {
@@ -251,33 +212,60 @@ export default function PortfolioPage() {
   const { t } = useTranslation();
   const [censored,    setCensored]    = useState(true);
   const [ticketOpen,  setTicketOpen]  = useState(false);
-  const { dynamic, addRequest }       = useAllotmentRequests();
-  const { data: subscribedModels, loading: subsLoading } = useSubscriptions();
+  const { data: requests, refetch: refetchRequests } = useRequests();
+  const { data: recommended, loading: recommendedLoading } = useRecommendedModels();
   const mask = (v: string) => (censored ? "********" : v);
+
+  // ── Charts + stat cards (FE-2) — derived once per render from usePortfolio/usePortfolioHistory ──
+  const { data: portfolio } = usePortfolio();
+  const { data: history }   = usePortfolioHistory(6);
+
+  const donutData = [
+    ...(portfolio?.positions ?? []).map((p, i) => ({ name: p.model_name, value: p.amount, color: PALETTE[i % PALETTE.length] })),
+    { name: "Cash", value: portfolio?.cash_deposit ?? 0, color: CASH_COLOR },
+  ];
+
+  const modelKeys = history.length ? Object.keys(history[history.length - 1].per_model) : [];
+  const lineData  = history.map((h) => ({ month: h.month, total: h.total, ...h.per_model }));
+  const lineSeries = modelKeys.map((k, i) => ({ key: k, color: PALETTE[i % PALETTE.length] }));
+  const LineTooltip = makeLineTooltip(lineSeries);
+
+  const barData = modelKeys.map((k) => ({
+    name: k,
+    value: history.length ? history[history.length - 1].per_model[k] - history[0].per_model[k] : 0,
+  }));
+  const totalBarValue = history.length ? history[history.length - 1].total - history[0].total : 0;
+  const barChartData = [...barData, { name: "Total", value: totalBarValue }];
+  const totalBarIndex = barChartData.length - 1;
+  const TotalBarLabel = makeTotalBarLabel(totalBarIndex);
+
+  const modelLimitTotal = (portfolio?.positions ?? []).reduce((sum, p) => (p.model_limit != null ? sum + p.model_limit : sum), 0);
+  const isPositiveChange = (portfolio?.change_amount ?? 0) >= 0;
+  const allocatedPct = portfolio && portfolio.total_value > 0
+    ? ((portfolio.total_value - portfolio.cash_deposit) / portfolio.total_value) * 100
+    : 0;
 
   // ── Historical requests — search + pagination ──────────────────────────────
   const [search,      setSearch]      = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const allRequests = useMemo(() => [...dynamic, ...MOCK_ALLOTMENT_REQUESTS], [dynamic]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allRequests;
-    return allRequests.filter(
+    if (!q) return requests;
+    return requests.filter(
       (r) =>
-        r.id.toLowerCase().includes(q) ||
-        r.type.toLowerCase().includes(q) ||
-        r.model.toLowerCase().includes(q) ||
+        r.ref.toLowerCase().includes(q) ||
+        r.kind.toLowerCase().includes(q) ||
+        (r.model_name ?? "").toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q),
     );
-  }, [allRequests, search]);
+  }, [requests, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageData   = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function handleSearch(q: string) { setSearch(q); setCurrentPage(1); }
-  function handleConfirm(req: AllotmentRequest) { addRequest(req); setTicketOpen(false); }
+  function handleConfirm(req: ClientRequestDTO) { void req; refetchRequests(); setTicketOpen(false); }
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -307,23 +295,35 @@ export default function PortfolioPage() {
         <div className="grid grid-cols-4 gap-4">
           <StatCard
             label={t("portfolio.total_value")}
-            value={mask(MOCK_PORTFOLIO_STATS.totalValue)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><TrendingUp size={14} strokeWidth={2} />{MOCK_PORTFOLIO_STATS.ytdChange} <span className="font-normal text-secondary">{t("portfolio.vs_last_month")}</span></span>}
+            value={mask(portfolio ? formatMoney(portfolio.total_value) : "—")}
           />
           <StatCard
             label={t("portfolio.cash_balance")}
-            value={mask(MOCK_PORTFOLIO_STATS.cashBalance)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-warning"><TrendingDown size={14} strokeWidth={2} />-1.2% <span className="font-normal text-secondary">{t("portfolio.unallocated")}</span></span>}
+            value={mask(portfolio ? formatMoney(portfolio.cash_deposit) : "—")}
           />
           <StatCard
-            label={t("portfolio.ytd_returns")}
-            value={mask(MOCK_PORTFOLIO_STATS.ytdReturns)}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><CheckCircle2 size={14} strokeWidth={2} />{t("portfolio.outperforming")} <span className="font-normal text-secondary">{t("portfolio.benchmark")}</span></span>}
+            label="Amount in Trade"
+            value={mask(portfolio ? formatMoney(portfolio.amount_in_trade) : "—")}
+            sub={
+              <span className={clsx("flex items-center gap-1.5 text-body-sm font-semibold", isPositiveChange ? "text-success" : "text-warning")}>
+                {isPositiveChange ? <TrendingUp size={14} strokeWidth={2} /> : <TrendingDown size={14} strokeWidth={2} />}
+                {portfolio ? formatMoney(portfolio.change_amount) : "—"}
+                {" "}
+                <span className="font-normal text-secondary">
+                  {portfolio?.change_pct != null ? `(${portfolio.change_pct >= 0 ? "+" : ""}${(portfolio.change_pct * 100).toFixed(1)}%)` : "—"}
+                </span>
+              </span>
+            }
           />
           <StatCard
-            label={t("portfolio.portfolio_health")}
-            value={t("portfolio.optimal")}
-            sub={<span className="flex items-center gap-1.5 text-body-sm font-semibold text-success"><Shield size={14} strokeWidth={2} />{t("portfolio.risk_profile_stable")}</span>}
+            label={t("portfolio.subscribed_models")}
+            value={portfolio ? String(portfolio.positions.length) : "—"}
+            sub={
+              <span className="flex items-center gap-1.5 text-body-sm font-semibold text-secondary">
+                <Shield size={14} strokeWidth={2} />
+                {portfolio ? formatMoney(modelLimitTotal) : "—"} <span className="font-normal text-secondary">{t("portfolio.subscribed_columns.model_limit")}</span>
+              </span>
+            }
           />
         </div>
       </div>
@@ -336,24 +336,25 @@ export default function PortfolioPage() {
           <div className="flex flex-col gap-4">
             <ChartCard title={t("portfolio.return_loss_performance")}>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={BAR_DATA} barCategoryGap="35%" margin={{ top: 36, right: 16, left: -20, bottom: 0 }}>
+                <BarChart data={barChartData} barCategoryGap="35%" margin={{ top: 36, right: 16, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ede8e8" vertical={false} />
                   <XAxis dataKey="name"
                     tick={({ x, y, payload, index }) => (
                       <text x={x} y={(typeof y === "number" ? y : Number(y)) + 12} textAnchor="middle"
-                        fontSize={11} fill={index === 4 ? "#f97316" : "#6b7280"} fontWeight={index === 4 ? 700 : 500}>
+                        fontSize={11} fill={index === totalBarIndex ? TOTAL_COLOR : "#6b7280"} fontWeight={index === totalBarIndex ? 700 : 500}>
                         {payload.value}
                       </text>
                     )}
                     axisLine={false} tickLine={false}
                   />
                   <YAxis hide />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${Number(v) > 0 ? "+" : ""}${Number(v)}%`, t("portfolio.return_tooltip")]} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${Number(v) > 0 ? "+" : ""}${formatMoney(Number(v))}`, t("portfolio.return_tooltip")]} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                   <ReferenceLine y={BENCHMARK_VALUE} stroke={BENCHMARK_COLOR} strokeWidth={2} strokeDasharray="6 3"
                     label={{ value: `${t("portfolio.benchmark")} ${BENCHMARK_VALUE}%`, position: "insideTopRight", fontSize: 10, fill: BENCHMARK_COLOR, fontWeight: 700 }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {BAR_DATA.map((_, i) => <Cell key={i} fill={BAR_COLORS[i]} opacity={i === 4 ? 1 : 0.75} />)}
-                    <LabelList dataKey="value" content={YtdAvgBarLabel as any} />
+                    {barChartData.map((_, i) => <Cell key={i} fill={i === totalBarIndex ? TOTAL_COLOR : PALETTE[i % PALETTE.length]} opacity={i === totalBarIndex ? 1 : 0.75} />)}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- recharts' LabelContentType Props union doesn't structurally match a plain {x,y,width,value,index} shape; pre-existing pattern (was YtdAvgBarLabel as any before FE-2). */}
+                    <LabelList dataKey="value" content={TotalBarLabel as any} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -367,25 +368,21 @@ export default function PortfolioPage() {
 
             <ChartCard title={t("portfolio.historical_track")}>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={LINE_DATA} margin={{ top: 4, right: 76, left: -20, bottom: 0 }}>
+                <LineChart data={lineData} margin={{ top: 4, right: 76, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ede8e8" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b7280", fontWeight: 500 }} axisLine={false} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip content={<LineTooltip />} />
-                  {LINE_SERIES.map((s) => (
+                  {/* content takes a component reference (not <LineTooltip/>) — recharts clones+calls it,
+                      and a materialized element here breaks the test harness's recharts mock
+                      (JSON.stringify chokes on the element's circular _owner fiber ref). `any` because
+                      recharts' generic ContentType doesn't structurally match our prop shape — same
+                      pre-existing pattern this file already used for YtdAvgBarLabel/YtdAvgEndLabel. */}
+                  <Tooltip content={/* eslint-disable-line @typescript-eslint/no-explicit-any */ LineTooltip as any} />
+                  {lineSeries.map((s) => (
                     <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color}
                       strokeWidth={1.5} strokeOpacity={0.6} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                   ))}
-                  <Line type="monotone" dataKey={YTD_AVG_LINE.key} stroke={YTD_AVG_LINE.color}
-                    strokeWidth={3} strokeDasharray="8 4" dot={false}
-                    activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff", fill: YTD_AVG_LINE.color }}
-                    label={<YtdAvgEndLabel />} />
-                  <Legend iconType="circle" iconSize={8}
-                    formatter={(v) => {
-                      if (v === YTD_AVG_LINE.key) return <span style={{ color: YTD_AVG_LINE.color, fontWeight: 700 }}>YTD Avg</span>;
-                      return LINE_SERIES.find((s) => s.key === v)?.label ?? v;
-                    }}
-                    wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -395,26 +392,26 @@ export default function PortfolioPage() {
             <div className="flex flex-col items-center gap-6">
               <div className="relative">
                 <PieChart width={200} height={200}>
-                  <Pie data={DONUT_DATA} cx={100} cy={100} innerRadius={62} outerRadius={90}
+                  <Pie data={donutData} cx={100} cy={100} innerRadius={62} outerRadius={90}
                     dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                    {DONUT_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
                 </PieChart>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="text-center">
-                    <p className="text-[18px] font-bold text-on-surface leading-tight">100%</p>
+                    <p className="text-[18px] font-bold text-on-surface leading-tight">{`${allocatedPct.toFixed(0)}%`}</p>
                     <p className="text-[9px] font-semibold text-secondary uppercase tracking-widest">{t("portfolio.allocated")}</p>
                   </div>
                 </div>
               </div>
               <div className="w-full flex flex-col gap-2">
-                {DONUT_DATA.map((entry) => (
+                {donutData.map((entry) => (
                   <div key={entry.name} className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
                       <span className="text-body-sm text-on-surface truncate">{entry.name}</span>
                     </div>
-                    <span className="text-body-sm font-semibold text-on-surface shrink-0">{entry.display}</span>
+                    <span className="text-body-sm font-semibold text-on-surface shrink-0">{formatMoney(entry.value)}</span>
                   </div>
                 ))}
               </div>
@@ -426,25 +423,28 @@ export default function PortfolioPage() {
       {/* ── Subscribed Models ────────────────────────────────────────────── */}
       <section id="subscribed-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.subscribed_models")}</h2>
-        <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(7, 1fr)">
-          {subsLoading ? (
+        <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(5, 1fr)">
+          {!portfolio ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
-          ) : subscribedModels.length === 0 ? (
+          ) : portfolio.positions.length === 0 ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_results")}</div>
           ) : (
-            subscribedModels.map((m, i) => (
-              <ModelRow key={i} gridTemplate="15rem repeat(7, 1fr)">
-                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
-                <div className="px-5 py-4 flex items-center font-mono text-[12px] font-bold text-primary">{m.symbol}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.country}</div>
-                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.sector}</span></div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.modelLimit}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.amount}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.multiplier}</div>
+            portfolio.positions.map((p) => (
+              <ModelRow key={p.model_id} gridTemplate="15rem repeat(5, 1fr)">
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{p.model_name}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{formatMoney(p.amount)}</div>
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{p.category?.join(", ") ?? "—"}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{`${p.units.toFixed(1)}x`}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{p.model_limit != null ? formatMoney(p.model_limit) : "—"}</div>
                 <div className="px-5 py-4 flex items-center">
-                  <a href="#" className="font-mono text-[12px] font-semibold text-primary hover:underline transition-all">
-                    {m.ibAccount}
-                  </a>
+                  {p.has_material && (
+                    <a
+                      href={modelMaterialDownloadUrl(p.model_id)}
+                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all"
+                    >
+                      <Download size={15} strokeWidth={2.5} />{t("common.download")}
+                    </a>
+                  )}
                 </div>
               </ModelRow>
             ))
@@ -453,25 +453,34 @@ export default function PortfolioPage() {
       </section>
 
       {/* ── Recommended Models ────────────────────────────────────────────── */}
-      <section>
+      <section id="recommended-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.recommended_models")}</h2>
-        <ModelTable columns={RECOMMENDED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(7, 1fr)">
-          {MOCK_RECOMMENDED_MODELS.map((m) => (
-            <ModelRow key={m.name} gridTemplate="15rem repeat(7, 1fr)">
-              <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
-              <div className="px-5 py-4 flex items-center font-mono text-[12px] font-bold text-primary">{m.symbol}</div>
-              <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.country}</div>
-              <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.sector}</span></div>
-              <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.modelLimit}</div>
-              <div className="px-5 py-4 flex items-center"><RiskBadge level={m.risk} /></div>
-              <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.minInvestment}</div>
-              <div className="px-5 py-4 flex items-center">
-                <button type="button" className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all">
-                  <Download size={15} strokeWidth={2.5} />{t("common.download")}
-                </button>
-              </div>
-            </ModelRow>
-          ))}
+        <ModelTable columns={RECOMMENDED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(5, 1fr)">
+          {recommendedLoading ? (
+            <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
+          ) : recommended.length === 0 ? (
+            <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_results")}</div>
+          ) : (
+            recommended.map((m) => (
+              <ModelRow key={m.model_id} gridTemplate="15rem repeat(5, 1fr)">
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm font-bold text-on-surface truncate">{m.name}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-medium text-on-surface">{m.model_size != null ? formatMoney(m.model_size) : "—"}</div>
+                <div className="px-5 py-4 flex items-center min-w-0"><span className="text-body-sm text-on-surface truncate">{m.category?.join(", ") ?? "—"}</span></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{"—"}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.model_limit != null ? formatMoney(m.model_limit) : "—"}</div>
+                <div className="px-5 py-4 flex items-center">
+                  {m.has_material && (
+                    <a
+                      href={modelMaterialDownloadUrl(m.model_id)}
+                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all"
+                    >
+                      <Download size={15} strokeWidth={2.5} />{t("common.download")}
+                    </a>
+                  )}
+                </div>
+              </ModelRow>
+            ))
+          )}
         </ModelTable>
       </section>
 
@@ -495,11 +504,12 @@ export default function PortfolioPage() {
 
         <div className="bg-surface-lowest border border-outline-variant rounded-lg overflow-hidden">
           {/* Header */}
-          <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+          <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
             {[
               t("portfolio.ticket_columns.ticket_id"),
               t("portfolio.ticket_columns.type"),
-              t("portfolio.ticket_columns.model_subject"),
+              t("portfolio.ticket_columns.model"),
+              t("portfolio.ticket_columns.subject"),
               t("portfolio.ticket_columns.amount"),
               t("portfolio.ticket_columns.date"),
               t("portfolio.ticket_columns.status"),
@@ -515,12 +525,13 @@ export default function PortfolioPage() {
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_tickets_match")}</div>
           ) : (
             pageData.map((r) => (
-              <div key={r.id} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-                <div className="px-5 py-4 flex items-center font-mono text-[12px] text-secondary">{r.id}</div>
-                <div className="px-5 py-4 flex items-center"><TypeBadge type={r.type} /></div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm font-semibold text-on-surface">{r.amount}</div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-secondary">{r.date}</div>
+              <div key={r.ref} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
+                <div className="px-5 py-4 flex items-center font-mono text-[12px] text-secondary">{r.ref}</div>
+                <div className="px-5 py-4 flex items-center"><TypeBadge type={r.kind} /></div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model_name ?? "—"}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.subject}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm font-semibold text-on-surface">{r.amount != null ? formatMoney(r.amount) : "—"}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-secondary">{formatDate(r.created_at)}</div>
                 <div className="px-5 py-4 flex items-center"><TicketStatusBadge status={r.status} /></div>
               </div>
             ))

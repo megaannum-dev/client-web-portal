@@ -49,6 +49,7 @@
     "contact_rm": "Contact Your RM",
     "email": "Email",
     "whatsapp": "WhatsApp",
+    "phone": "Phone",
     "occupation": "Occupation",
     "occupation_value": "Investment Portfolio Manager",
     "view_full_profile": "View Full Profile",
@@ -112,7 +113,8 @@
     "latest_events": "Latest Events",
     "columns": {
       "request_type": "Request Type",
-      "model_fund": "Model / Fund",
+      "model_fund": "Model",
+      "subject": "Subject",
       "submitted": "Submitted",
       "status": "Status",
       "amount": "Amount"
@@ -126,20 +128,15 @@
     }
   },
   "status": {
-    "sent": "Sent",
-    "received": "Received",
-    "processing": "Processing",
-    "fulfilled": "Fulfilled"
+    "new": "New",
+    "in_progress": "In Progress",
+    "resolved": "Resolved",
+    "declined": "Declined"
   },
   "request_type": {
     "allotment": "Allotment",
     "redemption": "Redemption",
     "others": "Others"
-  },
-  "risk": {
-    "high": "High",
-    "medium": "Medium",
-    "low": "Low"
   },
   "portfolio": {
     "title": "Portfolio Details",
@@ -177,28 +174,27 @@
     "next_page": "Next page",
     "subscribed_columns": {
       "model_name": "Model Name",
-      "symbol": "Symbol",
-      "country": "Country",
-      "sector": "Sector",
-      "model_limit": "Model Limit",
       "amount": "Amount ($)",
-      "multiplier": "Multiplier",
-      "ib_account": "IB Account"
+      "category": "Category",
+      "multiplier": "Unit Subscribed",
+      "model_limit": "Model Limit",
+      "ib_account": "IB Account",
+      "market_material": "Market Material"
     },
     "recommended_columns": {
       "model_name": "Model Name",
-      "symbol": "Symbol",
-      "country": "Country",
-      "sector": "Sector",
+      "model_size": "Model Size",
+      "category": "Category",
+      "unit_subscribed": "Unit Subscribed",
       "model_limit": "Model Limit",
-      "min_investment": "Min. Investment ($)",
-      "risk_level": "Risk Level",
+      "subscription_redemption": "Subscription/Redemption",
       "market_material": "Market Material"
     },
     "ticket_columns": {
       "ticket_id": "Ticket ID",
       "type": "Type",
-      "model_subject": "Model / Subject",
+      "model": "Model",
+      "subject": "Subject",
       "amount": "Amount",
       "date": "Date",
       "status": "Status"
@@ -256,8 +252,8 @@
     "full_name": "Full Name",
     "phone_number": "Phone Number",
     "email": "Email",
-    "company": "Company",
     "occupation": "Occupation",
+    "date_of_birth": "Date of Birth",
     "residential_address": "Residential Address",
     "location_of_residence": "Location of Residence",
     "edit_in_settings": "Edit in Settings",
@@ -341,9 +337,6 @@
     "theme_system": "system",
     "theme_hint": "Changes apply immediately and stay in sync with the header toggle."
   },
-  "support": {
-    "title": "Support"
-  },
   "ticket": {
     "raise_ticket": "Raise a Ticket",
     "allotment_ticket": "Allotment Ticket",
@@ -364,6 +357,8 @@
     "select_subscribed_placeholder": "— Choose a subscribed model —",
     "amount": "Amount ($)",
     "multiplier": "Multiplier (x)",
+    "model_size": "Model Size",
+    "notional": "Notional (Model Size × Multiplier)",
     "funding_source": "Funding Source",
     "cash_balance": "Cash Balance: {{amount}}",
     "external_transfer": "External Transfer",
@@ -400,77 +395,6 @@
       "enter_subject": "Please enter a subject.",
       "describe_request": "Please describe your request.",
       "confirm_reviewed": "Please confirm you have reviewed your request."
-    }
-  },
-  "mock": {
-    "latest_events": {
-      "signature-required": {
-        "title": "Signature Required",
-        "description": "Redemption request #RR-429 requires authorization by EOD."
-      },
-      "compliance-review": {
-        "title": "Compliance Review",
-        "description": "Quarterly KYC update has been received and is under review."
-      },
-      "kyc-verified": {
-        "title": "KYC Verified",
-        "description": "Your identity documents have been successfully verified."
-      },
-      "kyc-review": {
-        "title": "KYC Document Under Review",
-        "description": "Your submitted KYC document is being reviewed. This typically takes 1–3 business days."
-      }
-    },
-    "event_items": {
-      "event-fed-rate": {
-        "title": "Fed Interest Rate Decision Released",
-        "time": "2 hours ago",
-        "description": "The Federal Reserve has announced its latest interest rate decision, impacting market volatility and portfolio yields. Historical news and reminders relevant to the client are now updated in your dashboard.",
-        "primary": "Read Full Report",
-        "secondary": "Mark as Read"
-      },
-      "event-kyc-reminder": {
-        "title": "KYC Upload Reminder",
-        "time": "5 hours ago",
-        "description": "Your annual renewal for KYC document is due in next 10 days. Please ensure recent compliance documents are uploaded to avoid processing delays.",
-        "primary": "Go Upload",
-        "secondary": "Mark as Read"
-      },
-      "event-compliance-policy": {
-        "title": "New Compliance Policy Update",
-        "time": "Yesterday",
-        "description": "We have updated our institutional AML declaration protocols to align with new regional regulations. Review the changes to ensure your account remains compliant.",
-        "primary": "Review Policy",
-        "secondary": "Dismiss"
-      },
-      "event-tech-rebound": {
-        "title": "Market Insight: Tech Sector Rebound",
-        "time": "Oct 18, 2023",
-        "description": "Our analysts have released a new brief on the projected growth of the technology sector following the latest earnings reports from major providers.",
-        "primary": "View Insight",
-        "secondary": "Mark as Read"
-      },
-      "event-security-alert": {
-        "title": "Security Alert: New Login Detected",
-        "time": "Oct 17, 2023",
-        "description": "A new login was detected from a Chrome browser on macOS. If this was not you, please secure your account immediately by changing your password.",
-        "primary": "Manage Devices",
-        "secondary": "I recognize this"
-      },
-      "event-annual-review": {
-        "title": "Annual Portfolio Review Scheduled",
-        "time": "Oct 10, 2023",
-        "description": "Your annual portfolio review has been scheduled with your Relationship Manager for next month. A calendar invitation will be sent to your registered email address.",
-        "primary": "Acknowledge",
-        "secondary": "Mark as Read"
-      },
-      "event-kyc-upload": {
-        "title": "KYC Document Submitted for Review",
-        "time": "Just now",
-        "description": "Your KYC document has been uploaded and is now under review. This typically takes 1~3 business days.",
-        "primary": "View Details",
-        "secondary": "Mark as Read"
-      }
     }
   }
 }

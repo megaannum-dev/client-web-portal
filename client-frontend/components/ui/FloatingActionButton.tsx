@@ -5,9 +5,10 @@ import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { Plus, Ticket, Download, HelpCircle } from "@/lib/icons";
 import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
-import { downloadAs } from "@/lib/downloadFile";
-import { MOCK_EOM_REPORTS } from "@/lib/mock/data";
-import type { AllotmentRequest } from "@/lib/mock/data";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { downloadDocument } from "@/lib/api/documents";
+import { useDocuments } from "@/lib/hooks/useDocuments";
+import type { ClientRequestDTO } from "@/lib/api/tickets";
 
 type ActionId = "ticket" | "download" | "faq";
 
@@ -25,19 +26,38 @@ export function FloatingActionButton() {
   const [expanded, setExpanded]     = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const { t } = useTranslation();
+  const { getIdToken } = useAuth();
+  const { data: statements } = useDocuments("statements");
+  const latest = statements[0]; // server-sorted, newest first
+
+  async function handleDownloadLatest() {
+    if (!latest) return;
+    try {
+      const token = await getIdToken();
+      const blob = await downloadDocument(token, "statements", latest.key);
+      const href = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), { href, download: latest.filename });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    } catch {
+      // ponytail: no toast/error surface in scope for FE-7; swallow so a failed download can't crash the FAB.
+    }
+  }
 
   function handleAction(id: ActionId) {
     if (id === "ticket") {
       setTicketOpen(true);
       setExpanded(false);
     } else if (id === "download") {
-      downloadAs("/dummy-EoM-Report.pdf", MOCK_EOM_REPORTS[0].name);
+      handleDownloadLatest();
       setExpanded(false);
     }
     // faq: no-op until implemented
   }
 
-  function handleConfirm(_req: AllotmentRequest) {
+  function handleConfirm(_req: ClientRequestDTO) {
     setTicketOpen(false);
   }
 
@@ -103,6 +123,7 @@ export function FloatingActionButton() {
                       type="button"
                       aria-label={t(labelKey)}
                       onClick={() => handleAction(id)}
+                      disabled={id === "download" && !latest}
                       style={{
                         // Stagger: buttons closest to FAB (last in list) appear first on expand,
                         // disappear last on collapse — giving a "pull up from FAB" feel.
@@ -113,7 +134,7 @@ export function FloatingActionButton() {
                       className={[
                         "size-11 rounded-full flex items-center justify-center shrink-0",
                         "bg-primary text-white hover:opacity-90 active:scale-95 cursor-pointer",
-                        "transition-all duration-200",
+                        "transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed",
                         expanded ? "opacity-100 scale-100" : "opacity-0 scale-75",
                       ].join(" ")}
                     >

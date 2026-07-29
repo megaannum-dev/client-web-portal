@@ -12,23 +12,29 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "@/lib/icons";
-import type { ActionLevel } from "@/lib/mock/data";
+import type { ActionLevel } from "@/types/portal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
 import { EyeToggle }  from "@/components/ui/EyeToggle";
-import { useLatestEvents } from "@/lib/hooks/useLatestEvents";
-import { useAllotmentRequests } from "@/lib/hooks/useAllotmentRequests";
-import {
-  MOCK_ALLOTMENT_REQUESTS,
-  MOCK_PORTFOLIO_STATS,
-} from "@/lib/mock/data";
+import { usePortfolio } from "@/lib/hooks/usePortfolio";
+import { useClientEvents } from "@/lib/hooks/useOnboardingEvents";
+import { useRequests } from "@/lib/hooks/useRequests";
+import type { TicketStatus, TicketKind } from "@/lib/api/requests";
 
-const STATUS_BADGE: Record<"Sent" | "Received" | "Processing" | "Fulfilled", string> = {
-  Sent:       "badge-caution",
-  Received:   "badge-caution",
-  Processing: "badge-caution",
-  Fulfilled:  "badge-success",
+const STATUS_BADGE: Record<TicketStatus, string> = {
+  new:         "badge-caution",
+  in_progress: "badge-caution",
+  resolved:    "badge-success",
+  declined:    "badge-warning",
 };
+
+const REQUEST_TYPE_I18N_KEY: Record<TicketKind, string> = {
+  allotment:  "request_type.allotment",
+  redemption: "request_type.redemption",
+  other:      "request_type.others",
+};
+
+function formatRequestDate(iso: string) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }); }
 
 // Icons used within the on-primary Latest Events panel only.
 const PANEL_ICONS = {
@@ -187,11 +193,11 @@ function HeroBanner() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: keyof typeof STATUS_BADGE }) {
+function StatusBadge({ status }: { status: TicketStatus }) {
   const { t } = useTranslation();
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${STATUS_BADGE[status]}`}>
-      {t(`status.${status.toLowerCase()}`)}
+      {t(`status.${status}`)}
     </span>
   );
 }
@@ -215,11 +221,14 @@ function SectionHeader({ title, linkLabel, linkHref }: { title: string; linkLabe
 
 export default function OverviewPage() {
   const { t } = useTranslation();
-  const [censored, setCensored] = useState(true);
-  const latestEvents = useLatestEvents().slice(0, 3);
-  const { dynamic: dynamicRequests } = useAllotmentRequests();
-  const recentRequests = [...dynamicRequests, ...MOCK_ALLOTMENT_REQUESTS].slice(0, 3);
-  const stats = MOCK_PORTFOLIO_STATS;
+  // ponytail: default unmasked (was `true`/masked pre-FE-10) — these two cards
+  // now render on first paint with no interaction; upgrade to masked-by-default
+  // once there's a product call on it, toggle still works either way.
+  const [censored, setCensored] = useState(false);
+  const { data: portfolio } = usePortfolio();
+  const latestEvents = useClientEvents().slice(0, 3);
+  const recentRequests = useRequests().data.slice(0, 3);
+  const changePct = portfolio?.change_pct ?? null;
   const mask = (v: string) => (censored ? "********" : v);
 
   return (
@@ -248,18 +257,18 @@ export default function OverviewPage() {
             <div className="grid grid-cols-2 gap-4">
               <StatCard
                 label={t("overview.total_portfolio_value")}
-                value={mask(stats.totalValue)}
-                sub={
-                  <span className="flex items-center gap-1.5 text-body-sm font-semibold text-primary">
-                    <TrendingUp size={14} strokeWidth={2} />
-                    {stats.ytdChange} {t("common.vs_last_month")}
-                  </span>
-                }
+                value={portfolio ? mask(`$${portfolio.total_value.toFixed(2)}`) : "—"}
               />
               <StatCard
-                label={t("overview.ytd_returns")}
-                value={mask(stats.ytdReturns)}
-                sub={<span className="text-body-sm text-secondary">{t("overview.benchmark_label", { value: stats.benchmark })}</span>}
+                label={t("overview.amount_in_trade", { defaultValue: "Amount in Trade" })}
+                value={portfolio ? mask(`$${portfolio.amount_in_trade.toFixed(2)}`) : "—"}
+                sub={
+                  <span className="text-body-sm text-secondary">
+                    {changePct !== null
+                      ? `${changePct >= 0 ? "+" : ""}${(changePct * 100).toFixed(2)}% ${t("common.vs_last_month")}`
+                      : "—"}
+                  </span>
+                }
               />
             </div>
           </div>
@@ -274,11 +283,12 @@ export default function OverviewPage() {
                     {[
                       t("overview.columns.request_type"),
                       t("overview.columns.model_fund"),
+                      t("overview.columns.subject"),
                       t("overview.columns.submitted"),
                       t("overview.columns.status"),
                       t("overview.columns.amount"),
                     ].map((h) => (
-                      <th key={h} className="text-left text-label-md font-semibold uppercase tracking-[0.05em] text-secondary px-5 py-3 w-1/5">
+                      <th key={h} className="text-left text-label-md font-semibold uppercase tracking-[0.05em] text-secondary px-5 py-3 w-1/6">
                         {h}
                       </th>
                     ))}
@@ -286,12 +296,13 @@ export default function OverviewPage() {
                 </thead>
                 <tbody className="bg-surface-lowest divide-y divide-outline-variant">
                   {recentRequests.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-5 py-4 text-body-sm text-on-surface">{t(`request_type.${r.type.toLowerCase()}`)}</td>
-                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model}</td>
-                      <td className="px-5 py-4 text-body-sm text-secondary">{r.date}</td>
+                    <tr key={r.ref}>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{t(REQUEST_TYPE_I18N_KEY[r.kind])}</td>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model_name ?? "—"}</td>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.subject}</td>
+                      <td className="px-5 py-4 text-body-sm text-secondary">{formatRequestDate(r.created_at)}</td>
                       <td className="px-5 py-4"><StatusBadge status={r.status} /></td>
-                      <td className="px-5 py-4 text-body-sm font-semibold text-on-surface">{r.amount}</td>
+                      <td className="px-5 py-4 text-body-sm font-semibold text-on-surface">{r.amount != null ? `$${r.amount.toLocaleString("en-US")}` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -314,8 +325,9 @@ export default function OverviewPage() {
               const cardBorder = isUrgent ? "border-white/40" : "border-white/25";
               const iconBg     = isVerified ? "bg-[#c4e84db2]" : "bg-white/20";
 
-              const content = (
-                <>
+              const cls = `flex items-start gap-4 p-4 rounded-md border shadow-sm ${cardBg} ${cardBorder}`;
+              return (
+                <div key={event.id} className={cls}>
                   <div className={`shrink-0 w-10 h-10 rounded-md flex items-center justify-center ${iconBg}`}>
                     <EventIcon size={18} strokeWidth={1.75} className="text-white" />
                   </div>
@@ -323,17 +335,6 @@ export default function OverviewPage() {
                     <p className="text-base font-bold text-white leading-6">{t(`mock.latest_events.${event.id}.title`, { defaultValue: event.title })}</p>
                     <p className="text-sm text-white/90 leading-5">{t(`mock.latest_events.${event.id}.description`, { defaultValue: event.description })}</p>
                   </div>
-                </>
-              );
-
-              const cls = `flex items-start gap-4 p-4 rounded-md border shadow-sm ${cardBg} ${cardBorder}`;
-              return event.href ? (
-                <Link key={event.id} href={event.href} className={`${cls} hover:opacity-85 transition-opacity cursor-pointer`}>
-                  {content}
-                </Link>
-              ) : (
-                <div key={event.id} className={cls}>
-                  {content}
                 </div>
               );
             })}

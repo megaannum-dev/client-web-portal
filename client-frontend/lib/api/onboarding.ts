@@ -3,10 +3,7 @@ import { getApiBase } from "@/lib/auth-api";
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
 export interface ClientEventDTO  { id: string; category: string; title: string; body: string; created_at: string; }
 
-async function authedGet<T>(path: string, token: string | null): Promise<T> {
-  const res = await fetch(`${getApiBase()}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+async function unwrapResponse<T>(res: Response, path: string): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -19,6 +16,26 @@ async function authedGet<T>(path: string, token: string | null): Promise<T> {
     throw new Error(`${detail} (${res.status} ${path})`);
   }
   return (await res.json()) as T;
+}
+
+export async function authedGet<T>(path: string, token: string | null): Promise<T> {
+  const res = await fetch(`${getApiBase()}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return unwrapResponse<T>(res, path);
+}
+
+/** PATCH helper shared by lib/api/* modules — same Bearer/detail-unwrap convention as authedGet. */
+export async function authedPatch<T>(path: string, token: string | null, body: unknown): Promise<T> {
+  const res = await fetch(`${getApiBase()}${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  return unwrapResponse<T>(res, path);
 }
 
 /** GET /api/client/subscriptions — the caller supplies its own fresh ID token
