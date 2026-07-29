@@ -54,7 +54,7 @@ from app.models.onboarding import (
 from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, User
 
-_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired"}
+_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
 _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 
 # Widened 2026-07-20 (D-9/C-7): settlement lag used to compute
@@ -237,7 +237,9 @@ class OnboardingService:
             )
         docs = self.repo.documents_for(onboarding_id)
         missing = [
-            d for d in docs if get_doc_spec(d.doc_type).required and d.status == "not_started"
+            d
+            for d in docs
+            if get_doc_spec(d.doc_type).required and d.status in ("not_started", "pending")
         ]
         if missing:
             raise HTTPException(
@@ -376,7 +378,7 @@ class OnboardingService:
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.reject_reason = reason
         for doc in due_docs:
-            self.repo.reset_for_reupload(doc)
+            self.repo.flag_pending_renewal(doc)
         labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
         self.repo.create_event(
             user_id=onboarding.user_id,

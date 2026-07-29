@@ -123,6 +123,7 @@ class DocStatus(str, enum.Enum):
     UPLOADED = "uploaded"
     IN_REVIEW = "in_review"
     VERIFIED = "verified"
+    PENDING = "pending"  # verified doc nearing expires_at, renewal reopened but not yet reset for reupload
     REJECTED = "rejected"
     EXPIRED = "expired"
 

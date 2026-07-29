@@ -10,7 +10,9 @@ from pydantic import BaseModel, EmailStr
 
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
-DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "rejected", "expired"]
+DocStatus = Literal[
+    "not_started", "uploaded", "in_review", "verified", "pending", "rejected", "expired"
+]
 AllotRdmpStatus = Literal[
     "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
 ]
