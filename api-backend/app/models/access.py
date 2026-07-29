@@ -1,13 +1,17 @@
 # api-backend/app/models/access.py
 import enum
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
+    Uuid,
     func,
 )
 from sqlalchemy import (
@@ -84,4 +88,53 @@ class PageAccess(Base):
     __table_args__ = (
         UniqueConstraint("page_id", "role", name="uq_page_access_page_id_role"),
         Index("ix_page_access_role", "role"),
+    )
+
+
+# --------- DB-2 — page_access_overrides ---------
+class PageAccessOverride(Base):
+    """A per-account exception to the role's standing level. At most one per
+    (user, page). `level = NONE` revokes a page for one person even though their
+    role holds it — which is why this table's enum has three values and
+    `page_access`'s has two (proposal D-3)."""
+
+    __tablename__ = "page_access_overrides"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    # CASCADE, not SET NULL: an override without a subject is meaningless.
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    page_id: Mapped[str] = mapped_column(String(64), nullable=False)  # PageId literal, no FK (D-8)
+    level: Mapped[OverrideLevel] = mapped_column(
+        SAEnum(
+            OverrideLevel,
+            native_enum=False,
+            length=16,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+    )
+    # App-enforced non-empty (422 at the API boundary) — no CHECK constraint, so
+    # the error surfaces as a validation message rather than a DB integrity error.
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    # SET NULL, matching the User.authorized_by convention (users.py:73-81): the
+    # override outlives the granter's account.
+    granted_by: Mapped[str | None] = mapped_column(
+        String(128),
+        ForeignKey("users.firebase_uid", ondelete="SET NULL"),
+        nullable=True,
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # NULL = no expiry
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "page_id", name="uq_page_access_overrides_user_id_page_id"),
+        Index("ix_page_access_overrides_expires_at", "expires_at"),
     )
