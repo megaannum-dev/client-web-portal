@@ -54,6 +54,7 @@ class PositionDTO(BaseModel):
     units: float  # client_subscriptions.multiplier
     amount: float  # units * models.model_size
     model_limit: float | None  # models.model_limit -- a distinct cap, not model_size
+    model_size: float | None  # models.model_size -- prices one unit
     ib_account: str | None  # client_profiles.ib_account (per-client, echoed per-row)
 
 
@@ -80,6 +81,7 @@ class RecommendedModelDTO(BaseModel):
     name: str
     category: list[str] | None  # models.category (JSON) -- a real model attribute
     model_limit: float | None  # models.model_limit
+    model_size: float | None  # models.model_size -- prices one unit
     subscription_redemption: str | None
     description: str | None
     has_material: bool  # a model_materials row exists

@@ -96,8 +96,9 @@ def get_portfolio_history(
 def get_recommended_models(
     svc: Annotated[ClientPortalService, Depends(_service)],
     user: Annotated[User, Depends(get_current_client_user)],
+    include_subscribed: bool = False,
 ) -> list[RecommendedModelDTO]:
-    return svc.recommended_models(user.id)
+    return svc.recommended_models(user.id, include_subscribed)
 
 
 @router.get("/client/models/{model_id}/material")

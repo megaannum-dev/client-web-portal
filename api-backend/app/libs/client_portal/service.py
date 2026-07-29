@@ -175,6 +175,7 @@ class ClientPortalService:
                 units=float(sub.multiplier),
                 amount=float(sub.multiplier * (model.model_size or Decimal("0"))),
                 model_limit=float(model.model_limit) if model.model_limit is not None else None,
+                model_size=float(model.model_size) if model.model_size is not None else None,
                 ib_account=ib_account,
             )
             for sub, model in self.repo.positions_for_client(user_id)
@@ -232,7 +233,9 @@ class ClientPortalService:
         return points
 
     # ---------- Models (BE-5) ----------
-    def recommended_models(self, user_id: uuid.UUID) -> list[RecommendedModelDTO]:
+    def recommended_models(
+        self, user_id: uuid.UUID, include_subscribed: bool = False
+    ) -> list[RecommendedModelDTO]:
         subscribed_ids = {m.id for _, m in self.repo.positions_for_client(user_id)}
         return [
             RecommendedModelDTO(
@@ -240,11 +243,12 @@ class ClientPortalService:
                 name=m.name,
                 category=m.category,
                 model_limit=float(m.model_limit) if m.model_limit is not None else None,
+                model_size=float(m.model_size) if m.model_size is not None else None,
                 subscription_redemption=m.subscription_redemption,
                 description=m.description,
                 has_material=self.repo.has_material(m.id),
             )
-            for m in self.repo.recommended_models(subscribed_ids)
+            for m in self.repo.recommended_models(set() if include_subscribed else subscribed_ids)
         ]
 
     def model_material_stream(self, model_id: uuid.UUID) -> tuple[BinaryIO, str, str | None]:
