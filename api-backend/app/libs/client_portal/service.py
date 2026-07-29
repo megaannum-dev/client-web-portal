@@ -177,6 +177,8 @@ class ClientPortalService:
                 model_limit=float(model.model_limit) if model.model_limit is not None else None,
                 model_size=float(model.model_size) if model.model_size is not None else None,
                 ib_account=ib_account,
+                category=model.category,
+                has_material=self.repo.has_material(model.id),
             )
             for sub, model in self.repo.positions_for_client(user_id)
         ]

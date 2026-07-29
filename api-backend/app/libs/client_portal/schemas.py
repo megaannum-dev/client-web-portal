@@ -56,6 +56,8 @@ class PositionDTO(BaseModel):
     model_limit: float | None  # models.model_limit -- a distinct cap, not model_size
     model_size: float | None  # models.model_size -- prices one unit
     ib_account: str | None  # client_profiles.ib_account (per-client, echoed per-row)
+    category: list[str] | None  # models.category (JSON) -- a real model attribute
+    has_material: bool  # a model_materials row exists
 
 
 class PortfolioDTO(BaseModel):
