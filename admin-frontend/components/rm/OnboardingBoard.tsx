@@ -28,18 +28,18 @@ const DOC_TINT: Record<string, [string, string]> = {
 // lookup (mirrors the deleted mock's tone-per-doc-status shape 1:1).
 const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
   not_started: "neutral", uploaded: "pending", in_review: "review",
-  verified: "active", rejected: "failed", expired: "overdue",
+  verified: "active", pending: "pending", rejected: "failed", expired: "overdue",
 };
 const DOC_STATUS_LABEL: Record<DocStatus, string> = {
-  not_started: "Pending", uploaded: "Uploaded", in_review: "In review",
-  verified: "Verified", rejected: "Rejected", expired: "Expired",
+  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
+  verified: "Verified", pending: "Pending", rejected: "Rejected", expired: "Expired",
 };
 
-// Prior-cycle upload/approval audit trail only means something once a
-// document has actually re-entered review — a not_started/uploaded/rejected
-// doc's stale uploaded_by/approved_at would otherwise read as if the reset
-// (e.g. a renewal re-opening) never happened.
-const AUDIT_VISIBLE_STATUSES = new Set<DocStatus>(["in_review", "verified"]);
+// Upload/approval audit trail is meaningful for any status backed by a real
+// file still on record (uploaded/in_review/verified/pending) — only
+// not_started/rejected/expired mean the prior uploaded_by/approved_at no
+// longer describes what's actually on file (e.g. after a renewal reset).
+const AUDIT_VISIBLE_STATUSES = new Set<DocStatus>(["uploaded", "in_review", "verified", "pending"]);
 
 /** Pure function of the two counts, per §6 FE-3's invariant — not a preset key. */
 function chipToneForCounts(verified: number, required: number): ChipTone {

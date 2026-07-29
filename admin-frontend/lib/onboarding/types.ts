@@ -3,7 +3,7 @@
 
 export type OnboardingStatus = "initial" | "reviewing" | "pending_review" | "active";
 export type OnboardingKind   = "initial" | "renewal";
-export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "rejected" | "expired";
+export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "pending" | "rejected" | "expired";
 export type AllotRdmpStatus =
   | "pending"        // existing
   | "acknowledged"   // existing
