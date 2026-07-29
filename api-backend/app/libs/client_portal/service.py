@@ -509,6 +509,17 @@ class ClientPortalService:
             upload_blocked_reason=reason,
         )
 
+    def download_kyc_document(
+        self, user_id: uuid.UUID, doc_type: str
+    ) -> tuple[BinaryIO, str, str | None]:
+        """Client-facing counterpart to the RM/Compliance download routes in
+        onboarding/router.py -- scoped to the caller's own onboarding via
+        get_by_user_id, same pattern as upload_renewal_document above."""
+        onboarding = self.onboarding_repo.get_by_user_id(user_id)
+        if onboarding is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No onboarding cycle")
+        return self.onboarding.download_document(onboarding.id, doc_type)
+
     @staticmethod
     def _overall_status(documents: list[DocumentDTO]) -> Literal["due", "processing", "verified"]:
         required = [d for d in documents if d.required]

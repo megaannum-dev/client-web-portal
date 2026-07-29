@@ -141,6 +141,20 @@ async def upload_kyc_document(
     )
 
 
+@router.get("/client/kyc/{doc_type}/download")
+def download_kyc_document(
+    doc_type: str,
+    svc: Annotated[ClientPortalService, Depends(_service)],
+    user: Annotated[User, Depends(get_current_client_user)],
+) -> StreamingResponse:
+    stream, filename, content_type = svc.download_kyc_document(user.id, doc_type)
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ---- Documents (BE-7) ----
 @router.get("/client/documents/{scope}", response_model=list[StoredFileDTO])
 def list_client_documents(
