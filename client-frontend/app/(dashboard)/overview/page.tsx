@@ -24,8 +24,7 @@ import type { TicketStatus, TicketKind } from "@/lib/api/requests";
 const STATUS_BADGE: Record<TicketStatus, string> = {
   new:         "badge-caution",
   in_progress: "badge-caution",
-  replied:     "badge-caution",
-  closed:      "badge-success",
+  resolved:    "badge-success",
   declined:    "badge-warning",
 };
 

@@ -130,8 +130,7 @@
   "status": {
     "new": "New",
     "in_progress": "In Progress",
-    "replied": "Replied",
-    "closed": "Closed",
+    "resolved": "Resolved",
     "declined": "Declined"
   },
   "request_type": {

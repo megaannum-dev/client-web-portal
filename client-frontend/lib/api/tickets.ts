@@ -1,7 +1,7 @@
 import { getApiBase } from "@/lib/auth-api";
 
 export type TicketKind = "allotment" | "redemption" | "other";
-export type TicketStatus = "new" | "in_progress" | "replied" | "closed" | "declined";
+export type TicketStatus = "new" | "in_progress" | "resolved" | "declined";
 
 export interface RaiseTicketReq {
   kind: TicketKind;

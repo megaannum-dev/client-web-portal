@@ -138,9 +138,8 @@ function TicketStatusBadge({ status }: { status: TicketStatus }) {
   const { t } = useTranslation();
   const config: Record<TicketStatus, { dot: string; cls: string }> = {
     new:         { dot: "bg-secondary",             cls: "bg-secondary/10 text-secondary border-secondary/20" },
-    replied:     { dot: "bg-primary",               cls: "bg-primary/10 text-primary border-primary/20"       },
     in_progress: { dot: "bg-caution animate-pulse", cls: "bg-caution/10 text-caution border-caution/20"       },
-    closed:      { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
+    resolved:    { dot: "bg-success",               cls: "bg-success/10 text-success border-success/20"       },
     declined:    { dot: "bg-warning",               cls: "bg-warning/10 text-warning border-warning/20"       },
   };
   const { dot, cls } = config[status];
