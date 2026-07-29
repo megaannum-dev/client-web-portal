@@ -395,6 +395,10 @@ function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: bool
   const [copied, setCopied] = useState(false);
   const { refetch } = useRmTicket(ticket.ref);
   const resolved = closed || ticket.status === "Replied";
+  // `closed` (isClosed) treats "Replied" as closed too, for the trade-ticket
+  // panel's disabling logic. Replied -> Closed is still a legal transition
+  // here, so Close only disables on the actually-terminal statuses.
+  const trulyClosed = ticket.status === "Closed" || ticket.status === "Declined";
 
   async function run(status: "replied" | "closed") {
     const result = await setTicketStatus(ticket.ref, { status });
@@ -415,7 +419,7 @@ function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: bool
           {copied ? "Copied!" : "Copy ticket reference"}
         </Button>
         <Button icon={Check} className="flex-1" disabled={resolved} onClick={() => run("replied")}>Resolve</Button>
-        <Button variant="secondary" icon={X} className="flex-1" disabled={closed} onClick={() => run("closed")}>Close</Button>
+        <Button variant="secondary" icon={X} className="flex-1" disabled={trulyClosed} onClick={() => run("closed")}>Close</Button>
       </div>
       {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
     </div>
