@@ -28,7 +28,7 @@ export type RequestTicket = {
 };
 
 export type TicketKind = "allotment" | "redemption" | "other";
-export type TicketStatus = "new" | "in_progress" | "replied" | "closed" | "declined";
+export type TicketStatus = "new" | "in_progress" | "resolved" | "declined";
 
 export interface RmTicketDTO {
   ref: string;
@@ -57,11 +57,18 @@ const KIND_LABEL: Record<TicketKind, "Allotment" | "Redemption" | "Other"> = {
   allotment: "Allotment", redemption: "Redemption", other: "Other",
 };
 const STATUS_LABEL: Record<TicketStatus, string> = {
-  new: "New", in_progress: "In Progress", replied: "Replied", closed: "Closed", declined: "Declined",
+  new: "New", in_progress: "In Progress", resolved: "Resolved", declined: "Declined",
 };
 const STATUS_TONE: Record<TicketStatus, ChipTone> = {
-  new: "warm", in_progress: "review", replied: "active", closed: "neutral", declined: "overdue",
+  new: "warm", in_progress: "review", resolved: "neutral", declined: "overdue",
 };
+
+/** Single shared source of truth for "is this ticket done" — replaces the
+ *  divergent isClosed/trulyClosed (RequestTickets.tsx) and isTerminal
+ *  (client-info/page.tsx) local copies. Matches STATUS_LABEL's display casing. */
+export function isTerminalStatus(status: string): boolean {
+  return status === "Resolved" || status === "Declined";
+}
 
 /** `180000` -> `"180,000"`, `-80000` -> `"(80,000)"` — same parens-for-negative
  *  convention as lib/rm/subscriptions.ts's allotmentToTxnRow. `null` -> "—". */

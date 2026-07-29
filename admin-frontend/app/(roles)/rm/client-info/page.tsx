@@ -32,16 +32,13 @@ import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
+import { isTerminalStatus } from "@/lib/rm/tickets";
 
 // Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
 // duplicated rather than shared since that file doesn't export it (FE-4 scope).
 const ONBOARDING_TONE: Record<OnboardingStatus, ChipTone> = {
   initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
 };
-
-// Mirrors RequestTickets.tsx's own isClosed — duplicated rather than shared
-// since that file doesn't export it (same reasoning as ONBOARDING_TONE above).
-const isTerminal = (status: string) => status === "Closed" || status === "Declined" || status === "Replied";
 
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
@@ -116,8 +113,8 @@ export default function RmDashboardPage() {
   const goSummary = (item: SummaryItem) => openClient(item.id);
 
   // Requests — live data via useRmTickets() (ADM-5); "open" = not terminal
-  // (New/In Progress), same definition as RequestTickets.tsx's isClosed.
-  const openTickets = (tickets ?? []).filter((t) => !isTerminal(t.status));
+  // (New/In Progress), per lib/rm/tickets.ts's shared isTerminalStatus.
+  const openTickets = (tickets ?? []).filter((t) => !isTerminalStatus(t.status));
   const ticketCounts: CountItem[] = [
     { id: "allotment", c: "Allotment", n: openTickets.filter((t) => t.type === "Allotment").length, t: "primary" },
     { id: "redemption", c: "Redemption", n: openTickets.filter((t) => t.type === "Redemption").length, t: "primary" },

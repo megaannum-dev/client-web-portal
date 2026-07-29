@@ -26,6 +26,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { RequestTicket } from "@/lib/rm/tickets";
+import { isTerminalStatus } from "@/lib/rm/tickets";
 import { useRmTickets, useRmTicket } from "@/hooks/api/useRmTickets";
 // ponytail: lazy dynamic import — this "use server" action pulls in server-only
 // code; a static import would eagerly evaluate that chain for every consumer of
@@ -43,7 +44,6 @@ const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; f
 };
 
 const isTrade = (type: RequestTicket["type"]) => type === "Allotment" || type === "Redemption";
-const isClosed = (status: string) => status === "Closed" || status === "Declined" || status === "Replied";
 
 function TypeCell({ type }: { type: RequestTicket["type"] }) {
   const m = TYPE_META[type];
@@ -81,12 +81,12 @@ export function RequestTicketsInbox() {
 
   const newCount = tickets.filter((t) => t.status === "New").length;
   const progCount = tickets.filter((t) => t.status === "In Progress").length;
-  const closedCount = tickets.filter((t) => isClosed(t.status)).length;
+  const resolvedCount = tickets.filter((t) => isTerminalStatus(t.status)).length;
 
   const STATS: { label: string; value: number; sub: string; icon: LucideIcon }[] = [
     { label: "Needs action", value: newCount, sub: "new from clients", icon: Inbox },
     { label: "In progress", value: progCount, sub: "being actioned", icon: Loader2 },
-    { label: "Closed", value: closedCount, sub: "resolved tickets", icon: CheckCheck },
+    { label: "Resolved", value: resolvedCount, sub: "resolved tickets", icon: CheckCheck },
   ];
 
   return (
@@ -206,7 +206,7 @@ function Fact({ k, v }: { k: string; v: string }) {
 function resolveActTarget(t: RequestTicket): string | null {
   if (!isTrade(t.type) || !t.modelId) return null;
   const mode = t.type === "Redemption" ? "redemption" : "add-allotment";
-  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}`;
+  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}`;
 }
 
 export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
@@ -214,7 +214,7 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
   const m = TYPE_META[ticket.type];
   const Icon = m.icon;
   const trade = isTrade(ticket.type);
-  const closed = isClosed(ticket.status);
+  const closed = isTerminalStatus(ticket.status);
   const actTarget = resolveActTarget(ticket);
 
   return (
@@ -398,19 +398,20 @@ function ActOnTradePanel({
   );
 }
 
-/* ---- action row B · other → resolve / close ------------------- */
+/* ---- action row B · other → resolve / decline ------------------ */
 function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [customNote, setCustomNote] = useState("");
   const { refetch } = useRmTicket(ticket.ref);
-  const resolved = closed || ticket.status === "Replied";
-  // `closed` (isClosed) treats "Replied" as closed too, for the trade-ticket
-  // panel's disabling logic. Replied -> Closed is still a legal transition
-  // here, so Close only disables on the actually-terminal statuses.
-  const trulyClosed = ticket.status === "Closed" || ticket.status === "Declined";
+  // No preset reason dropdown for "Other" tickets — just a single
+  // always-required note before Decline is clickable (adapted from
+  // ActOnTradePanel's customNote/declineDisabled pattern).
+  const declineDisabled = closed || !customNote.trim();
 
-  async function run(status: "replied" | "closed") {
-    const result = await setTicketStatus(ticket.ref, { status });
+  async function run(status: "resolved" | "declined") {
+    const note = status === "declined" ? customNote.trim() : undefined;
+    const result = await setTicketStatus(ticket.ref, { status, note });
     if (result.success) refetch();
     else setInlineError(result.error);
   }
@@ -427,9 +428,21 @@ function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: bool
         <Button variant="secondary" icon={Copy} className="flex-1" onClick={handleCopy}>
           {copied ? "Copied!" : "Copy ticket reference"}
         </Button>
-        <Button icon={Check} className="flex-1" disabled={resolved} onClick={() => run("replied")}>Resolve</Button>
-        <Button variant="secondary" icon={X} className="flex-1" disabled={trulyClosed} onClick={() => run("closed")}>Close</Button>
+        <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>
       </div>
+
+      <div className="mt-3.5">
+        <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Or decline with a note</div>
+        <textarea
+          value={customNote}
+          onChange={(e) => setCustomNote(e.target.value)}
+          disabled={closed}
+          placeholder="Add a note to the client explaining why this request is being declined…"
+          className="min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>
+      </div>
+
       {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
     </div>
   );
