@@ -631,6 +631,17 @@ class OnboardingService:
                     ticket.response_note = req.reason
                     ticket.responded_by = decided_by
                     ticket.responded_at = datetime.utcnow()
+                reject_model = self.db.get(Model, row.model_id)
+                self.repo.create_event(
+                    user_id=row.user_id,
+                    category="Requests Status",
+                    title="Redemption declined",
+                    body=(
+                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"{reject_model.name if reject_model else 'your model'} was declined. "
+                        f'Reason: "{req.reason}"'
+                    ),
+                )
             else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
                 # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
                 self._execute_redemption_approval(row, decided_by=decided_by)
@@ -709,6 +720,17 @@ class OnboardingService:
                     ticket.response_note = req.reason
                     ticket.responded_by = decided_by
                     ticket.responded_at = datetime.utcnow()
+                reject_model = self.db.get(Model, row.model_id)
+                self.repo.create_event(
+                    user_id=row.user_id,
+                    category="Requests Status",
+                    title="Redemption declined",
+                    body=(
+                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"{reject_model.name if reject_model else 'your model'} was declined. "
+                        f'Reason: "{req.reason}"'
+                    ),
+                )
             else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
                 # to PC. Never transitions straight to approved -- PC still owes
                 # the terminal decision (BE-4's _execute_redemption_approval),

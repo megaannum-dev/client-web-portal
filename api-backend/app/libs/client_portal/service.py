@@ -369,13 +369,25 @@ class ClientPortalService:
         ticket.response_note = req.note
         ticket.responded_by = rm_uid
         ticket.responded_at = datetime.utcnow()
-        if ticket.linked_allotment_id is not None and req.status == TicketStatus.DECLINED:
-            allotment = self.db.get(ClientAllotmentRedemption, ticket.linked_allotment_id)
-            if allotment is not None:
-                allotment.status = AllotRdmpStatus.REJECTED
-                allotment.reject_reason = req.note
-                allotment.decided_by = rm_uid
-                allotment.decided_at = datetime.utcnow()
+        if req.status == TicketStatus.DECLINED:
+            if ticket.linked_allotment_id is not None:
+                allotment = self.db.get(ClientAllotmentRedemption, ticket.linked_allotment_id)
+                if allotment is not None:
+                    allotment.status = AllotRdmpStatus.REJECTED
+                    allotment.reject_reason = req.note
+                    allotment.decided_by = rm_uid
+                    allotment.decided_at = datetime.utcnow()
+            model = self.db.get(Model, ticket.model_id) if ticket.model_id else None
+            subject = model.name if model else (ticket.subject or "your request")
+            body = f"Your {TicketKind(ticket.kind).value} request for {subject} was declined."
+            if req.note:
+                body += f' Reason: "{req.note}"'
+            self.onboarding_repo.create_event(
+                user_id=ticket.user_id,
+                category="Requests Status",
+                title=f"{TicketKind(ticket.kind).value.capitalize()} request declined",
+                body=body,
+            )
         self.db.commit()
         return self._ticket_to_rm_dto(ticket)
 
