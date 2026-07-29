@@ -343,6 +343,7 @@ function ActOnTradePanel({
           </span>
         </div>
 
+        {/* View/Edit Gate Function */}
         <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
           Act on request — open Model Subscription
         </Button>
@@ -388,6 +389,7 @@ function ActOnTradePanel({
             </div>
           )}
         </div>
+        {/* View/Edit Gate Function */}
         <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>
 
         {inlineError && (
@@ -437,6 +439,7 @@ function TicketActions({
         <Button variant="secondary" icon={Copy} className="flex-1" onClick={handleCopy}>
           {copied ? "Copied!" : "Copy ticket reference"}
         </Button>
+        {/* View/Edit Gate Function */}
         <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>
       </div>
 
@@ -449,6 +452,7 @@ function TicketActions({
           placeholder="Add a note to the client explaining why this request is being declined…"
           className="min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
         />
+        {/* View/Edit Gate Function */}
         <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>
       </div>
 

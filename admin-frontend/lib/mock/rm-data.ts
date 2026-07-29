@@ -65,6 +65,19 @@ export const RENEWALS_DUE: SummaryItem[] = RM_CLIENTS.map((c) => ({
 
 /* ---- Per-client DETAIL mock data --------------------------- */
 type ClientModel = { name: string; status: string; tone: ChipTone; account: string; notes: string };
+
+export type ClientPreferences = {
+  birthday: string;
+  anniversary: string;
+  occupation: string;
+  spouseName: string;
+  childrenNames: string;
+  personalInterests: string;
+  commPrefs: string;
+  giftPrefs: string;
+  otherPrefNotes: string;
+};
+
 type ClientExtra = {
   address: string;
   country: string;
@@ -73,6 +86,7 @@ type ClientExtra = {
   cashValue: string;
   portfolioValue?: string;
   models: ClientModel[];
+  preferences?: ClientPreferences;
 };
 
 export const CLIENT_EXTRA: Record<string, ClientExtra> = {
@@ -84,6 +98,11 @@ export const CLIENT_EXTRA: Record<string, ClientExtra> = {
   //     { name: "Model A", status: "Active", tone: "active", account: "IB-4471", notes: "First subscription" },
   //     { name: "ESG Tilt", status: "In Review", tone: "review", account: "IB-5582", notes: "Awaiting compliance" },
   //   ],
+  //   preferences: {
+  //     birthday: "Mar 14, 1978", anniversary: "Sep 9, 2006", occupation: "Chief Investment Officer", spouseName: "Marcus Voss",
+  //     childrenNames: "Elise (14), Theo (11)", personalInterests: "Sailing, contemporary art, single-origin coffee",
+  //     commPrefs: "Prefers calls over email; avoid Fridays", giftPrefs: "No alcohol — enjoys fine dining", otherPrefNotes: "Introduced by Jules Bennett in 2021.",
+  //   },
   // },
   // northbridge: {
   //   address: "8 Finsbury Circus\nLondon EC2M 7EA",
@@ -92,6 +111,10 @@ export const CLIENT_EXTRA: Record<string, ClientExtra> = {
   //     { name: "Income Core", status: "Active", tone: "active", account: "IB-3310", notes: "Monthly income" },
   //     { name: "Global Balanced", status: "Pending", tone: "pending", account: "IB-3310", notes: "Allotment scheduled" },
   //   ],
+  //   preferences: {
+  //     birthday: "Nov 2, 1985", anniversary: "—", occupation: "Managing Partner", spouseName: "—", childrenNames: "—",
+  //     personalInterests: "Rugby, whisky collecting", commPrefs: "Email preferred; short-form updates", giftPrefs: "—", otherPrefNotes: "Very time-constrained — keep meetings to 30 min.",
+  //   },
   // },
   // vela: {
   //   address: "1 Raffles Place, #44-01\nSingapore 048616",
@@ -102,6 +125,11 @@ export const CLIENT_EXTRA: Record<string, ClientExtra> = {
   //     { name: "Income Core", status: "Active", tone: "active", account: "IB-2255", notes: "Liquidity sleeve" },
   //     { name: "ESG Tilt", status: "Active", tone: "active", account: "IB-2255", notes: "Client mandate" },
   //   ],
+  //   preferences: {
+  //     birthday: "Jul 22, 1971", anniversary: "Jan 30, 1999", occupation: "Treasurer", spouseName: "Devan Anand",
+  //     childrenNames: "Riya (19)", personalInterests: "Marathon running, ESG research", commPrefs: "Video calls; morning SGT",
+  //     giftPrefs: "Vegetarian — no leather goods", otherPrefNotes: "Board seat on a local arts foundation.",
+  //   },
   // },
   // meridian: {
   //   address: "200 Bay Street, Suite 3200\nToronto, ON M5J 2J3",
@@ -181,6 +209,66 @@ function clientHistory(c: Pick<RmClient, "kyc" | "mandate">, models: ClientModel
   ];
 }
 
+export type ContactLogEntry = {
+  topic: string;
+  when: string;
+  channel: string;
+  icon: string;
+  desc: string;
+  interest?: string;
+  complaint?: string;
+  followUp?: string;
+  doc?: { name: string; size: string } | null;
+  accent?: boolean;
+  by?: string;
+};
+
+function clientContactLog(c: Pick<RmClient, "contact" | "mandate">, models: ClientModel[]): ContactLogEntry[] {
+  const m0 = models[0] ? models[0].name : "the proposed mandate";
+  const m1 = models[1] ? models[1].name : "an income sleeve";
+  const first = (c.contact || "The client").split(" ")[0];
+  return [
+    // {
+    //   topic: "Q2 portfolio review call", when: "26 May 2026 · 10:30", channel: "Phone call", icon: "phone", accent: true,
+    //   desc: `45 min review of ${m0} performance year to date. ${first} is comfortable with the current risk band but asked whether the equity weight can be lifted ahead of the next rebalance.`,
+    //   interest: `Interested in increasing exposure to ${m1}; asked for a fee illustration at a 2× multiple.`,
+    //   followUp: "Send indicative allocation + fee schedule before 5 Jun; book follow-up call week of 8 Jun.",
+    //   doc: { name: "Q2-review-notes.pdf", size: "184 KB" },
+    // },
+    // {
+    //   topic: "KYC document chase", when: "12 May 2026 · 16:05", channel: "Email", icon: "mail",
+    //   desc: `Reminded ${first} that the source-of-wealth pack is outstanding and explained which pages compliance still needs certified.`,
+    //   followUp: "Client to return certified copies by 20 May. Escalate to compliance if not received.",
+    //   doc: { name: "KYC-checklist-v3.pdf", size: "96 KB" },
+    // },
+    // {
+    //   topic: "Statement query — Q1 fee line", when: "07 Apr 2026 · 09:20", channel: "Phone call", icon: "phone",
+    //   desc: "Client queried the incentive fee accrual shown on the Q1 statement. Walked through the high-water-mark calculation line by line.",
+    //   complaint: "Raised as a complaint at the start of the call; withdrawn once the calculation was explained. Logged for the record.",
+    //   followUp: "Ops to add a fee-basis footnote to future statements.",
+    //   doc: null,
+    // },
+    // {
+    //   topic: "Annual relationship meeting", when: "18 Mar 2026 · 14:00", channel: "In-person meeting", icon: "users",
+    //   desc: `Met ${c.contact || "the client"} at the office with the CIO. Covered the ${c.mandate.toLowerCase()} mandate, market outlook and the succession plan for the family holding company.`,
+    //   interest: "Open to a private-markets allocation once liquidity from the H2 disposal lands.",
+    //   followUp: "Circulate meeting minutes; schedule private-markets briefing for Q3.",
+    //   doc: { name: "Annual-meeting-minutes.docx", size: "212 KB" },
+    // },
+    // {
+    //   topic: "Onboarding kickoff", when: "02 Feb 2026 · 11:15", channel: "Video call", icon: "video",
+    //   desc: "Introductory call covering portal access, reporting cadence and the operating model between the RM desk and middle office.",
+    //   followUp: "Portal credentials issued; nothing outstanding.",
+    //   doc: null,
+    // },
+  ];
+}
+
+const EMPTY_PREFERENCES: ClientPreferences = {
+  birthday: "—", anniversary: "—", occupation: "—", spouseName: "—", childrenNames: "—",
+  personalInterests: "—", commPrefs: "—", giftPrefs: "—", otherPrefNotes: "—",
+};
+
 export type ClientDetail = {
   address: string;
   country: string;
@@ -191,6 +279,8 @@ export type ClientDetail = {
   models: ClientModel[];
   docs: ClientDoc[];
   history: HistoryEntry[];
+  preferences: ClientPreferences;
+  contactLog: ContactLogEntry[];
 };
 
 /** Resolve full detail for a client id; returns null if unknown. */
@@ -211,6 +301,8 @@ export function getClientDetail(id: string): { client: RmClient; detail: ClientD
       models,
       docs: clientDocs(c),
       history: clientHistory(c, models),
+      preferences: x.preferences ?? EMPTY_PREFERENCES,
+      contactLog: clientContactLog(c, models),
     },
   };
 }

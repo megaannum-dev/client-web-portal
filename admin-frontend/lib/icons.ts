@@ -153,4 +153,6 @@ export {
   // CRM — PC Monthly Reports comment feature
   MessageSquarePlus,
   MessageSquareText,
+  // CRM — RM Contact Log (client-info detail)
+  Video,
 } from "lucide-react";

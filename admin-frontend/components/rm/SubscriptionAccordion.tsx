@@ -217,6 +217,7 @@ function ModelAccordionItem({
               hasTransactionDetail: !!row[11],
             })}
           />
+          {/* View/Edit Gate Function */}
           <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
             <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
             <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
