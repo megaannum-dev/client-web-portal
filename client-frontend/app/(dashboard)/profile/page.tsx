@@ -554,7 +554,7 @@ export default function ProfilePage() {
 
           {/* KYC — tri-state: due | processing | verified */}
           <div className={clsx(
-            "flex-1 min-w-[260px] rounded-lg p-5 flex flex-col gap-4 border transition-colors duration-300",
+            "flex-1 min-w-[260px] max-w-[420px] rounded-lg p-5 flex flex-col gap-4 border transition-colors duration-300",
             kycOverall === "verified"   && "bg-success-container border-success/25",
             kycOverall === "processing" && "bg-surface-lowest border-outline-variant",
             kycOverall === "due"        && "bg-warning-container border-warning/25",
@@ -567,7 +567,7 @@ export default function ProfilePage() {
                     kycOverall === "processing" && "text-primary",
                     kycOverall === "due"        && "text-warning",
                   )} />
-                <span className="text-body-sm font-bold text-on-surface">{t("profile.kyc_status")}</span>
+                <span className="text-body-sm font-bold text-on-surface">{kyc?.renewal_doc_label ?? t("profile.kyc_status")}</span>
               </div>
               {kycOverall === "verified"   && <span className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border badge-success">{t("profile.kyc_verified_badge")}</span>}
               {kycOverall === "processing" && <span className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border badge-caution">{t("profile.kyc_processing_badge")}</span>}

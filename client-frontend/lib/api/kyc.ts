@@ -19,6 +19,7 @@ export interface KycPanelDTO {
   documents: DocumentDTO[];
   next_review_at: string | null;
   renewal_doc_type: string | null;
+  renewal_doc_label: string | null;
   upload_opens_at: string | null;
   can_upload: boolean;
   upload_blocked_reason: "window_not_open" | "in_review" | "cycle_not_editable" | "no_cycle" | null;
