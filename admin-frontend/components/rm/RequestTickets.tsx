@@ -253,13 +253,11 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
           <Card title="Client Request">
             <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
               <Fact k="Client" v={ticket.client} />
-              <Fact k="Raised by" v={ticket.contact} />
               <Fact k="Subscribed model" v={ticket.model ?? "—"} />
               <Fact k="IB account" v={ticket.account} />
               <Fact k="Request type" v={ticket.type} />
-              <Fact k="Cash amount" v={`${ticket.ccy} ${ticket.cash}`} />
+              <Fact k="Notional amount" v={`${ticket.ccy} ${ticket.notional}`} />
               <Fact k="Model multiple" v={ticket.mult} />
-              <Fact k="Notional" v={`${ticket.ccy} ${ticket.notional}`} />
             </div>
             <div className="mt-5 border-t border-outline-variant pt-[18px]">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Client note</div>
