@@ -20,7 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Inbox, Loader2, CheckCheck, ChevronRight, ChevronDown,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeft, ArrowRight,
-  Mail, Printer, Info, X,
+  Mail, Printer, Info, X, Copy, Check,
 } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -283,6 +283,7 @@ export function RequestTicketDetail({ ticket }: { ticket: RequestTicket }) {
             <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject}</h3>
             <p className="mt-2 text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
           </div>
+          <TicketActions ticket={ticket} closed={closed} />
         </Card>
       )}
     </div>
@@ -385,5 +386,38 @@ function ActOnTradePanel({
         </div>
       </div>
     </Card>
+  );
+}
+
+/* ---- action row B · other → resolve / close ------------------- */
+function TicketActions({ ticket, closed }: { ticket: RequestTicket; closed: boolean }) {
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const { refetch } = useRmTicket(ticket.ref);
+  const resolved = closed || ticket.status === "Replied";
+
+  async function run(status: "replied" | "closed") {
+    const result = await setTicketStatus(ticket.ref, { status });
+    if (result.success) refetch();
+    else setInlineError(result.error);
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(`[##RE ${ticket.ref}] "${ticket.subject}"`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="mt-5 border-t border-outline-variant pt-[18px]">
+      <div className="flex gap-2.5">
+        <Button variant="secondary" icon={Copy} className="flex-1" onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy ticket reference"}
+        </Button>
+        <Button icon={Check} className="flex-1" disabled={resolved} onClick={() => run("replied")}>Resolve</Button>
+        <Button variant="secondary" icon={X} className="flex-1" disabled={closed} onClick={() => run("closed")}>Close</Button>
+      </div>
+      {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
+    </div>
   );
 }
