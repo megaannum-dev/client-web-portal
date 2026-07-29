@@ -486,11 +486,12 @@ export default function PortfolioPage() {
 
         <div className="bg-surface-lowest border border-outline-variant rounded-lg overflow-hidden">
           {/* Header */}
-          <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+          <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
             {[
               t("portfolio.ticket_columns.ticket_id"),
               t("portfolio.ticket_columns.type"),
               t("portfolio.ticket_columns.model_subject"),
+              t("portfolio.ticket_columns.subject"),
               t("portfolio.ticket_columns.amount"),
               t("portfolio.ticket_columns.date"),
               t("portfolio.ticket_columns.status"),
@@ -506,10 +507,11 @@ export default function PortfolioPage() {
             <div className="px-6 py-8 text-center text-body-sm text-secondary">{t("portfolio.no_tickets_match")}</div>
           ) : (
             pageData.map((r) => (
-              <div key={r.ref} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+              <div key={r.ref} className="grid border-b border-outline-variant last:border-b-0 bg-surface-lowest hover:bg-surface-container/40 transition-colors duration-100" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
                 <div className="px-5 py-4 flex items-center font-mono text-[12px] text-secondary">{r.ref}</div>
                 <div className="px-5 py-4 flex items-center"><TypeBadge type={r.kind} /></div>
-                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model_name ?? r.subject}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.model_name ?? "—"}</div>
+                <div className="px-5 py-4 flex items-center text-body-sm text-on-surface truncate">{r.subject}</div>
                 <div className="px-5 py-4 flex items-center text-body-sm font-semibold text-on-surface">{r.amount != null ? formatMoney(r.amount) : "—"}</div>
                 <div className="px-5 py-4 flex items-center text-body-sm text-secondary">{formatDate(r.created_at)}</div>
                 <div className="px-5 py-4 flex items-center"><TicketStatusBadge status={r.status} /></div>

@@ -284,11 +284,12 @@ export default function OverviewPage() {
                     {[
                       t("overview.columns.request_type"),
                       t("overview.columns.model_fund"),
+                      t("overview.columns.subject"),
                       t("overview.columns.submitted"),
                       t("overview.columns.status"),
                       t("overview.columns.amount"),
                     ].map((h) => (
-                      <th key={h} className="text-left text-label-md font-semibold uppercase tracking-[0.05em] text-secondary px-5 py-3 w-1/5">
+                      <th key={h} className="text-left text-label-md font-semibold uppercase tracking-[0.05em] text-secondary px-5 py-3 w-1/6">
                         {h}
                       </th>
                     ))}
@@ -298,7 +299,8 @@ export default function OverviewPage() {
                   {recentRequests.map((r) => (
                     <tr key={r.ref}>
                       <td className="px-5 py-4 text-body-sm text-on-surface">{t(REQUEST_TYPE_I18N_KEY[r.kind])}</td>
-                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model_name ?? r.subject}</td>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.model_name ?? "—"}</td>
+                      <td className="px-5 py-4 text-body-sm text-on-surface">{r.subject}</td>
                       <td className="px-5 py-4 text-body-sm text-secondary">{formatRequestDate(r.created_at)}</td>
                       <td className="px-5 py-4"><StatusBadge status={r.status} /></td>
                       <td className="px-5 py-4 text-body-sm font-semibold text-on-surface">{r.amount != null ? `$${r.amount.toLocaleString("en-US")}` : "—"}</td>
