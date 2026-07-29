@@ -379,6 +379,7 @@ class ClientPortalService:
             email=user.email if user else None,
             account=profile.ib_account if profile else None,
             model=model.name if model else None,
+            model_id=t.model_id,
             kind=TicketKind(t.kind),
             currency=t.currency,
             amount=amount,

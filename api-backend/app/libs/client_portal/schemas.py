@@ -164,6 +164,7 @@ class RmTicketDTO(BaseModel):
     email: str | None  # users.email
     account: str | None  # client_profiles.ib_account
     model: str | None
+    model_id: uuid.UUID | None  # client_tickets.model_id -- real FK, None for kind="other"
     kind: TicketKind
     currency: str
     amount: float | None
