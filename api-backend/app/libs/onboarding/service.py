@@ -377,6 +377,13 @@ class OnboardingService:
         onboarding.reject_reason = reason
         for doc in due_docs:
             self.repo.reset_for_reupload(doc)
+        labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
+        self.repo.create_event(
+            user_id=onboarding.user_id,
+            category="Account Notification",
+            title="KYC renewal required",
+            body=f"Your {labels} is due for renewal. Please upload an updated document.",
+        )
         self.db.commit()
 
     # ---- Board / list reads -------------------------------------------------
