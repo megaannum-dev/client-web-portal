@@ -124,8 +124,7 @@ class TicketKind(str, enum.Enum):
 class TicketStatus(str, enum.Enum):
     NEW = "new"
     IN_PROGRESS = "in_progress"
-    REPLIED = "replied"
-    CLOSED = "closed"
+    RESOLVED = "resolved"
     DECLINED = "declined"
 
 

@@ -41,6 +41,7 @@ from app.libs.onboarding.service import (
 )
 from app.libs.trade_models.storage import StoredFile, get_storage
 from app.models.onboarding import (
+    AllotRdmpStatus,
     ClientAllotmentRedemption,
     ClientOnboarding,
     ClientTicket,
@@ -53,7 +54,7 @@ from app.models.users import AdminRole, ClientProfile, User
 _PERIOD_RE = re.compile(r"^(\d{4}-\d{2})[_-]")
 _SCOPES = {"legal", "statements"}
 
-_TERMINAL = {TicketStatus.CLOSED, TicketStatus.DECLINED}
+_TERMINAL = {TicketStatus.RESOLVED, TicketStatus.DECLINED}
 _FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
 
 # ---------- Requests & tickets (BE-13) ----------
@@ -63,8 +64,8 @@ _ALLOT_STATUS_MAP: dict[str, TicketStatus] = {
     "pending": TicketStatus.IN_PROGRESS,
     "awaiting_pc": TicketStatus.IN_PROGRESS,
     "awaiting_co": TicketStatus.IN_PROGRESS,
-    "acknowledged": TicketStatus.REPLIED,
-    "approved": TicketStatus.CLOSED,
+    "acknowledged": TicketStatus.RESOLVED,
+    "approved": TicketStatus.RESOLVED,
     "rejected": TicketStatus.DECLINED,
 }
 
@@ -355,14 +356,38 @@ class ClientPortalService:
         self, ref: str, req: RmTicketStatusReq, *, rm_uid: str, role: AdminRole
     ) -> RmTicketDTO:
         ticket = self._require_rm_visible_ticket(ref, rm_uid=rm_uid, role=role)
-        if TicketStatus(ticket.status) in _TERMINAL:
+        current = self._effective_ticket_status(ticket)
+        if current in _TERMINAL:
             raise HTTPException(status.HTTP_409_CONFLICT, "Ticket is already closed")
+        if ticket.linked_allotment_id is not None and req.status != TicketStatus.DECLINED:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "In Progress/Resolved for a linked request is driven by PC/Compliance "
+                "approval, not set directly",
+            )
         ticket.status = DbTicketStatus(req.status.value)
         ticket.response_note = req.note
         ticket.responded_by = rm_uid
         ticket.responded_at = datetime.utcnow()
+        if ticket.linked_allotment_id is not None and req.status == TicketStatus.DECLINED:
+            allotment = self.db.get(ClientAllotmentRedemption, ticket.linked_allotment_id)
+            if allotment is not None:
+                allotment.status = AllotRdmpStatus.REJECTED
+                allotment.reject_reason = req.note
+                allotment.decided_by = rm_uid
+                allotment.decided_at = datetime.utcnow()
         self.db.commit()
         return self._ticket_to_rm_dto(ticket)
+
+    def _effective_ticket_status(self, t: ClientTicket) -> TicketStatus:
+        """A ticket linked to a real allotment/redemption defers to that row's
+        live approval-chain status instead of its own (possibly stale) column --
+        PC/Compliance's decision is the source of truth once linked."""
+        if t.linked_allotment_id is not None:
+            allotment = self.db.get(ClientAllotmentRedemption, t.linked_allotment_id)
+            if allotment is not None:
+                return _ALLOT_STATUS_MAP[allotment.status.value]
+        return TicketStatus(t.status)
 
     def _ticket_to_rm_dto(self, t: ClientTicket) -> RmTicketDTO:
         profile = self.db.query(ClientProfile).filter_by(user_id=t.user_id).one_or_none()
@@ -387,7 +412,7 @@ class ClientPortalService:
             notional=notional,
             subject=t.subject,
             message=t.message,
-            status=TicketStatus(t.status),
+            status=self._effective_ticket_status(t),
             created_at=t.created_at,
             responded_by=t.responded_by,
             responded_at=t.responded_at,
@@ -404,14 +429,15 @@ class ClientPortalService:
             model_name=model.name if model else None,
             amount=float(t.amount) if t.amount is not None else None,
             created_at=t.created_at,
-            status=TicketStatus(t.status),
+            status=self._effective_ticket_status(t),
         )
 
     def list_requests(self, user_id: uuid.UUID) -> list[ClientRequestDTO]:
         tickets = self.repo.list_for_client(user_id)
         allotments = self.onboarding_repo.list_allotments_for_client(user_id)
+        linked_ids = {t.linked_allotment_id for t in tickets if t.linked_allotment_id is not None}
         rows = [self._ticket_to_request_dto(t) for t in tickets]
-        rows += [self._allotment_to_request_dto(a) for a in allotments]
+        rows += [self._allotment_to_request_dto(a) for a in allotments if a.id not in linked_ids]
         return sorted(rows, key=lambda r: r.created_at, reverse=True)
 
     def _allotment_to_request_dto(self, a: ClientAllotmentRedemption) -> ClientRequestDTO:
