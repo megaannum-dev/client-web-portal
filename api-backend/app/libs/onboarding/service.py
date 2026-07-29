@@ -43,10 +43,12 @@ from app.models.onboarding import (
     AllotRdmpStatus,
     ClientAllotmentRedemption,
     ClientOnboarding,
+    ClientTicket,
     DocStatus,
     OnboardingDocument,
     OnboardingKind,
     OnboardingStatus,
+    TicketStatus,
     TransactionDetail,
 )
 from app.models.pc import ClientSubscription, Model
@@ -82,6 +84,29 @@ class OnboardingService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repo = OnboardingRepository(db)
+
+    # ---- ticket <-> allotment linking (018 follow-up) ----------------------
+    def _link_ticket_if_requested(
+        self, allotment: ClientAllotmentRedemption, source_ticket_ref: str | None
+    ) -> None:
+        if not source_ticket_ref:
+            return
+        ticket = self.db.query(ClientTicket).filter_by(reference=source_ticket_ref).one_or_none()
+        if ticket is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, f"Unknown ticket reference: {source_ticket_ref}"
+            )
+        ticket.linked_allotment_id = allotment.id
+
+    def _linked_ticket(self, allotment_id: uuid.UUID) -> ClientTicket | None:
+        return self.db.query(ClientTicket).filter_by(linked_allotment_id=allotment_id).one_or_none()
+
+    def _guard_against_rm_decline(self, allotment_id: uuid.UUID) -> None:
+        ticket = self._linked_ticket(allotment_id)
+        if ticket is not None and ticket.status == TicketStatus.DECLINED:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+            )
 
     # ---- RM: start / documents / submit -----------------------------------
     def start(
@@ -450,6 +475,7 @@ class OnboardingService:
                     else None
                 ),
             )
+            self._link_ticket_if_requested(allotment, req.source_ticket_ref)
             self.repo.shift_portfolio_for_allotment(req.client_id, amount)
             self.repo.create_event(
                 user_id=req.client_id,
@@ -559,6 +585,7 @@ class OnboardingService:
                 ),
                 emergent=req.emergent,
             )
+            self._link_ticket_if_requested(allotment, req.source_ticket_ref)
             self.repo.create_event(
                 user_id=req.client_id,
                 category="Account Notification",
@@ -590,10 +617,20 @@ class OnboardingService:
             if req.verdict == "reject":
                 if not req.reason:
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                ticket = self._linked_ticket(row.id)
+                if ticket is not None and ticket.status == TicketStatus.DECLINED:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+                    )
                 row.status = AllotRdmpStatus.REJECTED
                 row.reject_reason = req.reason
                 row.decided_by = decided_by
                 row.decided_at = datetime.utcnow()
+                if ticket is not None:
+                    ticket.status = TicketStatus.DECLINED
+                    ticket.response_note = req.reason
+                    ticket.responded_by = decided_by
+                    ticket.responded_at = datetime.utcnow()
             else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
                 # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
                 self._execute_redemption_approval(row, decided_by=decided_by)
@@ -614,6 +651,7 @@ class OnboardingService:
         decided_at, (6) insert client_events. No commit here -- caller's txn
         boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
         its only caller, lives here."""
+        self._guard_against_rm_decline(row.id)
         model = self.db.get(Model, row.model_id)
         assert model is not None
         agg_before = self.repo.sum_subscription_multiplier(row.model_id)
@@ -657,10 +695,20 @@ class OnboardingService:
             if req.verdict == "reject":
                 if not req.reason:
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
+                ticket = self._linked_ticket(row.id)
+                if ticket is not None and ticket.status == TicketStatus.DECLINED:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT, "This request was already declined by the RM"
+                    )
                 row.status = AllotRdmpStatus.REJECTED
                 row.reject_reason = req.reason
                 row.decided_by = decided_by
                 row.decided_at = datetime.utcnow()
+                if ticket is not None:
+                    ticket.status = TicketStatus.DECLINED
+                    ticket.response_note = req.reason
+                    ticket.responded_by = decided_by
+                    ticket.responded_at = datetime.utcnow()
             else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
                 # to PC. Never transitions straight to approved -- PC still owes
                 # the terminal decision (BE-4's _execute_redemption_approval),
@@ -682,6 +730,7 @@ class OnboardingService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment")
         if allotment.status != "pending":
             raise HTTPException(status.HTTP_409_CONFLICT, "Allotment already acknowledged")
+        self._guard_against_rm_decline(allotment.id)
 
         allotment.status = AllotRdmpStatus.ACKNOWLEDGED
         allotment.acknowledged_by = acked_by

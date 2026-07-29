@@ -133,6 +133,7 @@ class SubmitAllotmentReq(BaseModel):
     expected_cash_in: date | None = None
     mgmt_fee: Decimal | None = None
     incentive_fee: Decimal | None = None
+    source_ticket_ref: str | None = None
 
 
 class SubmitRedemptionReq(BaseModel):
@@ -141,6 +142,7 @@ class SubmitRedemptionReq(BaseModel):
     multiplier: Decimal
     expected_cash_out: date | None = None
     emergent: bool = False
+    source_ticket_ref: str | None = None
 
 
 class RedemptionDecisionReq(BaseModel):
