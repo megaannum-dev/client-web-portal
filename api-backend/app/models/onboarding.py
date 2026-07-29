@@ -351,8 +351,7 @@ class TicketKind(str, enum.Enum):
 class TicketStatus(str, enum.Enum):
     NEW = "new"
     IN_PROGRESS = "in_progress"
-    REPLIED = "replied"
-    CLOSED = "closed"
+    RESOLVED = "resolved"
     DECLINED = "declined"
 
 
@@ -395,6 +394,15 @@ class ClientTicket(Base):
     )
     model_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(native_uuid=False), ForeignKey("models.id"), nullable=True
+    )
+    # Points at the trade record this ticket produced, once acted on. Nullable
+    # (most tickets never reach that stage) and unique (one ticket -> at most
+    # one allotment/redemption row).
+    linked_allotment_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("client_allotment_redemptions.id"),
+        nullable=True,
+        unique=True,
     )
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[str | None] = mapped_column(String(64), nullable=True)
