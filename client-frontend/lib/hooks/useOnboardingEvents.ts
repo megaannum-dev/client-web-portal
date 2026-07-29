@@ -19,15 +19,21 @@ function formatRelativeTime(iso: string): string {
 }
 
 /** The DTO carries no icon/level metadata (§1 seam gap) -- classify from the
- *  title text the backend already writes (e.g. "...declined", "...approved",
- *  "...submitted") so a rejected request reads visually distinct from a
- *  routine submission instead of every event getting the same treatment. */
+ *  title text the backend already writes, following the same semantic
+ *  pairings the original mock event catalog used (declined -> urgent shield,
+ *  renewal/reminder -> urgent alarm-clock, approved/active/complete ->
+ *  primary trending-up, submitted -> info file-text). */
 function classify(title: string): { iconType: EventEntry["iconType"]; level: ActionLevel } {
   const t = title.toLowerCase();
   if (t.includes("declined") || t.includes("rejected")) return { iconType: "shield", level: "urgent" };
-  if (t.includes("approved")) return { iconType: "trending-up", level: "primary" };
+  if (t.includes("renewal") || t.includes("reminder") || t.includes("due")) {
+    return { iconType: "alarm-clock", level: "urgent" };
+  }
+  if (t.includes("approved") || t.includes("active") || t.includes("complete")) {
+    return { iconType: "trending-up", level: "primary" };
+  }
   if (t.includes("submitted")) return { iconType: "file-text", level: "info" };
-  return { iconType: "shield", level: "info" };
+  return { iconType: "file-text", level: "info" };
 }
 
 function mapEvent(dto: ClientEventDTO): EventEntry {
