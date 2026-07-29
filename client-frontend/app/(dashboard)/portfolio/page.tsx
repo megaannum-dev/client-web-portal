@@ -506,7 +506,7 @@ export default function PortfolioPage() {
             {[
               t("portfolio.ticket_columns.ticket_id"),
               t("portfolio.ticket_columns.type"),
-              t("portfolio.ticket_columns.model_subject"),
+              t("portfolio.ticket_columns.model"),
               t("portfolio.ticket_columns.subject"),
               t("portfolio.ticket_columns.amount"),
               t("portfolio.ticket_columns.date"),

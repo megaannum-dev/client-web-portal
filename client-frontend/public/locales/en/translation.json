@@ -194,7 +194,7 @@
     "ticket_columns": {
       "ticket_id": "Ticket ID",
       "type": "Type",
-      "model_subject": "Model / Subject",
+      "model": "Model",
       "subject": "Subject",
       "amount": "Amount",
       "date": "Date",

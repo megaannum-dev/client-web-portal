@@ -194,7 +194,7 @@
     "ticket_columns": {
       "ticket_id": "申請編號",
       "type": "類型",
-      "model_subject": "模型 / 主旨",
+      "model": "模型",
       "subject": "主旨",
       "amount": "金額",
       "date": "日期",
