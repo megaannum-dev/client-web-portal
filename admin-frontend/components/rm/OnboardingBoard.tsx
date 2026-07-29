@@ -31,9 +31,15 @@ const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
   verified: "active", rejected: "failed", expired: "overdue",
 };
 const DOC_STATUS_LABEL: Record<DocStatus, string> = {
-  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
+  not_started: "Pending", uploaded: "Uploaded", in_review: "In review",
   verified: "Verified", rejected: "Rejected", expired: "Expired",
 };
+
+// Prior-cycle upload/approval audit trail only means something once a
+// document has actually re-entered review — a not_started/uploaded/rejected
+// doc's stale uploaded_by/approved_at would otherwise read as if the reset
+// (e.g. a renewal re-opening) never happened.
+const AUDIT_VISIBLE_STATUSES = new Set<DocStatus>(["in_review", "verified"]);
 
 /** Pure function of the two counts, per §6 FE-3's invariant — not a preset key. */
 function chipToneForCounts(verified: number, required: number): ChipTone {
@@ -172,14 +178,18 @@ function KycPanel({
               </span>
               <span className="flex-1 flex flex-col gap-0.5">
                 <span className="text-[14px] font-semibold text-on-surface">{d.label}</span>
-                {d.uploaded_by && (
-                  <span className="text-[11px] text-secondary">Uploaded by {d.uploaded_by}</span>
-                )}
-                {d.uploaded_at && (
-                  <span className="text-[11px] text-secondary">on {fmtTimestamp(d.uploaded_at)}</span>
-                )}
-                {d.approved_at && (
-                  <span className="text-[11px] text-secondary">Approved on {fmtTimestamp(d.approved_at)}</span>
+                {AUDIT_VISIBLE_STATUSES.has(d.status) && (
+                  <>
+                    {d.uploaded_by && (
+                      <span className="text-[11px] text-secondary">Uploaded by {d.uploaded_by}</span>
+                    )}
+                    {d.uploaded_at && (
+                      <span className="text-[11px] text-secondary">on {fmtTimestamp(d.uploaded_at)}</span>
+                    )}
+                    {d.approved_at && (
+                      <span className="text-[11px] text-secondary">Approved on {fmtTimestamp(d.approved_at)}</span>
+                    )}
+                  </>
                 )}
               </span>
               {hov && d.can_reupload ? (
