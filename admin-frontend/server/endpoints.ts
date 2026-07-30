@@ -51,10 +51,6 @@ export const ENDPOINTS = {
     PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
     PTA_RUN:  `${MOBO}/post-trade-allocation/run`,
     PTA_HISTORY: `${MOBO}/post-trade-allocation/history`,
-    RECONCILIATION: `${MOBO}/reconciliation`,
-    EOD:            `${MOBO}/eod`,
-    EOD_SIGNOFF:    `${MOBO}/eod/sign-off`,
-    EOD_EXPORT:     `${MOBO}/eod/export`,
   },
   COMPLIANCE: {
     ONBOARDINGS:        `${COMPLIANCE}/onboardings`,

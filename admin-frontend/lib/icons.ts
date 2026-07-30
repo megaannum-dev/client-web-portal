@@ -153,6 +153,10 @@ export {
   // CRM — PC Monthly Reports comment feature
   MessageSquarePlus,
   MessageSquareText,
+  // CRM — MOBO recon/commission redesign
+  Calendar,
+  Percent,
+  Receipt,
   // CRM — RM Contact Log (client-info detail)
   Video,
 } from "lucide-react";

@@ -8,17 +8,15 @@
 // Ported from the design prototype (CoOverview.jsx).
 
 import { useRouter } from "next/navigation";
-import { Filter, Download, ClipboardCheck, RefreshCw, Shield, FileText } from "@/lib/icons";
+import { ClipboardCheck, RefreshCw, Shield, FileText } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { OvTile, OvPanel, OvRow, UrgTag } from "@/components/compliance/overview/OverviewWidgets";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
-import { CO_RENEWALS, GR_GUIDELINES, coMoney, redemptionAmountRisk } from "@/lib/compliance/mock";
-
-const COMPLIANCE_THRESHOLD = 300000;
+import { GR_GUIDELINES, COMPLIANCE_THRESHOLD, coMoney, redemptionAmountRisk } from "@/lib/compliance/mock";
+import { renewalDueForRow } from "@/lib/onboarding/renewals";
 
 export default function ComplianceOverviewPage() {
   const router = useRouter();
@@ -35,10 +33,11 @@ export default function ComplianceOverviewPage() {
   const obFlagged = obPending.filter((o) => o.documents.some((d) => d.status === "rejected")).length;
   const crPending = redemptions.filter((r) => r.status === "awaiting_co");
   const crHigh = crPending.filter((r) => redemptionAmountRisk(r.amount).tone === "failed").length;
-  const renOver = CO_RENEWALS.filter((r) => r.days < 0).length;
-  const renSoon = CO_RENEWALS.filter((r) => r.days >= 0 && r.days <= 7).length;
-  const renShown = CO_RENEWALS.filter((r) => r.days <= 15);
-  const nextUp = CO_RENEWALS.find((r) => r.days >= 0);
+  const renewals = onboarding.map(renewalDueForRow).filter((r): r is NonNullable<typeof r> => r !== null);
+  const renOver = renewals.filter((r) => r.days < 0).length;
+  const renSoon = renewals.filter((r) => r.days >= 0 && r.days <= 7).length;
+  const renShown = renewals.filter((r) => r.days <= 15);
+  const nextUp = renewals.find((r) => r.days >= 0);
 
   return (
     <div className="mx-auto">
@@ -46,12 +45,6 @@ export default function ComplianceOverviewPage() {
         <PageHeader
           title="Compliance Overview"
           subtitle={name ? `Hello, ${name} — here's today's compliance workload.` : "Here's today's compliance workload."}
-          actions={
-            <>
-              <Button variant="secondary" icon={Filter}>Filters</Button>
-              <Button variant="secondary" icon={Download}>Export log</Button>
-            </>
-          }
         />
       </div>
 
@@ -91,7 +84,7 @@ export default function ComplianceOverviewPage() {
             ))}
             {renShown.map((r) => (
               <OvRow
-                key={r.client} kind="renewal" title={`${r.client} — renewal`} sub={`${r.rm} · ${r.mandate}`}
+                key={r.client} kind="renewal" title={`${r.client} — renewal`} sub={`${r.rm} · ${r.docLabel}`}
                 right={<UrgTag days={r.days} />}
                 onClick={() => goReview("tab=onboarding")}
               />
@@ -113,18 +106,6 @@ export default function ComplianceOverviewPage() {
                 />
               );
             })}
-          </OvPanel>
-          <OvPanel
-            icon={FileText} title="Investment Guidelines" count={GR_GUIDELINES.length}
-            viewLabel="View tab" onViewAll={() => goReview("tab=guideline")}
-          >
-            {GR_GUIDELINES.map((g) => (
-              <OvRow
-                key={g.id} kind="guideline" title={g.name} sub={`${g.client} · ${g.mandate}`}
-                onClick={() => goReview(`tab=guideline&openGrId=${g.id}`)}
-                right={<span className="rounded-md bg-surface-container px-2 py-0.5 text-[11.5px] font-bold text-secondary">v{g.version}</span>}
-              />
-            ))}
           </OvPanel>
         </div>
       </div>
