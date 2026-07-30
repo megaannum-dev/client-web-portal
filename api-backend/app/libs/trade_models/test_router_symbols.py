@@ -4,16 +4,20 @@ Run: .venv/Scripts/python.exe -m pytest -q app/libs/trade_models/test_router_sym
 """
 
 import uuid
+from typing import Annotated
 
 import pytest
+from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session as OrmSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
 from app.libs.auth.deps import get_current_admin_user
 from app.main import app
+from app.models.access import AccessLevel, PageAccess
 from app.models.users import AdminProfile, AdminRole, Portal, User
 
 
@@ -42,15 +46,44 @@ def client():
     )
 
     # Seed the admin profile so require_action(MODEL_WRITE) grants naturally
-    # (ADMIN role has every action — see app/libs/auth/actions.py).
+    # (ADMIN role has every action — see app/libs/auth/actions.py). Also seeds
+    # one page_access row: ADMIN edit on pc.model-management, the page this
+    # router's actions are keyed on (proposal 019 / BE-5 -- require_action now
+    # resolves from page_access, not the deleted ROLE_ACTIONS, so an
+    # unseeded table would deny even ADMIN). COMPLIANCE gets no row for this
+    # page, so the mid-test role switch to COMPLIANCE is denied exactly as
+    # this test already expects.
     seed_db = Session()
     seed_db.add(stub_user)
     seed_db.add(AdminProfile(user_id=stub_user.id, role=AdminRole.ADMIN))
+    seed_db.add(
+        PageAccess(page_id="pc.model-management", role=AdminRole.ADMIN, level=AccessLevel.EDIT)
+    )
     seed_db.commit()
     seed_db.close()
 
+    def _override_get_current_admin_user(
+        db: Annotated[OrmSession, Depends(get_db)],
+    ) -> User:
+        """Re-queries `stub_user` by id on the CURRENT request's session, rather
+        than handing back the one Python object created above (mirroring how
+        `get_current_admin_user` -> `_resolve_user` always re-queries per real
+        request). Two reasons this matters, both surfaced by proposal 019's
+        BE-4/BE-5 (`access.resolver` reads `user.admin_profile` on every
+        guarded request):
+          1. A fixed object detaches the instant `seed_db.close()` runs above,
+             so any later `user.admin_profile` access (a `lazy="joined"`
+             relationship, app/models/users.py) raises `DetachedInstanceError`.
+          2. This test mutates `AdminProfile.role` directly via a separate
+             session mid-test (the COMPLIANCE/ADMIN role-switch below) to
+             exercise the guard both ways. A single cached Python object's
+             `admin_profile` relationship, once populated, never observes that
+             write -- only a fresh per-request query does, exactly like a real
+             request would."""
+        return db.query(User).filter(User.id == stub_user.id).one()
+
     app.dependency_overrides[get_db] = _override_get_db
-    app.dependency_overrides[get_current_admin_user] = lambda: stub_user
+    app.dependency_overrides[get_current_admin_user] = _override_get_current_admin_user
     try:
         yield TestClient(app), Session
     finally:
