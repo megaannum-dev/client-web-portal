@@ -208,7 +208,7 @@ def list_client_allotments(
 def submit_allotment(
     req: SubmitAllotmentReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
 ) -> AllotRdmptDTO:
     return svc.submit_allotment(req)
 
@@ -217,7 +217,7 @@ def submit_allotment(
 def submit_redemption(
     req: SubmitRedemptionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
 ) -> AllotRdmptDTO:
     return svc.submit_redemption(req)
 
@@ -231,7 +231,7 @@ def file_transaction_detail(
     allotment_id: uuid.UUID,
     req: TransactionDetailRequest,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
 ) -> TransactionDetailDTO:
     return svc.file_transaction_detail(allotment_id, req, filed_by=user.firebase_uid)
 
@@ -309,7 +309,7 @@ def reject_onboarding(
 @router.get("/pc/allotments", response_model=list[AllotRdmptDTO])
 def get_allotments(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ALLOTMENT_ACKNOWLEDGE))],
+    _: Annotated[User, Depends(require_action(Action.ALLOTMENT_VIEW))],
 ) -> list[AllotRdmptDTO]:
     return svc.list_allotments()
 

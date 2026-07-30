@@ -233,7 +233,7 @@ def set_rm_ticket_status(
     ref: str,
     req: RmTicketStatusReq,
     svc: Annotated[ClientPortalService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
     role: Annotated[AdminRole, Depends(_caller_role)],
 ) -> RmTicketDTO:
     return svc.set_rm_ticket_status(ref, req, rm_uid=user.firebase_uid, role=role)

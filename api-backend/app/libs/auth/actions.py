@@ -23,7 +23,8 @@ class Action(str, enum.Enum):
     # Client Onboarding — feature 013 (BE-4)
     ONBOARDING_WRITE = "onboarding:write"  # RM: start / upload / submit
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
-    ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: view + acknowledge allotments
+    ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: acknowledge/decide allotments (write)
+    ALLOTMENT_VIEW = "pc:allotment_view"  # BE-22 (C-12) — read-only sibling, see above
 
 
 # Only RM and ADMIN carry actions at this point. MOBO/PM/PC/COMPLIANCE are

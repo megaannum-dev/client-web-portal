@@ -128,14 +128,13 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # ---- PC ----
     "pc.model-management": (fs(Action.MODEL_VIEW), fs(Action.MODEL_WRITE)),
     "pc.allocation-matrix": (fs(Action.ALLOCATION_VIEW), fs(Action.ALLOCATION_WRITE)),
-    # The page's only action IS acknowledging, and PC holds it unconditionally today;
-    # placing it at EDIT would silently downgrade a VIEW-granted PC (proposal § B).
-    # AMENDED BY BE-22 (C-12/D-16) to (fs(ALLOTMENT_VIEW), fs(ALLOTMENT_ACKNOWLEDGE)) --
-    # D-11's seed grants `view` here to RM/MOBO/COMPLIANCE too, and ALLOTMENT_ACKNOWLEDGE
-    # guards the mutating routes as well as the read, so a VIEW bucket built from it was
-    # a real read/write conflation once those roles could reach it. Left in its original
-    # pinned form here; see BE-22 for the fix.
-    "pc.allotment-redemption": (fs(Action.ALLOTMENT_ACKNOWLEDGE), fs()),
+    # BE-22 (C-12/D-16): `view` now reads the page (GET /pc/allotments) and nothing
+    # else; `edit` adds acknowledge/decide -- exactly what PC (the only role that
+    # held this page before D-11) has today. Was: (fs(ALLOTMENT_ACKNOWLEDGE), fs()) --
+    # D-11's seed grants `view` here to RM/MOBO/COMPLIANCE too, and the old bucket's
+    # ALLOTMENT_ACKNOWLEDGE guarded the mutating routes as well as the read, which
+    # would have been a real read/write conflation once those roles could reach it.
+    "pc.allotment-redemption": (fs(Action.ALLOTMENT_VIEW), fs(Action.ALLOTMENT_ACKNOWLEDGE)),
     # ---- COMPLIANCE ----
     # Every /compliance/* route (board read, download, verdict, approve, reject) is
     # guarded by ONBOARDING_REVIEW, so the review page's EDIT bucket carries it and
