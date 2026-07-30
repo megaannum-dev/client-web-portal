@@ -291,8 +291,12 @@ def approve_onboarding(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> OnboardingDTO:
-    return svc.approve(onboarding_id, compliance_uid=user.firebase_uid)
+    identity = FirebaseIdentityService(settings)
+    return svc.approve(
+        onboarding_id, compliance_uid=user.firebase_uid, identity=identity, settings=settings
+    )
 
 
 @router.post("/compliance/onboardings/{onboarding_id}/reject", response_model=OnboardingDTO)
