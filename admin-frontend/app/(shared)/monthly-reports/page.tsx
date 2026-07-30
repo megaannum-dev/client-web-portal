@@ -7,6 +7,7 @@ import { downloadAs } from "@/lib/downloadFile";
 import { MOCK_EOM_REPORTS } from "@/lib/mock/eom-reports";
 import { CommentModal } from "@/components/monthly-reports/CommentModal";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useEomComments } from "@/hooks/api/useEomComments";
 import clsx from "clsx";
 
 const PAGE_SIZE = 5;
@@ -15,9 +16,10 @@ export default function MonthlyReportsPage() {
   const { portalUser } = useAuth();
   const isPC = portalUser?.role === "PC";
 
+  const { data: comments, saveComment } = useEomComments();
+
   const [currentPage, setCurrentPage] = useState(1);
-  const [comments, setComments] = useState<Record<number, string>>({});
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingReport, setEditingReport] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(MOCK_EOM_REPORTS.length / PAGE_SIZE));
   const pageData   = MOCK_EOM_REPORTS.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -72,7 +74,7 @@ export default function MonthlyReportsPage() {
             <tbody className="bg-surface-lowest divide-y divide-outline-variant">
               {pageData.map((r, i) => {
                 const idx = (currentPage - 1) * PAGE_SIZE + i;
-                const hasComment = !!comments[idx];
+                const hasComment = !!comments?.[r.name]?.comment;
                 return (
                   <tr key={idx} className="hover:bg-surface-container/40 transition-colors duration-100">
                     <td className="px-5 py-4">
@@ -88,8 +90,8 @@ export default function MonthlyReportsPage() {
                         {hasComment ? (
                           <button
                             type="button"
-                            onClick={() => setEditingIndex(idx)}
-                            title={comments[idx]}
+                            onClick={() => setEditingReport(r.name)}
+                            title={comments?.[r.name]?.comment}
                             aria-label={`${isPC ? "Edit" : "View"} comment on ${r.name}`}
                             className="inline-flex flex-none items-center rounded border border-outline-variant bg-white px-2 py-[5px] text-primary transition-colors"
                           >
@@ -99,7 +101,7 @@ export default function MonthlyReportsPage() {
                           /* View/Edit Gate Function */
                           <button
                             type="button"
-                            onClick={() => setEditingIndex(idx)}
+                            onClick={() => setEditingReport(r.name)}
                             title="Add comment"
                             aria-label={`Add comment on ${r.name}`}
                             className="inline-flex flex-none items-center rounded border border-transparent px-2 py-[5px] text-secondary transition-colors hover:bg-surface-container"
@@ -173,18 +175,22 @@ export default function MonthlyReportsPage() {
         </div>
       </section>
 
-      {editingIndex !== null && (
-        <CommentModal
-          report={MOCK_EOM_REPORTS[editingIndex]}
-          value={comments[editingIndex]}
-          readOnly={!isPC}
-          onSave={(text) => {
-            setComments((prev) => ({ ...prev, [editingIndex]: text }));
-            setEditingIndex(null);
-          }}
-          onClose={() => setEditingIndex(null)}
-        />
-      )}
+      {editingReport !== null && (() => {
+        const report = MOCK_EOM_REPORTS.find((r) => r.name === editingReport);
+        if (!report) return null;
+        return (
+          <CommentModal
+            report={report}
+            value={comments?.[editingReport]?.comment}
+            readOnly={!isPC}
+            onSave={async (text) => {
+              const result = await saveComment(editingReport, text);
+              if (result.success) setEditingReport(null);
+            }}
+            onClose={() => setEditingReport(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
