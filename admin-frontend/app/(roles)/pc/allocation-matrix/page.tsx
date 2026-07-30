@@ -9,6 +9,7 @@ import { StatStrip } from "@/components/pc/allocation-matrix/StatStrip";
 import { PeriodPicker } from "@/components/pc/allocation-matrix/PeriodPicker";
 import { ViewToggle, type Toggle } from "@/components/pc/allocation-matrix/ViewToggle";
 import { HowToRead } from "@/components/pc/allocation-matrix/HowToRead";
+import { SopInfo } from "@/components/pc/allocation-matrix/SopInfo";
 import { Matrix } from "@/components/pc/allocation-matrix/Matrix";
 import { DetailPanel } from "@/components/pc/allocation-matrix/DetailPanel";
 import { ConfirmModal } from "@/components/pc/allocation-matrix/ConfirmModal";
@@ -67,6 +68,7 @@ export default function AllocationMatrixPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <SopInfo />
             <ViewToggle view={view} onView={setView} />
             {historical ? (
               <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>

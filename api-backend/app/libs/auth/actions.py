@@ -24,6 +24,7 @@ class Action(str, enum.Enum):
     ONBOARDING_MANAGE = "onboarding:manage"  # RM: start / upload / submit
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
     ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: view + acknowledge allotments
+    EOM_COMMENT_MANAGE = "reports:eom_comment_manage"  # PC: write EoM report comments
 
 
 # Only RM and ADMIN carry actions at this point. MOBO/PM/PC/COMPLIANCE are
@@ -46,6 +47,7 @@ ROLE_ACTIONS: dict[AdminRole, set[Action]] = {
         Action.ALLOCATION_VIEW,
         Action.ALLOCATION_MANAGE,
         Action.ALLOTMENT_ACKNOWLEDGE,
+        Action.EOM_COMMENT_MANAGE,
     },
     AdminRole.COMPLIANCE: {Action.ONBOARDING_REVIEW},
     AdminRole.ADMIN: set(Action),
