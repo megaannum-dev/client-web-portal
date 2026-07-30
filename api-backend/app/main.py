@@ -34,10 +34,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):  # type: ignore[type-arg]
     settings = get_settings()
-    if settings.app_env == "production" and (settings.dev_mode or settings.firebase_auth_disabled):
+    if settings.app_env == "production" and settings.firebase_auth_disabled:
         raise RuntimeError(
-            "Fail-closed: dev_mode/firebase_auth_disabled cannot be enabled when "
-            "APP_ENV=production."
+            "Fail-closed: firebase_auth_disabled cannot be enabled when APP_ENV=production."
         )
     assert_upload_window_valid()
     Base.metadata.create_all(bind=engine)
@@ -78,12 +77,6 @@ app.include_router(
 )  # /api/rm|compliance|pc|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
-
-# --- Dev-only (mounted iff dev_mode) ---
-if get_settings().dev_mode:
-    from app.libs.dev.router import router as dev_router
-
-    app.include_router(dev_router, prefix="/api")
 
 
 @app.get("/health")
