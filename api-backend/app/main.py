@@ -10,6 +10,7 @@ import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Ba
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
 from app.core.database import Base, engine
+from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
@@ -76,6 +77,7 @@ app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
+app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 
 # --- Dev-only (mounted iff dev_mode) ---
 if get_settings().dev_mode:
