@@ -80,6 +80,22 @@ class User(Base):
         nullable=True,
     )
 
+    # Written by login_and_bind on every successful login (Backend C-7). NULL =
+    # never signed in, which is exactly how the directory derives StaffStatus
+    # INITIATED: status == 'active' AND last_sign_in_at IS NULL (proposal D-4).
+    #
+    # INITIATED is DERIVED, not stored: no third AccountStatus value is added.
+    # "May they sign in" (status) and "have they ever" (this column) are
+    # independent facts; a third enum member would conflate them and force every
+    # existing assert_can_authenticate / status comparison to learn about it.
+    #
+    # There is deliberately no password-expiry column of any kind: with the
+    # set-password link (Backend C-3) no password is ever issued, so nothing
+    # can expire. Link lifetime belongs to Firebase's action-link settings.
+    last_sign_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -196,6 +212,16 @@ class AdminProfile(Base):
         nullable=False,
     )
     phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The staff directory's "Dept" column (§4.1 StaffOut.department). Free text,
+    # nullable, no business logic reads it.
+    department: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The wizard's "Start date" field, carried by StaffEnrollIn (§4.1). DATE, not
+    # DATETIME: it is a calendar day, and the wizard's help text says "Defaults
+    # to today". Same plain-Date treatment as ClientProfile.anniversary.
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The wizard's "Correspondence address" field, carried by StaffEnrollIn
+    # (§4.1). TEXT, matching the existing client_profiles.address precedent.
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
