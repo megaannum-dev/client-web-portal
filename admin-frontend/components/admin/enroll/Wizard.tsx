@@ -9,16 +9,15 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Copy, Mail, MapPin,
-  Phone, RefreshCw, Save, UserRoundPlus,
+  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Mail, MapPin,
+  Phone, Save, UserRoundPlus,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Checkbox, Help, IconButton, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
+import { Checkbox, Help, Label, Notice, TextField } from "@/components/admin/Shared";
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { ALL_PAGES, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
-import { genPassword } from "@/lib/admin/password";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
 
@@ -62,7 +61,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
     role: d.role || "—",
     access: `${granted} of ${store.totalPages} pages · ${ovrCount} override${ovrCount === 1 ? "" : "s"}`,
-    creds: isEdit ? "Credentials unchanged" : "Temporary password issued",
+    creds: isEdit ? "Credentials unchanged" : "Set-password link sent",
   };
   const LABEL: Record<StepKey, string> = { identity: "Identity", role: "Role", access: "Access review", creds: "Credentials" };
   const SUB: Record<StepKey, string> = { identity: "Who is joining.", role: "What they hold.", access: "What that grants.", creds: "How they get in." };
@@ -71,8 +70,8 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     role: <>One role per user — it sets the standing page access defined in <b>System Config</b>.</>,
     access: <>Resolved from the role. Any level changed here is recorded as a <b>per-user override</b>, with a reason and an expiry. Groups collapse — open only what you are changing.</>,
     creds: isEdit
-      ? <>Reissue sign-in credentials for {d.first || "this user"}. Leave them alone to keep the current password.</>
-      : <>How {d.first || "this user"} gets in the first time. Nothing is sent until you create the account.</>,
+      ? <>Re-send the set-password link for {d.first || "this user"}. Their current password keeps working until they use a new link.</>
+      : <>{d.first || "This user"} sets their own password from a link we email to <b>{d.email || "the work email"}</b>. Nothing is sent until you create the account.</>,
   };
 
   const next = () => {
@@ -200,25 +199,13 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
 
               {cur === "creds" && (
                 <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
-                  <TextField label="Temporary password" value={d.pw} onChange={(v) => patchDraft({ pw: v })} mono
-                    trail={
-                      <span className="inline-flex gap-1">
-                        <IconButton icon={RefreshCw} size={14} title="Generate a new one"
-                          onClick={() => { patchDraft({ pw: genPassword() }); toast("New temporary password generated."); }} />
-                        <IconButton icon={Copy} size={14} title="Copy"
-                          onClick={() => toast.success("Temporary password copied to the clipboard.")} />
-                      </span>
-                    }
-                    help="12 characters, generated. Must be changed at first sign-in." />
-                  <SelectField label="Password expires" value={d.expiry} onChange={(v) => patchDraft({ expiry: v })} options={["Never", "24 hours", "72 hours", "7 days"]}
-                    help={d.expiry === "Never" ? "The temporary password stays valid until it is used or reset." : "After this an admin must reissue one."} />
                   <div className="rounded-xl border border-outline-variant bg-surface-low p-[14px_16px]" style={{ gridColumn: "1 / -1" }}>
                     <Checkbox on={d.invite} onChange={(v) => patchDraft({ invite: v })}>
                       Email the invitation to <b>{d.email || "the work email"}</b>
                     </Checkbox>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <Notice tone="warn"><b>Creates the account immediately</b> — no second approver. The temporary password is shown once, on the screen after this.</Notice>
+                    <Notice tone="warn"><b>Creates the account immediately</b> — no second approver.</Notice>
                   </div>
                 </div>
               )}

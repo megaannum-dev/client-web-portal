@@ -19,7 +19,6 @@ import {
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { genPassword } from "@/lib/admin/password";
 import { todayLabel } from "@/lib/admin/today";
 import type { EnrollDraft, Role, StaffOut } from "@/lib/admin/types";
 
@@ -37,7 +36,7 @@ type ModalState =
 function blankDraft(): EnrollDraft {
   return {
     mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
-    role: "", ovr: {}, pw: genPassword(), expiry: "Never", invite: true,
+    role: "", ovr: {}, invite: true,
   };
 }
 
@@ -61,7 +60,7 @@ export default function EnrollUserPage() {
     setDraft({
       mode: "edit", orig: u.firebase_uid, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.department ?? "", role: u.role, ovr: {}, pw: genPassword(), expiry: "Never", invite: false,
+      dept: u.department ?? "", role: u.role, ovr: {}, invite: false,
     });
     setStep(0); setView("wizard"); setKebab(null);
   };
