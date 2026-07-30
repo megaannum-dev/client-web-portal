@@ -41,7 +41,7 @@ def client():
         portal=Portal.ADMIN,
     )
 
-    # Seed the admin profile so require_action(MODEL_MANAGE) grants naturally
+    # Seed the admin profile so require_action(MODEL_WRITE) grants naturally
     # (ADMIN role has every action — see app/libs/auth/actions.py).
     seed_db = Session()
     seed_db.add(stub_user)
@@ -67,7 +67,7 @@ def test_symbol_routes_guarded_and_codes(client):
     http, Session = client
     model_id = _create_model(http)
 
-    # require_action denies MODEL_MANAGE when the admin's role has no actions
+    # require_action denies MODEL_WRITE when the admin's role has no actions
     # (COMPLIANCE — see app/libs/auth/actions.py ROLE_ACTIONS).
     db = Session()
     db.query(AdminProfile).update({"role": AdminRole.COMPLIANCE})

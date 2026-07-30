@@ -67,7 +67,7 @@ def onboard_client(
     service: Annotated[ClientService, Depends(_get_service)],
     identity: Annotated[FirebaseIdentityService, Depends(get_identity_service)],
     settings: Annotated[Settings, Depends(get_settings)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
 ) -> ClientOnboardOut:
     staged, link = service.onboard(
         caller_uid=user.firebase_uid,

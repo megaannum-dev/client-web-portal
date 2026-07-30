@@ -47,7 +47,7 @@ def _service(db: Annotated[Session, Depends(get_db)]) -> OnboardingService:
 def start_onboarding(
     req: StartOnboardingReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> OnboardingDTO:
     identity = FirebaseIdentityService(settings)
@@ -57,7 +57,7 @@ def start_onboarding(
 @router.get("/rm/onboardings/rm-options", response_model=list[RmOptionDTO])
 def get_rm_options(
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> list[RmOptionDTO]:
     """Registered before /rm/onboardings/{onboarding_id} so "rm-options"
     isn't swallowed as a (then-invalid) onboarding_id path param."""
@@ -67,7 +67,7 @@ def get_rm_options(
 @router.get("/rm/onboardings/doc-specs", response_model=list[DocSpecDTO])
 def get_doc_specs(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> list[DocSpecDTO]:
     """Same registration-order reason as rm-options above. The single source
     of truth for the 7 required docs (compliance_doc_config.py), exposed so
@@ -79,7 +79,7 @@ def get_doc_specs(
 @router.get("/rm/onboardings", response_model=BoardDTO)
 def get_board(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> BoardDTO:
     return svc.board()
 
@@ -88,7 +88,7 @@ def get_board(
 def get_onboarding_by_client(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> OnboardingDTO:
     """Registered before /rm/onboardings/{onboarding_id} -- same registration-order
     reason as rm-options/doc-specs above ("by-client" would otherwise be swallowed
@@ -112,7 +112,7 @@ def get_client_events_rm(
 def get_onboarding_detail(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> OnboardingDTO:
     return svc.detail(onboarding_id)
 
@@ -122,7 +122,7 @@ async def upload_document(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
     file: UploadFile = File(...),
 ) -> DocumentDTO:
     return svc.upload_document(
@@ -139,7 +139,7 @@ async def upload_document(
 def submit_onboarding(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> OnboardingDTO:
     return svc.submit(onboarding_id)
 
@@ -149,7 +149,7 @@ def download_document_rm(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> StreamingResponse:
     stream, filename, content_type = svc.download_document(onboarding_id, doc_type)
     return StreamingResponse(
@@ -163,7 +163,7 @@ def download_document_rm(
 def download_all_documents(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
 ) -> StreamingResponse:
     stream, zip_name = svc.download_all_documents(onboarding_id)
     return StreamingResponse(

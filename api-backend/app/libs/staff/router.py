@@ -26,7 +26,7 @@ def enroll_staff(
     service: Annotated[StaffService, Depends(_get_service)],
     identity: Annotated[FirebaseIdentityService, Depends(get_identity_service)],
     settings: Annotated[Settings, Depends(get_settings)],
-    user: Annotated[User, Depends(require_action(Action.USER_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.USER_WRITE))],
 ) -> StaffOut:
     admin_user, invite_link = service.enroll(
         caller_uid=user.firebase_uid,
@@ -51,7 +51,7 @@ def update_staff(
     body: StaffUpdateIn,
     service: Annotated[StaffService, Depends(_get_service)],
     settings: Annotated[Settings, Depends(get_settings)],
-    _: Annotated[User, Depends(require_action(Action.USER_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.USER_WRITE))],
 ) -> StaffOut:
     user = service.update(uid, body, settings)
     return StaffOut(firebase_uid=user.firebase_uid, role=user.role, status=user.status.value)
