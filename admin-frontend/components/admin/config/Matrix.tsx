@@ -11,13 +11,19 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Lock } from "@/lib/icons";
 import { Card } from "@/components/ui/Card";
 import { Help, Label, LevelBadge, Th, Td, useHover } from "@/components/admin/Shared";
-import { LEVEL_LABEL, PAGE_CATALOG, ROLES, kFor } from "@/lib/admin/catalog";
+import { LEVEL_LABEL, PAGE_GROUPS, ROLE_CODES, type CatalogPage, kFor } from "@/lib/admin/catalog";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Level } from "@/lib/admin/types";
+import type { PageId, Role } from "@/lib/pages-config";
 
-export interface CellPayload { name: string; path: string; roleIdx: number }
+export interface CellPayload { page_id: PageId; label: string; path: string; role: Role }
 
 const LOCKED_MSG = "ADMIN × Administration is locked — it is the only route back into the permission model.";
+
+/** ADMIN × the admin pages stays locked — it is the only route back into the permission
+ *  model. Re-expressed against the surviving keys: the old test compared the group
+ *  label and a positional role index, and neither survives derivation from PAGES. */
+const isLocked = (page_id: PageId, role: Role) => role === "ADMIN" && page_id.startsWith("admin.");
 
 export function Matrix({
   collapsed, onToggleGroup, selCell, onSelectCell, onOpenCell,
@@ -40,18 +46,18 @@ export function Matrix({
                 Page
                 <span className="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-secondary">route</span>
               </Th>
-              {ROLES.map((r) => (
-                <Th key={r.code} className="!text-center">
-                  {r.code}
+              {ROLE_CODES.map((role) => (
+                <Th key={role} className="!text-center">
+                  {role}
                   <span className="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-secondary">
-                    {roleUsers(r.code)} user{roleUsers(r.code) === 1 ? "" : "s"}
+                    {roleUsers(role)} user{roleUsers(role) === 1 ? "" : "s"}
                   </span>
                 </Th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {PAGE_CATALOG.map(([group, pages]) => {
+            {PAGE_GROUPS.map(([group, pages]) => {
               const open = !collapsed[group];
               return (
                 <Group
@@ -81,7 +87,7 @@ function Group({
   group, pages, open, onToggleGroup, selCell, onSelectCell, onOpenCell,
 }: {
   group: string;
-  pages: { name: string; path: string }[];
+  pages: CatalogPage[];
   open: boolean;
   onToggleGroup: (group: string) => void;
   selCell: string | null;
@@ -92,7 +98,7 @@ function Group({
     <>
       <tr>
         <td
-          colSpan={1 + ROLES.length}
+          colSpan={1 + ROLE_CODES.length}
           onClick={() => onToggleGroup(group)}
           className="cursor-pointer border-t border-outline-variant bg-surface-container px-4 py-[9px]"
         >
@@ -106,18 +112,18 @@ function Group({
         </td>
       </tr>
       {open && pages.map((p) => (
-        <tr key={p.path}>
+        <tr key={p.page_id}>
           <Td>
-            <div className="text-[13px] font-semibold">{p.name}</div>
+            <div className="text-[13px] font-semibold">{p.label}</div>
             <div className="text-[11.5px] text-secondary">{p.path}</div>
           </Td>
-          {ROLES.map((r, roleIdx) => (
+          {ROLE_CODES.map((role) => (
             <Cell
-              key={r.code}
-              group={group}
-              name={p.name}
+              key={role}
+              page_id={p.page_id}
+              label={p.label}
               path={p.path}
-              roleIdx={roleIdx}
+              role={role}
               selCell={selCell}
               onSelectCell={onSelectCell}
               onOpenCell={onOpenCell}
@@ -130,23 +136,23 @@ function Group({
 }
 
 function Cell({
-  group, name, path, roleIdx, selCell, onSelectCell, onOpenCell,
+  page_id, label, path, role, selCell, onSelectCell, onOpenCell,
 }: {
-  group: string;
-  name: string;
+  page_id: PageId;
+  label: string;
   path: string;
-  roleIdx: number;
+  role: Role;
   selCell: string | null;
   onSelectCell: (key: string | null) => void;
   onOpenCell: (payload: CellPayload) => void;
 }) {
   const { eff, ovrOn, staged } = useAdminStore();
   const [hover, hb] = useHover();
-  const key = kFor(path, roleIdx);
+  const key = kFor(page_id, role);
   const st = staged[key];
   const sel = selCell === key;
-  const locked = group === "Administration" && roleIdx === 5;
-  const isOvr = ovrOn(path, roleIdx);
+  const locked = isLocked(page_id, role);
+  const isOvr = ovrOn(page_id, role);
 
   const click = () => {
     if (locked) {
@@ -154,7 +160,7 @@ function Cell({
       return;
     }
     onSelectCell(key);
-    onOpenCell({ name, path, roleIdx });
+    onOpenCell({ page_id, label, path, role });
   };
 
   return (
@@ -169,7 +175,7 @@ function Cell({
       }}
     >
       <span className="relative inline-flex">
-        <LevelBadge level={eff(path, roleIdx)} override={isOvr} />
+        <LevelBadge level={eff(page_id, role)} override={isOvr} />
         {st && (
           <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full border-[1.5px] border-white" style={{ background: "var(--primary)" }} />
         )}

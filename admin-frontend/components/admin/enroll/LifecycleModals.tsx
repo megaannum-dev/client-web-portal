@@ -16,9 +16,10 @@ import {
   Checkbox, IconButton, Label, LevelDiff, LevelSeg, Modal, Notice, SelectField, TextField,
 } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_PATH, ROLE_IDX } from "@/lib/admin/catalog";
+import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
 import { genPassword } from "@/lib/admin/password";
 import type { AdminUser, Level, Role } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 import { TODAY } from "@/lib/mock/admin-data";
 
 const EXPIRY_OPTS = ["30 days", "90 days", "30 Sep 2026", "31 Dec 2026", "No expiry"];
@@ -68,20 +69,19 @@ export function ResetModal({ user: u, onClose }: { user: AdminUser; onClose: () 
 export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; onClose: () => void }) {
   const store = useAdminStore();
   const mine = store.ovrFor(u.name);
-  const roleIdx = ROLE_IDX[u.role];
-  const [path, setPath] = useState("");
+  const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");
   const [exp, setExp] = useState("90 days");
   const [why, setWhy] = useState("");
   const [touched, setTouched] = useState(false);
   const taken = mine.map((o) => o.path);
-  const opts = ALL_PAGES.filter((p) => !taken.includes(p.path)).map((p) => ({ value: p.path, label: `${p.name} · ${p.path}` }));
+  const opts = ALL_PAGES.filter((p) => !taken.includes(p.path)).map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }));
 
   const add = () => {
-    if (!path || !why.trim()) { setTouched(true); toast.warning("A page and a reason are required."); return; }
-    const p = PAGE_BY_PATH[path];
-    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.name, path, from: store.eff(path, roleIdx), to: lv, why: why.trim(), exp });
-    setPath(""); setWhy(""); setTouched(false);
+    if (!pageId || !why.trim()) { setTouched(true); toast.warning("A page and a reason are required."); return; }
+    const p = PAGE_BY_ID[pageId];
+    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.label, path: p.path, from: store.eff(pageId, u.role), to: lv, why: why.trim(), exp });
+    setPageId(""); setWhy(""); setTouched(false);
   };
 
   return (
@@ -119,12 +119,12 @@ export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; on
       <div className="h-px bg-outline-variant" />
       <Label>Add an exception</Label>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-        <SelectField label="Page" value={path} onChange={setPath} options={opts} placeholder="Select a page…" span required />
+        <SelectField label="Page" value={pageId} onChange={(v) => setPageId(v as PageId)} options={opts} placeholder="Select a page…" span required />
         <SelectField label="Level" value={lv} onChange={(v) => setLv(v as Level)} options={[{ value: "NONE", label: "None" }, { value: "VIEW", label: "View" }, { value: "EDIT", label: "Edit" }]} />
         <SelectField label="Expires" value={exp} onChange={setExp} options={EXPIRY_OPTS} />
         <TextField label="Reason" value={why} onChange={setWhy} placeholder="Required — shown in the overrides ledger" span required invalid={touched && !why.trim() ? "Required." : null} />
       </div>
-      {path && <Notice tone="info">{u.role} default for this page is <b>{LEVEL_LABEL[store.eff(path, roleIdx)]}</b> — this grants <b>{LEVEL_LABEL[lv]}</b>.</Notice>}
+      {pageId && <Notice tone="info">{u.role} default for this page is <b>{LEVEL_LABEL[store.eff(pageId, u.role)]}</b> — this grants <b>{LEVEL_LABEL[lv]}</b>.</Notice>}
     </Modal>
   );
 }
@@ -268,20 +268,19 @@ export function AddOverrideModal({ onClose }: { onClose: () => void }) {
   const store = useAdminStore();
   const candidates = store.users.filter((u) => u.status !== "Deactivated");
   const [email, setEmail] = useState(candidates[0]?.email ?? "");
-  const [path, setPath] = useState("");
+  const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");
   const [why, setWhy] = useState("");
   const [exp, setExp] = useState("30 Sep 2026");
   const [onExp, setOnExp] = useState("Revert to role default");
   const [touched, setTouched] = useState(false);
   const u = candidates.find((x) => x.email === email);
-  const roleIdx = u ? ROLE_IDX[u.role] : 0;
-  const from: Level = path ? store.eff(path, roleIdx) : "NONE";
+  const from: Level = pageId && u ? store.eff(pageId, u.role) : "NONE";
 
   const submit = () => {
-    if (!u || !path || !why.trim()) { setTouched(true); toast.warning("User, page and reason are all required."); return; }
-    const p = PAGE_BY_PATH[path];
-    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.name, path, from, to: lv, why: why.trim(), exp, soon: exp === "30 Sep 2026" });
+    if (!u || !pageId || !why.trim()) { setTouched(true); toast.warning("User, page and reason are all required."); return; }
+    const p = PAGE_BY_ID[pageId];
+    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.label, path: p.path, from, to: lv, why: why.trim(), exp, soon: exp === "30 Sep 2026" });
     onClose();
   };
 
@@ -300,8 +299,8 @@ export function AddOverrideModal({ onClose }: { onClose: () => void }) {
     >
       <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
         <SelectField label="User" value={email} onChange={setEmail} span required options={candidates.map((x) => ({ value: x.email, label: `${x.name} · ${x.role}` }))} />
-        <SelectField label="Page" value={path} onChange={setPath} span required placeholder="Select a page…"
-          options={ALL_PAGES.map((p) => ({ value: p.path, label: `${p.name} · ${p.path}` }))} />
+        <SelectField label="Page" value={pageId} onChange={(v) => setPageId(v as PageId)} span required placeholder="Select a page…"
+          options={ALL_PAGES.map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }))} />
       </div>
       <div className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-low px-[15px] py-3">
         <span className="text-[12.5px] text-secondary">Role default</span>

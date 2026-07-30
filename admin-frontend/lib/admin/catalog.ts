@@ -1,74 +1,57 @@
 /* ============================================================
    Admin console — role/page catalog
-   Ported verbatim (values + order) from admin/admin-app/AdminData.jsx
-   so the ported screens match the design handoff.
+   Derived from lib/pages-config.ts's PAGES registry — the real route
+   guard is the single source of truth for which pages exist (FE-2 /
+   proposal 019 A-1). No fictional paths, no positional role index.
+
+   The old hand-written per-page-per-role levels[] policy (17 fictional
+   pages, six-slot arrays keyed by array position) is NOT discarded —
+   it is promoted into the DB layer's page_access seed (D-11) before
+   deletion here. No frontend code reads a levels[] literal at runtime,
+   before or after: the store's levels come from GET
+   /api/admin/access/matrix once that lands (FE-9).
    ============================================================ */
-import type { FlatPage, Level, PageGroup, RoleDef } from "@/lib/admin/types";
+import { PAGES, type PageId, type Role } from "@/lib/pages-config";
+import type { Level } from "@/lib/admin/types";
 
-export const ROLES: RoleDef[] = [
-  { code: "RM", name: "Relationship Manager" },
-  { code: "MOBO", name: "Middle / Back Office" },
-  { code: "PM", name: "Portfolio Manager" },
-  { code: "PC", name: "Portfolio Controller" },
-  { code: "COMPLIANCE", name: "Compliance Officer" },
-  { code: "ADMIN", name: "Administrator" },
-];
+/** One page as the console renders it. `path` is display-only. */
+export interface CatalogPage { page_id: PageId; label: string; path: string; group: string }
 
-export const ROLE_IDX: Record<string, number> = {
-  RM: 0, MOBO: 1, PM: 2, PC: 3, COMPLIANCE: 4, ADMIN: 5,
-};
+const OTHER_GROUP = "Other";
+
+/** Flat, in `PAGES` order (hand-ordered already). */
+export const ALL_PAGES: CatalogPage[] = (Object.keys(PAGES) as PageId[]).map((page_id) => {
+  const p = PAGES[page_id];
+  return { page_id, label: p.label, path: p.path, group: p.subgroup ?? OTHER_GROUP };
+});
+
+/** Grouped page catalog, DERIVED from PAGES. Group = the page's `subgroup`, or "Other"
+ *  for the two hideFromNav pages that carry none (mobo.recon-overview,
+ *  compliance.overview). Group order follows first appearance in PAGES. */
+export const PAGE_GROUPS: Array<[group: string, pages: CatalogPage[]]> = (() => {
+  const order: string[] = [];
+  const byGroup = new Map<string, CatalogPage[]>();
+  for (const p of ALL_PAGES) {
+    if (!byGroup.has(p.group)) {
+      byGroup.set(p.group, []);
+      order.push(p.group);
+    }
+    byGroup.get(p.group)!.push(p);
+  }
+  return order.map((g): [string, CatalogPage[]] => [g, byGroup.get(g)!]);
+})();
+
+export const PAGE_BY_ID: Record<PageId, CatalogPage> = Object.fromEntries(
+  ALL_PAGES.map((p) => [p.page_id, p]),
+) as Record<PageId, CatalogPage>;
+
+export const TOTAL_PAGES = ALL_PAGES.length; // === Object.keys(PAGES).length
+
+/** Matrix / staging cell key, keyed by role CODE. */
+export const kFor = (pageId: PageId, role: Role): string => `${pageId}|${role}`;
+
+/** Fallback role order, used only until the first MatrixOut read resolves so the rails
+ *  render. Display names and user counts come from MatrixOut.roles, never from here. */
+export const ROLE_CODES: readonly Role[] = ["RM", "MOBO", "PM", "PC", "COMPLIANCE", "ADMIN"];
 
 export const LEVEL_LABEL: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
-
-export const PAGE_CATALOG: PageGroup[] = [
-  ["Relationship Mgmt", [
-    { name: "Dashboard", path: "/rm/dashboard", levels: ["EDIT", "NONE", "VIEW", "NONE", "VIEW", "EDIT"] },
-    { name: "Onboarding & Renewal", path: "/rm/onboarding", levels: ["EDIT", "VIEW", "NONE", "NONE", "VIEW", "EDIT"] },
-    { name: "Model Subscription", path: "/rm/subscription", levels: ["EDIT", "VIEW", "VIEW", "VIEW", "VIEW", "EDIT"] },
-    { name: "Monthly Reports", path: "/rm/reports", levels: ["VIEW", "VIEW", "VIEW", "VIEW", "VIEW", "EDIT"] },
-  ]],
-  ["Middle / Back Office", [
-    { name: "Dashboard", path: "/mobo/dashboard", levels: ["NONE", "EDIT", "NONE", "VIEW", "VIEW", "EDIT"] },
-    { name: "Trade Reconciliation", path: "/mobo/reconciliation", levels: ["NONE", "EDIT", "VIEW", "VIEW", "VIEW", "EDIT"] },
-    { name: "Post-Trade Allocation", path: "/mobo/allocation", levels: ["NONE", "EDIT", "VIEW", "EDIT", "VIEW", "EDIT"] },
-    { name: "Daily Exception Report", path: "/mobo/exceptions", levels: ["NONE", "EDIT", "NONE", "VIEW", "VIEW", "EDIT"] },
-  ]],
-  ["Portfolio Control", [
-    { name: "Model Management", path: "/pc/models", levels: ["VIEW", "VIEW", "EDIT", "EDIT", "VIEW", "EDIT"] },
-    { name: "Allocation Matrix", path: "/pc/matrix", levels: ["NONE", "VIEW", "EDIT", "EDIT", "VIEW", "EDIT"] },
-    { name: "Investment Guideline", path: "/pc/guidelines", levels: ["VIEW", "NONE", "EDIT", "EDIT", "EDIT", "EDIT"] },
-    { name: "Allotment & Redemption", path: "/pc/allotment", levels: ["VIEW", "VIEW", "VIEW", "EDIT", "VIEW", "EDIT"] },
-  ]],
-  ["Compliance", [
-    { name: "Compliance Overview", path: "/compliance/overview", levels: ["NONE", "NONE", "NONE", "VIEW", "EDIT", "EDIT"] },
-    { name: "Guideline Review", path: "/compliance/guidelines", levels: ["NONE", "NONE", "VIEW", "VIEW", "EDIT", "EDIT"] },
-    { name: "Redemption Review", path: "/compliance/redemptions", levels: ["NONE", "NONE", "NONE", "VIEW", "EDIT", "EDIT"] },
-  ]],
-  ["Administration", [
-    { name: "Enroll User", path: "/admin/enroll-user", levels: ["NONE", "NONE", "NONE", "NONE", "NONE", "EDIT"] },
-    { name: "System Config", path: "/admin/system-config", levels: ["NONE", "NONE", "NONE", "NONE", "NONE", "EDIT"] },
-  ]],
-];
-
-export const ALL_PAGES: FlatPage[] = PAGE_CATALOG.flatMap(([group, pages]) =>
-  pages.map((p) => ({ group, name: p.name, path: p.path })),
-);
-
-export const PAGE_BY_PATH: Record<string, FlatPage> = Object.fromEntries(
-  ALL_PAGES.map((p) => [p.path, p]),
-);
-
-export const TOTAL_PAGES = ALL_PAGES.length;
-
-export const kFor = (path: string, roleIdx: number) => `${path}|${roleIdx}`;
-
-/** Seed standing levels — `path|roleIdx` -> Level, read straight off PAGE_CATALOG. */
-export function seedLevels(): Record<string, Level> {
-  const m: Record<string, Level> = {};
-  PAGE_CATALOG.forEach(([, pages]) => {
-    pages.forEach((p) => {
-      p.levels.forEach((lv, i) => { m[kFor(p.path, i)] = lv; });
-    });
-  });
-  return m;
-}

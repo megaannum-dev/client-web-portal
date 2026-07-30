@@ -8,32 +8,12 @@
    guard. This is a separate, richer management console over the same
    role set, entirely mock-data-driven until a backend exists for it.
    ============================================================ */
-import type { AccessLevel, Role } from "@/lib/pages-config";
+import type { AccessLevel, PageId, Role } from "@/lib/pages-config";
 
 export type { Role };
 export type { AccessLevel };
 /** Alias retained so the console's existing call sites read naturally. Same type. */
 export type Level = AccessLevel;
-
-export interface RoleDef {
-  code: Role;
-  name: string;
-}
-
-/** One page in the catalog, with its per-role standing levels (indexed like ROLES). */
-export interface PageDef {
-  name: string;
-  path: string;
-  levels: Level[];
-}
-
-export type PageGroup = [group: string, pages: PageDef[]];
-
-export interface FlatPage {
-  group: string;
-  name: string;
-  path: string;
-}
 
 export type UserStatus = "Active" | "Initiated" | "Deactivated";
 export type StatusTone = "active" | "pending" | "neutral";
@@ -72,11 +52,11 @@ export interface AuditEntry {
   detail: string;
 }
 
-/** A staged (unpublished) matrix edit, keyed by `path|roleIndex`. */
+/** A staged (unpublished) matrix edit, keyed by `page_id|role`. */
 export interface StagedChange {
-  path: string;
-  name: string;
-  role: number;
+  page_id: PageId;
+  label: string;
+  role: Role;
   from: Level;
   to: Level;
 }

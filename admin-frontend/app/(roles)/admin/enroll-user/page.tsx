@@ -19,10 +19,11 @@ import {
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { PAGE_BY_PATH, ROLE_IDX } from "@/lib/admin/catalog";
+import { PAGE_BY_ID } from "@/lib/admin/catalog";
 import { genPassword } from "@/lib/admin/password";
 import { TODAY } from "@/lib/mock/admin-data";
 import type { AdminUser, EnrollDraft, Role } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 
 type View = "directory" | "wizard" | "overrides";
 
@@ -83,11 +84,12 @@ export default function EnrollUserPage() {
       return;
     }
 
-    const roleIdx = ROLE_IDX[d.role as Role];
-    store.addUser({ initials, name, email: d.email, role: d.role as Role, dept: "—", status: "Initiated", tone: "pending", seen: "—" });
-    Object.entries(d.ovr).forEach(([path, to]) => {
-      const p = PAGE_BY_PATH[path];
-      store.addOverride({ initials, name, role: d.role as Role, page: p.name, path, from: store.eff(path, roleIdx), to, why: "Set during enrolment", exp: "30 Sep 2026", soon: true });
+    const role = d.role as Role;
+    store.addUser({ initials, name, email: d.email, role, dept: "—", status: "Initiated", tone: "pending", seen: "—" });
+    Object.entries(d.ovr).forEach(([id, to]) => {
+      const pageId = id as PageId;
+      const p = PAGE_BY_ID[pageId];
+      store.addOverride({ initials, name, role, page: p.label, path: p.path, from: store.eff(pageId, role), to, why: "Set during enrolment", exp: "30 Sep 2026", soon: true });
     });
     store.log("Account created", `${name} · ${d.role} · ${Object.keys(d.ovr).length} override(s)`);
     setModal({ kind: "created", info: { name, email: d.email, roleCode: d.role as Role, pw: d.pw, ovr: Object.keys(d.ovr).length } });

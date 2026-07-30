@@ -17,9 +17,10 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox, Help, IconButton, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, ROLES, ROLE_IDX, LEVEL_LABEL, PAGE_BY_PATH } from "@/lib/admin/catalog";
+import { ALL_PAGES, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
 import { genPassword } from "@/lib/admin/password";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 
 type StepKey = "identity" | "role" | "access" | "creds";
 
@@ -37,7 +38,7 @@ export interface WizardProps {
 export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onToggleGroup, onLeave, onSubmit }: WizardProps) {
   const store = useAdminStore();
   const [touched, setTouched] = useState(false);
-  const roleIdx = d.role ? ROLE_IDX[d.role] : null;
+  const role = d.role || null;
 
   const emailBad = !!d.email && !/@megaannum\.ai$/.test(d.email.trim());
   const isEdit = d.mode === "edit";
@@ -47,19 +48,19 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const step0ok = !!d.first.trim() && !!d.last.trim() && !!d.email.trim() && !emailBad;
   const canNext = cur === "identity" ? step0ok : cur === "role" ? !!d.role : true;
 
-  const valueFor = (path: string): Level => (path in d.ovr ? d.ovr[path] : store.eff(path, roleIdx ?? 0));
-  const defaultFor = (path: string): Level => store.eff(path, roleIdx ?? 0);
-  const setLevel = (path: string, lv: Level) => {
+  const valueFor = (pageId: PageId): Level => (pageId in d.ovr ? d.ovr[pageId] : store.eff(pageId, role ?? ROLE_CODES[0]));
+  const defaultFor = (pageId: PageId): Level => store.eff(pageId, role ?? ROLE_CODES[0]);
+  const setLevel = (pageId: PageId, lv: Level) => {
     const next = { ...d.ovr };
-    if (lv === defaultFor(path)) delete next[path]; else next[path] = lv;
+    if (lv === defaultFor(pageId)) delete next[pageId]; else next[pageId] = lv;
     patchDraft({ ovr: next });
   };
   const ovrCount = Object.keys(d.ovr).length;
-  const granted = roleIdx == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.path) !== "NONE").length;
+  const granted = role == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.page_id) !== "NONE").length;
 
   const DONE: Record<StepKey, string> = {
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
-    role: d.role ? `${d.role} · ${ROLES.find((r) => r.code === d.role)?.name ?? ""}` : "—",
+    role: d.role || "—",
     access: `${granted} of ${store.totalPages} pages · ${ovrCount} override${ovrCount === 1 ? "" : "s"}`,
     creds: isEdit ? "Credentials unchanged" : "Temporary password issued",
   };
@@ -153,21 +154,20 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               {cur === "role" && (
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-3 gap-3">
-                    {ROLES.map((r) => {
-                      const on = r.code === d.role;
+                    {ROLE_CODES.map((code) => {
+                      const on = code === d.role;
                       return (
                         <button
-                          key={r.code}
+                          key={code}
                           type="button"
-                          onClick={() => patchDraft({ role: r.code, ovr: {} })}
+                          onClick={() => patchDraft({ role: code, ovr: {} })}
                           className="flex flex-col items-start gap-1 rounded-xl px-[15px] py-3.5 text-left transition-all"
                           style={{ background: on ? "rgba(242,116,5,0.06)" : "#fff", border: `1px solid ${on ? "var(--primary)" : "var(--outline-variant)"}` }}
                         >
                           <span className="flex items-center gap-[7px] text-[14px] font-bold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>
-                            {on && <CheckCircle2 size={15} strokeWidth={2} />}{r.code}
+                            {on && <CheckCircle2 size={15} strokeWidth={2} />}{code}
                           </span>
-                          <span className="text-[12px] text-secondary">{r.name}</span>
-                          <span className="mt-1 text-[11.5px] text-secondary">{store.grantedFor(ROLE_IDX[r.code])} of {store.totalPages} pages</span>
+                          <span className="mt-1 text-[11.5px] text-secondary">{store.grantedFor(code)} of {store.totalPages} pages</span>
                         </button>
                       );
                     })}
@@ -187,7 +187,10 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                   {ovrCount > 0 ? (
                     <Notice tone="warn">
                       <b>{ovrCount} override{ovrCount === 1 ? "" : "s"} on this account:</b>{" "}
-                      {Object.keys(d.ovr).map((p) => `${PAGE_BY_PATH[p].name}, ${LEVEL_LABEL[defaultFor(p)]} → ${LEVEL_LABEL[d.ovr[p]]}`).join(" · ")}. Each is recorded with a reason and an expiry.
+                      {Object.keys(d.ovr).map((id) => {
+                        const pageId = id as PageId;
+                        return `${PAGE_BY_ID[pageId].label}, ${LEVEL_LABEL[defaultFor(pageId)]} → ${LEVEL_LABEL[d.ovr[pageId]]}`;
+                      }).join(" · ")}. Each is recorded with a reason and an expiry.
                     </Notice>
                   ) : (
                     <Notice tone="info">No exceptions — {d.role} defaults apply exactly. Change any level above to record an override.</Notice>

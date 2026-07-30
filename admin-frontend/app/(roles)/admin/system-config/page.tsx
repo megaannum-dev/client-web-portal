@@ -18,7 +18,7 @@ import { AuditModal } from "@/components/admin/AuditModal";
 import { Matrix, type CellPayload } from "@/components/admin/config/Matrix";
 import { RoleView } from "@/components/admin/config/RoleView";
 import { CellModal, PublishModal } from "@/components/admin/config/ConfigModals";
-import { ROLES } from "@/lib/admin/catalog";
+import { ROLE_CODES } from "@/lib/admin/catalog";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
@@ -62,7 +62,7 @@ export default function SystemConfigPage() {
         <ViewSwitch view={configView} onChange={setConfigView} />
         <span className="h-[26px] w-px bg-outline-variant" />
         <span className="text-[12.5px] text-secondary">
-          {totalPages} pages · {ROLES.length} roles · {overrides.length} per-user exception{overrides.length === 1 ? "" : "s"}
+          {totalPages} pages · {ROLE_CODES.length} roles · {overrides.length} per-user exception{overrides.length === 1 ? "" : "s"}
         </span>
         <span className="ml-auto flex items-center gap-2.5">
           {n ? (
@@ -110,7 +110,7 @@ export default function SystemConfigPage() {
 
       {modal?.kind === "cell" && (
         <CellModal
-          payload={{ name: modal.name, path: modal.path, roleIdx: modal.roleIdx }}
+          payload={{ page_id: modal.page_id, label: modal.label, path: modal.path, role: modal.role }}
           onClose={() => { setSelCell(null); closeModal(); }}
         />
       )}

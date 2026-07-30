@@ -16,9 +16,10 @@
    ============================================================ */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
-import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_PATH, ROLES, ROLE_IDX, TOTAL_PAGES, kFor, seedLevels } from "@/lib/admin/catalog";
+import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_ID, TOTAL_PAGES, kFor } from "@/lib/admin/catalog";
 import { ADMIN_AUDIT, ADMIN_OVERRIDES, ADMIN_USERS, TODAY } from "@/lib/mock/admin-data";
 import type { AdminUser, AuditEntry, Level, Override, Role, StagedChange, UserStatus } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 
 let uid = 0;
 const nextId = () => `x${++uid}`;
@@ -39,13 +40,13 @@ interface AdminStore {
   log: (what: string, detail: string) => void;
 
   /** Effective (staged-aware) level for a page × role cell. */
-  eff: (path: string, roleIdx: number) => Level;
-  grantedFor: (roleIdx: number) => number;
+  eff: (pageId: PageId, role: Role) => Level;
+  grantedFor: (role: Role) => number;
   roleUsers: (code: Role) => number;
   ovrFor: (name: string) => Override[];
-  ovrOn: (path: string, roleIdx: number) => boolean;
+  ovrOn: (pageId: PageId, role: Role) => boolean;
 
-  stage: (path: string, roleIdx: number, to: Level) => void;
+  stage: (pageId: PageId, role: Role, to: Level) => void;
   publish: (note?: string) => void;
   discard: () => void;
   copyRole: (fromCode: Role, toCode: Role) => void;
@@ -64,7 +65,10 @@ const AdminStoreCtx = createContext<AdminStore | null>(null);
 export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<AdminUser[]>(() => ADMIN_USERS.map((u) => ({ ...u })));
   const [overrides, setOverrides] = useState<Override[]>(() => ADMIN_OVERRIDES.map((o) => ({ ...o })));
-  const [levels, setLevels] = useState<Record<string, Level>>(seedLevels);
+  // ponytail: standing levels start empty (all NONE) — the old seed-from-catalog
+  // helper read a now-deleted hand-written table. Real seed values arrive over GET
+  // /api/admin/access/matrix once the store is wired to the backend (FE-9).
+  const [levels, setLevels] = useState<Record<string, Level>>({});
   const [staged, setStaged] = useState<Record<string, StagedChange>>({});
   const [published, setPublished] = useState({ when: "12 Jul 2026", by: "Omar Bakri" });
   const [audit, setAudit] = useState<AuditEntry[]>(ADMIN_AUDIT);
@@ -76,15 +80,15 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const stagedList = useMemo(() => Object.values(staged), [staged]);
 
   const eff = useCallback(
-    (path: string, roleIdx: number): Level => {
-      const k = kFor(path, roleIdx);
+    (pageId: PageId, role: Role): Level => {
+      const k = kFor(pageId, role);
       return staged[k] ? staged[k].to : (levels[k] ?? "NONE");
     },
     [staged, levels],
   );
 
   const grantedFor = useCallback(
-    (roleIdx: number) => ALL_PAGES.filter((p) => eff(p.path, roleIdx) !== "NONE").length,
+    (role: Role) => ALL_PAGES.filter((p) => eff(p.page_id, role) !== "NONE").length,
     [eff],
   );
 
@@ -96,17 +100,17 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const ovrFor = useCallback((name: string) => overrides.filter((o) => o.name === name), [overrides]);
 
   const ovrOn = useCallback(
-    (path: string, roleIdx: number) => overrides.some((o) => o.path === path && ROLE_IDX[o.role] === roleIdx),
+    (pageId: PageId, role: Role) => overrides.some((o) => o.path === PAGE_BY_ID[pageId].path && o.role === role),
     [overrides],
   );
 
   const stage = useCallback(
-    (path: string, roleIdx: number, to: Level) => {
-      const k = kFor(path, roleIdx);
+    (pageId: PageId, role: Role, to: Level) => {
+      const k = kFor(pageId, role);
       setStaged((s) => {
         const next = { ...s };
         if (levels[k] === to) delete next[k];
-        else next[k] = { path, name: PAGE_BY_PATH[path].name, role: roleIdx, from: levels[k] ?? "NONE", to };
+        else next[k] = { page_id: pageId, label: PAGE_BY_ID[pageId].label, role, from: levels[k] ?? "NONE", to };
         return next;
       });
     },
@@ -120,14 +124,14 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
       if (!n) return;
       setLevels((l) => {
         const next = { ...l };
-        list.forEach((s) => { next[kFor(s.path, s.role)] = s.to; });
+        list.forEach((s) => { next[kFor(s.page_id, s.role)] = s.to; });
         return next;
       });
       setStaged({});
       setPublished({ when: TODAY, by: "Omar Bakri" });
       log(
         `Published ${n} access change${n === 1 ? "" : "s"}`,
-        note || list.map((s) => `${s.name} · ${ROLES[s.role].code} ${LEVEL_LABEL[s.from]} → ${LEVEL_LABEL[s.to]}`).join("; "),
+        note || list.map((s) => `${s.label} · ${s.role} ${LEVEL_LABEL[s.from]} → ${LEVEL_LABEL[s.to]}`).join("; "),
       );
     },
     [staged, log],
@@ -137,18 +141,15 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
 
   const copyRole = useCallback(
     (fromCode: Role, toCode: Role) => {
-      const from = ROLE_IDX[fromCode];
-      const to = ROLE_IDX[toCode];
-      ALL_PAGES.forEach((p) => stage(p.path, to, eff(p.path, from)));
+      ALL_PAGES.forEach((p) => stage(p.page_id, toCode, eff(p.page_id, fromCode)));
     },
     [stage, eff],
   );
 
   const resetRole = useCallback((code: Role) => {
-    const idx = ROLE_IDX[code];
     setStaged((s) => {
       const next = { ...s };
-      Object.keys(next).forEach((k) => { if (next[k].role === idx) delete next[k]; });
+      Object.keys(next).forEach((k) => { if (next[k].role === code) delete next[k]; });
       return next;
     });
   }, []);
