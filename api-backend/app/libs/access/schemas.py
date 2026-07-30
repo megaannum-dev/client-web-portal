@@ -84,6 +84,14 @@ class OverrideOut(BaseModel):
     expiring_soon: bool  # server-computed: expires_at <= now + 30 days
 
 
+class AuditOut(BaseModel):
+    id: uuid.UUID
+    at: datetime
+    actor_name: str  # denormalised -- reads correctly after the actor is deleted
+    event: str
+    detail: str
+
+
 class OverrideIn(BaseModel):
     firebase_uid: str
     page_id: str  # validated against PAGE_IDS

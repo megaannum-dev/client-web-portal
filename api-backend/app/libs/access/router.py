@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.libs.access.schemas import MatrixOut, MatrixPublishIn, OverrideIn, OverrideOut
+from app.libs.access.schemas import AuditOut, MatrixOut, MatrixPublishIn, OverrideIn, OverrideOut
 from app.libs.access.service import AccessService
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
@@ -63,3 +64,13 @@ def revoke_override(
 ) -> Response:
     service.revoke_override(override_id, actor=user)
     return Response(status_code=204)
+
+
+@router.get("/audit", response_model=list[AuditOut])
+def list_audit(
+    service: Annotated[AccessService, Depends(_get_service)],
+    _: Annotated[User, Depends(require_action(Action.USER_VIEW))],
+    limit: int = Query(50, ge=1, le=200),
+    before: datetime | None = Query(None),
+) -> list[AuditOut]:
+    return service.list_audit(limit=limit, before=before)

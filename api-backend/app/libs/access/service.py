@@ -12,6 +12,7 @@ from app.libs.access.pages import PAGE_IDS, PAGE_META
 from app.libs.access.repository import AccessRepository, from_wire, to_wire
 from app.libs.access.schemas import (
     AccessLevel,
+    AuditOut,
     MatrixCellOut,
     MatrixOut,
     MatrixPageOut,
@@ -263,3 +264,20 @@ class AccessService:
         except Exception as exc:
             self.repo.db.rollback()
             raise HTTPException(500, "Failed to revoke override") from exc
+
+    # --- audit (BE-11) ---
+    def list_audit(self, *, limit: int, before: datetime | None) -> list[AuditOut]:
+        """Newest-first, keyset-paged on `before` (repo does `at < before`, so a
+        row exactly at the boundary is excluded -- pages never overlap even with
+        a concurrent insert). `actor_name` NULL (actor deleted) is never
+        serialised as JSON null -- falls back to a display string."""
+        return [
+            AuditOut(
+                id=row.id,
+                at=row.at,
+                actor_name=row.actor_name or "(deleted user)",
+                event=row.event,
+                detail=row.detail,
+            )
+            for row in self.repo.list_audit(limit=limit, before=before)
+        ]
