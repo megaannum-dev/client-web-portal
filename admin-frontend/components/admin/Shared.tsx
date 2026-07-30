@@ -392,13 +392,13 @@ export function Td({ children, className }: { children: ReactNode; className?: s
     </td>
   );
 }
-export function UserCell({ initials, name, sub }: { initials: string; name: string; sub: string }) {
+export function UserCell({ initials, name, sub }: { initials: string; name: string | null; sub?: string | null }) {
   return (
     <div className="flex items-center gap-[11px]">
-      <Avatar initial={initials[0]} size={34} />
+      <Avatar initial={initials[0] ?? "?"} size={34} />
       <div className="min-w-0">
-        <div className="text-[13.5px] font-semibold text-on-surface">{name}</div>
-        <div className="text-[12px] text-secondary">{sub}</div>
+        <div className="text-[13.5px] font-semibold text-on-surface">{name ?? "—"}</div>
+        <div className="text-[12px] text-secondary">{sub ?? "—"}</div>
       </div>
     </div>
   );

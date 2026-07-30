@@ -10,18 +10,13 @@
    derive `tone`/`initials`/`seen` from them at render time instead of
    storing them.
 
-   The legacy mock shapes below (AdminUser/Override/AuditEntry/
-   UserStatus, EnrollDraft's temp-password field and its path-keyed
-   `ovr`) are KEPT for now, not deleted: AdminStoreContext.tsx is still
-   mock-backed
-   (FE-9 migrates it to the DTOs above) and the enroll wizard
+   FE-9: AdminStoreContext.tsx is API-backed and the legacy mock shapes
+   (AdminUser/Override/AuditEntry/UserStatus) are deleted — every
+   consumer now reads the DTOs above. `EnrollDraft` (with its temp-
+   password field and path-keyed `ovr`) is KEPT: the enroll wizard
    (app/(roles)/admin/enroll-user/page.tsx, components/admin/enroll/
-   Wizard.tsx) still builds/consumes this exact EnrollDraft shape
-   (FE-11 migrates it). Deleting them here would break those
-   not-yet-migrated, out-of-scope files today for no runtime benefit —
-   none of FE-8's own components can render real StaffOut data until
-   the store actually serves it. New code should use the DTOs + helpers
-   below; the legacy block is dead weight to be deleted by FE-9/FE-11.
+   Wizard.tsx) still builds/consumes this exact shape until FE-11
+   migrates it.
    ============================================================ */
 import type { AccessLevel, PageId, Role } from "@/lib/pages-config";
 import type { AuditOut, MatrixOut, OverrideOut, StaffOut, StaffStatus } from "@/server/admin";
@@ -65,43 +60,6 @@ export const seenFor = (iso: string | null): string => {
 export const STATUS_LABEL: Record<StaffStatus, string> = {
   ACTIVE: "Active", INITIATED: "Initiated", DEACTIVATED: "Deactivated",
 };
-
-/* ---- legacy mock shapes — see the file header; kept until FE-9/FE-11 ---- */
-export type UserStatus = "Active" | "Initiated" | "Deactivated";
-
-export interface AdminUser {
-  initials: string;
-  name: string;
-  email: string;
-  role: Role;
-  dept: string;
-  status: UserStatus;
-  tone: StatusTone;
-  seen: string;
-}
-
-export interface Override {
-  id: string;
-  initials: string;
-  name: string;
-  role: Role;
-  page: string;
-  path: string;
-  from: Level;
-  to: Level;
-  why: string;
-  by: string;
-  exp: string;
-  soon: boolean;
-}
-
-export interface AuditEntry {
-  id: string;
-  ts: string;
-  who: string;
-  what: string;
-  detail: string;
-}
 
 /** A staged (unpublished) matrix edit, keyed by `page_id|role`. */
 export interface StagedChange {
