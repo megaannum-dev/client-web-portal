@@ -20,6 +20,14 @@ def _get_service(db: Annotated[Session, Depends(get_db)]) -> StaffService:
     return StaffService(db)
 
 
+@router.get("", response_model=list[StaffOut])
+def list_staff(
+    service: Annotated[StaffService, Depends(_get_service)],
+    _: Annotated[User, Depends(require_action(Action.USER_VIEW))],
+) -> list[StaffOut]:
+    return service.list_directory()
+
+
 @router.post("", response_model=StaffOut, status_code=201)
 def enroll_staff(
     body: StaffEnrollIn,

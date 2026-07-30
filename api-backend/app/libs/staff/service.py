@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
+from app.schemas.staff import StaffOut
 
 
 class StaffUpdatePatch(Protocol):
@@ -30,6 +31,41 @@ class StaffUpdatePatch(Protocol):
 class StaffService:
     def __init__(self, db: Session) -> None:
         self.repo = StaffRepository(db)
+
+    def list_directory(self) -> list[StaffOut]:
+        """Derives StaffOut.status:
+            DISABLED                                  -> "DEACTIVATED"
+            ACTIVE and last_sign_in_at IS NULL        -> "INITIATED"   (derived, D-4)
+            ACTIVE and last_sign_in_at IS NOT NULL    -> "ACTIVE"
+        and nulls client_count/open_ticket_count for every role except RM -- nothing
+        else in the system is owned per-person, so there is nothing else to hand
+        over (§ 7.1)."""
+        out = []
+        for row in self.repo.list_directory():
+            status: Literal["ACTIVE", "INITIATED", "DEACTIVATED"]
+            if row.status == AccountStatus.DISABLED:
+                status = "DEACTIVATED"
+            elif row.last_sign_in_at is None:
+                status = "INITIATED"
+            else:
+                status = "ACTIVE"
+            is_rm = row.role == AdminRole.RM
+            out.append(
+                StaffOut(
+                    firebase_uid=row.firebase_uid,
+                    email=row.email,
+                    name=row.name,
+                    role=row.role,
+                    department=row.department,
+                    phone_number=row.phone_number,
+                    status=status,
+                    last_sign_in_at=row.last_sign_in_at,
+                    override_count=row.override_count,
+                    client_count=row.client_count if is_rm else None,
+                    open_ticket_count=row.open_ticket_count if is_rm else None,
+                )
+            )
+        return out
 
     def enroll(
         self,
