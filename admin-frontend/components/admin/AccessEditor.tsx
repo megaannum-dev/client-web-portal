@@ -26,7 +26,7 @@ export function AccessEditor({
   return (
     <div className="flex flex-col gap-2.5">
       {PAGE_CATALOG.map(([group, pages]) => {
-        const granted = pages.filter((p) => valueFor(p.path) !== "none").length;
+        const granted = pages.filter((p) => valueFor(p.path) !== "NONE").length;
         const open = openGroups.includes(group);
         const changed = stagedOn ? pages.filter((p) => stagedOn(p.path)).length : 0;
         return (

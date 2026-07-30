@@ -20,7 +20,10 @@ import { Receipt } from "@/lib/icons";
 
 export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
 
-export type AccessLevel = "OPERATE" | "VIEW";
+/** The single access vocabulary — DB enum, wire DTOs, route guard and admin console
+ *  all use these three spellings. Replaces the old two-level route-guard vocabulary
+ *  (proposal 009) and lib/admin/types.ts's old lowercase three-level vocabulary. */
+export type AccessLevel = "NONE" | "VIEW" | "EDIT";
 
 export type PageId =
   | "rm.client-info"
@@ -39,6 +42,9 @@ export type PageId =
   | "shared.monthly-reports"
   | "admin.enroll-user"
   | "admin.system-config";
+
+/** What a `UserOut.grants` map looks like on the client. Absent key === "NONE". */
+export type GrantMap = Partial<Record<PageId, "VIEW" | "EDIT">>;
 
 export type NavGroup = {
   label: string;
@@ -189,39 +195,39 @@ const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
   ADMIN: { label: "Admin", icon: ShieldCheck },
 };
 
-const ALL_OPERATE = Object.fromEntries(
-  (Object.keys(PAGES) as PageId[]).map((id) => [id, "OPERATE" as AccessLevel]),
+const ALL_EDIT = Object.fromEntries(
+  (Object.keys(PAGES) as PageId[]).map((id) => [id, "EDIT" as AccessLevel]),
 ) as Record<PageId, AccessLevel>;
 
 export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
   RM: {
-    "rm.client-info": "OPERATE",
-    "rm.onboarding-renewal": "OPERATE",
-    "rm.model-subscription": "OPERATE",
-    "rm.request-tickets": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
+    "rm.client-info": "EDIT",
+    "rm.onboarding-renewal": "EDIT",
+    "rm.model-subscription": "EDIT",
+    "rm.request-tickets": "EDIT",
+    "shared.monthly-reports": "EDIT",
   },
   MOBO: {
-    "mobo.recon-overview": "OPERATE",
-    "mobo.trade-reconciliation": "OPERATE",
-    "mobo.commission-tracking": "OPERATE",
-    "mobo.post-trade-allocation": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
+    "mobo.recon-overview": "EDIT",
+    "mobo.trade-reconciliation": "EDIT",
+    "mobo.commission-tracking": "EDIT",
+    "mobo.post-trade-allocation": "EDIT",
+    "shared.monthly-reports": "EDIT",
   },
   PC: {
-    "pc.model-management": "OPERATE",
-    "pc.allocation-matrix": "OPERATE",
-    "pc.allotment-redemption": "OPERATE",
-    "mobo.post-trade-allocation": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
+    "pc.model-management": "EDIT",
+    "pc.allocation-matrix": "EDIT",
+    "pc.allotment-redemption": "EDIT",
+    "mobo.post-trade-allocation": "EDIT",
+    "shared.monthly-reports": "EDIT",
   },
   PM: {},
   COMPLIANCE: {
-    "compliance.overview": "OPERATE",
-    "compliance.review": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
+    "compliance.overview": "EDIT",
+    "compliance.review": "EDIT",
+    "shared.monthly-reports": "EDIT",
   },
-  ADMIN: ALL_OPERATE, // reachable ONLY via this literal key — see D-7
+  ADMIN: ALL_EDIT, // reachable ONLY via this literal key — see D-7
 };
 
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {

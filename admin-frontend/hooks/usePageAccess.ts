@@ -5,9 +5,9 @@ import { accessLevel, type AccessLevel, type PageId } from "@/lib/pages-config";
 
 /**
  * Access level of the current user for one page.
- * - "OPERATE" — reach + trigger the page's own mutating actions.
- * - "VIEW"    — read-only; page must opt in to gate its own controls.
- * - null      — no grant (route guard already blocks reach; hook returns null defensively).
+ * - "EDIT" — reach + trigger the page's own mutating actions.
+ * - "VIEW" — read-only; page must opt in to gate its own controls.
+ * - null   — no grant (route guard already blocks reach; hook returns null defensively).
  */
 export function usePageAccess(pageId: PageId): AccessLevel | null {
   const { portalUser } = useAuth();

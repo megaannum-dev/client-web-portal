@@ -70,7 +70,7 @@ export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; on
   const mine = store.ovrFor(u.name);
   const roleIdx = ROLE_IDX[u.role];
   const [path, setPath] = useState("");
-  const [lv, setLv] = useState<Level>("view");
+  const [lv, setLv] = useState<Level>("VIEW");
   const [exp, setExp] = useState("90 days");
   const [why, setWhy] = useState("");
   const [touched, setTouched] = useState(false);
@@ -120,7 +120,7 @@ export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; on
       <Label>Add an exception</Label>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
         <SelectField label="Page" value={path} onChange={setPath} options={opts} placeholder="Select a page…" span required />
-        <SelectField label="Level" value={lv} onChange={(v) => setLv(v as Level)} options={[{ value: "none", label: "None" }, { value: "view", label: "View" }, { value: "edit", label: "Edit" }]} />
+        <SelectField label="Level" value={lv} onChange={(v) => setLv(v as Level)} options={[{ value: "NONE", label: "None" }, { value: "VIEW", label: "View" }, { value: "EDIT", label: "Edit" }]} />
         <SelectField label="Expires" value={exp} onChange={setExp} options={EXPIRY_OPTS} />
         <TextField label="Reason" value={why} onChange={setWhy} placeholder="Required — shown in the overrides ledger" span required invalid={touched && !why.trim() ? "Required." : null} />
       </div>
@@ -269,14 +269,14 @@ export function AddOverrideModal({ onClose }: { onClose: () => void }) {
   const candidates = store.users.filter((u) => u.status !== "Deactivated");
   const [email, setEmail] = useState(candidates[0]?.email ?? "");
   const [path, setPath] = useState("");
-  const [lv, setLv] = useState<Level>("view");
+  const [lv, setLv] = useState<Level>("VIEW");
   const [why, setWhy] = useState("");
   const [exp, setExp] = useState("30 Sep 2026");
   const [onExp, setOnExp] = useState("Revert to role default");
   const [touched, setTouched] = useState(false);
   const u = candidates.find((x) => x.email === email);
   const roleIdx = u ? ROLE_IDX[u.role] : 0;
-  const from: Level = path ? store.eff(path, roleIdx) : "none";
+  const from: Level = path ? store.eff(path, roleIdx) : "NONE";
 
   const submit = () => {
     if (!u || !path || !why.trim()) { setTouched(true); toast.warning("User, page and reason are all required."); return; }

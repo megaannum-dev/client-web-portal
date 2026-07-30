@@ -18,9 +18,9 @@ export const ADMIN_USERS: AdminUser[] = [
 ];
 
 export const ADMIN_OVERRIDES: Override[] = [
-  { id: "o1", initials: "SP", name: "Sofia Petrova", role: "PC", page: "Investment Guideline", path: "/pc/guidelines", from: "none", to: "view", why: "Covering guideline sign-off during Q3", by: "Omar Bakri", exp: "30 Sep 2026", soon: true },
-  { id: "o2", initials: "JL", name: "Jonas Lindqvist", role: "MOBO", page: "Model Subscription", path: "/rm/subscription", from: "view", to: "edit", why: "Handles subscription corrections", by: "Omar Bakri", exp: "No expiry", soon: false },
-  { id: "o3", initials: "AR", name: "Amara Rahim", role: "RM", page: "Post-Trade Allocation", path: "/mobo/allocation", from: "none", to: "view", why: "Client queries on allocations", by: "Omar Bakri", exp: "31 Dec 2026", soon: false },
+  { id: "o1", initials: "SP", name: "Sofia Petrova", role: "PC", page: "Investment Guideline", path: "/pc/guidelines", from: "NONE", to: "VIEW", why: "Covering guideline sign-off during Q3", by: "Omar Bakri", exp: "30 Sep 2026", soon: true },
+  { id: "o2", initials: "JL", name: "Jonas Lindqvist", role: "MOBO", page: "Model Subscription", path: "/rm/subscription", from: "VIEW", to: "EDIT", why: "Handles subscription corrections", by: "Omar Bakri", exp: "No expiry", soon: false },
+  { id: "o3", initials: "AR", name: "Amara Rahim", role: "RM", page: "Post-Trade Allocation", path: "/mobo/allocation", from: "NONE", to: "VIEW", why: "Client queries on allocations", by: "Omar Bakri", exp: "31 Dec 2026", soon: false },
 ];
 
 export const ADMIN_AUDIT: AuditEntry[] = [

@@ -78,13 +78,13 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   const eff = useCallback(
     (path: string, roleIdx: number): Level => {
       const k = kFor(path, roleIdx);
-      return staged[k] ? staged[k].to : (levels[k] ?? "none");
+      return staged[k] ? staged[k].to : (levels[k] ?? "NONE");
     },
     [staged, levels],
   );
 
   const grantedFor = useCallback(
-    (roleIdx: number) => ALL_PAGES.filter((p) => eff(p.path, roleIdx) !== "none").length,
+    (roleIdx: number) => ALL_PAGES.filter((p) => eff(p.path, roleIdx) !== "NONE").length,
     [eff],
   );
 
@@ -106,7 +106,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
       setStaged((s) => {
         const next = { ...s };
         if (levels[k] === to) delete next[k];
-        else next[k] = { path, name: PAGE_BY_PATH[path].name, role: roleIdx, from: levels[k] ?? "none", to };
+        else next[k] = { path, name: PAGE_BY_PATH[path].name, role: roleIdx, from: levels[k] ?? "NONE", to };
         return next;
       });
     },

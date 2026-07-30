@@ -17,12 +17,12 @@ import type { CellPayload } from "@/components/admin/config/Matrix";
 import type { Level, StagedChange } from "@/lib/admin/types";
 
 const LEVEL_OPTIONS: [Level, string][] = [
-  ["none", "Hidden from nav, route blocked"],
-  ["view", "Read-only — no writes or actions"],
-  ["edit", "Full use of the page’s actions"],
+  ["NONE", "Hidden from nav, route blocked"],
+  ["VIEW", "Read-only — no writes or actions"],
+  ["EDIT", "Full use of the page’s actions"],
 ];
 
-const isReduction = (s: StagedChange) => s.to === "none" || (s.from === "edit" && s.to === "view");
+const isReduction = (s: StagedChange) => s.to === "NONE" || (s.from === "EDIT" && s.to === "VIEW");
 
 /* ---- cell editor --------------------------------------------- */
 export function CellModal({ payload, onClose }: { payload: CellPayload; onClose: () => void }) {

@@ -185,9 +185,9 @@ function Cell({
 
 function LevelKey() {
   const rows: [Level, string][] = [
-    ["none", "page hidden from nav, route blocked"],
-    ["view", "read-only — no writes or actions"],
-    ["edit", "full use of the page’s actions"],
+    ["NONE", "page hidden from nav, route blocked"],
+    ["VIEW", "read-only — no writes or actions"],
+    ["EDIT", "full use of the page’s actions"],
   ];
   return (
     <div className="mt-4 flex flex-wrap gap-[22px]">
@@ -200,7 +200,7 @@ function LevelKey() {
         </span>
       ))}
       <span className="inline-flex items-center gap-2.5">
-        <LevelBadge level="view" override size={24} />
+        <LevelBadge level="VIEW" override size={24} />
         <span className="text-[12px] text-secondary">per-user override</span>
       </span>
     </div>

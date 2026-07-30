@@ -5,16 +5,15 @@
    role/page permission matrix shown in Enroll User + System Config.
 
    NOT wired to `lib/pages-config.ts` — that file is the real route
-   guard (2 levels: OPERATE/VIEW). This is a separate, richer (3-level:
-   none/view/edit) management console over the same role set, entirely
-   mock-data-driven until a backend exists for it.
+   guard. This is a separate, richer management console over the same
+   role set, entirely mock-data-driven until a backend exists for it.
    ============================================================ */
-import type { Role } from "@/lib/pages-config";
+import type { AccessLevel, Role } from "@/lib/pages-config";
 
 export type { Role };
-
-/** Standing access level for a page × role cell. */
-export type Level = "none" | "view" | "edit";
+export type { AccessLevel };
+/** Alias retained so the console's existing call sites read naturally. Same type. */
+export type Level = AccessLevel;
 
 export interface RoleDef {
   code: Role;

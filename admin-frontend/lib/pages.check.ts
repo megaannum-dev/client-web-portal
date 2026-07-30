@@ -14,7 +14,7 @@ for (const bogus of ["BOGUS", "", "admin" /* case matters */, "undefined"]) {
 
 // D-7: ADMIN's all-pages set is reachable only via the literal key.
 assert.equal(pagesForRole("ADMIN").length, Object.keys(PAGES).length, "ADMIN grants every PageId");
-assert.ok(pagesForRole("ADMIN").every((id) => ROLE_PAGES.ADMIN[id] === "OPERATE"), "ADMIN grants are all OPERATE");
+assert.ok(pagesForRole("ADMIN").every((id) => ROLE_PAGES.ADMIN[id] === "EDIT"), "ADMIN grants are all EDIT");
 
 // B-1: no page under a namespace resolves to a role that isn't in ROLE_PAGES.
 for (const p of Object.values(PAGES)) {

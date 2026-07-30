@@ -18,35 +18,35 @@ export const ROLE_IDX: Record<string, number> = {
   RM: 0, MOBO: 1, PM: 2, PC: 3, COMPLIANCE: 4, ADMIN: 5,
 };
 
-export const LEVEL_LABEL: Record<Level, string> = { none: "None", view: "View", edit: "Edit" };
+export const LEVEL_LABEL: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
 
 export const PAGE_CATALOG: PageGroup[] = [
   ["Relationship Mgmt", [
-    { name: "Dashboard", path: "/rm/dashboard", levels: ["edit", "none", "view", "none", "view", "edit"] },
-    { name: "Onboarding & Renewal", path: "/rm/onboarding", levels: ["edit", "view", "none", "none", "view", "edit"] },
-    { name: "Model Subscription", path: "/rm/subscription", levels: ["edit", "view", "view", "view", "view", "edit"] },
-    { name: "Monthly Reports", path: "/rm/reports", levels: ["view", "view", "view", "view", "view", "edit"] },
+    { name: "Dashboard", path: "/rm/dashboard", levels: ["EDIT", "NONE", "VIEW", "NONE", "VIEW", "EDIT"] },
+    { name: "Onboarding & Renewal", path: "/rm/onboarding", levels: ["EDIT", "VIEW", "NONE", "NONE", "VIEW", "EDIT"] },
+    { name: "Model Subscription", path: "/rm/subscription", levels: ["EDIT", "VIEW", "VIEW", "VIEW", "VIEW", "EDIT"] },
+    { name: "Monthly Reports", path: "/rm/reports", levels: ["VIEW", "VIEW", "VIEW", "VIEW", "VIEW", "EDIT"] },
   ]],
   ["Middle / Back Office", [
-    { name: "Dashboard", path: "/mobo/dashboard", levels: ["none", "edit", "none", "view", "view", "edit"] },
-    { name: "Trade Reconciliation", path: "/mobo/reconciliation", levels: ["none", "edit", "view", "view", "view", "edit"] },
-    { name: "Post-Trade Allocation", path: "/mobo/allocation", levels: ["none", "edit", "view", "edit", "view", "edit"] },
-    { name: "Daily Exception Report", path: "/mobo/exceptions", levels: ["none", "edit", "none", "view", "view", "edit"] },
+    { name: "Dashboard", path: "/mobo/dashboard", levels: ["NONE", "EDIT", "NONE", "VIEW", "VIEW", "EDIT"] },
+    { name: "Trade Reconciliation", path: "/mobo/reconciliation", levels: ["NONE", "EDIT", "VIEW", "VIEW", "VIEW", "EDIT"] },
+    { name: "Post-Trade Allocation", path: "/mobo/allocation", levels: ["NONE", "EDIT", "VIEW", "EDIT", "VIEW", "EDIT"] },
+    { name: "Daily Exception Report", path: "/mobo/exceptions", levels: ["NONE", "EDIT", "NONE", "VIEW", "VIEW", "EDIT"] },
   ]],
   ["Portfolio Control", [
-    { name: "Model Management", path: "/pc/models", levels: ["view", "view", "edit", "edit", "view", "edit"] },
-    { name: "Allocation Matrix", path: "/pc/matrix", levels: ["none", "view", "edit", "edit", "view", "edit"] },
-    { name: "Investment Guideline", path: "/pc/guidelines", levels: ["view", "none", "edit", "edit", "edit", "edit"] },
-    { name: "Allotment & Redemption", path: "/pc/allotment", levels: ["view", "view", "view", "edit", "view", "edit"] },
+    { name: "Model Management", path: "/pc/models", levels: ["VIEW", "VIEW", "EDIT", "EDIT", "VIEW", "EDIT"] },
+    { name: "Allocation Matrix", path: "/pc/matrix", levels: ["NONE", "VIEW", "EDIT", "EDIT", "VIEW", "EDIT"] },
+    { name: "Investment Guideline", path: "/pc/guidelines", levels: ["VIEW", "NONE", "EDIT", "EDIT", "EDIT", "EDIT"] },
+    { name: "Allotment & Redemption", path: "/pc/allotment", levels: ["VIEW", "VIEW", "VIEW", "EDIT", "VIEW", "EDIT"] },
   ]],
   ["Compliance", [
-    { name: "Compliance Overview", path: "/compliance/overview", levels: ["none", "none", "none", "view", "edit", "edit"] },
-    { name: "Guideline Review", path: "/compliance/guidelines", levels: ["none", "none", "view", "view", "edit", "edit"] },
-    { name: "Redemption Review", path: "/compliance/redemptions", levels: ["none", "none", "none", "view", "edit", "edit"] },
+    { name: "Compliance Overview", path: "/compliance/overview", levels: ["NONE", "NONE", "NONE", "VIEW", "EDIT", "EDIT"] },
+    { name: "Guideline Review", path: "/compliance/guidelines", levels: ["NONE", "NONE", "VIEW", "VIEW", "EDIT", "EDIT"] },
+    { name: "Redemption Review", path: "/compliance/redemptions", levels: ["NONE", "NONE", "NONE", "VIEW", "EDIT", "EDIT"] },
   ]],
   ["Administration", [
-    { name: "Enroll User", path: "/admin/enroll-user", levels: ["none", "none", "none", "none", "none", "edit"] },
-    { name: "System Config", path: "/admin/system-config", levels: ["none", "none", "none", "none", "none", "edit"] },
+    { name: "Enroll User", path: "/admin/enroll-user", levels: ["NONE", "NONE", "NONE", "NONE", "NONE", "EDIT"] },
+    { name: "System Config", path: "/admin/system-config", levels: ["NONE", "NONE", "NONE", "NONE", "NONE", "EDIT"] },
   ]],
 ];
 

@@ -30,18 +30,18 @@ export function Help({ children, className, style }: { children: ReactNode; clas
 
 /* ---- access level glyph (None / View / Edit) ---------------- */
 const LEVEL_STYLE: Record<Level, { bg: string; fg: string; icon: typeof Minus }> = {
-  none: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
-  view: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
-  edit: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
+  NONE: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
+  VIEW: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
+  EDIT: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
 };
-const LEVEL_TITLE: Record<Level, string> = { none: "None", view: "View", edit: "Edit" };
+const LEVEL_TITLE: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
 
-export function LevelBadge({ level = "none", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
-  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.none;
+export function LevelBadge({ level = "NONE", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
+  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.NONE;
   const Icon = s.icon;
   return (
     <span
-      title={LEVEL_TITLE[level] + (override ? " · per-user override" : "")}
+      title={(LEVEL_TITLE[level] ?? LEVEL_TITLE.NONE) + (override ? " · per-user override" : "")}
       className="relative inline-flex shrink-0 items-center justify-center rounded"
       style={{
         width: size, height: size, background: s.bg, color: s.fg,
@@ -60,8 +60,8 @@ export function LevelBadge({ level = "none", override, size = 28 }: { level?: Le
 }
 
 /* ---- segmented None / View / Edit control -------------------- */
-const SEG_ORDER: Level[] = ["none", "view", "edit"];
-export function LevelSeg({ value = "none", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
+const SEG_ORDER: Level[] = ["NONE", "VIEW", "EDIT"];
+export function LevelSeg({ value = "NONE", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
   return (
     <span
       className="inline-flex gap-0.5 rounded-[9px] p-[3px]"
@@ -81,7 +81,7 @@ export function LevelSeg({ value = "none", override, onChange }: { value?: Level
             className={`inline-flex items-center gap-1.5 rounded-[7px] px-[11px] py-[5px] text-[12.5px] font-semibold transition-all ${onChange ? "cursor-pointer" : "cursor-default"}`}
             style={{
               background: on ? "#fff" : "transparent",
-              color: on ? (lv === "edit" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
+              color: on ? (lv === "EDIT" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
               fontWeight: on ? 700 : 600,
               boxShadow: on ? "var(--shadow-card)" : "none",
             }}

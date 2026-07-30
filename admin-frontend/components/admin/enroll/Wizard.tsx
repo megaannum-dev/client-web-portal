@@ -55,7 +55,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     patchDraft({ ovr: next });
   };
   const ovrCount = Object.keys(d.ovr).length;
-  const granted = roleIdx == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.path) !== "none").length;
+  const granted = roleIdx == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.path) !== "NONE").length;
 
   const DONE: Record<StepKey, string> = {
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
