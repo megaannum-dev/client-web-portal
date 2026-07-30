@@ -132,6 +132,15 @@ class OnboardingService:
             address=req.address,
             country_of_residence=req.country_of_residence,
             ib_account=req.ibhk_account,
+            occupation=req.occupation,
+            date_of_birth=req.date_of_birth,
+            anniversary=req.anniversary,
+            spouse_name=req.spouse_name,
+            children=req.children,
+            personal_interests=req.personal_interests,
+            communication_preferences=req.communication_preferences,
+            gift_hospitality_preferences=req.gift_hospitality_preferences,
+            relationship_notes=req.relationship_notes,
         )
         model = self.db.get(Model, req.model_id)
         if model is None:
