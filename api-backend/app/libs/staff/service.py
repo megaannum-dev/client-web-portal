@@ -16,7 +16,7 @@ from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
-from app.schemas.staff import StaffOut, StaffOverrideIn
+from app.schemas.staff import LinkSentOut, StaffOut, StaffOverrideIn
 
 
 class StaffUpdatePatch(Protocol):
@@ -148,6 +148,44 @@ class StaffService:
                 to=email, name=name, link=link, portal=Portal.ADMIN, settings=settings
             )
         return user, link_sent, len(overrides)
+
+    def send_set_password_link(
+        self, uid: str, *, actor: User, identity: FirebaseIdentityService, settings: Settings
+    ) -> LinkSentOut:
+        """The "Reset password" row action. Empty body. Idempotent: each call mints a
+        FRESH Firebase link, which invalidates any earlier unused one -- no state to
+        track here.
+
+        Does NOT touch the Firebase credential -- no auth.update_user(...) -- so an
+        admin cannot lock a user out by "resetting" them (§6 BE-18 critical invariant).
+        404 if uid is unknown or is not a Portal.ADMIN user.
+        One audit row (event="account.link_sent"), written and committed BEFORE the
+        send, so the record exists even if the queue call fails."""
+        user = UserRepository(self.repo.db).get_by_firebase_uid(uid)
+        if user is None or user.portal != Portal.ADMIN:
+            raise HTTPException(404, "User not found")
+
+        profile = AdminProfileRepository(self.repo.db).get_by_user_id(user.id)
+        assert profile is not None  # invariant: every Portal.ADMIN user has one AdminProfile row
+        assert user.email is not None  # invariant: enroll requires email for every admin user
+
+        AccessRepository(self.repo.db).insert_audit(
+            actor_uid=actor.firebase_uid,
+            actor_name=actor.name,
+            event="account.link_sent",
+            detail=f"Sent set-password link to {user.email}",
+        )
+        self.repo.db.commit()
+
+        link = identity.generate_set_password_link(user.email)
+        link_sent = send_set_password_email(
+            to=user.email,
+            name=profile.name or user.email,
+            link=link,
+            portal=Portal.ADMIN,
+            settings=settings,
+        )
+        return LinkSentOut(link_sent=link_sent)
 
     def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
         """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN

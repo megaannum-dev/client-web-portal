@@ -11,7 +11,7 @@ from app.libs.identity.deps import get_identity_service
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.service import StaffService
 from app.models.users import User
-from app.schemas.staff import StaffCreatedOut, StaffEnrollIn, StaffOut, StaffUpdateIn
+from app.schemas.staff import LinkSentOut, StaffCreatedOut, StaffEnrollIn, StaffOut, StaffUpdateIn
 
 router = APIRouter(prefix="/admin/staff", tags=["staff"])
 
@@ -59,6 +59,17 @@ def enroll_staff(
         link_sent=link_sent,
         override_count=override_count,
     )
+
+
+@router.post("/{uid}/set-password-link", response_model=LinkSentOut)
+def send_set_password_link(
+    uid: str,
+    service: Annotated[StaffService, Depends(_get_service)],
+    identity: Annotated[FirebaseIdentityService, Depends(get_identity_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    actor: Annotated[User, Depends(require_action(Action.USER_WRITE))],
+) -> LinkSentOut:
+    return service.send_set_password_link(uid, actor=actor, identity=identity, settings=settings)
 
 
 @router.patch("/{uid}", response_model=StaffOut)
