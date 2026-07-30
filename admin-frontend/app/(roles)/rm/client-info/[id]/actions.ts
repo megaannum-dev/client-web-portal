@@ -1,11 +1,12 @@
 "use server";
 
 import { logger } from "@/lib/logger";
-import { getClient as _getClient } from "@/server/rm";
+import { getClient as _getClient, updateClient as _updateClient } from "@/server/rm";
 import {
   fetchOnboardingByClient as _fetchOnboardingByClient, fetchClientEvents as _fetchClientEvents,
   fetchContactLogs as _fetchContactLogs, createContactLogEntry as _createContactLogEntry,
 } from "@/server/onboarding";
+import type { ClientPatchReq } from "@/lib/rm/clients";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
   return {
@@ -19,6 +20,16 @@ export async function getClient(id: string) {
   try {
     const r = await _getClient(id);
     logger.json("rm.getClient", r.success ? { id: r.data.id, name: r.data.name } : r);
+    return r;
+  } catch (e) {
+    return toErrorResult(e);
+  }
+}
+
+export async function updateClient(clientId: string, patch: ClientPatchReq) {
+  try {
+    const r = await _updateClient(clientId, patch);
+    logger.json("rm.updateClient", r.success ? { id: r.data.id } : r);
     return r;
   } catch (e) {
     return toErrorResult(e);

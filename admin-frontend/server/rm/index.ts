@@ -2,7 +2,7 @@
 
 import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
-import type { ClientListDTO, ClientListItemDTO } from "@/lib/rm/clients";
+import type { ClientListDTO, ClientListItemDTO, ClientPatchReq } from "@/lib/rm/clients";
 import type { AllotRdmptDTO, ClientSubscriptionsDTO, SubmitAllotmentReq, SubmitRedemptionReq, TransactionDetailDTO, TransactionDetailRequest } from "@/lib/onboarding/types";
 import type { RmTicketDTO, TicketStatus } from "@/lib/rm/tickets";
 
@@ -14,6 +14,16 @@ export async function getClients(): Promise<APIResult<ClientListDTO>> {
 
 export async function getClient(id: string): Promise<APIResult<ClientListItemDTO>> {
   return apiClient<ClientListItemDTO>(ENDPOINTS.RM.CLIENT(id));
+}
+
+/** Client-detail page's "Edit profile" flow -- same URL as getClient above,
+ * just PATCH instead of GET (§ backend contract: partial update, unset
+ * fields left unchanged), returning the updated client in the same shape. */
+export async function updateClient(id: string, patch: ClientPatchReq): Promise<APIResult<ClientListItemDTO>> {
+  return apiClient<ClientListItemDTO>(ENDPOINTS.RM.CLIENT(id), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 /** Model Subscription page (FE-6). */

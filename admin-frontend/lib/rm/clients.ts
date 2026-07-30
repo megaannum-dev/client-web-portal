@@ -24,7 +24,34 @@ export interface ClientListItemDTO {
   // Number() coercion), null if the client predates the cash-deposit flow.
   cash_deposit?: string | null;
   amount_in_trade?: string | null;
+  // NEW — "Further Information" fields, write-once-at-onboarding until now,
+  // read (and now edited) via GET/PATCH /api/rm/clients/{client_id}.
+  occupation?: string | null;
+  anniversary?: string | null; // date as YYYY-MM-DD
+  spouse_name?: string | null;
+  children?: string | null;
+  personal_interests?: string | null;
+  communication_preferences?: string | null;
+  gift_hospitality_preferences?: string | null;
+  relationship_notes?: string | null;
 }
+
+/** Partial-update body for PATCH /api/rm/clients/{client_id} -- any subset of
+ * these 11 fields; omitted keys are left unchanged server-side. Same
+ * snake_case field names as ClientListItemDTO since this rides the wire as-is. */
+export type ClientPatchReq = Partial<{
+  address: string | null;
+  country_of_residence: string | null;
+  authorized_person: string | null;
+  occupation: string | null;
+  anniversary: string | null;
+  spouse_name: string | null;
+  children: string | null;
+  personal_interests: string | null;
+  communication_preferences: string | null;
+  gift_hospitality_preferences: string | null;
+  relationship_notes: string | null;
+}>;
 
 export interface ClientListDTO {
   items: ClientListItemDTO[];
@@ -48,6 +75,15 @@ export interface ClientRow {
   authorizedByName: string | null;   // NEW (FE-4)
   cashDeposit: number | null;
   amountInTrade: number | null;
+  // NEW -- "Further Information" fields (see ClientListItemDTO above).
+  occupation: string | null;
+  anniversary: string | null;
+  spouseName: string | null;
+  children: string | null;
+  personalInterests: string | null;
+  communicationPreferences: string | null;
+  giftHospitalityPreferences: string | null;
+  relationshipNotes: string | null;
 }
 
 export function dtoToRow(d: ClientListItemDTO): ClientRow {
@@ -68,6 +104,14 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     authorizedByName: d.authorized_by_name ?? null,
     cashDeposit: d.cash_deposit != null ? Number(d.cash_deposit) : null,
     amountInTrade: d.amount_in_trade != null ? Number(d.amount_in_trade) : null,
+    occupation: d.occupation ?? null,
+    anniversary: d.anniversary ?? null,
+    spouseName: d.spouse_name ?? null,
+    children: d.children ?? null,
+    personalInterests: d.personal_interests ?? null,
+    communicationPreferences: d.communication_preferences ?? null,
+    giftHospitalityPreferences: d.gift_hospitality_preferences ?? null,
+    relationshipNotes: d.relationship_notes ?? null,
   };
 }
 

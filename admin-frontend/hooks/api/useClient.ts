@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
-  getClient, getOnboardingByClient as _getOnboardingByClient, getClientEvents as _getClientEvents,
+  getClient, updateClient as _updateClient, getOnboardingByClient as _getOnboardingByClient,
+  getClientEvents as _getClientEvents,
   getContactLogs as _getContactLogs, createContactLogEntry as _createContactLogEntry,
 } from "@/app/(roles)/rm/client-info/[id]/actions";
 import { getCachedById } from "@/hooks/api/useClientBook";
-import { dtoToRow, type ClientRow } from "@/lib/rm/clients";
+import { dtoToRow, type ClientRow, type ClientPatchReq } from "@/lib/rm/clients";
 import type { ClientEventDTO, ContactLogEntryDTO, OnboardingDTO } from "@/lib/onboarding/types";
 
 export interface UseClientResult {
@@ -15,6 +16,10 @@ export interface UseClientResult {
   loading: boolean;
   error: string | null;
   notFound: boolean; // separates 404 from network/other errors
+  /** "Edit profile" flow -- PATCHes, then updates local state from the
+   * response directly (no refetch needed, PATCH already returns the
+   * updated client in the same shape as GET). */
+  updateProfile: (patch: ClientPatchReq) => Promise<{ success: boolean; error?: string }>;
 }
 
 export function useClient(id: string): UseClientResult {
@@ -55,7 +60,14 @@ export function useClient(id: string): UseClientResult {
     })();
   }, [id, uid, cacheHit]);
 
-  return { data, loading, error, notFound };
+  const updateProfile = useCallback(async (patch: ClientPatchReq) => {
+    const r = await _updateClient(id, patch);
+    if (!r.success) return { success: false, error: r.error };
+    setData(dtoToRow(r.data));
+    return { success: true };
+  }, [id]);
+
+  return { data, loading, error, notFound, updateProfile };
 }
 
 /** FE-4 — client-detail page's KYC & Documents card. 404 (no onboarding row
