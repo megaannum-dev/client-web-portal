@@ -13,6 +13,7 @@ import {
 } from "@/components/rm/SubscriptionFormModal";
 import { OB_MODEL_CATALOG, type SubClient } from "@/lib/mock/rm-data";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
 
@@ -59,6 +60,7 @@ function ModelSubscriptionContent() {
   const [deepLink, setDeepLink] = useState<{ openClient: string; openModelKey: string } | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const deepLinkApplied = useRef(false);
+  const canEdit = useCanEdit("rm.model-subscription");
 
   useEffect(() => {
     if (deepLinkApplied.current || !clients) return;
@@ -91,9 +93,11 @@ function ModelSubscriptionContent() {
           subtitle={`Client book → subscribed models → full transaction history. ${totalClients} clients · ${totalModels} subscriptions.`}
           actions={
             /* View/Edit Gate Function */
-            <Button icon={Plus} onClick={() => setModal({ mode: "new-subscription", context: {} })}>
-              Subscribe Client
-            </Button>
+            canEdit && (
+              <Button icon={Plus} onClick={() => setModal({ mode: "new-subscription", context: {} })}>
+                Subscribe Client
+              </Button>
+            )
           }
         />
       </div>

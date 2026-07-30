@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { DetailShell, Fact, Notice, SectionLabel, ObStatusChip } from "@/components/compliance/Shared";
 import { docStatusToVerdict } from "@/lib/onboarding/mappers";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import type { AdminOnboardingRow, DocumentDTO } from "@/lib/onboarding/types";
 
 /* ---- one document row with valid/issue verdict toggle ------ */
@@ -121,6 +122,7 @@ export function ObDetailPanel({
   const allReviewed = reviewed === verdicts.length;
   const hasIssue = issues > 0;
   const canApprove = pending && allReviewed && !hasIssue;
+  const canEdit = useCanEdit("compliance.review");
   return (
     <DetailShell
       eyebrow="Onboarding review"
@@ -161,13 +163,15 @@ export function ObDetailPanel({
         <div className="border-t border-outline-variant">
           {o.documents.map((d, i) => (
             /* View/Edit Gate Function */
-            <DocRow
-              key={d.doc_type}
-              doc={d}
-              verdict={verdicts[i]}
-              onToggle={pending ? (v) => onVerdict(d.doc_type, v) : undefined}
-              onDownload={() => onDownload(d.doc_type)}
-            />
+            canEdit && (
+              <DocRow
+                key={d.doc_type}
+                doc={d}
+                verdict={verdicts[i]}
+                onToggle={pending ? (v) => onVerdict(d.doc_type, v) : undefined}
+                onDownload={() => onDownload(d.doc_type)}
+              />
+            )
           ))}
         </div>
       </div>
@@ -175,9 +179,9 @@ export function ObDetailPanel({
         {pending ? (
           <>
             {/* View/Edit Gate Function */}
-            {hasIssue && <Button variant="secondary" icon={X} onClick={() => onReject(o.id)}>Reject</Button>}
+            {canEdit && hasIssue && <Button variant="secondary" icon={X} onClick={() => onReject(o.id)}>Reject</Button>}
             {/* View/Edit Gate Function */}
-            <ApproveButton canApprove={canApprove} allReviewed={allReviewed} onApprove={() => onApprove(o.id)} />
+            {canEdit && <ApproveButton canApprove={canApprove} allReviewed={allReviewed} onApprove={() => onApprove(o.id)} />}
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">

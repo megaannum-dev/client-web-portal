@@ -15,6 +15,7 @@ import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/rm/Shared";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import {
   Plus, ChevronRight, Paperclip, FileText, Phone, Video, Users, Mail, MessageCircle, Check, X,
 } from "@/lib/icons";
@@ -117,6 +118,7 @@ function NewContactLogModal({
   const [channel, setChannel] = useState(CHANNELS[0].value);
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState<{ name: string; size: string } | null>(null);
+  const canEdit = useCanEdit("rm.client-info");
 
   const valid = !!(topic.trim() && date && desc.trim());
 
@@ -144,7 +146,7 @@ function NewContactLogModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={!valid} onClick={() => valid && save()}>Save log</Button>
+          {canEdit && <Button icon={Check} disabled={!valid} onClick={() => valid && save()}>Save log</Button>}
         </>
       }
     >
@@ -215,17 +217,21 @@ function NewContactLogModal({
               <span className="flex-1 truncate text-[13px] font-semibold text-on-surface">{file.name}</span>
               <span className="text-[11.5px] text-secondary">{file.size}</span>
               {/* View/Edit Gate Function */}
-              <button type="button" onClick={() => setFile(null)} className="shrink-0 cursor-pointer p-0.5 text-secondary">
-                <X size={15} strokeWidth={2} />
-              </button>
+              {canEdit && (
+                <button type="button" onClick={() => setFile(null)} className="shrink-0 cursor-pointer p-0.5 text-secondary">
+                  <X size={15} strokeWidth={2} />
+                </button>
+              )}
             </div>
           ) : (
             /* View/Edit Gate Function */
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-outline bg-surface-low px-3 py-4 text-[13px] font-semibold text-secondary">
-              <Paperclip size={15} strokeWidth={2} />
-              Attach a document — meeting notes, statement, signed instruction
-              <input type="file" className="hidden" onChange={onFile} />
-            </label>
+            canEdit && (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-outline bg-surface-low px-3 py-4 text-[13px] font-semibold text-secondary">
+                <Paperclip size={15} strokeWidth={2} />
+                Attach a document — meeting notes, statement, signed instruction
+                <input type="file" className="hidden" onChange={onFile} />
+              </label>
+            )
           )}
         </div>
       </div>
@@ -236,6 +242,7 @@ function NewContactLogModal({
 export function ContactLogCard({ clientName, entries }: { clientName: string; entries: ContactLogEntry[] }) {
   const [logs, setLogs] = useState<ContactLogEntry[]>(entries);
   const [modalOpen, setModalOpen] = useState(false);
+  const canEdit = useCanEdit("rm.client-info");
 
   const addLog = (entry: ContactLogEntry) => {
     setLogs((prev) => [entry, ...prev.map((p) => ({ ...p, accent: false }))]);
@@ -249,7 +256,7 @@ export function ContactLogCard({ clientName, entries }: { clientName: string; en
         <div className="flex items-center gap-3">
           <span className="text-[12px] text-secondary">{logs.length} logs</span>
           {/* View/Edit Gate Function */}
-          <Button icon={Plus} onClick={() => setModalOpen(true)}>New log</Button>
+          {canEdit && <Button icon={Plus} onClick={() => setModalOpen(true)}>New log</Button>}
         </div>
       }
     >

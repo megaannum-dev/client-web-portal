@@ -17,6 +17,7 @@ import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
 import { loadReconciliation } from "@/lib/mobo/reconciliation";
 import { loadCommissions, computeFeeTotals, fmtFeeShort } from "@/lib/mobo/commissions";
 import type { ReconTrade } from "@/lib/mobo/types";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
@@ -72,6 +73,7 @@ const CARD = "rounded-2xl border border-outline-variant bg-surface-lowest shadow
 
 export default function MoboDashboardPage() {
   const router = useRouter();
+  const canEdit = useCanEdit("mobo.recon-overview");
 
   // SINGLE SOURCE: every figure on this page is read from the same bundle the
   // recon screen consumes, so the dashboard and recon never disagree.
@@ -198,7 +200,7 @@ export default function MoboDashboardPage() {
                   existing shared Monthly Reports page instead. */}
               <Button variant="secondary" icon={FileText} full onClick={() => router.push("/monthly-reports")}>Preview</Button>
               {/* View/Edit Gate Function */}
-              <Button icon={Lock} full disabled>Sign off</Button>
+              {canEdit && <Button icon={Lock} full disabled>Sign off</Button>}
             </div>
             <p className="mt-3 text-[11.5px] leading-[1.45] text-secondary">
               Sign-off unlocks when open breaks reach zero.

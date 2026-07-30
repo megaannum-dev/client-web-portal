@@ -28,6 +28,7 @@ import { Card } from "@/components/ui/Card";
 import type { RequestTicket } from "@/lib/rm/tickets";
 import { isTerminalStatus } from "@/lib/rm/tickets";
 import { useRmTickets } from "@/hooks/api/useRmTickets";
+import { useCanEdit } from "@/hooks/usePageAccess";
 // ponytail: lazy dynamic import — this "use server" action pulls in server-only
 // code; a static import would eagerly evaluate that chain for every consumer of
 // this client component (e.g. the inbox view, which never calls it).
@@ -312,6 +313,7 @@ function ActOnTradePanel({
   const [inlineError, setInlineError] = useState<string | null>(null);
   const isCustomReason = reason === "Other — add a note";
   const declineDisabled = closed || (isCustomReason && !customNote.trim());
+  const canEdit = useCanEdit("rm.request-tickets");
 
   async function handleAct() {
     const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
@@ -344,9 +346,11 @@ function ActOnTradePanel({
         </div>
 
         {/* View/Edit Gate Function */}
-        <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
-          Act on request — open Model Subscription
-        </Button>
+        {canEdit && (
+          <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
+            Act on request — open Model Subscription
+          </Button>
+        )}
 
         <div className="h-px bg-outline-variant" />
 
@@ -390,7 +394,7 @@ function ActOnTradePanel({
           )}
         </div>
         {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>
+        {canEdit && <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>}
 
         {inlineError && (
           <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>
@@ -419,6 +423,7 @@ function TicketActions({
   // always-required note before Decline is clickable (adapted from
   // ActOnTradePanel's customNote/declineDisabled pattern).
   const declineDisabled = closed || !customNote.trim();
+  const canEdit = useCanEdit("rm.request-tickets");
 
   async function run(status: "resolved" | "declined") {
     const note = status === "declined" ? customNote.trim() : undefined;
@@ -440,7 +445,7 @@ function TicketActions({
           {copied ? "Copied!" : "Copy ticket reference"}
         </Button>
         {/* View/Edit Gate Function */}
-        <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>
+        {canEdit && <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>}
       </div>
 
       <div className="mt-3.5">
@@ -453,7 +458,7 @@ function TicketActions({
           className="min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
         />
         {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>
+        {canEdit && <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>}
       </div>
 
       {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
