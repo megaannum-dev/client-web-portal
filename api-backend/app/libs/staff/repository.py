@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Final
 
 from sqlalchemy import func
@@ -54,12 +54,19 @@ class StaffRepository:
         authorized_by: str,
         name: str | None = None,
         phone_number: str | None = None,
+        department: str | None = None,
+        start_date: date | None = None,
+        address: str | None = None,
     ) -> None:
         """Inserts users(portal=admin, status=ACTIVE) + admin_profiles(...) in the
         CALLER's transaction (no commit here — StaffService.enroll owns the txn
         boundary, per § 3.1 layering). status=ACTIVE is explicit, not relied on as
         the column default (DISABLED, per the DB layer's DB-1) — that default exists
-        for staged client onboarding; there is no "pending admin" state."""
+        for staged client onboarding; there is no "pending admin" state.
+
+        `department`/`start_date`/`address` (BE-17) are passed through to
+        AdminProfile exactly the way `name`/`phone_number` already are — persisted,
+        never swallowed (§6 BE-17)."""
         user = User(
             id=user_id,
             firebase_uid=firebase_uid,
@@ -70,7 +77,17 @@ class StaffRepository:
         )
         self.db.add(user)
         self.db.flush()
-        self.db.add(AdminProfile(user_id=user.id, role=role, name=name, phone_number=phone_number))
+        self.db.add(
+            AdminProfile(
+                user_id=user.id,
+                role=role,
+                name=name,
+                phone_number=phone_number,
+                department=department,
+                start_date=start_date,
+                address=address,
+            )
+        )
 
     def count_active_admins(self, *, for_update: bool = False) -> int:
         q = (

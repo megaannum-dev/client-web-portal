@@ -11,7 +11,7 @@ from app.libs.identity.deps import get_identity_service
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.service import StaffService
 from app.models.users import User
-from app.schemas.staff import StaffEnrollIn, StaffOut, StaffUpdateIn
+from app.schemas.staff import StaffCreatedOut, StaffEnrollIn, StaffOut, StaffUpdateIn
 
 router = APIRouter(prefix="/admin/staff", tags=["staff"])
 
@@ -28,28 +28,36 @@ def list_staff(
     return service.list_directory()
 
 
-@router.post("", response_model=StaffOut, status_code=201)
+@router.post("", response_model=StaffCreatedOut, status_code=201)
 def enroll_staff(
     body: StaffEnrollIn,
     service: Annotated[StaffService, Depends(_get_service)],
     identity: Annotated[FirebaseIdentityService, Depends(get_identity_service)],
     settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(require_action(Action.USER_WRITE))],
-) -> StaffOut:
-    admin_user, invite_link = service.enroll(
+) -> StaffCreatedOut:
+    admin_user, link_sent, override_count = service.enroll(
         caller_uid=user.firebase_uid,
+        caller_name=user.name,
         email=body.email,
-        name=body.name,
+        name=f"{body.first_name} {body.last_name}",
         role=body.role,
         phone_number=body.phone_number,
+        department=body.department,
+        start_date=body.start_date,
+        address=body.address,
+        overrides=body.overrides,
+        send_link=body.send_link,
         identity=identity,
         settings=settings,
     )
-    return StaffOut(
+    return StaffCreatedOut(
         firebase_uid=admin_user.firebase_uid,
-        role=admin_user.role,
-        status=admin_user.status.value,
-        invite_link=invite_link,
+        email=body.email,
+        role=body.role,
+        status="INITIATED",
+        link_sent=link_sent,
+        override_count=override_count,
     )
 
 

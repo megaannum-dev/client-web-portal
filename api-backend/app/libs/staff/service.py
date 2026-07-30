@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Literal, Protocol
 
 from fastapi import HTTPException
@@ -9,11 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import set_portal_claims
+from app.libs.access.repository import AccessRepository, from_wire
+from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
-from app.schemas.staff import StaffOut
+from app.schemas.staff import StaffOut, StaffOverrideIn
 
 
 class StaffUpdatePatch(Protocol):
@@ -71,28 +74,63 @@ class StaffService:
         self,
         *,
         caller_uid: str,
+        caller_name: str | None,
         email: str,
         name: str,
         role: AdminRole,
         phone_number: str | None,
+        department: str | None,
+        start_date: date | None,
+        address: str | None,
+        overrides: list[StaffOverrideIn],
+        send_link: bool,
         identity: FirebaseIdentityService,
         settings: Settings,
-    ) -> tuple[User, str]:
+    ) -> tuple[User, bool, int]:
         """Saga: Firebase identity first, DB row second (parity with BE-12).
         Firebase-fail -> ensure_identity raises before any DB write -> zero rows.
         Commit-fail on a newly-created identity (created=True) -> compensating
         delete_user (Risk A1). Commit-fail on an adopted identity (created=False,
-        a pre-existing orphan) -> never deleted, since this call didn't mint it."""
+        a pre-existing orphan) -> never deleted, since this call didn't mint it.
+
+        User + profile (with department/start_date/address) + every enrollment-time
+        override + the "account.created" audit row are all flushed in the SAME
+        transaction and committed together (§6 BE-17 Done-when) -- a commit failure
+        rolls all of it back at once, in lockstep with the compensating delete_user.
+        set_portal_claims and the set-password email are Firebase/mailer side
+        effects, not DB rows, so they happen strictly AFTER the commit succeeds --
+        the email ordering is load-bearing (§6): a send failure must never strand
+        an already-committed account, so it can never run inside the try block."""
         uid, created = identity.ensure_identity(email)
+        user_id = uuid.uuid4()
         try:
             self.repo.create_with_profile(
-                user_id=uuid.uuid4(),
+                user_id=user_id,
                 firebase_uid=uid,
                 email=email,
                 role=role,
                 authorized_by=caller_uid,
                 name=name,
                 phone_number=phone_number,
+                department=department,
+                start_date=start_date,
+                address=address,
+            )
+            access_repo = AccessRepository(self.repo.db)
+            for override in overrides:
+                access_repo.insert_override(
+                    user_id=user_id,
+                    page_id=override.page_id,
+                    level=from_wire(override.level),
+                    reason=override.reason,
+                    granted_by=caller_uid,
+                    expires_at=override.expires_at,
+                )
+            access_repo.insert_audit(
+                actor_uid=caller_uid,
+                actor_name=caller_name,
+                event="account.created",
+                detail=f"Enrolled {email} as {role.value}",
             )
             self.repo.db.commit()
         except Exception:
@@ -102,7 +140,14 @@ class StaffService:
             raise
         set_portal_claims(uid, "admin", role.value, settings)  # Risk A4
         user = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
-        return user, identity.generate_set_password_link(email)
+
+        link_sent = False
+        if send_link:
+            link = identity.generate_set_password_link(email)
+            link_sent = send_set_password_email(
+                to=email, name=name, link=link, portal=Portal.ADMIN, settings=settings
+            )
+        return user, link_sent, len(overrides)
 
     def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
         """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
