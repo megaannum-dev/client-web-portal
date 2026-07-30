@@ -23,6 +23,16 @@ export interface StartOnboardingReq {
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
   assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
+  // Client Preference step (FE-17) — all optional, omitted entirely when blank.
+  occupation?: string;
+  date_of_birth?: string;                     // "YYYY-MM-DD"
+  anniversary?: string;                        // "YYYY-MM-DD"
+  spouse_name?: string;
+  children?: string;
+  personal_interests?: string;
+  communication_preferences?: string;
+  gift_hospitality_preferences?: string;
+  relationship_notes?: string;
 }
 
 export interface RmOptionDTO { uid: string; name: string; }
