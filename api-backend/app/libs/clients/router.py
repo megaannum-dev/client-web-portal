@@ -15,6 +15,7 @@ from app.libs.clients.schemas import (
     ClientListOut,
     ClientOnboardIn,
     ClientOnboardOut,
+    ClientProfilePatch,
 )
 from app.libs.clients.service import ClientService
 from app.libs.identity.deps import get_identity_service
@@ -59,6 +60,17 @@ def get_client(
     role: Annotated[AdminRole, Depends(_get_caller_role)],
 ) -> ClientListItemOut:
     return service.get_visible(role, user.firebase_uid, client_id)
+
+
+@router.patch("/clients/{client_id}", response_model=ClientListItemOut)
+def update_client(
+    client_id: uuid.UUID,
+    body: ClientProfilePatch,
+    service: Annotated[ClientService, Depends(_get_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_MANAGE))],
+    role: Annotated[AdminRole, Depends(_get_caller_role)],
+) -> ClientListItemOut:
+    return service.update_profile(role, user.firebase_uid, client_id, body)
 
 
 @router.post("/clients", response_model=ClientOnboardOut, status_code=201)

@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.security import set_portal_claims
 from app.libs.clients.repository import ClientRepository, ClientRow
-from app.libs.clients.schemas import ClientListItemOut, ClientListOut, SubscriptionOut
+from app.libs.clients.schemas import (
+    ClientListItemOut,
+    ClientListOut,
+    ClientProfilePatch,
+    SubscriptionOut,
+)
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AdminRole, Portal, User
@@ -99,6 +104,25 @@ class ClientService:
             dto.cash_deposit = portfolio.cash_deposit
             dto.amount_in_trade = portfolio.amount_in_trade
         return dto
+
+    def update_profile(
+        self,
+        role: AdminRole,
+        rm_firebase_uid: str,
+        client_id: uuid.UUID,
+        patch: ClientProfilePatch,
+    ) -> ClientListItemOut:
+        """Edit-profile write path (proposal 019). Scoping mirrors get_visible
+        exactly (same 404-not-403 behavior for an RM's out-of-book client) --
+        it reuses the same repo-level visibility check, just against the live
+        ORM row so setattr sticks."""
+        profile = self.repo.get_profile_for_update(role, rm_firebase_uid, client_id)
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        for field, value in patch.model_dump(exclude_unset=True).items():
+            setattr(profile, field, value)
+        self.repo.db.commit()
+        return self.get_visible(role, rm_firebase_uid, client_id)
 
     @staticmethod
     def _to_dto(r: ClientRow) -> ClientListItemOut:

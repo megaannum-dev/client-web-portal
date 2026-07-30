@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
@@ -38,6 +39,14 @@ class ClientRow:
     authorized_by_name: str | None  # 014 C-7: resolved display name of users.authorized_by
     id_type: str | None  # 014 C-8: client_onboardings.id_type, joined
     id_number: str | None  # 014 C-8: client_onboardings.id_number, joined
+    occupation: str | None  # 019: client_profiles.occupation
+    anniversary: date | None
+    spouse_name: str | None
+    children: str | None
+    personal_interests: str | None
+    communication_preferences: str | None
+    gift_hospitality_preferences: str | None
+    relationship_notes: str | None
 
 
 @dataclass(frozen=True)
@@ -89,6 +98,14 @@ class ClientRepository:
                 authorized_by_name.label("authorized_by_name"),
                 ClientOnboarding.id_type,
                 ClientOnboarding.id_number,
+                ClientProfile.occupation,
+                ClientProfile.anniversary,
+                ClientProfile.spouse_name,
+                ClientProfile.children,
+                ClientProfile.personal_interests,
+                ClientProfile.communication_preferences,
+                ClientProfile.gift_hospitality_preferences,
+                ClientProfile.relationship_notes,
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
@@ -117,6 +134,15 @@ class ClientRepository:
         query = self._base_query().filter(ClientProfile.user_id == client_id)
         row = self._scoped(query, role, rm_firebase_uid).one_or_none()
         return self._row(row) if row else None
+
+    def get_profile_for_update(
+        self, role: AdminRole, rm_firebase_uid: str, client_id: uuid.UUID
+    ) -> ClientProfile | None:
+        """Same D-4 visibility scoping as get_visible, but returns the live
+        ORM row (not the joined ClientRow dataclass) so the service can
+        setattr onto it directly for the write path."""
+        query = self.db.query(ClientProfile).filter(ClientProfile.user_id == client_id)
+        return self._scoped(query, role, rm_firebase_uid).one_or_none()
 
     def get_portfolio(self, client_id: uuid.UUID) -> ClientPortfolio | None:
         return self.db.get(ClientPortfolio, client_id)
@@ -191,4 +217,12 @@ class ClientRepository:
             authorized_by_name=r.authorized_by_name,
             id_type=r.id_type,
             id_number=r.id_number,
+            occupation=r.occupation,
+            anniversary=r.anniversary,
+            spouse_name=r.spouse_name,
+            children=r.children,
+            personal_interests=r.personal_interests,
+            communication_preferences=r.communication_preferences,
+            gift_hospitality_preferences=r.gift_hospitality_preferences,
+            relationship_notes=r.relationship_notes,
         )
