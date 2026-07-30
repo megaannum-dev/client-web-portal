@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -123,13 +122,6 @@ function LoginForm() {
       >
         Continue with Google
       </button>
-
-      <p className="mt-6 text-center text-sm text-corporate">
-        New internal account?{" "}
-        <Link href="/register" className="font-semibold text-brand hover:underline">
-          Register (dev only) →
-        </Link>
-      </p>
     </div>
   );
 }

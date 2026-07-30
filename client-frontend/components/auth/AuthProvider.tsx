@@ -2,16 +2,15 @@
 
 import {
   GoogleAuthProvider,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
   type User,
 } from "firebase/auth";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { BackendAuthError, postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
+import { BackendAuthError, postBackendLogin, postBackendLogout } from "@/lib/auth-api";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import type { PortalUser } from "@/types/portal";
 
@@ -24,7 +23,6 @@ type AuthContextValue = {
   firebaseReady: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
-  signUpWithEmailPassword: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   refreshPortalUser: () => Promise<void>;
@@ -39,9 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [backendSyncing, setBackendSyncing] = useState(false);
   const [backendSyncError, setBackendSyncError] = useState<string | null>(null);
   const firebaseReady = isFirebaseConfigured();
-  // Guards onAuthStateChanged's login-bind from racing an explicit signUpWithEmailPassword
-  // call: registration owns the uid's first sync, login-bind must not 403 on it mid-flight.
-  const isRegisteringRef = useRef(false);
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -60,15 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setBackendSyncError(null);
 
       if (!next) {
-        setBackendSyncing(false);
-        setLoading(false);
-        return;
-      }
-
-      // Registration is in progress — signUpWithEmailPassword owns portalUser state
-      // for this cycle. Skip the login sync so it doesn't 403 on a uid the register
-      // call hasn't finished provisioning yet.
-      if (isRegisteringRef.current) {
         setBackendSyncing(false);
         setLoading(false);
         return;
@@ -125,40 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   }, [firebaseReady]);
 
-  const signUpWithEmailPassword = useCallback(async (email: string, password: string) => {
-    if (!firebaseReady) return;
-    const auth = getFirebaseAuth();
-    isRegisteringRef.current = true;
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const token = await cred.user.getIdToken();
-      setBackendSyncing(true);
-      const profile = await postBackendRegister(token);
-      setPortalUser(profile);
-    } catch (err) {
-      // Firebase credential was created but backend registration failed (or is
-      // unavailable, e.g. the dev-only route is unmounted) — sign out to avoid
-      // leaving the user Firebase-authenticated with no bound portal account.
-      setBackendSyncError(
-        err instanceof BackendAuthError && err.status === 404
-          ? "Self-registration is not available. Contact your RM to be onboarded."
-          : err instanceof Error
-            ? err.message
-            : "Registration failed."
-      );
-      try {
-        await signOut(auth);
-      } catch {
-        /* noop */
-      }
-      throw err;
-    } finally {
-      isRegisteringRef.current = false;
-      setBackendSyncing(false);
-      setLoading(false);
-    }
-  }, [firebaseReady]);
-
   const signOutUser = useCallback(async () => {
     if (!firebaseReady) return;
     try {
@@ -213,7 +165,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firebaseReady,
       signInWithGoogle,
       signInWithEmailPassword,
-      signUpWithEmailPassword,
       signOutUser,
       getIdToken,
       refreshPortalUser,
@@ -227,7 +178,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firebaseReady,
       signInWithGoogle,
       signInWithEmailPassword,
-      signUpWithEmailPassword,
       signOutUser,
       getIdToken,
       refreshPortalUser,
