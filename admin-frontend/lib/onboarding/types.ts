@@ -135,6 +135,22 @@ export interface TransactionDetailDTO {
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
 export interface ClientEventDTO  { id: string; category: string; title: string; body: string; created_at: string; }
 
+/** Client-detail page's Contact Log card. */
+export interface ContactLogEntryDTO {
+  id: string;
+  topic: string;
+  channel: string;
+  occurred_at: string;
+  description: string;
+  interest: string | null;
+  complaint: string | null;
+  follow_up: string | null;
+  logged_by: string;
+  doc_filename: string | null;
+  doc_size_bytes: number | null;
+  created_at: string;
+}
+
 /* ---- Model Subscription read endpoints (Goal 9, FE-6) --------------------- */
 export interface ClientSubscriptionRowDTO {
   model_id: string; model_name: string; units: number;

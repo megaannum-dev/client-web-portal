@@ -12,7 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
+import { useClient, useOnboardingByClient, useClientEvents, useContactLogs } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
@@ -169,15 +169,16 @@ export default function ClientDetailPage() {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const { data: onboarding } = useOnboardingByClient(id);
   const { data: events } = useClientEvents(id);
-  // Preferences/Contact Log aren't backend fields yet -- overlaid from the mock
-  // fixtures the same way the client-book list page overlays getMockOverlay(r.id)
-  // (see client-info/page.tsx): a direct rm-data.ts lookup keyed by id, not a
-  // change to useClient/ClientRow. getClientDetail returns null for ids outside
-  // the (currently empty) mock RM_CLIENTS fixture, in which case both fields
-  // just render as empty/"—".
+  const { data: contactLogs, loading: contactLogsLoading, createEntry: createContactLogEntry } = useContactLogs(id);
+  // Preferences aren't a backend field yet -- overlaid from the mock fixtures
+  // the same way the client-book list page overlays getMockOverlay(r.id) (see
+  // client-info/page.tsx): a direct rm-data.ts lookup keyed by id, not a change
+  // to useClient/ClientRow. getClientDetail returns null for ids outside the
+  // (currently empty) mock RM_CLIENTS fixture, in which case it just renders
+  // as empty/"—". Contact Log itself is wired to the real API via useContactLogs
+  // above, not this mock overlay.
   const mockDetail = getClientDetail(id)?.detail;
   const preferences = mockDetail?.preferences;
-  const contactLog = mockDetail?.contactLog ?? [];
 
   if (nf) notFound(); // Next.js 404
 
@@ -373,7 +374,13 @@ export default function ClientDetailPage() {
           </div>
         </Card>
 
-        <ContactLogCard key={id} clientName={data.name ?? "—"} entries={contactLog} />
+        <ContactLogCard
+          key={id}
+          clientName={data.name ?? "—"}
+          entries={contactLogs ?? []}
+          loading={contactLogsLoading}
+          onCreate={createContactLogEntry}
+        />
       </div>
     </div>
   );

@@ -6,8 +6,9 @@
    ContactLogItem/ContactLogModal/ClLogBody, ~L71-280) -- inline-expand
    read view only (the prototype's floating-overlay detail modal is an
    unused dev-tweak variant and is intentionally not built here).
-   Pure local state: entries are seeded from the mock contactLog prop,
-   "New log" just prepends to local state -- no persistence, no API call.
+   Real API-backed: entries come from GET /api/rm/clients/{id}/contact-logs
+   via useContactLogs(); "New log" POSTs a multipart FormData and the hook
+   refetches on success -- no local-state source of truth anymore.
    ============================================================ */
 
 import { useState, type ChangeEvent } from "react";
@@ -15,11 +16,16 @@ import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/rm/Shared";
+import { fmtTimestamp } from "@/lib/pc/format";
 import {
   Plus, ChevronRight, Paperclip, FileText, Phone, Video, Users, Mail, MessageCircle, Check, X,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
-import type { ContactLogEntry } from "@/lib/mock/rm-data";
+import type { ContactLogEntryDTO } from "@/lib/onboarding/types";
+
+function fmtBytes(bytes: number): string {
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 const CHANNELS: { value: string; icon: string }[] = [
   { value: "Phone call", icon: "phone" },
@@ -33,25 +39,24 @@ const CHANNEL_ICON: Record<string, LucideIcon> = {
   phone: Phone, video: Video, users: Users, mail: Mail, "message-circle": MessageCircle,
 };
 
-function channelIcon(item: Pick<ContactLogEntry, "icon" | "channel">): LucideIcon {
-  const key = item.icon || CHANNELS.find((c) => c.value === item.channel)?.icon || "phone";
+function channelIcon(channel: string): LucideIcon {
+  const key = CHANNELS.find((c) => c.value === channel)?.icon ?? "phone";
   return CHANNEL_ICON[key] ?? Phone;
 }
 
 const fieldBase =
   "w-full rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary";
 
-function ContactLogRow({ item, last }: { item: ContactLogEntry; last: boolean }) {
-  const [open, setOpen] = useState(!!item.accent);
-  const Icon = channelIcon(item);
+function ContactLogRow({ item, last }: { item: ContactLogEntryDTO; last: boolean }) {
+  // ponytail: the old mock's client-side "just added, highlight it" accent
+  // dot has no server equivalent -- dropped rather than faked from created_at.
+  const [open, setOpen] = useState(false);
+  const Icon = channelIcon(item.channel);
   return (
     <div className="relative" style={{ paddingBottom: last ? 2 : 16 }}>
       <span
         className="absolute -left-[21px] top-[4px] h-[11px] w-[11px] rounded-full border-2"
-        style={{
-          background: item.accent ? "rgb(var(--color-primary))" : "rgb(var(--color-surface-lowest))",
-          borderColor: item.accent ? "rgb(var(--color-primary))" : "rgb(var(--color-outline))",
-        }}
+        style={{ background: "rgb(var(--color-surface-lowest))", borderColor: "rgb(var(--color-outline))" }}
       />
       <button
         type="button"
@@ -64,8 +69,8 @@ function ContactLogRow({ item, last }: { item: ContactLogEntry; last: boolean })
             <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-[3px] text-[11.5px] font-semibold text-secondary">
               <Icon size={12} strokeWidth={2} /> {item.channel}
             </span>
-            <span className="text-[12px] text-secondary">{item.when}</span>
-            {item.doc && <Paperclip size={13} strokeWidth={2} className="text-secondary" />}
+            <span className="text-[12px] text-secondary">{fmtTimestamp(item.occurred_at)}</span>
+            {item.doc_filename && <Paperclip size={13} strokeWidth={2} className="text-secondary" />}
           </span>
         </span>
         <ChevronRight
@@ -80,24 +85,26 @@ function ContactLogRow({ item, last }: { item: ContactLogEntry; last: boolean })
           <div className="flex flex-col gap-1.5">
             <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Description</span>
             <div className="flex flex-col gap-2 text-[13px] leading-[1.5] text-on-surface">
-              {[item.desc, item.interest, item.complaint, item.followUp].filter(Boolean).map((p, i) => (
+              {[item.description, item.interest, item.complaint, item.follow_up].filter(Boolean).map((p, i) => (
                 <span key={i}>{p}</span>
               ))}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Relevant document</span>
-            {item.doc ? (
+            {item.doc_filename ? (
               <span className="mt-0.5 inline-flex w-fit items-center gap-2 rounded-md border border-outline-variant bg-surface-lowest px-2.5 py-1.5">
                 <FileText size={15} strokeWidth={1.75} className="text-primary" />
-                <span className="text-[13px] font-semibold text-on-surface">{item.doc.name}</span>
-                <span className="text-[11.5px] text-secondary">{item.doc.size}</span>
+                <span className="text-[13px] font-semibold text-on-surface">{item.doc_filename}</span>
+                {item.doc_size_bytes != null && (
+                  <span className="text-[11.5px] text-secondary">{fmtBytes(item.doc_size_bytes)}</span>
+                )}
               </span>
             ) : (
               <span className="text-[13px] text-secondary">None attached</span>
             )}
           </div>
-          <span className="text-[11.5px] text-secondary">Logged by {item.by || "Dana Okafor"}</span>
+          <span className="text-[11.5px] text-secondary">Logged by {item.logged_by}</span>
         </div>
       )}
     </div>
@@ -109,30 +116,39 @@ function NewContactLogModal({
 }: {
   clientName: string;
   onClose: () => void;
-  onSave: (entry: ContactLogEntry) => void;
+  onSave: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
 }) {
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [channel, setChannel] = useState(CHANNELS[0].value);
   const [desc, setDesc] = useState("");
-  const [file, setFile] = useState<{ name: string; size: string } | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   const valid = !!(topic.trim() && date && desc.trim());
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) setFile({ name: f.name, size: `${Math.max(1, Math.round(f.size / 1024))} KB` });
+    if (f) setFile(f);
     e.target.value = "";
   };
 
-  const save = () => {
-    const dt = date ? new Date(`${date}T${time || "00:00"}`) : null;
-    const when = dt
-      ? `${dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}${time ? ` · ${time}` : ""}`
-      : "—";
-    const icon = CHANNELS.find((c) => c.value === channel)?.icon ?? "phone";
-    onSave({ topic: topic.trim(), when, channel, icon, desc: desc.trim(), doc: file, accent: true });
+  const save = async () => {
+    setInlineError(null);
+    setSaving(true);
+    const occurredAt = new Date(`${date}T${time || "00:00"}`);
+    const fd = new FormData();
+    fd.append("topic", topic.trim());
+    fd.append("channel", channel);
+    fd.append("occurred_at", occurredAt.toISOString());
+    fd.append("description", desc.trim());
+    if (file) fd.append("file", file, file.name);
+    const result = await onSave(fd);
+    setSaving(false);
+    if (result.success) onClose();
+    else setInlineError(result.error ?? "Failed to save contact log");
   };
 
   return (
@@ -144,7 +160,9 @@ function NewContactLogModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={!valid} onClick={() => valid && save()}>Save log</Button>
+          <Button icon={Check} disabled={!valid || saving} onClick={() => valid && save()}>
+            {saving ? "Saving…" : "Save log"}
+          </Button>
         </>
       }
     >
@@ -213,7 +231,7 @@ function NewContactLogModal({
             <div className="flex items-center gap-2.5 rounded-md border border-outline-variant bg-surface-low px-3 py-2.5">
               <FileText size={16} strokeWidth={1.75} className="shrink-0 text-primary" />
               <span className="flex-1 truncate text-[13px] font-semibold text-on-surface">{file.name}</span>
-              <span className="text-[11.5px] text-secondary">{file.size}</span>
+              <span className="text-[11.5px] text-secondary">{fmtBytes(file.size)}</span>
               {/* View/Edit Gate Function */}
               <button type="button" onClick={() => setFile(null)} className="shrink-0 cursor-pointer p-0.5 text-secondary">
                 <X size={15} strokeWidth={2} />
@@ -228,43 +246,49 @@ function NewContactLogModal({
             </label>
           )}
         </div>
+        {inlineError && (
+          <p className="col-span-2 text-[13px] font-semibold text-red-600">{inlineError}</p>
+        )}
       </div>
     </Modal>
   );
 }
 
-export function ContactLogCard({ clientName, entries }: { clientName: string; entries: ContactLogEntry[] }) {
-  const [logs, setLogs] = useState<ContactLogEntry[]>(entries);
+export function ContactLogCard({
+  clientName, entries, loading, onCreate,
+}: {
+  clientName: string;
+  entries: ContactLogEntryDTO[];
+  loading: boolean;
+  onCreate: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+}) {
   const [modalOpen, setModalOpen] = useState(false);
-
-  const addLog = (entry: ContactLogEntry) => {
-    setLogs((prev) => [entry, ...prev.map((p) => ({ ...p, accent: false }))]);
-    setModalOpen(false);
-  };
 
   return (
     <Card
       title="Contact Log"
       action={
         <div className="flex items-center gap-3">
-          <span className="text-[12px] text-secondary">{logs.length} logs</span>
+          <span className="text-[12px] text-secondary">{entries.length} logs</span>
           {/* View/Edit Gate Function */}
           <Button icon={Plus} onClick={() => setModalOpen(true)}>New log</Button>
         </div>
       }
     >
-      {logs.length === 0 ? (
+      {loading ? (
+        <p className="py-1.5 text-[14px] text-secondary">Loading…</p>
+      ) : entries.length === 0 ? (
         <p className="py-1.5 text-[14px] text-secondary">No contact log entries yet.</p>
       ) : (
         <div className="relative h-[440px] overflow-y-auto pl-[22px] pr-1.5">
           <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
-          {logs.map((item, i) => (
-            <ContactLogRow key={i} item={item} last={i === logs.length - 1} />
+          {entries.map((item, i) => (
+            <ContactLogRow key={item.id} item={item} last={i === entries.length - 1} />
           ))}
         </div>
       )}
       {modalOpen && (
-        <NewContactLogModal clientName={clientName} onClose={() => setModalOpen(false)} onSave={addLog} />
+        <NewContactLogModal clientName={clientName} onClose={() => setModalOpen(false)} onSave={onCreate} />
       )}
     </Card>
   );
