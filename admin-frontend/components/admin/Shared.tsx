@@ -11,7 +11,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   AlertCircle, TriangleAlert, Check, CheckCircle2, ChevronDown, Eye,
-  Grid3x3, Info, Minus, Pencil, Users, X,
+  Grid3x3, Info, Minus, Pencil, Users, UserRound, X,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Level } from "@/lib/admin/types";
@@ -315,9 +315,14 @@ export function FilterChip({ label, n, on, onClick }: { label: string; n: number
   );
 }
 
-/* ---- matrix <-> role view switcher ----------------------------------- */
-export function ViewSwitch({ view, onChange }: { view: "matrix" | "role"; onChange: (v: "matrix" | "role") => void }) {
-  const items: [("matrix" | "role"), typeof Grid3x3, string][] = [["matrix", Grid3x3, "Matrix"], ["role", Users, "By role"]];
+/* ---- matrix <-> role <-> overrides view switcher ----------------------- */
+export type ConfigView = "matrix" | "role" | "overrides";
+export function ViewSwitch({ view, onChange }: { view: ConfigView; onChange: (v: ConfigView) => void }) {
+  const items: [ConfigView, typeof Grid3x3, string][] = [
+    ["matrix", Grid3x3, "Matrix"],
+    ["role", Users, "By role"],
+    ["overrides", UserRound, "Overrides"],
+  ];
   return (
     <span className="inline-flex gap-0.5 rounded-full p-[3px]" style={{ background: "var(--surface-container)", border: "1px solid var(--outline-variant)" }}>
       {items.map(([k, Icon, lab]) => {

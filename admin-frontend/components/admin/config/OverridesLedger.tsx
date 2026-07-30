@@ -1,47 +1,47 @@
 "use client";
 
 /* ============================================================
-   Enroll User — per-user overrides ledger
-   Ported from admin/admin-app/ProtoConfig.jsx (POverridesLedger).
-   Reached only from the Enroll User directory's "Overrides (N)"
-   button; its back button returns there.
+   System Config — per-user overrides ledger (third view, FE-13)
+   Moved from enroll/OverridesLedger.tsx. System Config's own
+   PageHeader now covers the header and the "Add override" action
+   (rendered only on this view) — this component owns just the
+   stat cards and the table.
+
+   Migrated off the mock AdminUser/Override shape onto the real
+   OverrideOut DTO (FE-8/FE-9): page -> page_label, path -> page_path,
+   role -> user_role, name -> user_name, initials -> initialsFor(user_name),
+   soon -> expiring_soon, why -> reason, by -> granted_by,
+   exp -> expiryLabel(expires_at), from/to -> role_default/level.
    ============================================================ */
-import { ArrowLeft, Plus, X } from "@/lib/icons";
+import { X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Help, Label, LevelDiff, Row, Td, Th, UserCell } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { initialsFor } from "@/lib/admin/types";
+import { todayLabel } from "@/lib/admin/today";
 
-export interface OverridesLedgerProps {
-  onBack: () => void;
-  onAddOverride: () => void;
+/** An `expires_at` ISO instant (or null) -> the ledger's short display format.
+ *  ponytail: mirrors enroll/LifecycleModals.tsx's local expiryLabel — lib/admin/today.ts
+ *  is out of this unit's file scope, so the formatter stays duplicated here too. */
+function expiryLabel(iso: string | null): string {
+  if (!iso) return "No expiry";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : todayLabel(d);
 }
 
-export function OverridesLedger({ onBack, onAddOverride }: OverridesLedgerProps) {
-  const store = useAdminStore();
-  const overrides = store.overrides;
-  const soon = overrides.filter((o) => o.soon).length;
+export function OverridesLedger() {
+  const { overrides, revokeOverride } = useAdminStore();
+  const soon = overrides.filter((o) => o.expiring_soon).length;
   const stats: [string, number, boolean][] = [
     ["Active overrides", overrides.length, false],
     ["Expiring in 30 days", soon, soon > 0],
-    ["Users affected", new Set(overrides.map((o) => o.name)).size, false],
-    ["Roles affected", new Set(overrides.map((o) => o.role)).size, false],
+    ["Users affected", new Set(overrides.map((o) => o.firebase_uid)).size, false],
+    ["Roles affected", new Set(overrides.map((o) => o.user_role)).size, false],
   ];
 
   return (
     <>
-      <PageHeader
-        title="Overrides"
-        subtitle="Per-user exceptions to the role defaults."
-        actions={
-          <>
-            <Button variant="secondary" icon={ArrowLeft} onClick={onBack}>Back to directory</Button>
-            <Button icon={Plus} onClick={onAddOverride}>Add override</Button>
-          </>
-        }
-      />
-
       <div className="grid grid-cols-4 gap-4">
         {stats.map(([label, val, warn]) => (
           <Card key={label} style={warn ? { borderColor: "var(--primary)" } : undefined}>
@@ -64,19 +64,21 @@ export function OverridesLedger({ onBack, onAddOverride }: OverridesLedgerProps)
           <tbody>
             {overrides.map((o) => (
               <Row key={o.id}>
-                <Td><UserCell initials={o.initials} name={o.name} sub={o.role} /></Td>
+                <Td><UserCell initials={initialsFor(o.user_name)} name={o.user_name} sub={o.user_role} /></Td>
                 <Td>
-                  <div className="text-[13px] font-semibold">{o.page}</div>
-                  <div className="text-[11.5px] text-secondary">{o.path}</div>
+                  <div className="text-[13px] font-semibold">{o.page_label}</div>
+                  <div className="text-[11.5px] text-secondary">{o.page_path}</div>
                 </Td>
-                <Td><LevelDiff from={o.from} to={o.to} override /></Td>
-                <Td className="max-w-[230px] text-[12.5px] text-secondary">{o.why}</Td>
-                <Td className="text-[12.5px] text-secondary">{o.by}</Td>
+                <Td><LevelDiff from={o.role_default} to={o.level} override /></Td>
+                <Td className="max-w-[230px] text-[12.5px] text-secondary">{o.reason}</Td>
+                <Td className="text-[12.5px] text-secondary">{o.granted_by}</Td>
                 <Td className="whitespace-nowrap text-[12.5px]">
-                  <span style={{ color: o.soon ? "var(--primary)" : "var(--secondary)", fontWeight: o.soon ? 700 : 400 }}>{o.exp}</span>
+                  <span style={{ color: o.expiring_soon ? "var(--primary)" : "var(--secondary)", fontWeight: o.expiring_soon ? 700 : 400 }}>
+                    {expiryLabel(o.expires_at)}
+                  </span>
                 </Td>
                 <Td className="text-right">
-                  <Button variant="secondary" icon={X} onClick={() => store.revokeOverride(o.id)}>Revoke</Button>
+                  <Button variant="secondary" icon={X} onClick={() => revokeOverride(o.id)}>Revoke</Button>
                 </Td>
               </Row>
             ))}

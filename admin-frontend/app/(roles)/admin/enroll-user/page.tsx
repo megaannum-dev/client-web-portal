@@ -1,21 +1,23 @@
 "use client";
 
 /* ============================================================
-   Enroll User — internal-user directory, enrol/edit wizard, and
-   the per-user overrides ledger. Ported from the design handoff's
+   Enroll User — internal-user directory and the enrol/edit wizard.
+   Ported from the design handoff's
    admin/admin-app/{ProtoEnroll,ProtoModals,ProtoConfig}.jsx.
 
-   Three page-local views (not in the shared store, same as any
-   other route's local UI state): directory | wizard | overrides.
+   Two page-local views (not in the shared store, same as any
+   other route's local UI state): directory | wizard. The per-user
+   overrides ledger moved to System Config as a third view (FE-13) —
+   the directory's "Overrides (N)" action now links there instead of
+   flipping a page-local view.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
 import { AuditModal } from "@/components/admin/AuditModal";
 import { Directory } from "@/components/admin/enroll/Directory";
 import { Wizard } from "@/components/admin/enroll/Wizard";
-import { OverridesLedger } from "@/components/admin/enroll/OverridesLedger";
 import {
-  AddOverrideModal, CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, SendLinkModal,
+  CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, SendLinkModal,
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
@@ -26,7 +28,7 @@ import type { EnrollDraft, PageId, Role, StaffOut } from "@/lib/admin/types";
  *  the Access step's own Notice shows (Wizard.tsx). Named once, not repeated. */
 const OVERRIDE_REASON = "Set during enrolment";
 
-type View = "directory" | "wizard" | "overrides";
+type View = "directory" | "wizard";
 
 type ModalState =
   | { kind: "audit" }
@@ -34,8 +36,7 @@ type ModalState =
   | { kind: "overrides"; user: StaffOut }
   | { kind: "deactivate"; user: StaffOut }
   | { kind: "reactivate"; user: StaffOut }
-  | { kind: "created"; info: CreatedInfo }
-  | { kind: "addOverride" };
+  | { kind: "created"; info: CreatedInfo };
 
 function blankDraft(): EnrollDraft {
   return {
@@ -114,14 +115,11 @@ export default function EnrollUserPage() {
           openGroups={openGroups} onToggleGroup={toggleGroup}
           onLeave={leaveWizard} onSubmit={createUser}
         />
-      ) : view === "overrides" ? (
-        <OverridesLedger onBack={() => setView("directory")} onAddOverride={() => setModal({ kind: "addOverride" })} />
       ) : (
         <Directory
           filter={filter} onFilterChange={setFilter}
           query={dirQuery} onQueryChange={setDirQuery}
           kebab={kebab} onKebabChange={setKebab}
-          onOverrides={() => setView("overrides")}
           onAudit={() => setModal({ kind: "audit" })}
           onEnroll={startEnroll}
           onEdit={startEdit}
@@ -144,7 +142,6 @@ export default function EnrollUserPage() {
           onBackToDirectory={() => { closeModal(); leaveWizard(); setFilter("All"); }}
         />
       )}
-      {modal?.kind === "addOverride" && <AddOverrideModal onClose={closeModal} />}
     </div>
   );
 }

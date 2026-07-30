@@ -5,6 +5,7 @@
    Ported from admin/admin-app/ProtoEnroll.jsx (PDirectory/PUserRow).
    FE-9 follow-up: renders StaffOut rows (was the AdminUser mock shape).
    ============================================================ */
+import Link from "next/link";
 import {
   History, KeyRound, MoreVertical, Pencil, RotateCcw, Search,
   SlidersHorizontal, UserRound, UserRoundPlus, Ban,
@@ -27,7 +28,6 @@ export interface DirectoryProps {
   onQueryChange: (q: string) => void;
   kebab: string | null;
   onKebabChange: (uid: string | null) => void;
-  onOverrides: () => void;
   onAudit: () => void;
   onEnroll: () => void;
   onEdit: (u: StaffOut) => void;
@@ -39,7 +39,7 @@ export interface DirectoryProps {
 
 export function Directory({
   filter, onFilterChange, query, onQueryChange, kebab, onKebabChange,
-  onOverrides, onAudit, onEnroll, onEdit, onReset, onManageOverrides, onDeactivate, onReactivate,
+  onAudit, onEnroll, onEdit, onReset, onManageOverrides, onDeactivate, onReactivate,
 }: DirectoryProps) {
   const store = useAdminStore();
   const users = store.staff;
@@ -63,7 +63,9 @@ export function Directory({
         subtitle={`${counts.All} internal users · ${counts[STATUS_LABEL.INITIATED]} initiated, not yet signed in · ${counts[STATUS_LABEL.DEACTIVATED]} deactivated`}
         actions={
           <>
-            <Button variant="secondary" icon={UserRound} onClick={onOverrides}>Overrides ({store.overrides.length})</Button>
+            <Link href="/admin/system-config?view=overrides">
+              <Button variant="secondary" icon={UserRound}>Overrides ({store.overrides.length})</Button>
+            </Link>
             <Button variant="secondary" icon={History} onClick={onAudit}>Audit log</Button>
             <Button icon={UserRoundPlus} onClick={onEnroll}>Enroll user</Button>
           </>

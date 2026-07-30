@@ -8,27 +8,36 @@
    the handoff, so they're hoisted here instead of duplicated.
    ============================================================ */
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Eye, History, Save } from "@/lib/icons";
-import { ViewSwitch } from "@/components/admin/Shared";
+import { Eye, History, Plus, Save } from "@/lib/icons";
+import { ViewSwitch, type ConfigView } from "@/components/admin/Shared";
 import { AuditModal } from "@/components/admin/AuditModal";
 import { Matrix, type CellPayload } from "@/components/admin/config/Matrix";
 import { RoleView } from "@/components/admin/config/RoleView";
-import { CellModal, PublishModal } from "@/components/admin/config/ConfigModals";
+import { OverridesLedger } from "@/components/admin/config/OverridesLedger";
+import { AddOverrideModal, CellModal, PublishModal } from "@/components/admin/config/ConfigModals";
 import { ROLE_CODES } from "@/lib/admin/catalog";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
-type ConfigView = "matrix" | "role";
-type ModalState = ({ kind: "cell" } & CellPayload) | { kind: "publish" } | { kind: "audit" } | null;
+type ModalState =
+  | ({ kind: "cell" } & CellPayload)
+  | { kind: "publish" }
+  | { kind: "audit" }
+  | { kind: "addOverride" }
+  | null;
 
 export default function SystemConfigPage() {
   const { stagedList, totalPages, overrides, published, discard } = useAdminStore();
+  const params = useSearchParams();
 
-  const [configView, setConfigView] = useState<ConfigView>("role");
+  const [configView, setConfigView] = useState<ConfigView>(
+    params.get("view") === "overrides" ? "overrides" : "role", // one search param, read once
+  );
   const [role, setRole] = useState<Role>("PC");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selCell, setSelCell] = useState<string | null>(null);
@@ -50,6 +59,9 @@ export default function SystemConfigPage() {
         subtitle="Standing page access for every role. Changes apply to all users holding the role."
         actions={
           <>
+            {configView === "overrides" && (
+              <Button icon={Plus} onClick={() => setModal({ kind: "addOverride" })}>Add override</Button>
+            )}
             <Button variant="secondary" icon={History} onClick={() => setModal({ kind: "audit" })}>Audit log</Button>
             <Button icon={Save} disabled={!n} onClick={() => n && setModal({ kind: "publish" })}>
               {n ? `Publish ${n} change${n === 1 ? "" : "s"}` : "Publish changes"}
@@ -101,13 +113,15 @@ export default function SystemConfigPage() {
           onSelectCell={setSelCell}
           onOpenCell={(payload) => setModal({ kind: "cell", ...payload })}
         />
-      ) : (
+      ) : configView === "role" ? (
         <RoleView
           role={role}
           onSelectRole={setRole}
           openGroups={roleOpenGroup}
           onToggleGroup={(group) => setRoleOpenGroup((gs) => (gs.includes(group) ? gs.filter((g) => g !== group) : [...gs, group]))}
         />
+      ) : (
+        <OverridesLedger />
       )}
 
       {modal?.kind === "cell" && (
@@ -118,6 +132,7 @@ export default function SystemConfigPage() {
       )}
       {modal?.kind === "publish" && <PublishModal onClose={closeModal} />}
       {modal?.kind === "audit" && <AuditModal onClose={closeModal} />}
+      {modal?.kind === "addOverride" && <AddOverrideModal onClose={closeModal} />}
     </div>
   );
 }
