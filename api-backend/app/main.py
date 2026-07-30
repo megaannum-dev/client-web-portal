@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.models.access as _models_access  # noqa: F401 — registers access tables with Base.metadata
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
 import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
 import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
