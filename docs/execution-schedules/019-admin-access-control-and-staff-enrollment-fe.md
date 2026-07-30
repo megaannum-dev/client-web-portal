@@ -124,7 +124,7 @@ open PR against parent branch
 |---|---|---|---|
 | `FE-1` | impl §6 FE-1 | `admin-frontend/lib/pages-config.ts`, `admin-frontend/lib/admin/types.ts`, `admin-frontend/lib/admin/catalog.ts` (`LEVEL_LABEL` keys only), `admin-frontend/components/admin/Shared.tsx`, `admin-frontend/components/admin/config/{ConfigModals,Matrix}.tsx` | commit exists on layer branch; impl §6 FE-1 "Done when" met (both greps clean, `tsc` clean, `pages.check.ts` still passes) |
 | `FE-16` | impl §6 FE-16 | **admin-frontend:** delete `app/(auth)/register/`; modify `components/auth/AuthProvider.tsx`, `lib/auth-api.ts`, `lib/firebase-auth-errors.ts`, `app/(auth)/login/page.tsx` — **client-frontend:** delete `app/register/`; modify `components/auth/AuthProvider.tsx`, `lib/auth-api.ts`, `lib/firebase-auth-errors.ts`, `app/login/page.tsx` | commit exists; impl §6 FE-16 "Done when" met in **both** apps |
-| `FE-17`\* | impl §6 FE-17 — **conditional, see §2** | create `admin-frontend/app/(auth)/set-password/page.tsx` (and the `client-frontend/app/set-password/page.tsx` sibling if the client email uses the same link type) | either committed, **or** explicitly recorded as dropped per §2; live email-link confirmation is deferred to proposal phase 5 |
+| ~~`FE-17`~~ | ~~impl §6 FE-17~~ | **DROPPED** (2026-07-30) — Q-5 recorded reset-link success (BE-13); no email-link fallback route is needed | recorded per §2/impl §9 |
 
 **Barrier before W2:** all rows above show a commit on the layer branch AND the W1 gate (§6) passes.
 
@@ -206,7 +206,7 @@ All work happens in one working tree on one branch, so two agents in the same wa
 
 | Wave | Shared file | Units contending | Resolution |
 |---|---|---|---|
-| W1 | — | — | **Checked, empty.** FE-1 (`lib/**` + `components/admin/**`), FE-16 (both apps' auth files + the two register dirs) and FE-17 (the new `set-password` route) are pairwise disjoint — impl §6 FE-16's "touches no file any of them touch" verified against FE-1's and FE-17's lists. Truly parallel-safe. |
+| W1 | — | — | **Checked, empty.** FE-1 (`lib/**` + `components/admin/**`) and FE-16 (both apps' auth files + the two register dirs) are disjoint. FE-17 is dropped (see §2/§4) — not dispatched. Truly parallel-safe. |
 | W2 | — | — | **Checked, empty.** FE-2 (`lib/admin/**`, `components/admin/**`), FE-4 (`hooks/usePageAccess.ts`, `types/portal.ts`) and FE-7 (`server/**`, `app/(roles)/admin/actions.ts`) are pairwise disjoint. |
 | W3 | — | — | **Checked, empty.** FE-5 touches the five *namespace layouts* while FE-6 touches *pages/components* under those namespaces — no file in both. FE-8 stays inside `components/admin/**` + `lib/admin/types.ts`, which neither of the other two touches. (`Shared.tsx` is FE-1/W1 and FE-8/W3 — different waves; `lib/admin/types.ts` is FE-1/W1, FE-2/W2, FE-8/W3 — three different waves.) |
 | W4 | — | — | **Checked, empty.** FE-3 owns `lib/pages.check.ts`; FE-9 owns the store, the admin layout, `enroll-user/page.tsx`, `LifecycleModals.tsx`, `lib/admin/today.ts` and the mock deletion. Disjoint. (`app/(roles)/admin/layout.tsx` is FE-5/W3 + FE-9/W4 — different waves.) |
