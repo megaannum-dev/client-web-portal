@@ -134,11 +134,11 @@ function UserRow({
   const off = u.status === "DEACTIVATED";
   const items: MenuItemDef[] = off
     ? [["Edit profile & role", Pencil], ["Manage overrides", SlidersHorizontal], "-", ["Reactivate account", RotateCcw]]
-    : [["Edit profile & role", Pencil], ["Reset temporary password", KeyRound], ["Manage overrides", SlidersHorizontal], "-", ["Deactivate account", Ban, true]];
+    : [["Edit profile & role", Pencil], ["Send set-password link", KeyRound], ["Manage overrides", SlidersHorizontal], "-", ["Deactivate account", Ban, true]];
   const pick = (label: string) => {
     onCloseMenu();
     if (label === "Edit profile & role") onEdit(u);
-    else if (label === "Reset temporary password") onReset(u);
+    else if (label === "Send set-password link") onReset(u);
     else if (label === "Manage overrides") onManageOverrides(u);
     else if (label === "Deactivate account") onDeactivate(u);
     else if (label === "Reactivate account") onReactivate(u);

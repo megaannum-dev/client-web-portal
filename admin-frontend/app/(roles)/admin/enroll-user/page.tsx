@@ -15,7 +15,7 @@ import { Directory } from "@/components/admin/enroll/Directory";
 import { Wizard } from "@/components/admin/enroll/Wizard";
 import { OverridesLedger } from "@/components/admin/enroll/OverridesLedger";
 import {
-  AddOverrideModal, CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, ResetModal,
+  AddOverrideModal, CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, SendLinkModal,
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
@@ -27,7 +27,7 @@ type View = "directory" | "wizard" | "overrides";
 
 type ModalState =
   | { kind: "audit" }
-  | { kind: "reset"; user: StaffOut }
+  | { kind: "sendLink"; user: StaffOut }
   | { kind: "overrides"; user: StaffOut }
   | { kind: "deactivate"; user: StaffOut }
   | { kind: "reactivate"; user: StaffOut }
@@ -89,7 +89,7 @@ export default function EnrollUserPage() {
       address: d.addr || null, send_link: d.invite,
     });
     if (!created) return;
-    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, pw: d.pw, ovr: created.override_count } });
+    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, link_sent: created.link_sent, ovr: created.override_count } });
   };
 
   return (
@@ -111,7 +111,7 @@ export default function EnrollUserPage() {
           onAudit={() => setModal({ kind: "audit" })}
           onEnroll={startEnroll}
           onEdit={startEdit}
-          onReset={(u) => setModal({ kind: "reset", user: u })}
+          onReset={(u) => setModal({ kind: "sendLink", user: u })}
           onManageOverrides={(u) => setModal({ kind: "overrides", user: u })}
           onDeactivate={(u) => setModal({ kind: "deactivate", user: u })}
           onReactivate={(u) => setModal({ kind: "reactivate", user: u })}
@@ -119,7 +119,7 @@ export default function EnrollUserPage() {
       )}
 
       {modal?.kind === "audit" && <AuditModal onClose={closeModal} />}
-      {modal?.kind === "reset" && <ResetModal user={modal.user} onClose={closeModal} />}
+      {modal?.kind === "sendLink" && <SendLinkModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "overrides" && <ManageOverridesModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "deactivate" && <DeactivateModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "reactivate" && <ReactivateModal user={modal.user} onClose={closeModal} />}

@@ -8,23 +8,24 @@
 
    FE-9 follow-up: wired to the API-backed store. Users are now
    StaffOut (keyed by firebase_uid) and overrides are OverrideOut/
-   OverrideIn. The rename to SendLinkModal, CreatedModal's password
-   row removal and ManageOverridesModal's remaining copy are FE-11/
-   FE-12's job — this pass only makes every call site round-trip
-   through the real store mutators.
+   OverrideIn.
+
+   FE-12: ResetModal renamed to SendLinkModal (no more generated
+   password / expiry select — sendLink is the only credential path).
+   CreatedModal switches its lead notice on StaffCreatedOut.link_sent
+   and its "Shown once" panel loses the password row entirely.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  Ban, Copy, Eye, EyeOff, History, KeyRound, Plus, RefreshCw, RotateCcw, Users, UserRoundPlus, X,
+  Ban, Copy, History, Mail, Plus, RotateCcw, Users, UserRoundPlus, X,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import {
-  Checkbox, IconButton, Label, LevelDiff, LevelSeg, Modal, Notice, SelectField, TextField,
+  Checkbox, Label, LevelDiff, LevelSeg, Modal, Notice, SelectField, TextField,
 } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { ALL_PAGES, LEVEL_LABEL } from "@/lib/admin/catalog";
-import { genPassword } from "@/lib/admin/password";
 import { todayLabel } from "@/lib/admin/today";
 import type { Level, Role, StaffOut } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
@@ -51,15 +52,13 @@ function expiryLabel(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : todayLabel(d);
 }
 
-/* ---- reset temporary password -------------------------------- */
-export function ResetModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
+/* ---- send set-password link -------------------------------- */
+export function SendLinkModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
   const { sendLink } = useAdminStore();
-  const [pw, setPw] = useState(genPassword());
-  const [exp, setExp] = useState("Never");
   const [mail, setMail] = useState(true);
   return (
     <Modal
-      title="Reset temporary password"
+      title="Send set-password link"
       sub={`${u.name} · ${u.status === "INITIATED" ? "initiated, not yet signed in" : u.role}`}
       width={430}
       onClose={onClose}
@@ -67,27 +66,19 @@ export function ResetModal({ user: u, onClose }: { user: StaffOut; onClose: () =
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={KeyRound} onClick={async () => {
+            <Button icon={Mail} onClick={async () => {
               const ok = await sendLink(u.firebase_uid);
               if (ok) toast.success(`A set-password link was sent to ${u.name}. The previous one no longer works.`);
               onClose();
             }}>
-              Issue password
+              Send link
             </Button>
           </span>
         </>
       }
     >
-      <TextField label="New temporary password" value={pw} onChange={setPw} mono
-        trail={
-          <span className="inline-flex gap-1">
-            <IconButton icon={RefreshCw} size={14} onClick={() => setPw(genPassword())} />
-            <IconButton icon={Copy} size={14} onClick={() => toast.success("Copied to the clipboard.")} />
-          </span>
-        } />
-      <SelectField label="Expires" value={exp} onChange={setExp} options={["Never", "24 hours", "72 hours", "7 days"]} />
-      <Checkbox on={mail} onChange={setMail}>Email the new credentials to {u.email}</Checkbox>
-      <Notice tone="info">The previous temporary password stops working the moment this is issued.</Notice>
+      <Checkbox on={mail} onChange={setMail}>Email the link to {u.email}</Checkbox>
+      <Notice tone="info">Any earlier unused link stops working the moment this is sent.</Notice>
     </Modal>
   );
 }
@@ -246,11 +237,10 @@ export function ReactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
 }
 
 /* ---- created (post-enroll summary) -------------------------------- */
-export interface CreatedInfo { name: string; email: string; roleCode: Role; pw: string; ovr: number }
+export interface CreatedInfo { name: string; email: string; roleCode: Role; link_sent: boolean; ovr: number }
 export function CreatedModal({
   m, onEnrollAnother, onBackToDirectory,
 }: { m: CreatedInfo; onEnrollAnother: () => void; onBackToDirectory: () => void }) {
-  const [shown, setShown] = useState(false);
   const finish = (again: boolean) => {
     if (again) onEnrollAnother(); else onBackToDirectory();
     toast.success(`${m.name} created · ${m.roleCode}${m.ovr ? ` · ${m.ovr} override` : ""}. The account is in Initiated until the first sign-in.`);
@@ -268,30 +258,31 @@ export function CreatedModal({
         </>
       }
     >
-      <Notice tone="ok"><b>{m.name.split(" ")[0]} can sign in now</b> as {m.email}. The invitation email has been sent.</Notice>
+      {m.link_sent ? (
+        <Notice tone="ok">
+          <b>{m.name.split(" ")[0]} can set their password now</b> as {m.email}. The invitation email has been sent.
+        </Notice>
+      ) : (
+        <Notice tone="warn">
+          Account created as {m.email}, but <b>the invitation email could not be sent</b>. Re-send it from the row menu.
+        </Notice>
+      )}
       <div className="overflow-hidden rounded-xl border border-outline-variant">
         <div className="flex items-center justify-between gap-3 border-b border-outline-variant bg-surface-low px-[15px] py-[11px]">
-          <Label>Shown once</Label>
-          <Button variant="secondary" icon={Copy} onClick={() => toast.success("Email and temporary password copied to the clipboard.")}>Copy both</Button>
+          <Label>Sign-in identity</Label>
+          <Button variant="secondary" icon={Copy} onClick={() => toast.success("Email copied to the clipboard.")}>Copy</Button>
         </div>
         <div className="flex items-center justify-between gap-4 px-[15px] py-3">
           <Label>Email</Label>
           <span className="text-[13.5px] font-semibold">{m.email}</span>
         </div>
-        <div className="flex items-center justify-between gap-4 border-t border-outline-variant px-[15px] py-3">
-          <Label>Temporary password</Label>
-          <span className="inline-flex items-center gap-2">
-            <span className="font-mono text-[13.5px] font-semibold" style={{ letterSpacing: shown ? 0 : "0.14em" }}>
-              {shown ? m.pw : "••••••••••••"}
-            </span>
-            <IconButton icon={shown ? EyeOff : Eye} size={14} onClick={() => setShown(!shown)} />
-          </span>
-        </div>
       </div>
-      <span className="flex items-center gap-2 text-[12px] text-secondary">
-        <History size={14} strokeWidth={1.75} />
-        Once this closes, only a password reset can issue a new one.
-      </span>
+      {m.link_sent && (
+        <span className="flex items-center gap-2 text-[12px] text-secondary">
+          <History size={14} strokeWidth={1.75} />
+          The link expires — re-send it from the row menu if they miss it.
+        </span>
+      )}
     </Modal>
   );
 }
