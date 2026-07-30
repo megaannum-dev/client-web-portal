@@ -73,7 +73,9 @@ export default function SystemConfigPage() {
           ) : (
             <>
               <Chip tone="active">Published</Chip>
-              <span className="text-[12.5px] text-secondary">Last published <b>{published.when}</b> by {published.by}</span>
+              {published && (
+                <span className="text-[12.5px] text-secondary">Last published <b>{published.at}</b> by {published.by}</span>
+              )}
             </>
           )}
         </span>

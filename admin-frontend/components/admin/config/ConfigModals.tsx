@@ -31,7 +31,7 @@ export function CellModal({ payload, onClose }: { payload: CellPayload; onClose:
   const cur = eff(page_id, role);
   const [lv, setLv] = useState<Level>(cur);
   const affected = roleUsers(role);
-  const ovrHere = overrides.filter((o) => o.path === path && o.role === role).length;
+  const ovrHere = overrides.filter((o) => o.page_id === page_id && o.user_role === role).length;
 
   return (
     <Modal
@@ -98,12 +98,21 @@ export function PublishModal({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState("");
   const removals = stagedList.filter(isReduction);
 
-  const doPublish = () => {
+  const doPublish = async () => {
     const n = stagedList.length;
     if (!n) return;
-    publish(note.trim());
-    toast.success(`${n} change${n === 1 ? "" : "s"} published — every affected user is updated at next page load.`);
-    onClose();
+    const r = await publish(note.trim());
+    if (r.ok) {
+      toast.success(`${n} change${n === 1 ? "" : "s"} published — every affected user is updated at next page load.`);
+      onClose();
+      return;
+    }
+    if (r.conflict) {
+      // Modal STAYS OPEN, staged list intact, diff now recomputed against the fresh levels.
+      toast.warning("Someone else published — review again. Your staged changes are unchanged.");
+      return;
+    }
+    toast.error(r.error);
   };
 
   return (
