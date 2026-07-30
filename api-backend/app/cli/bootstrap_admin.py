@@ -52,7 +52,8 @@ def run() -> None:
             name=settings.bootstrap_admin_name,
         )
         db.commit()
-        link = identity.generate_invite_link(settings.bootstrap_admin_email or "dev@example.com")
+        bootstrap_email = settings.bootstrap_admin_email or "dev@example.com"
+        link = identity.generate_set_password_link(bootstrap_email)
         print(f"Bootstrap: seeded first ADMIN ({uid}). Invite link: {link}")
     finally:
         db.close()

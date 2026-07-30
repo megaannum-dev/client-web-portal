@@ -66,7 +66,7 @@ class StaffService:
             raise
         set_portal_claims(uid, "admin", role.value, settings)  # Risk A4
         user = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
-        return user, identity.generate_invite_link(email)
+        return user, identity.generate_set_password_link(email)
 
     def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
         """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
