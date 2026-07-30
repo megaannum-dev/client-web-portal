@@ -6,75 +6,113 @@
    app/(roles)/admin/layout.tsx, which Next.js keeps alive while
    navigating between the two sibling routes — so state here
    behaves like the single-SPA store the design prototype used:
-   users, overrides, the permission matrix + staged edits, and the
+   staff, overrides, the permission matrix + staged edits, and the
    audit log all survive a page switch).
+
+   FE-9: API-backed. The server component (layout.tsx) fetches the
+   initial world once (getStaff/getMatrix/getOverrides/getAudit) and
+   hands it down as initial* props; this store never fetches on
+   mount. Every mutator is `await action(...)` -> patch local state
+   on success -> `toast.error(result.error)` on failure. Staging
+   (staged/stage/discard/copyRole/resetRole) stays purely local (D-5)
+   — unchanged behavior from the mock, just re-keyed to page_id/role.
 
    Page-local UI state (the enroll wizard's draft, which view/step
    is showing, the config page's selected role, open modal, etc.)
    is NOT here — it lives in each page and resets on navigation,
    same as clicking to a different route always would.
    ============================================================ */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
-import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_ID, TOTAL_PAGES, kFor } from "@/lib/admin/catalog";
-import { ADMIN_AUDIT, ADMIN_OVERRIDES, ADMIN_USERS, TODAY } from "@/lib/mock/admin-data";
-import type { AdminUser, AuditEntry, Level, Override, Role, StagedChange, UserStatus } from "@/lib/admin/types";
-import type { PageId } from "@/lib/pages-config";
+import {
+  getStaff, enrollStaff, updateStaff as updateStaffAction, sendSetPasswordLink,
+  getMatrix, publishMatrix, grantOverride, revokeOverride as revokeOverrideAction, getAudit,
+} from "@/app/(roles)/admin/actions";
+import { ALL_PAGES, PAGE_BY_ID, ROLE_CODES, kFor } from "@/lib/admin/catalog";
+import type { AuditOut, Level, MatrixOut, OverrideOut, PageId, Role, StaffOut, StagedChange } from "@/lib/admin/types";
+import type { OverrideIn, StaffCreatedOut, StaffEnrollIn, StaffUpdateIn } from "@/server/admin";
 
-let uid = 0;
-const nextId = () => `x${++uid}`;
+/** `publish()`'s result — success carries the fresh `published` stamp; a 409 means
+ *  someone else published first (the matrix has been re-read, `staged` is intact). */
+export type PublishResult =
+  | { ok: true; published: { at: string; by: string } | null }
+  | { ok: false; conflict: true }
+  | { ok: false; conflict: false; error: string };
 
-const STATUS_TONE: Record<UserStatus, AdminUser["tone"]> = {
-  Active: "active", Initiated: "pending", Deactivated: "neutral",
-};
+function levelsToMap(levels: MatrixOut["levels"]): Record<string, Level> {
+  const map: Record<string, Level> = {};
+  levels.forEach((l) => { map[kFor(l.page_id, l.role)] = l.level; });
+  return map;
+}
 
 interface AdminStore {
-  users: AdminUser[];
-  overrides: Override[];
+  /* ---- server state ---- */
+  staff: StaffOut[];
+  overrides: OverrideOut[];
+  audit: AuditOut[];
+  /** MatrixOut.pages / .roles, as received — never re-sorted or re-labelled. */
+  pages: MatrixOut["pages"];
+  roles: MatrixOut["roles"];
+  published: { at: string; by: string } | null;
+  totalPages: number;
+  loadError: string | null;
+
+  /* ---- staging: purely local (D-5) ---- */
   staged: Record<string, StagedChange>;
   stagedList: StagedChange[];
-  published: { when: string; by: string };
-  audit: AuditEntry[];
-  totalPages: number;
+  stage: (pageId: PageId, role: Role, to: Level) => void;
+  discard: () => void;
+  copyRole: (from: Role, to: Role) => void;
+  resetRole: (role: Role) => void;
 
-  log: (what: string, detail: string) => void;
-
-  /** Effective (staged-aware) level for a page × role cell. */
+  /* ---- derived reads ---- */
   eff: (pageId: PageId, role: Role) => Level;
   grantedFor: (role: Role) => number;
-  roleUsers: (code: Role) => number;
-  ovrFor: (name: string) => Override[];
+  roleUsers: (role: Role) => number;
+  ovrFor: (firebaseUid: string) => OverrideOut[];
   ovrOn: (pageId: PageId, role: Role) => boolean;
 
-  stage: (pageId: PageId, role: Role, to: Level) => void;
-  publish: (note?: string) => void;
-  discard: () => void;
-  copyRole: (fromCode: Role, toCode: Role) => void;
-  resetRole: (code: Role) => void;
-
-  addOverride: (o: Omit<Override, "id" | "by" | "soon"> & { soon?: boolean }) => void;
-  revokeOverride: (id: string) => void;
-
-  addUser: (u: AdminUser) => void;
-  updateUser: (email: string, patch: Partial<AdminUser>) => void;
-  setStatus: (email: string, status: UserStatus) => void;
+  /* ---- mutators: await the action, patch local state on success, toast on failure ---- */
+  publish: (note?: string) => Promise<PublishResult>;
+  addOverride: (body: OverrideIn) => Promise<boolean>;
+  revokeOverride: (id: string) => Promise<boolean>;
+  enroll: (body: StaffEnrollIn) => Promise<StaffCreatedOut | null>;
+  updateStaff: (uid: string, body: StaffUpdateIn) => Promise<boolean>;
+  sendLink: (uid: string) => Promise<boolean>;
+  refreshStaff: () => Promise<void>;
+  refreshMatrix: () => Promise<void>;
 }
 
 const AdminStoreCtx = createContext<AdminStore | null>(null);
 
-export function AdminStoreProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<AdminUser[]>(() => ADMIN_USERS.map((u) => ({ ...u })));
-  const [overrides, setOverrides] = useState<Override[]>(() => ADMIN_OVERRIDES.map((o) => ({ ...o })));
-  // ponytail: standing levels start empty (all NONE) — the old seed-from-catalog
-  // helper read a now-deleted hand-written table. Real seed values arrive over GET
-  // /api/admin/access/matrix once the store is wired to the backend (FE-9).
-  const [levels, setLevels] = useState<Record<string, Level>>({});
-  const [staged, setStaged] = useState<Record<string, StagedChange>>({});
-  const [published, setPublished] = useState({ when: "12 Jul 2026", by: "Omar Bakri" });
-  const [audit, setAudit] = useState<AuditEntry[]>(ADMIN_AUDIT);
+export interface AdminStoreProviderProps {
+  children: ReactNode;
+  initialStaff: StaffOut[];
+  initialMatrix: MatrixOut | null;
+  initialOverrides: OverrideOut[];
+  initialAudit: AuditOut[];
+  loadError: string | null;
+}
 
-  const log = useCallback((what: string, detail: string) => {
-    setAudit((a) => [{ id: nextId(), ts: `${TODAY} · 10:24`, who: "Omar Bakri", what, detail }, ...a]);
+export function AdminStoreProvider({
+  children, initialStaff, initialMatrix, initialOverrides, initialAudit, loadError,
+}: AdminStoreProviderProps) {
+  const [staff, setStaff] = useState<StaffOut[]>(initialStaff);
+  const [overrides, setOverrides] = useState<OverrideOut[]>(initialOverrides);
+  const [audit, setAudit] = useState<AuditOut[]>(initialAudit);
+  const [pages, setPages] = useState<MatrixOut["pages"]>(initialMatrix?.pages ?? ALL_PAGES);
+  const [roles, setRoles] = useState<MatrixOut["roles"]>(
+    initialMatrix?.roles ?? ROLE_CODES.map((code) => ({ code, name: code, user_count: 0 })),
+  );
+  const [levels, setLevels] = useState<Record<string, Level>>(() => levelsToMap(initialMatrix?.levels ?? []));
+  const [published, setPublished] = useState<{ at: string; by: string } | null>(initialMatrix?.published ?? null);
+  const [staged, setStaged] = useState<Record<string, StagedChange>>({});
+
+  // A failed initial load surfaces once, here — the pages render their own empty states.
+  useEffect(() => {
+    if (loadError) toast.error(loadError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stagedList = useMemo(() => Object.values(staged), [staged]);
@@ -88,19 +126,19 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const grantedFor = useCallback(
-    (role: Role) => ALL_PAGES.filter((p) => eff(p.page_id, role) !== "NONE").length,
-    [eff],
+    (role: Role) => pages.filter((p) => eff(p.page_id, role) !== "NONE").length,
+    [pages, eff],
   );
 
-  const roleUsers = useCallback(
-    (code: Role) => users.filter((u) => u.role === code && u.status !== "Deactivated").length,
-    [users],
-  );
+  const roleUsers = useCallback((role: Role) => roles.find((r) => r.code === role)?.user_count ?? 0, [roles]);
 
-  const ovrFor = useCallback((name: string) => overrides.filter((o) => o.name === name), [overrides]);
+  const ovrFor = useCallback(
+    (firebaseUid: string) => overrides.filter((o) => o.firebase_uid === firebaseUid),
+    [overrides],
+  );
 
   const ovrOn = useCallback(
-    (pageId: PageId, role: Role) => overrides.some((o) => o.path === PAGE_BY_ID[pageId].path && o.role === role),
+    (pageId: PageId, role: Role) => overrides.some((o) => o.page_id === pageId && o.user_role === role),
     [overrides],
   );
 
@@ -109,7 +147,7 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
       const k = kFor(pageId, role);
       setStaged((s) => {
         const next = { ...s };
-        if (levels[k] === to) delete next[k];
+        if ((levels[k] ?? "NONE") === to) delete next[k];
         else next[k] = { page_id: pageId, label: PAGE_BY_ID[pageId].label, role, from: levels[k] ?? "NONE", to };
         return next;
       });
@@ -117,81 +155,138 @@ export function AdminStoreProvider({ children }: { children: ReactNode }) {
     [levels],
   );
 
-  const publish = useCallback(
-    (note?: string) => {
-      const list = Object.values(staged);
-      const n = list.length;
-      if (!n) return;
-      setLevels((l) => {
-        const next = { ...l };
-        list.forEach((s) => { next[kFor(s.page_id, s.role)] = s.to; });
-        return next;
-      });
-      setStaged({});
-      setPublished({ when: TODAY, by: "Omar Bakri" });
-      log(
-        `Published ${n} access change${n === 1 ? "" : "s"}`,
-        note || list.map((s) => `${s.label} · ${s.role} ${LEVEL_LABEL[s.from]} → ${LEVEL_LABEL[s.to]}`).join("; "),
-      );
-    },
-    [staged, log],
-  );
-
   const discard = useCallback(() => setStaged({}), []);
 
   const copyRole = useCallback(
-    (fromCode: Role, toCode: Role) => {
-      ALL_PAGES.forEach((p) => stage(p.page_id, toCode, eff(p.page_id, fromCode)));
+    (from: Role, to: Role) => {
+      pages.forEach((p) => stage(p.page_id, to, eff(p.page_id, from)));
     },
-    [stage, eff],
+    [pages, stage, eff],
   );
 
-  const resetRole = useCallback((code: Role) => {
+  const resetRole = useCallback((role: Role) => {
     setStaged((s) => {
       const next = { ...s };
-      Object.keys(next).forEach((k) => { if (next[k].role === code) delete next[k]; });
+      Object.keys(next).forEach((k) => { if (next[k].role === role) delete next[k]; });
       return next;
     });
   }, []);
 
-  const addOverride = useCallback<AdminStore["addOverride"]>(
-    (o) => {
-      setOverrides((l) => [...l, { ...o, id: nextId(), by: "Omar Bakri", soon: o.soon ?? false }]);
-      log("Override granted", `${o.name} · ${o.page} · ${LEVEL_LABEL[o.from]} → ${LEVEL_LABEL[o.to]} · expires ${o.exp}`);
-    },
-    [log],
-  );
+  const refreshStaff = useCallback(async () => {
+    const result = await getStaff();
+    if (result.success) setStaff(result.data);
+    else toast.error(result.error);
+  }, []);
 
-  const revokeOverride = useCallback(
-    (id: string) => {
-      setOverrides((l) => {
-        const o = l.find((x) => x.id === id);
-        if (o) log("Override revoked", `${o.name} · ${o.page} · back to role default`);
-        return l.filter((x) => x.id !== id);
+  const refreshMatrix = useCallback(async () => {
+    const result = await getMatrix();
+    if (result.success) {
+      setPages(result.data.pages);
+      setRoles(result.data.roles);
+      setLevels(levelsToMap(result.data.levels));
+      setPublished(result.data.published);
+    } else {
+      toast.error(result.error);
+    }
+  }, []);
+
+  const refreshAudit = useCallback(async () => {
+    const result = await getAudit({ limit: 50 });
+    if (result.success) setAudit(result.data);
+    else toast.error(result.error);
+  }, []);
+
+  const publish = useCallback(
+    async (note?: string): Promise<PublishResult> => {
+      const list = Object.values(staged);
+      if (!list.length) return { ok: true, published };
+      const result = await publishMatrix({
+        changes: list.map((s) => ({ page_id: s.page_id, role: s.role, level: s.to })),
+        note: note?.trim() || null,
+        base_published_at: published?.at ?? null,
       });
+      if (result.success) {
+        setPages(result.data.pages);
+        setRoles(result.data.roles);
+        setLevels(levelsToMap(result.data.levels));
+        setPublished(result.data.published);
+        setStaged({});
+        await refreshAudit();
+        return { ok: true, published: result.data.published };
+      }
+      if (result.code === "HTTP_409") {
+        await refreshMatrix();
+        return { ok: false, conflict: true };
+      }
+      toast.error(result.error);
+      return { ok: false, conflict: false, error: result.error };
     },
-    [log],
+    [staged, published, refreshAudit, refreshMatrix],
   );
 
-  const addUser = useCallback((u: AdminUser) => setUsers((l) => [...l, u]), []);
+  const addOverride = useCallback(async (body: OverrideIn): Promise<boolean> => {
+    const result = await grantOverride(body);
+    if (result.success) {
+      setOverrides((l) => [...l, result.data]);
+      return true;
+    }
+    toast.error(result.error);
+    return false;
+  }, []);
 
-  const updateUser = useCallback(
-    (email: string, patch: Partial<AdminUser>) =>
-      setUsers((l) => l.map((u) => (u.email === email ? { ...u, ...patch } : u))),
-    [],
-  );
+  const revokeOverride = useCallback(async (id: string): Promise<boolean> => {
+    const result = await revokeOverrideAction(id);
+    if (result.success) {
+      setOverrides((l) => l.filter((o) => o.id !== id));
+      return true;
+    }
+    toast.error(result.error);
+    return false;
+  }, []);
 
-  const setStatus = useCallback(
-    (email: string, status: UserStatus) =>
-      setUsers((l) => l.map((u) => (u.email === email ? { ...u, status, tone: STATUS_TONE[status] } : u))),
-    [],
-  );
+  const enroll = useCallback(async (body: StaffEnrollIn): Promise<StaffCreatedOut | null> => {
+    const result = await enrollStaff(body);
+    if (result.success) {
+      const created = result.data;
+      setStaff((l) => [
+        ...l,
+        {
+          firebase_uid: created.firebase_uid, email: created.email,
+          name: `${body.first_name} ${body.last_name}`.trim(), role: created.role,
+          department: body.department ?? null, phone_number: body.phone_number ?? null,
+          status: created.status, last_sign_in_at: null, override_count: created.override_count,
+          client_count: null, open_ticket_count: null,
+        },
+      ]);
+      return created;
+    }
+    toast.error(result.error);
+    return null;
+  }, []);
+
+  const updateStaff = useCallback(async (uid: string, body: StaffUpdateIn): Promise<boolean> => {
+    const result = await updateStaffAction(uid, body);
+    if (result.success) {
+      const updated = result.data;
+      setStaff((l) => l.map((u) => (u.firebase_uid === uid ? updated : u)));
+      return true;
+    }
+    toast.error(result.error);
+    return false;
+  }, []);
+
+  const sendLink = useCallback(async (uid: string): Promise<boolean> => {
+    const result = await sendSetPasswordLink(uid);
+    if (result.success) return result.data.link_sent;
+    toast.error(result.error);
+    return false;
+  }, []);
 
   const value: AdminStore = {
-    users, overrides, staged, stagedList, published, audit, totalPages: TOTAL_PAGES,
-    log, eff, grantedFor, roleUsers, ovrFor, ovrOn,
-    stage, publish, discard, copyRole, resetRole,
-    addOverride, revokeOverride, addUser, updateUser, setStatus,
+    staff, overrides, audit, pages, roles, published, totalPages: pages.length, loadError,
+    staged, stagedList, stage, discard, copyRole, resetRole,
+    eff, grantedFor, roleUsers, ovrFor, ovrOn,
+    publish, addOverride, revokeOverride, enroll, updateStaff, sendLink, refreshStaff, refreshMatrix,
   };
 
   return <AdminStoreCtx.Provider value={value}>{children}</AdminStoreCtx.Provider>;

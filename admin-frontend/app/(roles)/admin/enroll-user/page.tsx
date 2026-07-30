@@ -19,26 +19,24 @@ import {
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { PAGE_BY_ID } from "@/lib/admin/catalog";
 import { genPassword } from "@/lib/admin/password";
-import { TODAY } from "@/lib/mock/admin-data";
-import type { AdminUser, EnrollDraft, Role } from "@/lib/admin/types";
-import type { PageId } from "@/lib/pages-config";
+import { todayLabel } from "@/lib/admin/today";
+import type { EnrollDraft, Role, StaffOut } from "@/lib/admin/types";
 
 type View = "directory" | "wizard" | "overrides";
 
 type ModalState =
   | { kind: "audit" }
-  | { kind: "reset"; user: AdminUser }
-  | { kind: "overrides"; user: AdminUser }
-  | { kind: "deactivate"; user: AdminUser }
-  | { kind: "reactivate"; user: AdminUser }
+  | { kind: "reset"; user: StaffOut }
+  | { kind: "overrides"; user: StaffOut }
+  | { kind: "deactivate"; user: StaffOut }
+  | { kind: "reactivate"; user: StaffOut }
   | { kind: "created"; info: CreatedInfo }
   | { kind: "addOverride" };
 
 function blankDraft(): EnrollDraft {
   return {
-    mode: "new", first: "", last: "", email: "", phone: "", start: TODAY, addr: "", dept: "",
+    mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
     role: "", ovr: {}, pw: genPassword(), expiry: "Never", invite: true,
   };
 }
@@ -58,41 +56,40 @@ export default function EnrollUserPage() {
   const toggleGroup = (g: string) => setOpenGroups((gs) => (gs.includes(g) ? gs.filter((x) => x !== g) : [...gs, g]));
 
   const startEnroll = () => { setDraft(blankDraft()); setStep(0); setView("wizard"); setKebab(null); };
-  const startEdit = (u: AdminUser) => {
-    const [first, ...rest] = u.name.split(" ");
+  const startEdit = (u: StaffOut) => {
+    const [first, ...rest] = (u.name ?? "").split(" ");
     setDraft({
-      mode: "edit", orig: u.email, first, last: rest.join(" "), email: u.email,
-      phone: "+41 44 668 21 07", start: TODAY, addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.dept, role: u.role, ovr: {}, pw: genPassword(), expiry: "Never", invite: false,
+      mode: "edit", orig: u.firebase_uid, first, last: rest.join(" "), email: u.email ?? "",
+      phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
+      dept: u.department ?? "", role: u.role, ovr: {}, pw: genPassword(), expiry: "Never", invite: false,
     });
     setStep(0); setView("wizard"); setKebab(null);
   };
   const patchDraft = (p: Partial<EnrollDraft>) => setDraft((d) => (d ? { ...d, ...p } : d));
   const leaveWizard = () => { setView("directory"); setDraft(null); setStep(0); };
 
-  const createUser = () => {
+  const createUser = async () => {
     if (!draft) return;
     const d = draft;
     const name = `${d.first} ${d.last}`.trim();
-    const initials = ((d.first[0] || "?") + (d.last[0] || "")).toUpperCase();
 
     if (d.mode === "edit") {
-      store.updateUser(d.orig!, { name, email: d.email, role: d.role as Role });
-      store.log("User updated", `${name} · ${d.role}`);
+      const ok = await store.updateStaff(d.orig!, { name, email: d.email, role: d.role as Role });
+      if (!ok) return;
       toast.success(`${name} updated.`);
       leaveWizard();
       return;
     }
 
-    const role = d.role as Role;
-    store.addUser({ initials, name, email: d.email, role, dept: "—", status: "Initiated", tone: "pending", seen: "—" });
-    Object.entries(d.ovr).forEach(([id, to]) => {
-      const pageId = id as PageId;
-      const p = PAGE_BY_ID[pageId];
-      store.addOverride({ initials, name, role, page: p.label, path: p.path, from: store.eff(pageId, role), to, why: "Set during enrolment", exp: "30 Sep 2026", soon: true });
+    // ponytail: draft overrides (d.ovr) are not sent on enroll yet — FE-14 wires
+    // StaffEnrollIn.overrides[] with an admin-chosen expiry.
+    const created = await store.enroll({
+      email: d.email, first_name: d.first, last_name: d.last, role: d.role as Role,
+      phone_number: d.phone || null, department: d.dept || null, start_date: d.start || null,
+      address: d.addr || null, send_link: d.invite,
     });
-    store.log("Account created", `${name} · ${d.role} · ${Object.keys(d.ovr).length} override(s)`);
-    setModal({ kind: "created", info: { name, email: d.email, roleCode: d.role as Role, pw: d.pw, ovr: Object.keys(d.ovr).length } });
+    if (!created) return;
+    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, pw: d.pw, ovr: created.override_count } });
   };
 
   return (

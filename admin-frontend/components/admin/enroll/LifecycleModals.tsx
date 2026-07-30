@@ -5,6 +5,13 @@
    Ported from admin/admin-app/ProtoModals.jsx: reset password,
    manage overrides (per user), deactivate, reactivate, created
    (post-enroll summary), add override (from the ledger).
+
+   FE-9 follow-up: wired to the API-backed store. Users are now
+   StaffOut (keyed by firebase_uid) and overrides are OverrideOut/
+   OverrideIn. The rename to SendLinkModal, CreatedModal's password
+   row removal and ManageOverridesModal's remaining copy are FE-11/
+   FE-12's job — this pass only makes every call site round-trip
+   through the real store mutators.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,33 +23,53 @@ import {
   Checkbox, IconButton, Label, LevelDiff, LevelSeg, Modal, Notice, SelectField, TextField,
 } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
+import { ALL_PAGES, LEVEL_LABEL } from "@/lib/admin/catalog";
 import { genPassword } from "@/lib/admin/password";
-import type { AdminUser, Level, Role } from "@/lib/admin/types";
+import { todayLabel } from "@/lib/admin/today";
+import type { Level, Role, StaffOut } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
-import { TODAY } from "@/lib/mock/admin-data";
 
 const EXPIRY_OPTS = ["30 days", "90 days", "30 Sep 2026", "31 Dec 2026", "No expiry"];
 
+/** "30 days" / "30 Sep 2026" / "No expiry" -> an ISO instant, or null (no expiry). */
+function expiryToISO(exp: string): string | null {
+  if (exp === "No expiry") return null;
+  const relative = /^(\d+)\s+days$/.exec(exp);
+  if (relative) {
+    const d = new Date();
+    d.setDate(d.getDate() + Number(relative[1]));
+    return d.toISOString();
+  }
+  const d = new Date(exp);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** An `expires_at` ISO instant (or null) -> the console's short display format. */
+function expiryLabel(iso: string | null): string {
+  if (!iso) return "No expiry";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : todayLabel(d);
+}
+
 /* ---- reset temporary password -------------------------------- */
-export function ResetModal({ user: u, onClose }: { user: AdminUser; onClose: () => void }) {
-  const store = useAdminStore();
+export function ResetModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
+  const { sendLink } = useAdminStore();
   const [pw, setPw] = useState(genPassword());
   const [exp, setExp] = useState("Never");
   const [mail, setMail] = useState(true);
   return (
     <Modal
       title="Reset temporary password"
-      sub={`${u.name} · ${u.status === "Initiated" ? "initiated, not yet signed in" : u.role}`}
+      sub={`${u.name} · ${u.status === "INITIATED" ? "initiated, not yet signed in" : u.role}`}
       width={430}
       onClose={onClose}
       foot={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={KeyRound} onClick={() => {
-              store.log("Temporary password reissued", `${u.name} · ${exp === "Never" ? "no expiry" : `expires in ${exp}`}${mail ? " · emailed" : ""}`);
-              toast.success(`New temporary password issued for ${u.name}${mail ? " and emailed" : ""}. The previous one no longer works.`);
+            <Button icon={KeyRound} onClick={async () => {
+              const ok = await sendLink(u.firebase_uid);
+              if (ok) toast.success(`A set-password link was sent to ${u.name}. The previous one no longer works.`);
               onClose();
             }}>
               Issue password
@@ -66,22 +93,21 @@ export function ResetModal({ user: u, onClose }: { user: AdminUser; onClose: () 
 }
 
 /* ---- manage overrides (per user) ------------------------------ */
-export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; onClose: () => void }) {
+export function ManageOverridesModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
   const store = useAdminStore();
-  const mine = store.ovrFor(u.name);
+  const mine = store.ovrFor(u.firebase_uid);
   const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");
   const [exp, setExp] = useState("90 days");
   const [why, setWhy] = useState("");
   const [touched, setTouched] = useState(false);
-  const taken = mine.map((o) => o.path);
-  const opts = ALL_PAGES.filter((p) => !taken.includes(p.path)).map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }));
+  const taken = mine.map((o) => o.page_id);
+  const opts = ALL_PAGES.filter((p) => !taken.includes(p.page_id)).map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }));
 
-  const add = () => {
+  const add = async () => {
     if (!pageId || !why.trim()) { setTouched(true); toast.warning("A page and a reason are required."); return; }
-    const p = PAGE_BY_ID[pageId];
-    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.label, path: p.path, from: store.eff(pageId, u.role), to: lv, why: why.trim(), exp });
-    setPageId(""); setWhy(""); setTouched(false);
+    const ok = await store.addOverride({ firebase_uid: u.firebase_uid, page_id: pageId, level: lv, reason: why.trim(), expires_at: expiryToISO(exp) });
+    if (ok) { setPageId(""); setWhy(""); setTouched(false); }
   };
 
   return (
@@ -104,12 +130,12 @@ export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; on
           <div key={o.id} className="rounded-xl border border-outline-variant bg-surface-low p-[13px_15px]">
             <div className="flex items-center justify-between gap-3.5">
               <div>
-                <div className="text-[13px] font-semibold">{o.page}</div>
-                <div className="text-[11.5px] text-secondary">{o.path}</div>
+                <div className="text-[13px] font-semibold">{o.page_label}</div>
+                <div className="text-[11.5px] text-secondary">{o.page_path}</div>
               </div>
-              <LevelDiff from={o.from} to={o.to} override />
+              <LevelDiff from={o.role_default} to={o.level} override />
             </div>
-            <div className="mt-[9px] text-[12px] text-secondary">{o.why} · expires <b>{o.exp}</b> · granted by {o.by}</div>
+            <div className="mt-[9px] text-[12px] text-secondary">{o.reason} · expires <b>{expiryLabel(o.expires_at)}</b> · granted by {o.granted_by}</div>
             <div className="mt-[11px] flex gap-2.5">
               <Button variant="secondary" icon={X} onClick={() => store.revokeOverride(o.id)}>Revoke</Button>
             </div>
@@ -130,13 +156,14 @@ export function ManageOverridesModal({ user: u, onClose }: { user: AdminUser; on
 }
 
 /* ---- deactivate ------------------------------------------------ */
-export function DeactivateModal({ user: u, onClose }: { user: AdminUser; onClose: () => void }) {
+export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
   const store = useAdminStore();
-  const held = store.ovrFor(u.name);
-  const others = store.users.filter((x) => x.email !== u.email && x.status === "Active").map((x) => x.name);
+  const held = store.ovrFor(u.firebase_uid);
+  const others = store.staff.filter((x) => x.firebase_uid !== u.firebase_uid && x.status === "ACTIVE");
   const [reassign, setReassign] = useState(true);
-  const [to, setTo] = useState(others[0] || "");
+  const [to, setTo] = useState(others[0]?.firebase_uid ?? "");
   const [why, setWhy] = useState("");
+  const toName = others.find((x) => x.firebase_uid === to)?.name ?? "another user";
   return (
     <Modal
       title="Deactivate account"
@@ -147,11 +174,16 @@ export function DeactivateModal({ user: u, onClose }: { user: AdminUser; onClose
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={Ban} onClick={() => {
-              store.setStatus(u.email, "Deactivated");
-              store.log("Account deactivated", `${u.name} · ${why.trim() || "no reason given"}${reassign ? ` · 4 open items reassigned to ${to}` : ""}`);
-              toast.success(`${u.name} deactivated.${reassign ? ` 4 open items reassigned to ${to}.` : ""}${held.length ? ` ${held.length} override held.` : ""} Reactivate restores the account as it was.`);
-              onClose();
+            <Button icon={Ban} onClick={async () => {
+              const ok = await store.updateStaff(u.firebase_uid, {
+                status: "DEACTIVATED",
+                deactivate_reason: why.trim() || null,
+                reassign_book_to: reassign && to ? to : null,
+              });
+              if (ok) {
+                toast.success(`${u.name} deactivated.${reassign && to ? ` Open items reassigned to ${toName}.` : ""}${held.length ? ` ${held.length} override held.` : ""} Reactivate restores the account as it was.`);
+                onClose();
+              }
             }}>
               Deactivate account
             </Button>
@@ -159,31 +191,31 @@ export function DeactivateModal({ user: u, onClose }: { user: AdminUser; onClose
         </>
       }
     >
-      <Notice tone="warn"><b>Reversible.</b> Sign-in stops immediately, but the account, its role and its overrides are kept — an admin can reactivate and {u.name.split(" ")[0]} is back exactly as before.</Notice>
+      <Notice tone="warn"><b>Reversible.</b> Sign-in stops immediately, but the account, its role and its overrides are kept — an admin can reactivate and {u.name?.split(" ")[0] ?? "this user"} is back exactly as before.</Notice>
       <div className="flex flex-col gap-[13px]">
         <div>
           <Checkbox on={reassign} onChange={setReassign}>
-            Reassign <b>4 open items</b> to another user
+            Reassign open items to another user
             <span className="mt-[3px] block text-[12px] text-secondary">Work has to keep moving. Reassignment is <b>not</b> undone on reactivation.</span>
           </Checkbox>
           {reassign && (
             <div className="ml-[27px] mt-2.5 max-w-[260px]">
-              <SelectField value={to} onChange={setTo} options={others} placeholder="Pick a user…" />
+              <SelectField value={to} onChange={setTo} options={others.map((x) => ({ value: x.firebase_uid, label: x.name ?? x.email ?? x.firebase_uid }))} placeholder="Pick a user…" />
             </div>
           )}
         </div>
         <Checkbox on><b>{held.length} override{held.length === 1 ? "" : "s"}</b> held, not revoked — they resume on reactivation, or expire, whichever comes first</Checkbox>
         <Checkbox on>Sign-in identity stays reserved — the email cannot be reused</Checkbox>
       </div>
-      <TextField label="Reason" value={why} onChange={setWhy} placeholder={`Left the firm — ${TODAY}`} span help="Shown on the account and in the audit log." />
+      <TextField label="Reason" value={why} onChange={setWhy} placeholder={`Left the firm — ${todayLabel()}`} span help="Shown on the account and in the audit log." />
     </Modal>
   );
 }
 
 /* ---- reactivate -------------------------------------------------- */
-export function ReactivateModal({ user: u, onClose }: { user: AdminUser; onClose: () => void }) {
+export function ReactivateModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
   const store = useAdminStore();
-  const held = store.ovrFor(u.name);
+  const held = store.ovrFor(u.firebase_uid);
   return (
     <Modal
       title="Reactivate account"
@@ -194,10 +226,11 @@ export function ReactivateModal({ user: u, onClose }: { user: AdminUser; onClose
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={RotateCcw} onClick={() => {
-              store.setStatus(u.email, "Initiated");
-              store.log("Account reactivated", `${u.name} · ${u.role} · temporary password required`);
-              toast.success(`${u.name} reactivated as ${u.role}. Issue a temporary password so they can sign in.`);
+            <Button icon={RotateCcw} onClick={async () => {
+              const ok = await store.updateStaff(u.firebase_uid, { status: "ACTIVE" });
+              if (!ok) return;
+              await store.sendLink(u.firebase_uid);
+              toast.success(`${u.name} reactivated as ${u.role}. A set-password link has been sent so they can sign in.`);
               onClose();
             }}>
               Reactivate account
@@ -207,7 +240,7 @@ export function ReactivateModal({ user: u, onClose }: { user: AdminUser; onClose
       }
     >
       <Notice tone="ok">The account returns as <b>{u.role}</b> with {held.length} held override{held.length === 1 ? "" : "s"} resumed. Reassigned work stays where it was moved.</Notice>
-      <Notice tone="info">Sign-in needs a fresh temporary password — the account lands back in <b>Initiated</b> until the first sign-in.</Notice>
+      <Notice tone="info">Sign-in needs a fresh set-password link — the account lands back in <b>Initiated</b> until the first sign-in.</Notice>
     </Modal>
   );
 }
@@ -266,22 +299,21 @@ export function CreatedModal({
 /* ---- add override (from the ledger) -------------------------------- */
 export function AddOverrideModal({ onClose }: { onClose: () => void }) {
   const store = useAdminStore();
-  const candidates = store.users.filter((u) => u.status !== "Deactivated");
-  const [email, setEmail] = useState(candidates[0]?.email ?? "");
+  const candidates = store.staff.filter((u) => u.status !== "DEACTIVATED");
+  const [uid, setUid] = useState(candidates[0]?.firebase_uid ?? "");
   const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");
   const [why, setWhy] = useState("");
   const [exp, setExp] = useState("30 Sep 2026");
   const [onExp, setOnExp] = useState("Revert to role default");
   const [touched, setTouched] = useState(false);
-  const u = candidates.find((x) => x.email === email);
+  const u = candidates.find((x) => x.firebase_uid === uid);
   const from: Level = pageId && u ? store.eff(pageId, u.role) : "NONE";
 
-  const submit = () => {
+  const submit = async () => {
     if (!u || !pageId || !why.trim()) { setTouched(true); toast.warning("User, page and reason are all required."); return; }
-    const p = PAGE_BY_ID[pageId];
-    store.addOverride({ initials: u.initials, name: u.name, role: u.role, page: p.label, path: p.path, from, to: lv, why: why.trim(), exp, soon: exp === "30 Sep 2026" });
-    onClose();
+    const ok = await store.addOverride({ firebase_uid: u.firebase_uid, page_id: pageId, level: lv, reason: why.trim(), expires_at: expiryToISO(exp) });
+    if (ok) onClose();
   };
 
   return (
@@ -298,7 +330,7 @@ export function AddOverrideModal({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-        <SelectField label="User" value={email} onChange={setEmail} span required options={candidates.map((x) => ({ value: x.email, label: `${x.name} · ${x.role}` }))} />
+        <SelectField label="User" value={uid} onChange={setUid} span required options={candidates.map((x) => ({ value: x.firebase_uid, label: `${x.name} · ${x.role}` }))} />
         <SelectField label="Page" value={pageId} onChange={(v) => setPageId(v as PageId)} span required placeholder="Select a page…"
           options={ALL_PAGES.map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }))} />
       </div>
