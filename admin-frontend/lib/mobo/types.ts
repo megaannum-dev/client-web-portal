@@ -338,6 +338,56 @@ export interface Exception {
   trail: TrailEntry[];
 }
 
+/* ============================================================
+   FLAT TRADE RECORDS — wire shape of GET /api/mobo/trade-records
+
+   The Trade Reconciliation spreadsheet's rows, straight off the
+   `orders` + `trades` tables. Every value arrives PRE-FORMATTED
+   (price/qty/date/time are display strings) — the backend owns
+   all formatting, this page is a pure view. There is no
+   reconciliation behind these rows: `sys` is always "CRM" and
+   `status` always "Confirmed" until a second source is wired.
+   ============================================================ */
+
+export interface TradeRecordRowDTO {
+  /** Source system — "CRM" for every row today. */
+  sys: "CRM" | "IB" | "PC";
+  /** `orders.orderID` on an Order row, `trades.execID` on an Execution row. */
+  ref: string;
+  /** Groups an order with its executions; the row-click target. */
+  tradeId: string;
+  tradeDate: string;
+  mkt: string;
+  stock: string;
+  price: string;
+  qty: string;
+  txnType: string;
+  time: string;
+  status: string;
+  /** First row of a group — drives the thicker top border. */
+  isFirst: boolean;
+
+  /* ---- break flags — RETAINED, never set today ---------------
+     With CRM as the only source nothing can disagree, so the
+     backend omits these and the cells render plain. When a second
+     source is wired it starts setting them and the striped/red
+     cell paths light up with no frontend change. */
+  /** The row is absent from this system entirely (striped cells). */
+  missing?: boolean;
+  /** Quantity disagrees across systems (red cell). */
+  qtyBrk?: boolean;
+  /** Price disagrees across systems (red cell). */
+  priceBrk?: boolean;
+}
+
+export interface TradeRecordsViewDTO {
+  /** Resolved day label, e.g. "23 Jul 2026". */
+  day: string;
+  /** Every `YYYYMMDD` day that has orders — feeds the date picker. */
+  dates: string[];
+  rows: TradeRecordRowDTO[];
+}
+
 /* ---- Custodian / broker feeds (dashboard) ------------------ */
 
 export interface Feed {
