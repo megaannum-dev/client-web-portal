@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
 import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
+import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
 from app.core.database import Base, engine
@@ -21,6 +22,7 @@ from app.libs.onboarding.scheduler import start_scheduler as start_onboarding_sc
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
 from app.libs.post_trade_allocation.scheduler import start_scheduler as start_pta_scheduler
 from app.libs.reconciliation.router import router as reconciliation_router
+from app.libs.reports.router import router as reports_router
 from app.libs.staff.router import router as staff_router
 from app.libs.trade_models.router import router as trade_models_router
 from app.libs.users.router import router as users_router
@@ -75,6 +77,7 @@ app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
+app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
 
 # --- Dev-only (mounted iff dev_mode) ---
 if get_settings().dev_mode:
