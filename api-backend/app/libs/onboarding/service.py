@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import BinaryIO
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.libs.clients.service import ClientService
@@ -22,6 +22,7 @@ from app.libs.onboarding.schemas import (
     ClientEventDTO,
     ClientSubscriptionRowDTO,
     ClientSubscriptionsDTO,
+    ContactLogEntryDTO,
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
@@ -42,6 +43,7 @@ from app.models.onboarding import (
     AllotRdmpKind,
     AllotRdmpStatus,
     ClientAllotmentRedemption,
+    ClientContactLog,
     ClientOnboarding,
     ClientTicket,
     DocStatus,
@@ -801,6 +803,70 @@ class OnboardingService:
             )
             for e in self.repo.list_events_for_client(user_id)
         ]
+
+    def _contact_log_to_dto(self, log: ClientContactLog) -> ContactLogEntryDTO:
+        logged_by = self.repo._resolve_uid_to_display_name(log.logged_by_uid) or log.logged_by_uid
+        return ContactLogEntryDTO(
+            id=log.id,
+            topic=log.topic,
+            channel=log.channel,
+            occurred_at=log.occurred_at,
+            description=log.description,
+            interest=log.interest,
+            complaint=log.complaint,
+            follow_up=log.follow_up,
+            logged_by=logged_by,
+            doc_filename=log.doc_filename,
+            doc_size_bytes=log.doc_size_bytes,
+            created_at=log.created_at,
+        )
+
+    def list_contact_logs(self, client_id: uuid.UUID) -> list[ContactLogEntryDTO]:
+        return [self._contact_log_to_dto(log) for log in self.repo.list_contact_logs(client_id)]
+
+    def create_contact_log(
+        self,
+        client_id: uuid.UUID,
+        *,
+        caller_uid: str,
+        topic: str,
+        channel: str,
+        occurred_at: datetime,
+        description: str,
+        interest: str | None,
+        complaint: str | None,
+        follow_up: str | None,
+        file: UploadFile | None,
+    ) -> ContactLogEntryDTO:
+        doc_storage_key = doc_filename = doc_content_type = None
+        doc_size_bytes = None
+        if file is not None:
+            doc_storage_key = get_storage().save(
+                file.file,
+                suggested_name=file.filename or "upload",
+                content_type=file.content_type,
+                subdir=f"client_contact_logs/{client_id}",
+            )
+            doc_filename = file.filename
+            doc_content_type = file.content_type
+            doc_size_bytes = file.size
+        log = self.repo.create_contact_log(
+            user_id=client_id,
+            logged_by_uid=caller_uid,
+            topic=topic,
+            channel=channel,
+            occurred_at=occurred_at,
+            description=description,
+            interest=interest,
+            complaint=complaint,
+            follow_up=follow_up,
+            doc_storage_key=doc_storage_key,
+            doc_filename=doc_filename,
+            doc_content_type=doc_content_type,
+            doc_size_bytes=doc_size_bytes,
+        )
+        self.db.commit()
+        return self._contact_log_to_dto(log)
 
     # ---- RM: Model Subscription read endpoints (014 D / BE-9) ---------------
     def list_subscriptions(self, *, role: AdminRole, rm_uid: str) -> list[ClientSubscriptionsDTO]:

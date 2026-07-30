@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.libs.onboarding.schemas import (
     BoardDTO,
     ClientEventDTO,
     ClientSubscriptionsDTO,
+    ContactLogEntryDTO,
     DocSpecDTO,
     DocumentDTO,
     OnboardingDTO,
@@ -106,6 +108,47 @@ def get_client_events_rm(
     the user_id. Gated by CLIENT_VIEW (same action GET /rm/clients/{id}
     already requires), not the client's own token."""
     return svc.client_events(client_id)
+
+
+@router.get("/rm/clients/{client_id}/contact-logs", response_model=list[ContactLogEntryDTO])
+def get_client_contact_logs(
+    client_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> list[ContactLogEntryDTO]:
+    return svc.list_contact_logs(client_id)
+
+
+@router.post(
+    "/rm/clients/{client_id}/contact-logs",
+    response_model=ContactLogEntryDTO,
+    status_code=201,
+)
+async def create_client_contact_log(
+    client_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_MANAGE))],
+    topic: Annotated[str, Form()],
+    channel: Annotated[str, Form()],
+    occurred_at: Annotated[datetime, Form()],
+    description: Annotated[str, Form()],
+    interest: Annotated[str | None, Form()] = None,
+    complaint: Annotated[str | None, Form()] = None,
+    follow_up: Annotated[str | None, Form()] = None,
+    file: UploadFile | None = File(None),
+) -> ContactLogEntryDTO:
+    return svc.create_contact_log(
+        client_id,
+        caller_uid=user.firebase_uid,
+        topic=topic,
+        channel=channel,
+        occurred_at=occurred_at,
+        description=description,
+        interest=interest,
+        complaint=complaint,
+        follow_up=follow_up,
+        file=file,
+    )
 
 
 @router.get("/rm/onboardings/{onboarding_id}", response_model=OnboardingDTO)

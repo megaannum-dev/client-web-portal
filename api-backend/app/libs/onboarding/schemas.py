@@ -264,3 +264,18 @@ class ClientSubscriptionsDTO(BaseModel):
     client_id: uuid.UUID
     client_name: str
     subscriptions: list[ClientSubscriptionRowDTO]
+
+
+class ContactLogEntryDTO(BaseModel):
+    id: uuid.UUID
+    topic: str
+    channel: str
+    occurred_at: datetime
+    description: str
+    interest: str | None
+    complaint: str | None
+    follow_up: str | None
+    logged_by: str  # resolved display name, not the raw firebase_uid
+    doc_filename: str | None
+    doc_size_bytes: int | None
+    created_at: datetime
