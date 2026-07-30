@@ -3,6 +3,7 @@ const RM = "/api/rm";
 const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
 const CO = "/api/co";
+const ADMIN = "/api/admin";
 
 export const ENDPOINTS = {
   PC: {
@@ -62,5 +63,14 @@ export const ENDPOINTS = {
     // see proposal 016 §F-2 "Path note"). Do not "fix" these back to COMPLIANCE.
     REDEMPTIONS:       `${CO}/redemptions`,
     REDEMPTION_DECIDE: (id: string) => `${CO}/redemptions/${id}/decide`,
+  },
+  ADMIN: {
+    STAFF:               `${ADMIN}/staff`,
+    STAFF_MEMBER:        (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}`,
+    STAFF_SET_PW_LINK:   (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}/set-password-link`,
+    ACCESS_MATRIX:       `${ADMIN}/access/matrix`,
+    ACCESS_OVERRIDES:    `${ADMIN}/access/overrides`,
+    ACCESS_OVERRIDE:     (id: string) => `${ADMIN}/access/overrides/${encodeURIComponent(id)}`,
+    AUDIT:               `${ADMIN}/audit`,
   },
 } as const;
