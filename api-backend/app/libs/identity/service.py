@@ -5,8 +5,6 @@ from firebase_admin import auth
 from app.core.config import Settings
 from app.core.security import _init_firebase
 
-_DEFAULT_PASSWORD = "12345678"
-
 
 class FirebaseIdentityService:
     """The ONLY module in the codebase that mutates Firebase Auth identities."""
@@ -15,11 +13,16 @@ class FirebaseIdentityService:
         self._settings = settings
 
     def create_user(self, email: str) -> str:
-        """Admin SDK create; returns the new uid. Raises on failure (caller catches)."""
+        """Admin SDK create; returns the new uid. Raises on failure (caller catches).
+
+        PASSWORDLESS by construction (C-1): no `password` argument, so the account
+        holds no password credential at all until its holder sets one through the
+        emailed set-password link. There is no interval in which a credential the
+        system chose exists."""
         if self._settings.firebase_auth_disabled:
-            return f"dev-{email}"  # deterministic synthetic uid, no Firebase call
+            return f"dev-{email}"  # unchanged: deterministic synthetic uid
         _init_firebase(self._settings)
-        user = auth.create_user(email=email, password=_DEFAULT_PASSWORD)
+        user = auth.create_user(email=email)  # was: password=_DEFAULT_PASSWORD
         return user.uid
 
     def get_user_by_email(self, email: str) -> str | None:
