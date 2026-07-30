@@ -26,7 +26,8 @@
    the backend starts setting them and the red cells light up with
    no change here.
 
-   The Settlement tab is still mock-backed (`loadSettlement`).
+   The Settlement tab reads `loadSettlement()`, which is EMPTY —
+   its mock was deleted and no settlement source is wired yet.
    ============================================================ */
 
 import { useMemo, useState, type ReactNode } from "react";
@@ -81,8 +82,8 @@ function FlatRowTr({ r, ri, active, onClick }: { r: TradeRecordRowDTO; ri: numbe
 }
 
 /* ---- settlement tab — ported from MoboRecon.jsx's SettlementPanel.
-   `loadSettlement()` already returns pre-formatted amounts, so there's
-   nothing left to compute here, just render. */
+   `loadSettlement()` returns pre-formatted amounts, so there's nothing
+   to compute here, just render. Empty today — see the seam. */
 function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
   const masterN = rows.filter((r) => r.type === "Master").length;
   const clientN = rows.filter((r) => r.type === "Client").length;
@@ -116,6 +117,13 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="border-t border-outline-variant px-4 py-12 text-center text-[13px] text-secondary">
+                    No settlement data — no settlement source is wired yet.
+                  </td>
+                </tr>
+              )}
               {rows.map((r, i) => (
                 <tr key={r.key} className={r.type === "Master" ? "bg-surface-low" : ""}>
                   <td className={`px-4 py-3 ${i ? "border-t border-outline-variant" : ""} ${r.type === "Master" ? "font-bold" : "font-medium"}`}>{r.account}</td>
