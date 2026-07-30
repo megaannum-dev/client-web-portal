@@ -19,8 +19,12 @@ import {
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { todayLabel } from "@/lib/admin/today";
-import type { EnrollDraft, Role, StaffOut } from "@/lib/admin/types";
+import { expiryToIso, isoDateOrNull, todayLabel } from "@/lib/admin/today";
+import type { EnrollDraft, PageId, Role, StaffOut } from "@/lib/admin/types";
+
+/** The reason recorded on every override created by the enroll wizard — the literal
+ *  the Access step's own Notice shows (Wizard.tsx). Named once, not repeated. */
+const OVERRIDE_REASON = "Set during enrolment";
 
 type View = "directory" | "wizard" | "overrides";
 
@@ -36,7 +40,7 @@ type ModalState =
 function blankDraft(): EnrollDraft {
   return {
     mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
-    role: "", ovr: {}, invite: true,
+    role: "", ovr: {}, ovrExpiry: "90 days", invite: true,
   };
 }
 
@@ -60,7 +64,7 @@ export default function EnrollUserPage() {
     setDraft({
       mode: "edit", orig: u.firebase_uid, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.department ?? "", role: u.role, ovr: {}, invite: false,
+      dept: u.department ?? "", role: u.role, ovr: {}, ovrExpiry: "90 days", invite: false,
     });
     setStep(0); setView("wizard"); setKebab(null);
   };
@@ -80,12 +84,17 @@ export default function EnrollUserPage() {
       return;
     }
 
-    // ponytail: draft overrides (d.ovr) are not sent on enroll yet — FE-14 wires
-    // StaffEnrollIn.overrides[] with an admin-chosen expiry.
     const created = await store.enroll({
-      email: d.email, first_name: d.first, last_name: d.last, role: d.role as Role,
-      phone_number: d.phone || null, department: d.dept || null, start_date: d.start || null,
-      address: d.addr || null, send_link: d.invite,
+      email: d.email.trim(), first_name: d.first.trim(), last_name: d.last.trim(), role: d.role as Role,
+      phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
+      start_date: isoDateOrNull(d.start), address: d.addr.trim() || null,
+      send_link: d.invite,
+      overrides: (Object.keys(d.ovr) as PageId[]).map((page_id) => ({
+        page_id,
+        level: d.ovr[page_id]!,
+        reason: OVERRIDE_REASON,
+        expires_at: expiryToIso(d.ovrExpiry),
+      })),
     });
     if (!created) return;
     setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, link_sent: created.link_sent, ovr: created.override_count } });

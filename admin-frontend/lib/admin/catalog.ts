@@ -55,3 +55,7 @@ export const kFor = (pageId: PageId, role: Role): string => `${pageId}|${role}`;
 export const ROLE_CODES: readonly Role[] = ["RM", "MOBO", "PM", "PC", "COMPLIANCE", "ADMIN"];
 
 export const LEVEL_LABEL: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
+
+/** Shared expiry choices for an override — the wizard's Access step (FE-14) and
+ *  the override modals (currently enroll/LifecycleModals.tsx) read one list from here. */
+export const EXPIRY_OPTS = ["30 days", "90 days", "30 Sep 2026", "31 Dec 2026", "No expiry"];

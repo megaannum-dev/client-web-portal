@@ -14,10 +14,10 @@ import {
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Checkbox, Help, Label, Notice, TextField } from "@/components/admin/Shared";
+import { Checkbox, Help, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
+import { ALL_PAGES, EXPIRY_OPTS, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
 
@@ -183,17 +183,27 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                 <div className="flex flex-col gap-3.5">
                   <AccessEditor valueFor={valueFor} defaultFor={defaultFor} onSet={setLevel}
                     openGroups={openGroups} onToggleGroup={onToggleGroup} stagedOn={(p) => p in d.ovr} />
-                  {ovrCount > 0 ? (
-                    <Notice tone="warn">
-                      <b>{ovrCount} override{ovrCount === 1 ? "" : "s"} on this account:</b>{" "}
-                      {Object.keys(d.ovr).map((id) => {
-                        const pageId = id as PageId;
-                        return `${PAGE_BY_ID[pageId].label}, ${LEVEL_LABEL[defaultFor(pageId)]} → ${LEVEL_LABEL[d.ovr[pageId]]}`;
-                      }).join(" · ")}. Each is recorded with a reason and an expiry.
-                    </Notice>
-                  ) : (
-                    <Notice tone="info">No exceptions — {d.role} defaults apply exactly. Change any level above to record an override.</Notice>
-                  )}
+                  <div className="flex items-start gap-4">
+                    <span className="flex-1">
+                      {ovrCount > 0 ? (
+                        <Notice tone="warn">
+                          <b>{ovrCount} override{ovrCount === 1 ? "" : "s"} on this account:</b>{" "}
+                          {Object.keys(d.ovr).map((id) => {
+                            const pageId = id as PageId;
+                            return `${PAGE_BY_ID[pageId].label}, ${LEVEL_LABEL[defaultFor(pageId)]} → ${LEVEL_LABEL[d.ovr[pageId]]}`;
+                          }).join(" · ")}. Each is recorded with a reason and the expiry chosen here.
+                        </Notice>
+                      ) : (
+                        <Notice tone="info">No exceptions — {d.role} defaults apply exactly. Change any level above to record an override.</Notice>
+                      )}
+                    </span>
+                    {ovrCount > 0 && (
+                      <span className="w-[190px] shrink-0">
+                        <SelectField label="Overrides expire" value={d.ovrExpiry}
+                          onChange={(v) => patchDraft({ ovrExpiry: v })} options={EXPIRY_OPTS} />
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 

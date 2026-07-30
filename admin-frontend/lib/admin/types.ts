@@ -83,7 +83,7 @@ export interface EnrollDraft {
   dept: string;
   role: Role | "";
   ovr: Record<string, Level>;
-  pw: string;
-  expiry: string;
+  /** The single expiry applied to every override recorded on this enrollment (FE-14). */
+  ovrExpiry: string;
   invite: boolean;
 }
