@@ -57,6 +57,14 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const ovrCount = Object.keys(d.ovr).length;
   const granted = role == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.page_id) !== "NONE").length;
 
+  /** "This user is about to stop being an active RM" (role changing away from RM) plus a
+   *  non-empty book — the same predicate DeactivateModal uses for its trigger (FE-15). */
+  const leavingRm = isEdit && d.origRole === "RM" && d.role !== "" && d.role !== "RM" && (d.client_count ?? 0) > 0;
+  const activeRmOptions = (store.staff ?? [])
+    .filter((x) => x.role === "RM" && x.status === "ACTIVE" && x.firebase_uid !== d.orig)
+    .map((x) => ({ value: x.firebase_uid, label: `${x.name} · ${x.client_count ?? 0} clients` }));
+  const canSubmit = !leavingRm || !!d.reassign_book_to;
+
   const DONE: Record<StepKey, string> = {
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
     role: d.role || "—",
@@ -171,10 +179,21 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                       );
                     })}
                   </div>
-                  <Notice tone="info">
-                    {isEdit
-                      ? <>Changing the role swaps the whole standing access set. Existing exceptions stay — manage them from <b>Manage overrides</b> in the directory.</>
-                      : "Access is never set per person here — pick the closest role, then adjust on the next step if this person genuinely differs."}
+                  <Notice tone={leavingRm ? "warn" : "info"}>
+                    {leavingRm ? (
+                      <>
+                        <b>{d.client_count} clients</b> and <b>{d.open_ticket_count} open tickets</b> move to:
+                        <span className="mt-2 block max-w-[260px]">
+                          <SelectField value={d.reassign_book_to ?? ""} onChange={(v) => patchDraft({ reassign_book_to: v })}
+                            placeholder="Pick a receiving RM…" options={activeRmOptions} />
+                        </span>
+                        Closed tickets stay on the record as theirs. Existing exceptions stay — manage them from <b>Manage overrides</b>.
+                      </>
+                    ) : isEdit ? (
+                      <>Changing the role swaps the whole standing access set. Existing exceptions stay — manage them from <b>Manage overrides</b> in the directory.</>
+                    ) : (
+                      "Access is never set per person here — pick the closest role, then adjust on the next step if this person genuinely differs."
+                    )}
                   </Notice>
                 </div>
               )}
@@ -226,7 +245,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               <span className="ml-auto flex gap-3">
                 {step > 0 && <Button variant="secondary" onClick={() => setStep(step - 1)}>Back</Button>}
                 {last
-                  ? <Button icon={isEdit ? Save : UserRoundPlus} onClick={onSubmit}>{isEdit ? "Save changes" : "Create account"}</Button>
+                  ? <Button icon={isEdit ? Save : UserRoundPlus} disabled={!canSubmit} onClick={onSubmit}>{isEdit ? "Save changes" : "Create account"}</Button>
                   : <Button iconRight={ArrowRight} onClick={next}>Next</Button>}
               </span>
             </div>

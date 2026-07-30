@@ -82,8 +82,16 @@ export interface EnrollDraft {
   addr: string;
   dept: string;
   role: Role | "";
+  /** The role held before this edit — "was an RM, is becoming something else" needs this
+   *  because `role` above is already the *new* value by the time it's checked (FE-15). */
+  origRole?: Role;
   ovr: Record<string, Level>;
   /** The single expiry applied to every override recorded on this enrollment (FE-14). */
   ovrExpiry: string;
   invite: boolean;
+  /** RM-only counts carried in from StaffOut, null for every other role (FE-15). */
+  client_count?: number | null;
+  open_ticket_count?: number | null;
+  /** The receiving RM's firebase_uid when this edit hands over a book (FE-15). */
+  reassign_book_to?: string | null;
 }

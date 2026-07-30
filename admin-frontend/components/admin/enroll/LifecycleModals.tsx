@@ -148,13 +148,18 @@ export function ManageOverridesModal({ user: u, onClose }: { user: StaffOut; onC
 
 /* ---- deactivate ------------------------------------------------ */
 export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
-  const store = useAdminStore();
-  const held = store.ovrFor(u.firebase_uid);
-  const others = store.staff.filter((x) => x.firebase_uid !== u.firebase_uid && x.status === "ACTIVE");
-  const [reassign, setReassign] = useState(true);
-  const [to, setTo] = useState(others[0]?.firebase_uid ?? "");
+  const { staff, ovrFor, updateStaff } = useAdminStore();
+  const held = ovrFor(u.firebase_uid);
+
+  /** The handover is scoped to RMs with a non-empty book. Every other role owns nothing
+   *  per-person (Backend C-11), so the control is NOT RENDERED for them. */
+  const needsHandover = u.role === "RM" && (u.client_count ?? 0) > 0;
+  const receivers = staff.filter(
+    (x) => x.role === "RM" && x.status === "ACTIVE" && x.firebase_uid !== u.firebase_uid,
+  ); // filtered from the directory the page already holds — no new fetch
+  const [to, setTo] = useState("");
   const [why, setWhy] = useState("");
-  const toName = others.find((x) => x.firebase_uid === to)?.name ?? "another user";
+
   return (
     <Modal
       title="Deactivate account"
@@ -165,16 +170,13 @@ export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={Ban} onClick={async () => {
-              const ok = await store.updateStaff(u.firebase_uid, {
+            <Button icon={Ban} disabled={needsHandover && !to} onClick={async () => {
+              const ok = await updateStaff(u.firebase_uid, {
                 status: "DEACTIVATED",
                 deactivate_reason: why.trim() || null,
-                reassign_book_to: reassign && to ? to : null,
+                ...(needsHandover ? { reassign_book_to: to } : {}),
               });
-              if (ok) {
-                toast.success(`${u.name} deactivated.${reassign && to ? ` Open items reassigned to ${toName}.` : ""}${held.length ? ` ${held.length} override held.` : ""} Reactivate restores the account as it was.`);
-                onClose();
-              }
+              if (ok) { toast.success(`${u.name} deactivated.`); onClose(); }
             }}>
               Deactivate account
             </Button>
@@ -184,17 +186,21 @@ export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
     >
       <Notice tone="warn"><b>Reversible.</b> Sign-in stops immediately, but the account, its role and its overrides are kept — an admin can reactivate and {u.name?.split(" ")[0] ?? "this user"} is back exactly as before.</Notice>
       <div className="flex flex-col gap-[13px]">
-        <div>
-          <Checkbox on={reassign} onChange={setReassign}>
-            Reassign open items to another user
-            <span className="mt-[3px] block text-[12px] text-secondary">Work has to keep moving. Reassignment is <b>not</b> undone on reactivation.</span>
-          </Checkbox>
-          {reassign && (
+        {needsHandover && (
+          <div>
+            {/* SAME slot the checkbox occupied. Now a REQUIRED field, not an opt-in. */}
+            <Label>Hand this RM&apos;s book to <span style={{ color: "var(--primary)" }}>*</span></Label>
+            <span className="mt-[3px] block text-[12px] text-secondary">
+              <b>{u.client_count} clients</b> and <b>{u.open_ticket_count} open tickets</b> move to the
+              receiving RM. Closed tickets stay on the record as {u.name}&apos;s.
+              Reassignment is <b>not</b> undone on reactivation.
+            </span>
             <div className="ml-[27px] mt-2.5 max-w-[260px]">
-              <SelectField value={to} onChange={setTo} options={others.map((x) => ({ value: x.firebase_uid, label: x.name ?? x.email ?? x.firebase_uid }))} placeholder="Pick a user…" />
+              <SelectField value={to} onChange={setTo} placeholder="Pick a receiving RM…"
+                options={receivers.map((r) => ({ value: r.firebase_uid, label: `${r.name} · ${r.client_count ?? 0} clients` }))} />
             </div>
-          )}
-        </div>
+          </div>
+        )}
         <Checkbox on><b>{held.length} override{held.length === 1 ? "" : "s"}</b> held, not revoked — they resume on reactivation, or expire, whichever comes first</Checkbox>
         <Checkbox on>Sign-in identity stays reserved — the email cannot be reused</Checkbox>
       </div>

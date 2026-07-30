@@ -62,9 +62,11 @@ export default function EnrollUserPage() {
   const startEdit = (u: StaffOut) => {
     const [first, ...rest] = (u.name ?? "").split(" ");
     setDraft({
-      mode: "edit", orig: u.firebase_uid, first, last: rest.join(" "), email: u.email ?? "",
+      mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
       dept: u.department ?? "", role: u.role, ovr: {}, ovrExpiry: "90 days", invite: false,
+      client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
+      reassign_book_to: null,
     });
     setStep(0); setView("wizard"); setKebab(null);
   };
@@ -77,7 +79,11 @@ export default function EnrollUserPage() {
     const name = `${d.first} ${d.last}`.trim();
 
     if (d.mode === "edit") {
-      const ok = await store.updateStaff(d.orig!, { name, email: d.email, role: d.role as Role });
+      const ok = await store.updateStaff(d.orig!, {
+        name, email: d.email.trim(), role: d.role as Role,
+        phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
+        ...(d.reassign_book_to ? { reassign_book_to: d.reassign_book_to } : {}),
+      });
       if (!ok) return;
       toast.success(`${name} updated.`);
       leaveWizard();
