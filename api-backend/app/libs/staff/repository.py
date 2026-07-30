@@ -156,6 +156,27 @@ class StaffRepository:
         )
         return [StaffDirectoryRow(*row) for row in rows]
 
+    def reassign_book(self, *, from_uid: str, to_uid: str) -> int:
+        """UPDATE client_profiles SET assigned_rm_uid = :to WHERE assigned_rm_uid
+        = :from -- one set-based statement, no row-by-row work (BE-19 §6).
+        Returns the rowcount (the "book of N clients" audit figure)."""
+        return (
+            self.db.query(ClientProfile)
+            .filter(ClientProfile.assigned_rm_uid == from_uid)
+            .update({"assigned_rm_uid": to_uid}, synchronize_session=False)
+        )
+
+    def reassign_open_tickets(self, *, from_uid: str, to_uid: str) -> int:
+        """UPDATE client_tickets SET assigned_rm_uid = :to WHERE assigned_rm_uid
+        = :from AND status IN OPEN_TICKET_STATUSES. RESOLVED/DECLINED tickets keep
+        their original assigned_rm_uid -- 018's B-1 snapshot semantics (BE-19 §6)."""
+        return (
+            self.db.query(ClientTicket)
+            .filter(ClientTicket.assigned_rm_uid == from_uid)
+            .filter(ClientTicket.status.in_(OPEN_TICKET_STATUSES))
+            .update({"assigned_rm_uid": to_uid}, synchronize_session=False)
+        )
+
     def count_book(self, rm_uid: str) -> tuple[int, int]:
         """(client_count, open_ticket_count) for ONE rm uid -- the guard's input in
         BE-19. Same predicates as list_directory's subqueries, expressed via the

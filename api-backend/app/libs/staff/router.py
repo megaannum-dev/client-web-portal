@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -78,7 +78,14 @@ def update_staff(
     body: StaffUpdateIn,
     service: Annotated[StaffService, Depends(_get_service)],
     settings: Annotated[Settings, Depends(get_settings)],
-    _: Annotated[User, Depends(require_action(Action.USER_WRITE))],
+    actor: Annotated[User, Depends(require_action(Action.USER_WRITE))],
 ) -> StaffOut:
-    user = service.update(uid, body, settings)
-    return StaffOut(firebase_uid=user.firebase_uid, role=user.role, status=user.status.value)
+    """Response model widened for BE-19: a PATCH can now move a book/tickets, so
+    the reply is the full directory row (StaffOut), not a 3-field sliver -- built
+    by re-deriving through list_directory() rather than duplicating its status/
+    count derivation here."""
+    service.update(uid, body, settings, actor=actor)
+    for row in service.list_directory():
+        if row.firebase_uid == uid:
+            return row
+    raise HTTPException(404, "User not found")  # pragma: no cover -- unreachable (update() 404s)

@@ -11,12 +11,21 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.security import set_portal_claims
 from app.libs.access.repository import AccessRepository, from_wire
+from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
 from app.schemas.staff import LinkSentOut, StaffOut, StaffOverrideIn
+
+# Wire status ("ACTIVE"/"DEACTIVATED", the StaffUpdateIn literal) -> DB-native
+# AccountStatus. BE-19: both the last-ADMIN guard and the handover guard compare
+# against the wire value, but the actual column write needs the DB enum.
+_STATUS_WIRE_TO_DB: dict[str, AccountStatus] = {
+    "ACTIVE": AccountStatus.ACTIVE,
+    "DEACTIVATED": AccountStatus.DISABLED,
+}
 
 
 class StaffUpdatePatch(Protocol):
@@ -25,10 +34,36 @@ class StaffUpdatePatch(Protocol):
     with these attributes (a Pydantic model or a plain namespace) satisfies it."""
 
     role: AdminRole | None
-    status: AccountStatus | None
+    status: Literal["ACTIVE", "DEACTIVATED"] | None
     name: str | None
     phone_number: str | None
     email: str | None
+    reassign_book_to: str | None  # BE-19
+
+
+def _handover_block(
+    *,
+    profile_role: AdminRole,
+    user_status: AccountStatus,
+    patch: StaffUpdatePatch,
+    client_count: int,
+) -> str | None:
+    """THE guard (C-11). ONE condition, evaluated ONCE: "this user is about to stop
+    being an active RM". Returns the 409 detail to raise when a handover is required
+    and `reassign_book_to` is absent, else None.
+
+    Two triggers, not two checks -- deactivation and a role change away from RM do
+    the same damage (the book keeps pointing at a uid no active RM holds), so they
+    share this function rather than drifting apart as parallel branches.
+    A no-op role write (role == RM) is NOT a trigger. A non-RM, or an RM with an
+    empty book, is never blocked."""
+    if profile_role != AdminRole.RM or client_count == 0:
+        return None
+    if patch.status == "DEACTIVATED" and user_status == AccountStatus.ACTIVE:
+        return "Reassign this RM's client book before deactivating"
+    if patch.role is not None and patch.role != AdminRole.RM:
+        return "Reassign this RM's client book before changing their role"
+    return None
 
 
 class StaffService:
@@ -187,12 +222,41 @@ class StaffService:
         )
         return LinkSentOut(link_sent=link_sent)
 
-    def update(self, uid: str, patch: StaffUpdatePatch, settings: Settings) -> User:
+    def _assert_valid_receiver(self, to_uid: str | None, *, from_uid: str) -> None:
+        """422 "reassign_book_to must be an active RM" (§7.1's exact message) when
+        the receiver is missing, not an admin, not role RM, not ACTIVE, or is the
+        user being changed. The RM-role half REUSES ClientService.assert_is_rm
+        rather than reimplementing it (C-11 step 3) -- its 422 is caught and
+        re-raised with this endpoint's message; the ACTIVE and not-self checks are
+        this method's own, since assert_is_rm does not make them."""
+        bad_receiver = HTTPException(422, "reassign_book_to must be an active RM")
+        if to_uid is None or to_uid == from_uid:
+            raise bad_receiver
+        receiver = UserRepository(self.repo.db).get_by_firebase_uid(to_uid)
+        if receiver is None or receiver.status != AccountStatus.ACTIVE:
+            raise bad_receiver
+        try:
+            ClientService(self.repo.db).assert_is_rm(to_uid)
+        except HTTPException as exc:
+            raise bad_receiver from exc
+
+    def update(
+        self, uid: str, patch: StaffUpdatePatch, settings: Settings, *, actor: User | None = None
+    ) -> User:
         """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
         must be rejected atomically -- the active-admin count is read with
         `SELECT ... FOR UPDATE` (via count_active_admins(for_update=True)) inside
         THIS transaction, so two concurrent demotions of two different admins can't
-        both observe count>=2 and both commit, leaving zero active admins."""
+        both observe count>=2 and both commit, leaving zero active admins.
+        UNCHANGED by BE-19, and evaluated BEFORE the handover guard below.
+
+        BE-19: when this patch makes a booked RM (client_count > 0) stop being an
+        active RM (deactivation or a role change away from RM), `_handover_block`
+        requires a valid `reassign_book_to` -- 409 (no receiver) or 422 (bad
+        receiver) -- and, once satisfied, the book + open tickets move to the
+        receiver in the SAME transaction/commit as the status/role write, plus one
+        audit row. Reactivating a previously-handed-over RM does not restore a
+        book (client_count is 0 by then, so the guard never re-triggers)."""
         user = UserRepository(self.repo.db).get_by_firebase_uid(uid)
         if user is None:
             raise HTTPException(404, "User not found")
@@ -207,9 +271,7 @@ class StaffService:
             and patch.role != AdminRole.ADMIN
             and profile.role == AdminRole.ADMIN
         )
-        is_disabling = (
-            patch.status == AccountStatus.DISABLED and user.status == AccountStatus.ACTIVE
-        )
+        is_disabling = patch.status == "DEACTIVATED" and user.status == AccountStatus.ACTIVE
         demoting_or_disabling = is_demotion or is_disabling
         if demoting_or_disabling:
             active_admins = self.repo.count_active_admins(for_update=True)
@@ -221,16 +283,50 @@ class StaffService:
                 self.repo.db.rollback()
                 raise HTTPException(409, "Cannot demote/disable the last active ADMIN")
 
+        target_label = profile.name or uid
+        role_before = profile.role
+        client_count, _ = self.repo.count_book(uid)
+        block = _handover_block(
+            profile_role=profile.role,
+            user_status=user.status,
+            patch=patch,
+            client_count=client_count,
+        )
+        receiver_uid = patch.reassign_book_to
+        if block is not None:
+            if receiver_uid is None:
+                self.repo.db.rollback()
+                raise HTTPException(409, block)
+            self._assert_valid_receiver(receiver_uid, from_uid=uid)
+
         if patch.role is not None:
             profile.role = patch.role
         if patch.status is not None:
-            user.status = patch.status
+            user.status = _STATUS_WIRE_TO_DB[patch.status]
         if patch.name is not None:
             profile.name = patch.name
         if patch.phone_number is not None:
             profile.phone_number = patch.phone_number
         if patch.email is not None:
             user.email = patch.email  # local contact email only -- NOT the Firebase credential
+
+        if block is not None:
+            assert receiver_uid is not None  # guarded above -- 409/422 already raised otherwise
+            moved_clients = self.repo.reassign_book(from_uid=uid, to_uid=receiver_uid)
+            moved_tickets = self.repo.reassign_open_tickets(from_uid=uid, to_uid=receiver_uid)
+            if patch.status == "DEACTIVATED":
+                change_desc = f"Deactivated {target_label}"
+            else:
+                change_desc = f"{target_label} {role_before.value} → {patch.role.value}"  # type: ignore[union-attr]
+            AccessRepository(self.repo.db).insert_audit(
+                actor_uid=actor.firebase_uid if actor is not None else None,
+                actor_name=actor.name if actor is not None else None,
+                event="staff.book_handover",
+                detail=(
+                    f"{change_desc} · book of {moved_clients} clients + "
+                    f"{moved_tickets} open tickets → {receiver_uid}"
+                ),
+            )
 
         self.repo.db.commit()
         if patch.role is not None:
