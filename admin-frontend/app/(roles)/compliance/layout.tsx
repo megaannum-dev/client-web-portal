@@ -1,5 +1,4 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { rolesForPath } from "@/lib/pages-config";
 
 export default function ComplianceLayout({
   children,
@@ -7,7 +6,7 @@ export default function ComplianceLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/compliance/overview")}>
+    <RoleGuard prefix="/compliance">
       {children}
     </RoleGuard>
   );
