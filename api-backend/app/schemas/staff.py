@@ -1,26 +1,15 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 
 from app.models.users import AdminRole
-
-_ALLOWED_EMAIL_DOMAIN = "megaannum.ai"
-_DOMAIN_MESSAGE = "Email must be a @megaannum.ai address"
 
 # ponytail: AccessLevel's canonical (uppercase-wire) home is app/libs/access/schemas.py
 # (BE-8, module 5.4) which doesn't exist yet on this branch and is out of scope for
 # this schema-only unit. A Literal matching that wire convention is the lazy,
 # self-contained stand-in; swap for the shared type once BE-8 lands.
 _OverrideLevel = Literal["NONE", "VIEW", "EDIT"]
-
-
-def _assert_internal_domain(value: str) -> str:
-    """C-6: the wizard's /@megaannum\\.ai$/ check is UX; this is the boundary.
-    Applied to StaffEnrollIn.email AND StaffUpdateIn.email."""
-    if not value.lower().endswith(f"@{_ALLOWED_EMAIL_DOMAIN}"):
-        raise ValueError(_DOMAIN_MESSAGE)
-    return value
 
 
 class StaffOverrideIn(BaseModel):
@@ -44,28 +33,16 @@ class StaffEnrollIn(BaseModel):
     # NOTE: no `password` field IN -- the backend always generates it (see
     # StaffCreatedOut.generated_password for the one-time OUT value).
 
-    @field_validator("email")
-    @classmethod
-    def _validate_email_domain(cls, v: str) -> str:
-        return _assert_internal_domain(v)
-
 
 class StaffUpdateIn(BaseModel):  # all optional; omitted = unchanged
     role: AdminRole | None = None
     name: str | None = None
-    email: EmailStr | None = None  # same domain validator
+    email: EmailStr | None = None
     phone_number: str | None = None
     department: str | None = None
     status: Literal["ACTIVE", "DEACTIVATED"] | None = None  # INITIATED never settable (D-4)
     deactivate_reason: str | None = None
     reassign_book_to: str | None = None  # C-11
-
-    @field_validator("email")
-    @classmethod
-    def _validate_email_domain(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        return _assert_internal_domain(v)
 
 
 class StaffOut(BaseModel):
