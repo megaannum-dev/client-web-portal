@@ -41,7 +41,7 @@ type ModalState =
 function blankDraft(): EnrollDraft {
   return {
     mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
-    role: "", ovr: {}, ovrExpiry: "90 days", invite: true,
+    role: "", ovr: {}, ovrExpiry: "90 days", notify: true,
   };
 }
 
@@ -66,7 +66,7 @@ export default function EnrollUserPage() {
     setDraft({
       mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", invite: false,
+      dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", notify: false,
       client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
       reassign_book_to: null,
     });
@@ -96,7 +96,7 @@ export default function EnrollUserPage() {
       email: d.email.trim(), first_name: d.first.trim(), last_name: d.last.trim(), role: d.role as Role,
       phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
       start_date: isoDateOrNull(d.start), address: d.addr.trim() || null,
-      send_link: d.invite,
+      notify: d.notify,
       overrides: (Object.keys(d.ovr) as PageId[]).map((page_id) => ({
         page_id,
         level: d.ovr[page_id]!,
@@ -105,7 +105,7 @@ export default function EnrollUserPage() {
       })),
     });
     if (!created) return;
-    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, link_sent: created.link_sent, ovr: created.override_count } });
+    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, notified: created.notified, password: created.generated_password, ovr: created.override_count } });
   };
 
   return (

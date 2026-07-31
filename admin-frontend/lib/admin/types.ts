@@ -88,7 +88,7 @@ export interface EnrollDraft {
   ovr: Record<string, Level>;
   /** The single expiry applied to every override recorded on this enrollment (FE-14). */
   ovrExpiry: string;
-  invite: boolean;
+  notify: boolean;
   /** RM-only counts carried in from StaffOut, null for every other role (FE-15). */
   client_count?: number | null;
   open_ticket_count?: number | null;

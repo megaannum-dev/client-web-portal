@@ -70,7 +70,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
     role: d.role || "—",
     access: `${granted} of ${store.totalPages} pages · ${ovrCount} override${ovrCount === 1 ? "" : "s"}`,
-    creds: isEdit ? "Credentials unchanged" : "Set-password link sent",
+    creds: "Password generated",
   };
   const LABEL: Record<StepKey, string> = { identity: "Identity", role: "Role", access: "Access review", creds: "Credentials" };
   const SUB: Record<StepKey, string> = { identity: "Who is joining.", role: "What they hold.", access: "What that grants.", creds: "How they get in." };
@@ -78,9 +78,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     identity: <>The work email becomes the sign-in identity and cannot be changed later.</>,
     role: <>One role per user — it sets the standing page access defined in <b>System Config</b>.</>,
     access: <>Resolved from the role. Any level changed here is recorded as a <b>per-user override</b>, with a reason and an expiry. Groups collapse — open only what you are changing.</>,
-    creds: isEdit
-      ? <>Re-send the set-password link for {d.first || "this user"}. Their current password keeps working until they use a new link.</>
-      : <>{d.first || "This user"} sets their own password from a link we email to <b>{d.email || "the work email"}</b>. Nothing is sent until you create the account.</>,
+    creds: <>A password is generated and shown to you once you create the account — share it with {d.first || "this user"} directly.</>,
   };
 
   const next = () => {
@@ -231,8 +229,8 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               {cur === "creds" && (
                 <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
                   <div className="rounded-xl border border-outline-variant bg-surface-low p-[14px_16px]" style={{ gridColumn: "1 / -1" }}>
-                    <Checkbox on={d.invite} onChange={(v) => patchDraft({ invite: v })}>
-                      Email the invitation to <b>{d.email || "the work email"}</b>
+                    <Checkbox on={d.notify} onChange={(v) => patchDraft({ notify: v })}>
+                      Email an account-ready notice to <b>{d.email || "the work email"}</b>
                     </Checkbox>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>

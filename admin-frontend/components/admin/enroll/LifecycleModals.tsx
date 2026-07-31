@@ -10,10 +10,10 @@
    StaffOut (keyed by firebase_uid) and overrides are OverrideOut/
    OverrideIn.
 
-   FE-12: ResetModal renamed to SendLinkModal (no more generated
-   password / expiry select — sendLink is the only credential path).
-   CreatedModal switches its lead notice on StaffCreatedOut.link_sent
-   and its "Shown once" panel loses the password row entirely.
+   FE-12 (superseded): ResetModal renamed to SendLinkModal, link-only
+   creation, no password row. Reverted — enrollment now generates a
+   real password server-side; CreatedModal shows it once (below),
+   while SendLinkModal (the row-action resend) is unchanged.
 
    FE-13: AddOverrideModal (add an override from the ledger, not from
    a per-user row) moved to config/ConfigModals.tsx — the ledger it
@@ -247,7 +247,28 @@ export function ReactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
 }
 
 /* ---- created (post-enroll summary) -------------------------------- */
-export interface CreatedInfo { name: string; email: string; roleCode: Role; link_sent: boolean; ovr: number }
+export interface CreatedInfo { name: string; email: string; roleCode: Role; notified: boolean; password: string; ovr: number }
+
+/** Local copy-to-clipboard row, matching the working pattern in
+ *  components/rm/RequestTickets.tsx (copied-state + setTimeout reset). */
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="flex items-center justify-between gap-4 px-[15px] py-3">
+      <Label>{label}</Label>
+      <span className="flex items-center gap-3">
+        <span className="text-[13.5px] font-semibold">{value}</span>
+        <Button variant="secondary" icon={Copy} onClick={copy}>{copied ? "Copied!" : "Copy"}</Button>
+      </span>
+    </div>
+  );
+}
+
 export function CreatedModal({
   m, onEnrollAnother, onBackToDirectory,
 }: { m: CreatedInfo; onEnrollAnother: () => void; onBackToDirectory: () => void }) {
@@ -268,31 +289,28 @@ export function CreatedModal({
         </>
       }
     >
-      {m.link_sent ? (
+      {m.notified ? (
         <Notice tone="ok">
-          <b>{m.name.split(" ")[0]} can set their password now</b> as {m.email}. The invitation email has been sent.
+          <b>Share the password below with {m.name.split(" ")[0]}</b> — the account-ready notice has been emailed to {m.email}.
         </Notice>
       ) : (
         <Notice tone="warn">
-          Account created as {m.email}, but <b>the invitation email could not be sent</b>. Re-send it from the row menu.
+          Account created as {m.email}, but <b>the account-ready email could not be sent</b>. Share the password directly.
         </Notice>
       )}
       <div className="overflow-hidden rounded-xl border border-outline-variant">
-        <div className="flex items-center justify-between gap-3 border-b border-outline-variant bg-surface-low px-[15px] py-[11px]">
+        <div className="border-b border-outline-variant bg-surface-low px-[15px] py-[11px]">
           <Label>Sign-in identity</Label>
-          <Button variant="secondary" icon={Copy} onClick={() => toast.success("Email copied to the clipboard.")}>Copy</Button>
         </div>
-        <div className="flex items-center justify-between gap-4 px-[15px] py-3">
-          <Label>Email</Label>
-          <span className="text-[13.5px] font-semibold">{m.email}</span>
+        <CopyRow label="Email" value={m.email} />
+        <div className="border-t border-outline-variant">
+          <CopyRow label="Temporary password" value={m.password} />
         </div>
       </div>
-      {m.link_sent && (
-        <span className="flex items-center gap-2 text-[12px] text-secondary">
-          <History size={14} strokeWidth={1.75} />
-          The link expires — re-send it from the row menu if they miss it.
-        </span>
-      )}
+      <span className="flex items-center gap-2 text-[12px] text-secondary">
+        <History size={14} strokeWidth={1.75} />
+        This password is shown once — copy it now, it won't be shown again.
+      </span>
     </Modal>
   );
 }
