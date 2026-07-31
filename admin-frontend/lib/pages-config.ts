@@ -32,6 +32,7 @@ export type PageId =
   | "rm.request-tickets"
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
+  | "mobo.post-trade-allocation"
   | "mobo.commission-tracking"
   | "mobo.post-trade-allocation"
   | "pc.model-management"
@@ -65,8 +66,11 @@ export type PageDef = {
   subgroup?: string;
 };
 
+// Declaration order mirrors api-backend/app/libs/access/pages.py's PAGE_META
+// exactly (§ D-8) — groupsFor() below walks this order, so it's also the
+// sidebar's item order within each subgroup and the subgroup header order
+// (first occurrence, RoleGroup.tsx's groupBySubgroup).
 export const PAGES: Record<PageId, PageDef> = {
-  // — Client Management —
   "rm.client-info": {
     id: "rm.client-info",
     path: "/rm/client-info",
@@ -79,20 +83,6 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/rm/onboarding-renewal",
     label: "Onboarding & Renewal",
     icon: UserPlus,
-    subgroup: "Client Management",
-  },
-  "compliance.review": {
-    id: "compliance.review",
-    path: "/compliance/review",
-    label: "Compliance Review",
-    icon: ShieldCheck,
-    subgroup: "Compliance",
-  },
-  "pc.allotment-redemption": {
-    id: "pc.allotment-redemption",
-    path: "/pc/allotment-redemption",
-    label: "Allotment & Redemption",
-    icon: Inbox,
     subgroup: "Client Management",
   },
   "rm.model-subscription": {
@@ -109,7 +99,20 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: Ticket,
     subgroup: "Client Management",
   },
-  // — Trade Management —
+  "compliance.review": {
+    id: "compliance.review",
+    path: "/compliance/review",
+    label: "Compliance Review",
+    icon: ShieldCheck,
+    subgroup: "Compliance",
+  },
+  "pc.allotment-redemption": {
+    id: "pc.allotment-redemption",
+    path: "/pc/allotment-redemption",
+    label: "Allotment & Redemption",
+    icon: Inbox,
+    subgroup: "Client Management",
+  },
   "pc.allocation-matrix": {
     id: "pc.allocation-matrix",
     path: "/pc/allocation-matrix",
@@ -138,6 +141,13 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: Receipt,
     subgroup: "Trade Management",
   },
+  "shared.monthly-reports": {
+    id: "shared.monthly-reports",
+    path: "/monthly-reports",
+    label: "Monthly Reports (Models)",
+    icon: CalendarDays,
+    subgroup: "Trade Management",
+  },
   "pc.model-management": {
     id: "pc.model-management",
     path: "/pc/model-management",
@@ -145,7 +155,6 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: Layers,
     subgroup: "System",
   },
-  // — System —
   "admin.enroll-user": {
     id: "admin.enroll-user",
     path: "/admin/enroll-user",
@@ -174,13 +183,6 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Compliance Overview",
     icon: LayoutDashboardIcon,
     hideFromNav: true,
-  },
-  "shared.monthly-reports": {
-    id: "shared.monthly-reports",
-    path: "/monthly-reports",
-    label: "Monthly Reports (Models)",
-    icon: CalendarDays,
-    subgroup: "Trade Management",
   },
 };
 
@@ -227,7 +229,8 @@ export function groupsFor(grants: GrantMap, role: string): NavGroup[] {
     ROLE_NAV as Record<string, { label: string; icon: LucideIcon } | undefined>
   )[role];
   if (!nav) return [];
-  const pages = (Object.keys(grants) as PageId[])
+  const pages = (Object.keys(PAGES) as PageId[])
+    .filter((id) => id in grants)
     .map((id) => PAGES[id])
     .filter((p) => !p.hideFromNav)
     .map((p) => ({ label: p.label, href: p.path, icon: p.icon, subgroup: p.subgroup }));
