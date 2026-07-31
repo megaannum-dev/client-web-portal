@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Copy, RefreshCw, Users } from "@/lib/icons";
 import { ROLE_CODES, kFor } from "@/lib/admin/catalog";
-import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { isLockedForAdmin, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
 export function RoleView({
@@ -95,6 +95,7 @@ export function RoleView({
             openGroups={openGroups}
             onToggleGroup={onToggleGroup}
             stagedOn={(pageId) => !!staged[kFor(pageId, role)]}
+            disabledFor={(pageId) => isLockedForAdmin(pageId, role)}
           />
           <Help className="mt-3">Each workspace collapses — open only the group you are changing. Staged edits carry over when you switch back to the matrix.</Help>
         </div>

@@ -16,7 +16,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Checkbox, Help, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
 import { AccessEditor } from "@/components/admin/AccessEditor";
-import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { isLockedForAdmin, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { ALL_PAGES, EXPIRY_OPTS, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
@@ -50,6 +50,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const valueFor = (pageId: PageId): Level => (pageId in d.ovr ? d.ovr[pageId] : store.eff(pageId, role ?? ROLE_CODES[0]));
   const defaultFor = (pageId: PageId): Level => store.eff(pageId, role ?? ROLE_CODES[0]);
   const setLevel = (pageId: PageId, lv: Level) => {
+    if (role && isLockedForAdmin(pageId, role)) return;
     const next = { ...d.ovr };
     if (lv === defaultFor(pageId)) delete next[pageId]; else next[pageId] = lv;
     patchDraft({ ovr: next });
@@ -201,7 +202,8 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               {cur === "access" && (
                 <div className="flex flex-col gap-3.5">
                   <AccessEditor valueFor={valueFor} defaultFor={defaultFor} onSet={setLevel}
-                    openGroups={openGroups} onToggleGroup={onToggleGroup} stagedOn={(p) => p in d.ovr} />
+                    openGroups={openGroups} onToggleGroup={onToggleGroup} stagedOn={(p) => p in d.ovr}
+                    disabledFor={(p) => !!role && isLockedForAdmin(p, role)} />
                   <div className="flex items-start gap-4">
                     <span className="flex-1">
                       {ovrCount > 0 ? (

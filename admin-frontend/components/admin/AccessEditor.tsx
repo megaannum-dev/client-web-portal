@@ -14,7 +14,7 @@ import type { Level } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
 
 export function AccessEditor({
-  valueFor, defaultFor, onSet, openGroups, onToggleGroup, stagedOn,
+  valueFor, defaultFor, onSet, openGroups, onToggleGroup, stagedOn, disabledFor,
 }: {
   valueFor: (pageId: PageId) => Level;
   /** When provided, a value differing from the default renders as an override. */
@@ -23,6 +23,8 @@ export function AccessEditor({
   openGroups: string[];
   onToggleGroup: (group: string) => void;
   stagedOn?: (pageId: PageId) => boolean;
+  /** Pages the caller has locked to their current level — rendered read-only. */
+  disabledFor?: (pageId: PageId) => boolean;
 }) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -68,7 +70,7 @@ export function AccessEditor({
                       <TriangleAlert size={11} strokeWidth={2.5} />override
                     </span>
                   )}
-                  <LevelSeg value={v} override={isOvr} onChange={(lv) => onSet(p.page_id, lv)} />
+                  <LevelSeg value={v} override={isOvr} onChange={disabledFor?.(p.page_id) ? undefined : (lv) => onSet(p.page_id, lv)} />
                 </div>
               );
             })}
