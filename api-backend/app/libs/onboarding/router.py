@@ -155,8 +155,13 @@ async def create_client_contact_log(
 def get_onboarding_detail(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
 ) -> OnboardingDTO:
+    """Gated by ONBOARDING_VIEW, not WRITE -- this is the read the board's
+    client panel calls (fetchOnboarding) to load a client's document rows.
+    A VIEW-only user must be able to open the panel and see documents,
+    same reasoning as get_board above; WRITE holders still resolve this
+    action too (EDIT bucket is a superset of VIEW, § pages.py)."""
     return svc.detail(onboarding_id)
 
 
