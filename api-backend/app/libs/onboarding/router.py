@@ -81,7 +81,7 @@ def get_doc_specs(
 @router.get("/rm/onboardings", response_model=BoardDTO)
 def get_board(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
 ) -> BoardDTO:
     return svc.board()
 
