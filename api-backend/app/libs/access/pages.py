@@ -145,11 +145,10 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
     "compliance.overview": (fs(), fs()),
     # ---- SHARED ----
-    # Deliberately empty: this page has no endpoint of its own, so there is no action
-    # to map. Mapping it to MODEL_VIEW would grant a read nobody asked for. Consequence
-    # to know: D-13's narrowing (RM/MOBO edit -> view, PC keeps edit) therefore has NO
-    # backend effect -- it is enforced by the frontend gate alone.
-    "shared.monthly-reports": (fs(), fs()),
+    # GET /reports/eom-comments is open to any authenticated admin (no view action
+    # needed); PUT /reports/eom-comments/{name} is gated by EOM_COMMENT_WRITE, added
+    # after this page's own backend (app/libs/reports/) landed.
+    "shared.monthly-reports": (fs(), fs(Action.EOM_COMMENT_WRITE)),
     # ---- ADMIN ----
     "admin.enroll-user": (fs(Action.USER_VIEW), fs(Action.USER_WRITE)),
     "admin.system-config": (fs(Action.USER_VIEW), fs(Action.USER_WRITE)),

@@ -127,7 +127,7 @@ def get_client_contact_logs(
 async def create_client_contact_log(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
     topic: Annotated[str, Form()],
     channel: Annotated[str, Form()],
     occurred_at: Annotated[datetime, Form()],

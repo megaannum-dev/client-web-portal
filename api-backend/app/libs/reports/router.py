@@ -33,6 +33,6 @@ def upsert_eom_comment(
     report_name: str,
     req: EomCommentUpsertReq,
     svc: Annotated[EomReportCommentsService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.EOM_COMMENT_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.EOM_COMMENT_WRITE))],
 ) -> EomReportCommentDTO:
     return svc.upsert_comment(report_name, req.comment, actor=user.firebase_uid)

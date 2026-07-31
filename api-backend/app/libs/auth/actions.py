@@ -23,3 +23,4 @@ class Action(str, enum.Enum):
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
     ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: acknowledge/decide allotments (write)
     ALLOTMENT_VIEW = "pc:allotment_view"  # BE-22 (C-12) — read-only sibling, see above
+    EOM_COMMENT_WRITE = "reports:eom_comment_write"  # PC: write EoM report comments

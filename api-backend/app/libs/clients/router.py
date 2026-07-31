@@ -67,7 +67,7 @@ def update_client(
     client_id: uuid.UUID,
     body: ClientProfilePatch,
     service: Annotated[ClientService, Depends(_get_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_MANAGE))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
     role: Annotated[AdminRole, Depends(_get_caller_role)],
 ) -> ClientListItemOut:
     return service.update_profile(role, user.firebase_uid, client_id, body)

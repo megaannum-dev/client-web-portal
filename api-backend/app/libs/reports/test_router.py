@@ -1,20 +1,25 @@
 """Router-level auth test for EoM report comments — GET is open to any
-authenticated admin, PUT is gated by Action.EOM_COMMENT_MANAGE (PC only).
+authenticated admin, PUT is gated by Action.EOM_COMMENT_WRITE (page
+shared.monthly-reports, edit bucket -- PC by seed).
 
 Run: .venv/Scripts/python.exe -m pytest -q app/libs/reports/test_router.py
 """
 
 import uuid
+from typing import Annotated
 
 import pytest
+from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session as OrmSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
 from app.libs.auth.deps import get_current_admin_user
 from app.main import app
+from app.models.access import AccessLevel, PageAccess
 from app.models.users import AdminProfile, AdminRole, Portal, User
 
 
@@ -42,16 +47,33 @@ def client():
         portal=Portal.ADMIN,
     )
 
-    # RM has no EOM_COMMENT_MANAGE action (see app/libs/auth/actions.py
-    # ROLE_ACTIONS) -- a non-PC role for the 403 assertion.
+    # RM has no page_access row on shared.monthly-reports -- a non-PC role for
+    # the 403 assertion (proposal 019 / BE-5: require_action resolves from
+    # page_access, not a role-keyed dict, so an unseeded (role, page) pair
+    # denies naturally). PC gets `edit` seeded so the mid-test role switch to
+    # PC is granted exactly as this test already expects.
     seed_db = Session()
     seed_db.add(stub_user)
     seed_db.add(AdminProfile(user_id=stub_user.id, role=AdminRole.RM))
+    seed_db.add(
+        PageAccess(page_id="shared.monthly-reports", role=AdminRole.PC, level=AccessLevel.EDIT)
+    )
     seed_db.commit()
     seed_db.close()
 
+    def _override_get_current_admin_user(
+        db: Annotated[OrmSession, Depends(get_db)],
+    ) -> User:
+        """Re-queries `stub_user` by id on the CURRENT request's session rather
+        than handing back one fixed Python object -- the test mutates
+        AdminProfile.role mid-test via a separate session (RM -> PC below),
+        which a cached object's `admin_profile` relationship would never
+        observe (see app/libs/trade_models/test_router_symbols.py for the
+        same fix, applied first)."""
+        return db.query(User).filter(User.id == stub_user.id).one()
+
     app.dependency_overrides[get_db] = _override_get_db
-    app.dependency_overrides[get_current_admin_user] = lambda: stub_user
+    app.dependency_overrides[get_current_admin_user] = _override_get_current_admin_user
     try:
         yield TestClient(app), Session
     finally:

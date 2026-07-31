@@ -79,6 +79,7 @@ app.include_router(
 )  # /api/rm|compliance|pc|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
+app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
 
 
 @app.get("/health")
