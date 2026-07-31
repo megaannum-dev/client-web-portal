@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import extract_uid_email, verify_firebase_token
-from app.libs.auth.actions import Action, get_actions_for_role
+from app.libs.access.resolver import actions_for  # access.resolver, never access.router
+from app.libs.auth.actions import Action
 from app.libs.auth.status import assert_can_authenticate  # DB-layer seam, § 7
 from app.libs.users.repository import AdminProfileRepository, UserRepository
-from app.models.users import AdminRole, Portal, User
+from app.models.users import Portal, User
 
 
 def _resolve_user(
@@ -71,8 +72,7 @@ def require_action(action: Action):  # type: ignore[return]
         profile = AdminProfileRepository(db).get_by_user_id(user.id)
         if profile is None:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "No admin profile")
-        # E-2 coercion: tolerate a str role at the boundary.
-        if action not in get_actions_for_role(AdminRole(profile.role)):
+        if action not in actions_for(user, db):
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
                 detail=f"Action '{action}' not permitted for your role.",

@@ -12,10 +12,6 @@ class Settings(BaseSettings):
     firebase_service_account_json: str | None = None
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     firebase_auth_disabled: bool = False
-
-    # True (dev): register endpoint accepts `role` field for internal users.
-    # False (prod): internal users cannot self-register; Super Admin must pre-create them.
-    dev_mode: bool = False  # was: True (G2 — secure-by-default fix)
     app_env: str = "development"
 
     # PC workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
