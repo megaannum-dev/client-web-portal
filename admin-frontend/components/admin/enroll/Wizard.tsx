@@ -41,7 +41,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
 
   const emailBad = !!d.email && !/@megaannum\.ai$/.test(d.email.trim());
   const isEdit = d.mode === "edit";
-  const keys: StepKey[] = isEdit ? ["identity", "role", "creds"] : ["identity", "role", "access", "creds"];
+  const keys: StepKey[] = isEdit ? ["identity", "role"] : ["identity", "role", "access", "creds"];
   const cur = keys[step];
   const last = step === keys.length - 1;
   const step0ok = !!d.first.trim() && !!d.last.trim() && !!d.email.trim() && !emailBad;
