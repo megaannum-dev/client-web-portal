@@ -19,6 +19,7 @@ class Action(str, enum.Enum):
     # EoD Exception Report — feature 015 (BE-6)
     EOD_SIGNOFF = "mobo:eod_signoff"
     # Client Onboarding — feature 013 (BE-4)
+    ONBOARDING_VIEW = "onboarding:view"  # RM: read-only board access for VIEW-level grants
     ONBOARDING_WRITE = "onboarding:write"  # RM: start / upload / submit
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
     ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: acknowledge/decide allotments (write)

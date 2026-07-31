@@ -109,9 +109,10 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # CLIENT_VIEW guarded that mutation too, and D-11's seed grants `view` here to
     # roles that never held it. See BE-22.
     "rm.client-info": (fs(Action.CLIENT_VIEW), fs(Action.CLIENT_WRITE)),
-    # /rm/onboardings* — every route, read AND write, is guarded by ONBOARDING_WRITE
-    # today, so a VIEW grant unlocks nothing. Pinned by the proposal's own example.
-    "rm.onboarding-renewal": (fs(), fs(Action.ONBOARDING_WRITE)),
+    # /rm/onboardings — GET (board list) now accepts ONBOARDING_VIEW so a VIEW
+    # grant can load the board read-only; every mutating route (start/upload/
+    # submit) and the wizard-support/detail/download GETs stay on ONBOARDING_WRITE.
+    "rm.onboarding-renewal": (fs(Action.ONBOARDING_VIEW), fs(Action.ONBOARDING_WRITE)),
     # /rm/subscriptions*, /rm/allotment, /rm/redemption, /rm/…/transaction-detail
     # are ALL guarded by CLIENT_VIEW — reads and writes alike. No write sibling exists.
     "rm.model-subscription": (fs(Action.CLIENT_VIEW), fs()),
