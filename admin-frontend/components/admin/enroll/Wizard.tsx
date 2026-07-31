@@ -167,7 +167,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                         <button
                           key={code}
                           type="button"
-                          onClick={() => patchDraft({ role: code, ovr: {} })}
+                          onClick={() => { if (code !== d.role) patchDraft({ role: code, ovr: {} }); }}
                           className="flex flex-col items-start gap-1 rounded-xl px-[15px] py-3.5 text-left transition-all"
                           style={{ background: on ? "rgba(242,116,5,0.06)" : "#fff", border: `1px solid ${on ? "var(--primary)" : "var(--outline-variant)"}` }}
                         >

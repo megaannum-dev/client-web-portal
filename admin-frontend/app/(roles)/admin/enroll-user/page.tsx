@@ -22,7 +22,7 @@ import {
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { expiryToIso, isoDateOrNull, todayLabel } from "@/lib/admin/today";
-import type { EnrollDraft, PageId, Role, StaffOut } from "@/lib/admin/types";
+import type { EnrollDraft, Level, PageId, Role, StaffOut } from "@/lib/admin/types";
 
 /** The reason recorded on every override created by the enroll wizard — the literal
  *  the Access step's own Notice shows (Wizard.tsx). Named once, not repeated. */
@@ -62,10 +62,11 @@ export default function EnrollUserPage() {
   const startEnroll = () => { setDraft(blankDraft()); setStep(0); setView("wizard"); setKebab(null); };
   const startEdit = (u: StaffOut) => {
     const [first, ...rest] = (u.name ?? "").split(" ");
+    const ovr: Record<string, Level> = Object.fromEntries(store.ovrFor(u.firebase_uid).map((o) => [o.page_id, o.level]));
     setDraft({
       mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.department ?? "", role: u.role, ovr: {}, ovrExpiry: "90 days", invite: false,
+      dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", invite: false,
       client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
       reassign_book_to: null,
     });
