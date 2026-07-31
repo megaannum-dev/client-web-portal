@@ -14,6 +14,7 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { Check } from "@/lib/icons";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import type { ClientRow, ClientPatchReq } from "@/lib/rm/clients";
 
 const inputCls =
@@ -82,6 +83,7 @@ export function EditClientModal({
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const canEdit = useCanEdit("rm.client-info");
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -122,9 +124,11 @@ export function EditClientModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
+          {canEdit && (
+            <Button icon={Check} disabled={saving} onClick={save}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          )}
         </>
       }
     >
