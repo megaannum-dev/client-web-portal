@@ -163,10 +163,11 @@ function NewContactLogModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={!valid || saving} onClick={() => valid && save()}>
-            {saving ? "Saving…" : "Save log"}
-          </Button>
-          {canEdit && <Button icon={Check} disabled={!valid} onClick={() => valid && save()}>Save log</Button>}
+          {canEdit && (
+            <Button icon={Check} disabled={!valid || saving} onClick={() => valid && save()}>
+              {saving ? "Saving…" : "Save log"}
+            </Button>
+          )}
         </>
       }
     >
