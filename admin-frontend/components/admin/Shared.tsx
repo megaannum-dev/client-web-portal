@@ -8,7 +8,7 @@
    the handoff's inline-style prototype didn't have equivalents for
    yet. Shared by both Enroll User and System Config.
    ============================================================ */
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle, TriangleAlert, Check, CheckCircle2, ChevronDown, Eye,
@@ -344,17 +344,41 @@ export function ViewSwitch({ view, onChange }: { view: ConfigView; onChange: (v:
   );
 }
 
-/* ---- dropdown menu (click-away) ---------------------------------------- */
+/* ---- dropdown menu (click-away) -----------------------------------------
+   Portals into #content-overlay-root (same target the admin Modal uses) so it
+   isn't clipped by whatever overflow-hidden Card/section its trigger sits in.
+   Position is computed from the trigger's own rect on open, right-aligned
+   under it, rather than CSS `position: relative` on a wrapper — a portal
+   can't rely on an ancestor's positioning context. */
 export type MenuItemDef = [label: string, icon: typeof Info, danger?: boolean] | "-";
 export function DropdownMenu({
-  items, onClose, onPick, className, width = 236,
-}: { items: MenuItemDef[]; onClose: () => void; onPick: (label: string) => void; className?: string; width?: number }) {
-  return (
+  items, onClose, onPick, anchorRef, width = 236, align = "right",
+}: {
+  items: MenuItemDef[]; onClose: () => void; onPick: (label: string) => void;
+  anchorRef: RefObject<HTMLElement | null>; width?: number; align?: "left" | "right";
+}) {
+  const [root, setRoot] = useState<Element | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    const overlayRoot = document.getElementById("content-overlay-root");
+    setRoot(overlayRoot);
+    if (!overlayRoot || !anchorRef.current) return;
+    const anchorRect = anchorRef.current.getBoundingClientRect();
+    const overlayRect = overlayRoot.getBoundingClientRect();
+    setPos({
+      top: anchorRect.bottom - overlayRect.top + 6,
+      left: align === "right" ? anchorRect.right - overlayRect.left - width : anchorRect.left - overlayRect.left,
+    });
+  }, [anchorRef, width, align]);
+
+  if (!root || !pos) return null;
+  return createPortal(
     <>
-      <div onClick={onClose} className="fixed inset-0 z-[44]" />
+      <div onClick={onClose} className="pointer-events-auto fixed inset-0 z-[44]" />
       <div
-        className={`absolute z-[45] rounded-2xl bg-white p-[7px] shadow-overlay ${className ?? ""}`}
-        style={{ width, border: "1px solid var(--outline-variant)" }}
+        className="pointer-events-auto absolute z-[45] rounded-2xl bg-white p-[7px] shadow-overlay"
+        style={{ width, top: pos.top, left: pos.left, border: "1px solid var(--outline-variant)" }}
       >
         {items.map((it, i) =>
           it === "-" ? (
@@ -364,7 +388,8 @@ export function DropdownMenu({
           ),
         )}
       </div>
-    </>
+    </>,
+    root,
   );
 }
 function MenuItem({ item, onPick }: { item: [string, typeof Info, boolean?]; onPick: (label: string) => void }) {

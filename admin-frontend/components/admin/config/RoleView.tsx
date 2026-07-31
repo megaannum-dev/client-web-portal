@@ -5,7 +5,7 @@
    Left rail picks a role, right panel reuses the shared
    AccessEditor (PAccess) wired to the staged-aware store.
    ============================================================ */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { Help, Label, DropdownMenu, type MenuItemDef } from "@/components/admin/Shared";
@@ -26,6 +26,7 @@ export function RoleView({
 }) {
   const { eff, stage, staged, stagedList, grantedFor, roleUsers, totalPages, copyRole, resetRole } = useAdminStore();
   const [copyOpen, setCopyOpen] = useState(false);
+  const copyAnchorRef = useRef<HTMLSpanElement>(null);
 
   return (
     <div className="flex items-stretch gap-5" style={{ height: 660 }}>
@@ -59,8 +60,10 @@ export function RoleView({
             <h3 className="text-[20px] font-bold text-on-surface">{role}</h3>
             <Help className="mt-1">{roleUsers(role)} users hold this role · {grantedFor(role)} of {totalPages} pages reachable</Help>
           </div>
-          <span className="relative flex gap-2.5">
-            <Button variant="secondary" icon={Copy} onClick={() => setCopyOpen((v) => !v)}>Copy from role</Button>
+          <span className="flex gap-2.5">
+            <span ref={copyAnchorRef}>
+              <Button variant="secondary" icon={Copy} onClick={() => setCopyOpen((v) => !v)}>Copy from role</Button>
+            </span>
             <Button
               variant="secondary"
               icon={RefreshCw}
@@ -74,7 +77,8 @@ export function RoleView({
             {copyOpen && (
               <DropdownMenu
                 width={210}
-                className="left-0 top-10"
+                align="left"
+                anchorRef={copyAnchorRef}
                 items={ROLE_CODES.filter((code) => code !== role).map((code) => [code, Users] as MenuItemDef)}
                 onClose={() => setCopyOpen(false)}
                 onPick={(label) => {

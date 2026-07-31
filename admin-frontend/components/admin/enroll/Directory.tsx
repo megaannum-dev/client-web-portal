@@ -6,6 +6,7 @@
    FE-9 follow-up: renders StaffOut rows (was the AdminUser mock shape).
    ============================================================ */
 import Link from "next/link";
+import { useRef } from "react";
 import {
   History, KeyRound, MoreVertical, Pencil, RotateCcw, Search,
   SlidersHorizontal, UserRound, UserRoundPlus, Ban,
@@ -133,6 +134,7 @@ function UserRow({
   onDeactivate: (u: StaffOut) => void;
   onReactivate: (u: StaffOut) => void;
 }) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const off = u.status === "DEACTIVATED";
   const items: MenuItemDef[] = off
     ? [["Edit profile & role", Pencil], ["Manage overrides", SlidersHorizontal], "-", ["Reactivate account", RotateCcw]]
@@ -165,9 +167,9 @@ function UserRow({
       </Td>
       <Td className="whitespace-nowrap text-[12.5px] text-secondary">{seenFor(u.last_sign_in_at)}</Td>
       <Td className="text-right">
-        <span className="relative inline-flex items-center gap-2">
+        <span ref={anchorRef} className="inline-flex items-center gap-2">
           <IconButton icon={MoreVertical} onClick={onToggleMenu} />
-          {menuOpen && <DropdownMenu items={items} onClose={onCloseMenu} onPick={pick} className="right-0 top-[34px]" />}
+          {menuOpen && <DropdownMenu items={items} onClose={onCloseMenu} onPick={pick} anchorRef={anchorRef} />}
         </span>
       </Td>
     </Row>
