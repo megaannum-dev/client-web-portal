@@ -15,6 +15,7 @@ from app.models.onboarding import (
     AllotRdmpKind,
     AllotRdmpStatus,
     ClientAllotmentRedemption,
+    ClientContactLog,
     ClientEvent,
     ClientOnboarding,
     DocStatus,
@@ -523,6 +524,50 @@ class OnboardingRepository:
     def create_event(self, *, user_id: uuid.UUID, category: str, title: str, body: str) -> None:
         self.db.add(
             ClientEvent(id=uuid.uuid4(), user_id=user_id, category=category, title=title, body=body)
+        )
+
+    def create_contact_log(
+        self,
+        *,
+        user_id: uuid.UUID,
+        logged_by_uid: str,
+        topic: str,
+        channel: str,
+        occurred_at: datetime,
+        description: str,
+        interest: str | None,
+        complaint: str | None,
+        follow_up: str | None,
+        doc_storage_key: str | None,
+        doc_filename: str | None,
+        doc_content_type: str | None,
+        doc_size_bytes: int | None,
+    ) -> ClientContactLog:
+        log = ClientContactLog(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            logged_by_uid=logged_by_uid,
+            topic=topic,
+            channel=channel,
+            occurred_at=occurred_at,
+            description=description,
+            interest=interest,
+            complaint=complaint,
+            follow_up=follow_up,
+            doc_storage_key=doc_storage_key,
+            doc_filename=doc_filename,
+            doc_content_type=doc_content_type,
+            doc_size_bytes=doc_size_bytes,
+        )
+        self.db.add(log)
+        return log
+
+    def list_contact_logs(self, user_id: uuid.UUID) -> list[ClientContactLog]:
+        return (
+            self.db.query(ClientContactLog)
+            .filter(ClientContactLog.user_id == user_id)
+            .order_by(ClientContactLog.created_at.desc())
+            .all()
         )
 
     def list_subscriptions_for_client(

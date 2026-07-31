@@ -12,13 +12,14 @@ import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
+import { useClient, useOnboardingByClient, useClientEvents, useContactLogs } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
-import { getClientDetail, type ClientDoc, type HistoryEntry } from "@/lib/mock/rm-data";
+import type { ClientDoc, HistoryEntry } from "@/lib/mock/rm-data";
 import { ContactLogCard } from "@/components/rm/ContactLog";
+import { EditClientModal } from "@/components/rm/EditClientModal";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
@@ -164,20 +165,13 @@ function HistoryItem({ item, last }: { item: HistoryEntry; last: boolean }) {
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, loading, error, notFound: nf } = useClient(id);
+  const { data, loading, error, notFound: nf, updateProfile } = useClient(id);
   const [censored, setCensored] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { data: onboarding } = useOnboardingByClient(id);
   const { data: events } = useClientEvents(id);
-  // Preferences/Contact Log aren't backend fields yet -- overlaid from the mock
-  // fixtures the same way the client-book list page overlays getMockOverlay(r.id)
-  // (see client-info/page.tsx): a direct rm-data.ts lookup keyed by id, not a
-  // change to useClient/ClientRow. getClientDetail returns null for ids outside
-  // the (currently empty) mock RM_CLIENTS fixture, in which case both fields
-  // just render as empty/"—".
-  const mockDetail = getClientDetail(id)?.detail;
-  const preferences = mockDetail?.preferences;
-  const contactLog = mockDetail?.contactLog ?? [];
+  const { data: contactLogs, loading: contactLogsLoading, createEntry: createContactLogEntry } = useContactLogs(id);
 
   if (nf) notFound(); // Next.js 404
 
@@ -236,7 +230,8 @@ export default function ClientDetailPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="secondary" icon={Pencil}>Edit profile</Button>
+          {/* View/Edit Gate Function */}
+          <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit profile</Button>
           <Button icon={Plus}>New Subscription</Button>
         </div>
       </div>
@@ -285,13 +280,14 @@ export default function ClientDetailPage() {
           </Button>
           {prefsOpen && (
             <div className="mt-4 grid grid-cols-1 gap-x-7 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoField label="Anniversary" value={preferences?.anniversary || "—"} />
-              <InfoField label="Spouse's Name" value={preferences?.spouseName || "—"} />
-              <InfoField label="Children's Names and Ages" value={preferences?.childrenNames || "—"} />
-              <InfoField label="Personal Interests" value={preferences?.personalInterests || "—"} />
-              <InfoField label="Communication Preferences" value={preferences?.commPrefs || "—"} />
-              <InfoField label="Gift / Hospitality Preferences" value={preferences?.giftPrefs || "—"} />
-              <InfoField label="Other Relationship Notes" value={preferences?.otherPrefNotes || "—"} />
+              <InfoField label="Occupation" value={data.occupation || "—"} />
+              <InfoField label="Anniversary" value={data.anniversary || "—"} />
+              <InfoField label="Spouse's Name" value={data.spouseName || "—"} />
+              <InfoField label="Children's Names and Ages" value={data.children || "—"} />
+              <InfoField label="Personal Interests" value={data.personalInterests || "—"} />
+              <InfoField label="Communication Preferences" value={data.communicationPreferences || "—"} />
+              <InfoField label="Gift / Hospitality Preferences" value={data.giftHospitalityPreferences || "—"} />
+              <InfoField label="Other Relationship Notes" value={data.relationshipNotes || "—"} />
             </div>
           )}
         </div>
@@ -373,8 +369,18 @@ export default function ClientDetailPage() {
           </div>
         </Card>
 
-        <ContactLogCard key={id} clientName={data.name ?? "—"} entries={contactLog} />
+        <ContactLogCard
+          key={id}
+          clientName={data.name ?? "—"}
+          entries={contactLogs ?? []}
+          loading={contactLogsLoading}
+          onCreate={createContactLogEntry}
+        />
       </div>
+
+      {editOpen && (
+        <EditClientModal client={data} onClose={() => setEditOpen(false)} onSave={updateProfile} />
+      )}
     </div>
   );
 }

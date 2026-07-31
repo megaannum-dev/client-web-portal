@@ -5,10 +5,9 @@
    Preference → Trade Info → Documents) an RM fills out to create a
    client record and kick off KYC. Ported faithfully from the design
    handoff prototype (Screens.jsx `OnboardingModal`, ~L1563-1832).
-   Client Preference is local-UI-only scaffolding for now: its 7
-   fields live in `form` state but are deliberately NOT sent in the
-   startOnboarding(...) call below — the backend has no support for
-   them yet. "Onboard Client"
+   Client Preference's 7 fields (plus Basic Info's birthday/occupation)
+   are sent in the startOnboarding(...) call below as of FE-17, each
+   omitted entirely when left blank. "Onboard Client"
    calls the real POST /api/rm/onboardings route (FE-3), then
    uploads any files staged in the Documents step against the new
    onboarding id (real POST .../documents/{doc_type} calls, same as
@@ -51,8 +50,8 @@ interface ObForm {
   initialCashDeposit: string;
   mgmtFee: string;
   incentiveFee: string;
-  // Client Preference (step 2) — local UI state only, not yet sent to the
-  // backend; see the file header note in OnboardingModal.tsx.
+  // Client Preference (step 2) — sent to the backend as of FE-17; see the
+  // file header note in OnboardingModal.tsx.
   anniversary: string;
   spouseName: string;
   childrenNames: string;
@@ -168,6 +167,15 @@ export function OnboardingModal({
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
         ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
+        ...(form.occupation ? { occupation: form.occupation } : {}),
+        ...(form.birthday ? { date_of_birth: form.birthday } : {}),
+        ...(form.anniversary ? { anniversary: form.anniversary } : {}),
+        ...(form.spouseName ? { spouse_name: form.spouseName } : {}),
+        ...(form.childrenNames ? { children: form.childrenNames } : {}),
+        ...(form.personalInterests ? { personal_interests: form.personalInterests } : {}),
+        ...(form.commPrefs ? { communication_preferences: form.commPrefs } : {}),
+        ...(form.giftPrefs ? { gift_hospitality_preferences: form.giftPrefs } : {}),
+        ...(form.otherPrefNotes ? { relationship_notes: form.otherPrefNotes } : {}),
       });
       if (!result.success) {
         alert(`Could not start onboarding: ${result.error}`);

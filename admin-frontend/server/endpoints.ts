@@ -3,6 +3,7 @@ const RM = "/api/rm";
 const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
 const CO = "/api/co";
+const REPORTS = "/api/reports";
 
 export const ENDPOINTS = {
   PC: {
@@ -36,6 +37,7 @@ export const ENDPOINTS = {
     ONBOARDING_DOC_SPECS: `${RM}/onboardings/doc-specs`,
     ONBOARDING_BY_CLIENT: (clientId: string) => `${RM}/onboardings/by-client/${encodeURIComponent(clientId)}`,
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
+    CLIENT_CONTACT_LOGS:  (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
@@ -62,5 +64,9 @@ export const ENDPOINTS = {
     // see proposal 016 §F-2 "Path note"). Do not "fix" these back to COMPLIANCE.
     REDEMPTIONS:       `${CO}/redemptions`,
     REDEMPTION_DECIDE: (id: string) => `${CO}/redemptions/${id}/decide`,
+  },
+  REPORTS: {
+    EOM_COMMENTS: `${REPORTS}/eom-comments`,
+    EOM_COMMENT: (reportName: string) => `${REPORTS}/eom-comments/${encodeURIComponent(reportName)}`,
   },
 } as const;

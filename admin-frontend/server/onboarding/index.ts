@@ -5,7 +5,7 @@ import { ENDPOINTS } from "@/server/endpoints";
 import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
-  AllotRdmptDTO, BoardDTO, ClientEventDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
+  AllotRdmptDTO, BoardDTO, ClientEventDTO, ContactLogEntryDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
   RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
@@ -49,6 +49,15 @@ export async function fetchOnboardingByClient(clientId: string): Promise<APIResu
 /** Client-detail page's History card (FE-4). */
 export async function fetchClientEvents(clientId: string): Promise<APIResult<ClientEventDTO[]>> {
   return apiClient<ClientEventDTO[]>(ENDPOINTS.RM.CLIENT_EVENTS(clientId));
+}
+/** Client-detail page's Contact Log card. */
+export async function fetchContactLogs(clientId: string): Promise<APIResult<ContactLogEntryDTO[]>> {
+  return apiClient<ContactLogEntryDTO[]>(ENDPOINTS.RM.CLIENT_CONTACT_LOGS(clientId));
+}
+export async function createContactLogEntry(
+  clientId: string, formData: FormData,
+): Promise<APIResult<ContactLogEntryDTO>> {
+  return apiClientFormData<ContactLogEntryDTO>(ENDPOINTS.RM.CLIENT_CONTACT_LOGS(clientId), formData);
 }
 /** RM-scoped mirror of Compliance's downloadDocument below (base64 proxy —
  * cookie token can't ride a plain <a href>). */

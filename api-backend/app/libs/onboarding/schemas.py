@@ -44,6 +44,19 @@ class StartOnboardingReq(BaseModel):
     # inside OnboardingService.start to resolve client_portfolios.cash_deposit/
     # amount_in_trade, then discarded. No column stores this raw figure anywhere.
     initial_cash_deposit: Decimal
+    # Relationship-preference fields -- ClientProfile columns already exist from
+    # a prior migration, just never exposed on this request DTO until now. All
+    # optional; names match the ClientProfile column names 1:1 so they pass
+    # straight through ClientService.onboard's **profile_fields kwarg spread.
+    occupation: str | None = None
+    date_of_birth: date | None = None
+    anniversary: date | None = None
+    spouse_name: str | None = None
+    children: str | None = None
+    personal_interests: str | None = None
+    communication_preferences: str | None = None
+    gift_hospitality_preferences: str | None = None
+    relationship_notes: str | None = None
 
 
 class RmOptionDTO(BaseModel):
@@ -251,3 +264,18 @@ class ClientSubscriptionsDTO(BaseModel):
     client_id: uuid.UUID
     client_name: str
     subscriptions: list[ClientSubscriptionRowDTO]
+
+
+class ContactLogEntryDTO(BaseModel):
+    id: uuid.UUID
+    topic: str
+    channel: str
+    occurred_at: datetime
+    description: str
+    interest: str | None
+    complaint: str | None
+    follow_up: str | None
+    logged_by: str  # resolved display name, not the raw firebase_uid
+    doc_filename: str | None
+    doc_size_bytes: int | None
+    created_at: datetime

@@ -1,17 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { getClient, getOnboardingByClient as _getOnboardingByClient, getClientEvents as _getClientEvents } from "@/app/(roles)/rm/client-info/[id]/actions";
+import {
+  getClient, updateClient as _updateClient, getOnboardingByClient as _getOnboardingByClient,
+  getClientEvents as _getClientEvents,
+  getContactLogs as _getContactLogs, createContactLogEntry as _createContactLogEntry,
+} from "@/app/(roles)/rm/client-info/[id]/actions";
 import { getCachedById } from "@/hooks/api/useClientBook";
-import { dtoToRow, type ClientRow } from "@/lib/rm/clients";
-import type { ClientEventDTO, OnboardingDTO } from "@/lib/onboarding/types";
+import { dtoToRow, type ClientRow, type ClientPatchReq } from "@/lib/rm/clients";
+import type { ClientEventDTO, ContactLogEntryDTO, OnboardingDTO } from "@/lib/onboarding/types";
 
 export interface UseClientResult {
   data: ClientRow | null;
   loading: boolean;
   error: string | null;
   notFound: boolean; // separates 404 from network/other errors
+  /** "Edit profile" flow -- PATCHes, then updates local state from the
+   * response directly (no refetch needed, PATCH already returns the
+   * updated client in the same shape as GET). */
+  updateProfile: (patch: ClientPatchReq) => Promise<{ success: boolean; error?: string }>;
 }
 
 export function useClient(id: string): UseClientResult {
@@ -52,7 +60,14 @@ export function useClient(id: string): UseClientResult {
     })();
   }, [id, uid, cacheHit]);
 
-  return { data, loading, error, notFound };
+  const updateProfile = useCallback(async (patch: ClientPatchReq) => {
+    const r = await _updateClient(id, patch);
+    if (!r.success) return { success: false, error: r.error };
+    setData(dtoToRow(r.data));
+    return { success: true };
+  }, [id]);
+
+  return { data, loading, error, notFound, updateProfile };
 }
 
 /** FE-4 — client-detail page's KYC & Documents card. 404 (no onboarding row
@@ -126,4 +141,48 @@ export function useClientEvents(clientId: string): UseClientEventsResult {
   }, [clientId]);
 
   return { data, loading, error };
+}
+
+/** FE-4 — client-detail page's Contact Log card. */
+export interface UseContactLogsResult {
+  data: ContactLogEntryDTO[] | null;
+  loading: boolean;
+  error: string | null;
+  createEntry: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+}
+
+export function useContactLogs(clientId: string): UseContactLogsResult {
+  const [data, setData] = useState<ContactLogEntryDTO[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+
+  const fetch_ = useCallback(async () => {
+    if (!clientId || inFlight.current) return;
+    inFlight.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await _getContactLogs(clientId);
+      if (r.success) setData(r.data);
+      else if (r.code === "HTTP_404") setData([]);
+      else setError(r.error);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load contact log");
+    } finally {
+      setLoading(false);
+      inFlight.current = false;
+    }
+  }, [clientId]);
+
+  useEffect(() => { fetch_(); }, [fetch_]);
+
+  const createEntry = useCallback(async (formData: FormData) => {
+    const r = await _createContactLogEntry(clientId, formData);
+    if (!r.success) return { success: false, error: r.error };
+    await fetch_(); // refetch-after-mutate, mirrors useOnboardingBoard's start/submit
+    return { success: true };
+  }, [clientId, fetch_]);
+
+  return { data, loading, error, createEntry };
 }

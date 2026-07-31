@@ -88,17 +88,3 @@ export interface Guideline {
 // lib/pc/investment-guideline-mock.ts) hasn't had a guideline uploaded by
 // a PM yet — nothing exists here for Compliance to reference yet either.
 export const GR_GUIDELINES: Guideline[] = [];
-
-/* ---- renewals approaching (CO must re-verify docs on renewal) ----
-   Same story: no "next renewal due date" tracking exists on the onboarding
-   backend yet, so this stays mock-only like GR_GUIDELINES above. */
-export interface Renewal {
-  client: string; rm: string; mandate: string; due: string; days: number;
-}
-export const CO_RENEWALS: Renewal[] = [
-  // { client: "Nadia Rahman", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "21 Jul 2026", days: -2 },
-  // { client: "Thomas Berg", rm: "David Park", mandate: "Advisory · Income", due: "26 Jul 2026", days: 3 },
-  // { client: "Aiko Tanaka", rm: "James Liu", mandate: "Discretionary · Balanced", due: "31 Jul 2026", days: 8 },
-  // { client: "Sofia Marchetti", rm: "David Park", mandate: "Advisory · Income", due: "13 Aug 2026", days: 21 },
-  // { client: "Grace Okonkwo", rm: "Sarah Chen", mandate: "Discretionary · Growth", due: "20 Aug 2026", days: 28 },
-];

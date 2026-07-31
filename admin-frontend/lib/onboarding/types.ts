@@ -23,6 +23,16 @@ export interface StartOnboardingReq {
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
   assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
+  // Client Preference step (FE-17) — all optional, omitted entirely when blank.
+  occupation?: string;
+  date_of_birth?: string;                     // "YYYY-MM-DD"
+  anniversary?: string;                        // "YYYY-MM-DD"
+  spouse_name?: string;
+  children?: string;
+  personal_interests?: string;
+  communication_preferences?: string;
+  gift_hospitality_preferences?: string;
+  relationship_notes?: string;
 }
 
 export interface RmOptionDTO { uid: string; name: string; }
@@ -124,6 +134,22 @@ export interface TransactionDetailDTO {
 
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
 export interface ClientEventDTO  { id: string; category: string; title: string; body: string; created_at: string; }
+
+/** Client-detail page's Contact Log card. */
+export interface ContactLogEntryDTO {
+  id: string;
+  topic: string;
+  channel: string;
+  occurred_at: string;
+  description: string;
+  interest: string | null;
+  complaint: string | null;
+  follow_up: string | null;
+  logged_by: string;
+  doc_filename: string | null;
+  doc_size_bytes: number | null;
+  created_at: string;
+}
 
 /* ---- Model Subscription read endpoints (Goal 9, FE-6) --------------------- */
 export interface ClientSubscriptionRowDTO {

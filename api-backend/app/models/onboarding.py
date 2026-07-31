@@ -339,6 +339,37 @@ class ClientEvent(Base):
 
 
 # ---------------------------------------------------------------------------
+# DB-1 (proposal 0030) — client_contact_logs
+# ---------------------------------------------------------------------------
+
+
+class ClientContactLog(Base):
+    __tablename__ = "client_contact_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False), ForeignKey("users.id"), nullable=False, index=True
+    )
+    logged_by_uid: Mapped[str] = mapped_column(String(128), nullable=False)  # RM firebase_uid
+    topic: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel: Mapped[str] = mapped_column(String(64), nullable=False)  # e.g. "Phone call"
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    interest: Mapped[str | None] = mapped_column(Text, nullable=True)
+    complaint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    follow_up: Mapped[str | None] = mapped_column(Text, nullable=True)
+    doc_storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    doc_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    doc_content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    doc_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+# ---------------------------------------------------------------------------
 # DB-1 (proposal 018) — client_tickets
 # ---------------------------------------------------------------------------
 
