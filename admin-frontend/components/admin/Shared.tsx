@@ -11,7 +11,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   AlertCircle, TriangleAlert, Check, CheckCircle2, ChevronDown, Eye,
-  Grid3x3, Info, Minus, Pencil, Users, X,
+  Grid3x3, Info, Minus, Pencil, Users, UserRound, X,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Level } from "@/lib/admin/types";
@@ -30,18 +30,18 @@ export function Help({ children, className, style }: { children: ReactNode; clas
 
 /* ---- access level glyph (None / View / Edit) ---------------- */
 const LEVEL_STYLE: Record<Level, { bg: string; fg: string; icon: typeof Minus }> = {
-  none: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
-  view: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
-  edit: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
+  NONE: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
+  VIEW: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
+  EDIT: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
 };
-const LEVEL_TITLE: Record<Level, string> = { none: "None", view: "View", edit: "Edit" };
+const LEVEL_TITLE: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
 
-export function LevelBadge({ level = "none", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
-  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.none;
+export function LevelBadge({ level = "NONE", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
+  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.NONE;
   const Icon = s.icon;
   return (
     <span
-      title={LEVEL_TITLE[level] + (override ? " · per-user override" : "")}
+      title={(LEVEL_TITLE[level] ?? LEVEL_TITLE.NONE) + (override ? " · per-user override" : "")}
       className="relative inline-flex shrink-0 items-center justify-center rounded"
       style={{
         width: size, height: size, background: s.bg, color: s.fg,
@@ -60,8 +60,8 @@ export function LevelBadge({ level = "none", override, size = 28 }: { level?: Le
 }
 
 /* ---- segmented None / View / Edit control -------------------- */
-const SEG_ORDER: Level[] = ["none", "view", "edit"];
-export function LevelSeg({ value = "none", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
+const SEG_ORDER: Level[] = ["NONE", "VIEW", "EDIT"];
+export function LevelSeg({ value = "NONE", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
   return (
     <span
       className="inline-flex gap-0.5 rounded-[9px] p-[3px]"
@@ -81,7 +81,7 @@ export function LevelSeg({ value = "none", override, onChange }: { value?: Level
             className={`inline-flex items-center gap-1.5 rounded-[7px] px-[11px] py-[5px] text-[12.5px] font-semibold transition-all ${onChange ? "cursor-pointer" : "cursor-default"}`}
             style={{
               background: on ? "#fff" : "transparent",
-              color: on ? (lv === "edit" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
+              color: on ? (lv === "EDIT" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
               fontWeight: on ? 700 : 600,
               boxShadow: on ? "var(--shadow-card)" : "none",
             }}
@@ -315,9 +315,14 @@ export function FilterChip({ label, n, on, onClick }: { label: string; n: number
   );
 }
 
-/* ---- matrix <-> role view switcher ----------------------------------- */
-export function ViewSwitch({ view, onChange }: { view: "matrix" | "role"; onChange: (v: "matrix" | "role") => void }) {
-  const items: [("matrix" | "role"), typeof Grid3x3, string][] = [["matrix", Grid3x3, "Matrix"], ["role", Users, "By role"]];
+/* ---- matrix <-> role <-> overrides view switcher ----------------------- */
+export type ConfigView = "matrix" | "role" | "overrides";
+export function ViewSwitch({ view, onChange }: { view: ConfigView; onChange: (v: ConfigView) => void }) {
+  const items: [ConfigView, typeof Grid3x3, string][] = [
+    ["matrix", Grid3x3, "Matrix"],
+    ["role", Users, "By role"],
+    ["overrides", UserRound, "Overrides"],
+  ];
   return (
     <span className="inline-flex gap-0.5 rounded-full p-[3px]" style={{ background: "var(--surface-container)", border: "1px solid var(--outline-variant)" }}>
       {items.map(([k, Icon, lab]) => {
@@ -392,13 +397,13 @@ export function Td({ children, className }: { children: ReactNode; className?: s
     </td>
   );
 }
-export function UserCell({ initials, name, sub }: { initials: string; name: string; sub: string }) {
+export function UserCell({ initials, name, sub }: { initials: string; name: string | null; sub?: string | null }) {
   return (
     <div className="flex items-center gap-[11px]">
-      <Avatar initial={initials[0]} size={34} />
+      <Avatar initial={initials[0] ?? "?"} size={34} />
       <div className="min-w-0">
-        <div className="text-[13.5px] font-semibold text-on-surface">{name}</div>
-        <div className="text-[12px] text-secondary">{sub}</div>
+        <div className="text-[13.5px] font-semibold text-on-surface">{name ?? "—"}</div>
+        <div className="text-[12px] text-secondary">{sub ?? "—"}</div>
       </div>
     </div>
   );

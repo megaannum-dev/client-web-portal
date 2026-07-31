@@ -20,7 +20,10 @@ import { Receipt } from "@/lib/icons";
 
 export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
 
-export type AccessLevel = "OPERATE" | "VIEW";
+/** The single access vocabulary — DB enum, wire DTOs, route guard and admin console
+ *  all use these three spellings. Replaces the old two-level route-guard vocabulary
+ *  (proposal 009) and lib/admin/types.ts's old lowercase three-level vocabulary. */
+export type AccessLevel = "NONE" | "VIEW" | "EDIT";
 
 export type PageId =
   | "rm.client-info"
@@ -39,6 +42,9 @@ export type PageId =
   | "shared.monthly-reports"
   | "admin.enroll-user"
   | "admin.system-config";
+
+/** What a `UserOut.grants` map looks like on the client. Absent key === "NONE". */
+export type GrantMap = Partial<Record<PageId, "VIEW" | "EDIT">>;
 
 export type NavGroup = {
   label: string;
@@ -189,41 +195,6 @@ const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
   ADMIN: { label: "Admin", icon: ShieldCheck },
 };
 
-const ALL_OPERATE = Object.fromEntries(
-  (Object.keys(PAGES) as PageId[]).map((id) => [id, "OPERATE" as AccessLevel]),
-) as Record<PageId, AccessLevel>;
-
-export const ROLE_PAGES: Record<Role, Partial<Record<PageId, AccessLevel>>> = {
-  RM: {
-    "rm.client-info": "OPERATE",
-    "rm.onboarding-renewal": "OPERATE",
-    "rm.model-subscription": "OPERATE",
-    "rm.request-tickets": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
-  },
-  MOBO: {
-    "mobo.recon-overview": "OPERATE",
-    "mobo.trade-reconciliation": "OPERATE",
-    "mobo.commission-tracking": "OPERATE",
-    "mobo.post-trade-allocation": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
-  },
-  PC: {
-    "pc.model-management": "OPERATE",
-    "pc.allocation-matrix": "OPERATE",
-    "pc.allotment-redemption": "OPERATE",
-    "mobo.post-trade-allocation": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
-  },
-  PM: {},
-  COMPLIANCE: {
-    "compliance.overview": "OPERATE",
-    "compliance.review": "OPERATE",
-    "shared.monthly-reports": "OPERATE",
-  },
-  ADMIN: ALL_OPERATE, // reachable ONLY via this literal key — see D-7
-};
-
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   RM: "rm.client-info",
   MOBO: "mobo.recon-overview",
@@ -233,49 +204,30 @@ export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   COMPLIANCE: "compliance.overview",
 };
 
-// Default-deny gate. Every exported lookup routes through here. An unrecognized
-// role resolves to {} — never to ADMIN, never to another role, never throws.
-function grantsFor(role: string): Partial<Record<PageId, AccessLevel>> {
-  return (
-    (ROLE_PAGES as Record<string, Partial<Record<PageId, AccessLevel>>>)[
-      role
-    ] ?? {}
-  );
-}
-
-export function accessLevel(role: string, pageId: PageId): AccessLevel | null {
-  return grantsFor(role)[pageId] ?? null;
-}
-
-export function pagesForRole(role: string): PageId[] {
-  return Object.keys(grantsFor(role)) as PageId[];
-}
-
 export function defaultPathFor(role: string): string | null {
   const id = (ROLE_DEFAULT_PAGE as Record<string, PageId | null>)[role] ?? null;
   return id ? PAGES[id].path : null;
 }
 
-export function rolesForPath(pathname: string): Role[] {
+/** The page a pathname belongs to, by exact match or prefix. This is the surviving half
+ *  of the old path→role lookup — the half that reads PAGES rather than the deleted
+ *  per-role page map. */
+export function pageIdForPath(pathname: string): PageId | null {
   const page = Object.values(PAGES).find(
     (p) => pathname === p.path || pathname.startsWith(`${p.path}/`),
   );
-  if (!page) return [];
-  return (Object.keys(ROLE_PAGES) as Role[]).filter(
-    (r) => page.id in grantsFor(r),
-  );
+  return page ? page.id : null;
 }
 
-// One parent per role: the role's own name/icon, with every non-hidden granted
-// page (including the default/home page) listed as a labeled child. A role
-// with no ROLE_NAV entry or no grants renders no workspace groups at all —
-// never falls back to another role's parent.
-export function groupsFor(role: string): NavGroup[] {
+/** One nav parent per role, built from the caller's OWN grants. A page the grant map
+ *  omits (i.e. NONE) is simply not listed — that is the primary effect of NONE (Q-4).
+ *  A role with no ROLE_NAV entry, or an empty grant set, renders no groups at all. */
+export function groupsFor(grants: GrantMap, role: string): NavGroup[] {
   const nav = (
     ROLE_NAV as Record<string, { label: string; icon: LucideIcon } | undefined>
   )[role];
   if (!nav) return [];
-  const pages = pagesForRole(role)
+  const pages = (Object.keys(grants) as PageId[])
     .map((id) => PAGES[id])
     .filter((p) => !p.hideFromNav)
     .map((p) => ({ label: p.label, href: p.path, icon: p.icon, subgroup: p.subgroup }));

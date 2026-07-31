@@ -1,44 +1,47 @@
 "use client";
 
 /* ============================================================
-   Enroll User — internal-user directory, enrol/edit wizard, and
-   the per-user overrides ledger. Ported from the design handoff's
+   Enroll User — internal-user directory and the enrol/edit wizard.
+   Ported from the design handoff's
    admin/admin-app/{ProtoEnroll,ProtoModals,ProtoConfig}.jsx.
 
-   Three page-local views (not in the shared store, same as any
-   other route's local UI state): directory | wizard | overrides.
+   Two page-local views (not in the shared store, same as any
+   other route's local UI state): directory | wizard. The per-user
+   overrides ledger moved to System Config as a third view (FE-13) —
+   the directory's "Overrides (N)" action now links there instead of
+   flipping a page-local view.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
 import { AuditModal } from "@/components/admin/AuditModal";
 import { Directory } from "@/components/admin/enroll/Directory";
 import { Wizard } from "@/components/admin/enroll/Wizard";
-import { OverridesLedger } from "@/components/admin/enroll/OverridesLedger";
 import {
-  AddOverrideModal, CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, ResetModal,
+  CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, SendLinkModal,
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { PAGE_BY_PATH, ROLE_IDX } from "@/lib/admin/catalog";
-import { genPassword } from "@/lib/admin/password";
-import { TODAY } from "@/lib/mock/admin-data";
-import type { AdminUser, EnrollDraft, Role } from "@/lib/admin/types";
+import { expiryToIso, isoDateOrNull, todayLabel } from "@/lib/admin/today";
+import type { EnrollDraft, PageId, Role, StaffOut } from "@/lib/admin/types";
 
-type View = "directory" | "wizard" | "overrides";
+/** The reason recorded on every override created by the enroll wizard — the literal
+ *  the Access step's own Notice shows (Wizard.tsx). Named once, not repeated. */
+const OVERRIDE_REASON = "Set during enrolment";
+
+type View = "directory" | "wizard";
 
 type ModalState =
   | { kind: "audit" }
-  | { kind: "reset"; user: AdminUser }
-  | { kind: "overrides"; user: AdminUser }
-  | { kind: "deactivate"; user: AdminUser }
-  | { kind: "reactivate"; user: AdminUser }
-  | { kind: "created"; info: CreatedInfo }
-  | { kind: "addOverride" };
+  | { kind: "sendLink"; user: StaffOut }
+  | { kind: "overrides"; user: StaffOut }
+  | { kind: "deactivate"; user: StaffOut }
+  | { kind: "reactivate"; user: StaffOut }
+  | { kind: "created"; info: CreatedInfo };
 
 function blankDraft(): EnrollDraft {
   return {
-    mode: "new", first: "", last: "", email: "", phone: "", start: TODAY, addr: "", dept: "",
-    role: "", ovr: {}, pw: genPassword(), expiry: "Never", invite: true,
+    mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
+    role: "", ovr: {}, ovrExpiry: "90 days", invite: true,
   };
 }
 
@@ -57,40 +60,51 @@ export default function EnrollUserPage() {
   const toggleGroup = (g: string) => setOpenGroups((gs) => (gs.includes(g) ? gs.filter((x) => x !== g) : [...gs, g]));
 
   const startEnroll = () => { setDraft(blankDraft()); setStep(0); setView("wizard"); setKebab(null); };
-  const startEdit = (u: AdminUser) => {
-    const [first, ...rest] = u.name.split(" ");
+  const startEdit = (u: StaffOut) => {
+    const [first, ...rest] = (u.name ?? "").split(" ");
     setDraft({
-      mode: "edit", orig: u.email, first, last: rest.join(" "), email: u.email,
-      phone: "+41 44 668 21 07", start: TODAY, addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.dept, role: u.role, ovr: {}, pw: genPassword(), expiry: "Never", invite: false,
+      mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
+      phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
+      dept: u.department ?? "", role: u.role, ovr: {}, ovrExpiry: "90 days", invite: false,
+      client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
+      reassign_book_to: null,
     });
     setStep(0); setView("wizard"); setKebab(null);
   };
   const patchDraft = (p: Partial<EnrollDraft>) => setDraft((d) => (d ? { ...d, ...p } : d));
   const leaveWizard = () => { setView("directory"); setDraft(null); setStep(0); };
 
-  const createUser = () => {
+  const createUser = async () => {
     if (!draft) return;
     const d = draft;
     const name = `${d.first} ${d.last}`.trim();
-    const initials = ((d.first[0] || "?") + (d.last[0] || "")).toUpperCase();
 
     if (d.mode === "edit") {
-      store.updateUser(d.orig!, { name, email: d.email, role: d.role as Role });
-      store.log("User updated", `${name} · ${d.role}`);
+      const ok = await store.updateStaff(d.orig!, {
+        name, email: d.email.trim(), role: d.role as Role,
+        phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
+        ...(d.reassign_book_to ? { reassign_book_to: d.reassign_book_to } : {}),
+      });
+      if (!ok) return;
       toast.success(`${name} updated.`);
       leaveWizard();
       return;
     }
 
-    const roleIdx = ROLE_IDX[d.role as Role];
-    store.addUser({ initials, name, email: d.email, role: d.role as Role, dept: "—", status: "Initiated", tone: "pending", seen: "—" });
-    Object.entries(d.ovr).forEach(([path, to]) => {
-      const p = PAGE_BY_PATH[path];
-      store.addOverride({ initials, name, role: d.role as Role, page: p.name, path, from: store.eff(path, roleIdx), to, why: "Set during enrolment", exp: "30 Sep 2026", soon: true });
+    const created = await store.enroll({
+      email: d.email.trim(), first_name: d.first.trim(), last_name: d.last.trim(), role: d.role as Role,
+      phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
+      start_date: isoDateOrNull(d.start), address: d.addr.trim() || null,
+      send_link: d.invite,
+      overrides: (Object.keys(d.ovr) as PageId[]).map((page_id) => ({
+        page_id,
+        level: d.ovr[page_id]!,
+        reason: OVERRIDE_REASON,
+        expires_at: expiryToIso(d.ovrExpiry),
+      })),
     });
-    store.log("Account created", `${name} · ${d.role} · ${Object.keys(d.ovr).length} override(s)`);
-    setModal({ kind: "created", info: { name, email: d.email, roleCode: d.role as Role, pw: d.pw, ovr: Object.keys(d.ovr).length } });
+    if (!created) return;
+    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, link_sent: created.link_sent, ovr: created.override_count } });
   };
 
   return (
@@ -101,18 +115,15 @@ export default function EnrollUserPage() {
           openGroups={openGroups} onToggleGroup={toggleGroup}
           onLeave={leaveWizard} onSubmit={createUser}
         />
-      ) : view === "overrides" ? (
-        <OverridesLedger onBack={() => setView("directory")} onAddOverride={() => setModal({ kind: "addOverride" })} />
       ) : (
         <Directory
           filter={filter} onFilterChange={setFilter}
           query={dirQuery} onQueryChange={setDirQuery}
           kebab={kebab} onKebabChange={setKebab}
-          onOverrides={() => setView("overrides")}
           onAudit={() => setModal({ kind: "audit" })}
           onEnroll={startEnroll}
           onEdit={startEdit}
-          onReset={(u) => setModal({ kind: "reset", user: u })}
+          onReset={(u) => setModal({ kind: "sendLink", user: u })}
           onManageOverrides={(u) => setModal({ kind: "overrides", user: u })}
           onDeactivate={(u) => setModal({ kind: "deactivate", user: u })}
           onReactivate={(u) => setModal({ kind: "reactivate", user: u })}
@@ -120,7 +131,7 @@ export default function EnrollUserPage() {
       )}
 
       {modal?.kind === "audit" && <AuditModal onClose={closeModal} />}
-      {modal?.kind === "reset" && <ResetModal user={modal.user} onClose={closeModal} />}
+      {modal?.kind === "sendLink" && <SendLinkModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "overrides" && <ManageOverridesModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "deactivate" && <DeactivateModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "reactivate" && <ReactivateModal user={modal.user} onClose={closeModal} />}
@@ -131,7 +142,6 @@ export default function EnrollUserPage() {
           onBackToDirectory={() => { closeModal(); leaveWizard(); setFilter("All"); }}
         />
       )}
-      {modal?.kind === "addOverride" && <AddOverrideModal onClose={closeModal} />}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { RoleGroup } from "./RoleGroup";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { groupsFor } from "@/lib/pages-config";
@@ -11,7 +10,7 @@ interface SidebarNavProps {
 
 export function SidebarNav({ isOpen }: SidebarNavProps) {
   const { portalUser } = useAuth();
-  const groups         = groupsFor(portalUser?.role ?? "");
+  const groups         = groupsFor(portalUser?.grants ?? {}, portalUser?.role ?? "");
 
   return (
     <nav

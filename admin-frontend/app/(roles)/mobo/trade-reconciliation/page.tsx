@@ -51,6 +51,7 @@ import { TabBar } from "@/components/mobo/TabBar";
 import { loadReconciliation } from "@/lib/mobo/reconciliation";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
 import type { BreakType, CompareField, ReconTrade } from "@/lib/mobo/types";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 /* ============================================================
    FLAT ROW MODEL — ported from MoboRecon.jsx's fv/fb/buildRow/
@@ -246,6 +247,7 @@ function MatchBanner() {
 function TradeDetail({ trade, onClose }: { trade: ReconTrade; onClose: () => void }) {
   const bt = (trade.ti.state !== "ok" ? trade.ti.breakType : trade.ic.breakType) ?? "Break";
   const tone: ChipTone = trade.ti.state === "miss" || trade.ic.state === "miss" ? "failed" : "warm";
+  const canEdit = useCanEdit("mobo.trade-reconciliation");
   return (
     <div
       className="flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-lowest px-5 py-[18px] shadow-card"
@@ -291,16 +293,18 @@ function TradeDetail({ trade, onClose }: { trade: ReconTrade; onClose: () => voi
         )}
       </div>
 
-      <div className="mt-3.5 flex flex-none flex-wrap gap-[9px] border-t border-outline-variant pt-3.5">
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={UserRound} className="min-w-0 flex-1 px-2.5 py-[9px]">Assign</Button>
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={MessageSquare} className="min-w-0 flex-1 px-2.5 py-[9px]">Comment</Button>
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={ArrowUpRight} className="min-w-0 flex-1 px-2.5 py-[9px]">Escalate</Button>
-        {/* View/Edit Gate Function */}
-        <Button icon={ShieldAlert} className="min-w-0 flex-1 px-2.5 py-[9px]">Raise</Button>
-      </div>
+      {canEdit && (
+        <div className="mt-3.5 flex flex-none flex-wrap gap-[9px] border-t border-outline-variant pt-3.5">
+          {/* View/Edit Gate Function */}
+          <Button variant="secondary" icon={UserRound} className="min-w-0 flex-1 px-2.5 py-[9px]">Assign</Button>
+          {/* View/Edit Gate Function */}
+          <Button variant="secondary" icon={MessageSquare} className="min-w-0 flex-1 px-2.5 py-[9px]">Comment</Button>
+          {/* View/Edit Gate Function */}
+          <Button variant="secondary" icon={ArrowUpRight} className="min-w-0 flex-1 px-2.5 py-[9px]">Escalate</Button>
+          {/* View/Edit Gate Function */}
+          <Button icon={ShieldAlert} className="min-w-0 flex-1 px-2.5 py-[9px]">Raise</Button>
+        </div>
+      )}
     </div>
   );
 }

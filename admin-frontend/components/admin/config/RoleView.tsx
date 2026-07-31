@@ -12,7 +12,7 @@ import { Help, Label, DropdownMenu, type MenuItemDef } from "@/components/admin/
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Copy, RefreshCw, Users } from "@/lib/icons";
-import { ROLES, ROLE_IDX, kFor } from "@/lib/admin/catalog";
+import { ROLE_CODES, kFor } from "@/lib/admin/catalog";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
@@ -26,30 +26,27 @@ export function RoleView({
 }) {
   const { eff, stage, staged, stagedList, grantedFor, roleUsers, totalPages, copyRole, resetRole } = useAdminStore();
   const [copyOpen, setCopyOpen] = useState(false);
-  const idx = ROLE_IDX[role];
-  const roleName = ROLES.find((r) => r.code === role)?.name ?? "";
 
   return (
     <div className="flex items-stretch gap-5" style={{ height: 660 }}>
       <Card pad={false} className="flex w-[250px] flex-none flex-col overflow-auto">
         <div className="px-4 pb-[7px] pt-[13px]"><Label>Roles</Label></div>
-        {ROLES.map((r) => {
-          const on = r.code === role;
-          const changed = stagedList.filter((s) => s.role === ROLE_IDX[r.code]).length;
+        {ROLE_CODES.map((code) => {
+          const on = code === role;
+          const changed = stagedList.filter((s) => s.role === code).length;
           return (
             <div
-              key={r.code}
-              onClick={() => onSelectRole(r.code)}
+              key={code}
+              onClick={() => onSelectRole(code)}
               className="flex cursor-pointer items-center gap-2.5 px-4 py-[11px] transition-colors"
               style={{ background: on ? "var(--primary-fixed)" : "transparent", borderLeft: `3px solid ${on ? "var(--primary)" : "transparent"}` }}
             >
               <div className="min-w-0">
-                <div className="text-[13px] font-bold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>{r.code}</div>
-                <div className="text-[11.5px] text-secondary">{r.name}</div>
+                <div className="text-[13px] font-bold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>{code}</div>
               </div>
               <span className="ml-auto flex items-center gap-1.5">
                 {changed > 0 && <span className="h-[7px] w-[7px] rounded-full bg-primary" />}
-                <span className="text-[12px] font-bold text-secondary">{grantedFor(ROLE_IDX[r.code])}</span>
+                <span className="text-[12px] font-bold text-secondary">{grantedFor(code)}</span>
               </span>
             </div>
           );
@@ -59,8 +56,8 @@ export function RoleView({
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
         <div className="flex flex-shrink-0 items-start justify-between gap-4 px-5 pb-4 pt-[18px]">
           <div>
-            <h3 className="text-[20px] font-bold text-on-surface">{roleName} · {role}</h3>
-            <Help className="mt-1">{roleUsers(role)} users hold this role · {grantedFor(idx)} of {totalPages} pages reachable</Help>
+            <h3 className="text-[20px] font-bold text-on-surface">{role}</h3>
+            <Help className="mt-1">{roleUsers(role)} users hold this role · {grantedFor(role)} of {totalPages} pages reachable</Help>
           </div>
           <span className="relative flex gap-2.5">
             <Button variant="secondary" icon={Copy} onClick={() => setCopyOpen((v) => !v)}>Copy from role</Button>
@@ -78,11 +75,11 @@ export function RoleView({
               <DropdownMenu
                 width={210}
                 className="left-0 top-10"
-                items={ROLES.filter((r) => r.code !== role).map((r) => [`${r.code} — ${r.name}`, Users] as MenuItemDef)}
+                items={ROLE_CODES.filter((code) => code !== role).map((code) => [code, Users] as MenuItemDef)}
                 onClose={() => setCopyOpen(false)}
                 onPick={(label) => {
                   setCopyOpen(false);
-                  const fromCode = label.split(" — ")[0] as Role;
+                  const fromCode = label as Role;
                   copyRole(fromCode, role);
                   toast(`Access copied from ${fromCode} into ${role} — staged, not published.`);
                 }}
@@ -92,12 +89,12 @@ export function RoleView({
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-5 pb-[18px]">
           <AccessEditor
-            valueFor={(path) => eff(path, idx)}
+            valueFor={(pageId) => eff(pageId, role)}
             defaultFor={null}
-            onSet={(path, lv) => stage(path, idx, lv)}
+            onSet={(pageId, lv) => stage(pageId, role, lv)}
             openGroups={openGroups}
             onToggleGroup={onToggleGroup}
-            stagedOn={(path) => !!staged[kFor(path, idx)]}
+            stagedOn={(pageId) => !!staged[kFor(pageId, role)]}
           />
           <Help className="mt-3">Each workspace collapses — open only the group you are changing. Staged edits carry over when you switch back to the matrix.</Help>
         </div>

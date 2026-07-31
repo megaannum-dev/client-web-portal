@@ -4,6 +4,7 @@ const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
 const CO = "/api/co";
 const REPORTS = "/api/reports";
+const ADMIN = "/api/admin";
 
 export const ENDPOINTS = {
   PC: {
@@ -68,5 +69,14 @@ export const ENDPOINTS = {
   REPORTS: {
     EOM_COMMENTS: `${REPORTS}/eom-comments`,
     EOM_COMMENT: (reportName: string) => `${REPORTS}/eom-comments/${encodeURIComponent(reportName)}`,
+  },
+  ADMIN: {
+    STAFF:               `${ADMIN}/staff`,
+    STAFF_MEMBER:        (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}`,
+    STAFF_SET_PW_LINK:   (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}/set-password-link`,
+    ACCESS_MATRIX:       `${ADMIN}/access/matrix`,
+    ACCESS_OVERRIDES:    `${ADMIN}/access/overrides`,
+    ACCESS_OVERRIDE:     (id: string) => `${ADMIN}/access/overrides/${encodeURIComponent(id)}`,
+    AUDIT:               `${ADMIN}/audit`,
   },
 } as const;

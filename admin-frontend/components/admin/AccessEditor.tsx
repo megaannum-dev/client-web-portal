@@ -8,27 +8,28 @@
    ============================================================ */
 import { ChevronDown, ChevronRight, TriangleAlert } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import { PAGE_CATALOG } from "@/lib/admin/catalog";
+import { PAGE_GROUPS } from "@/lib/admin/catalog";
 import { LevelSeg } from "@/components/admin/Shared";
 import type { Level } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 
 export function AccessEditor({
   valueFor, defaultFor, onSet, openGroups, onToggleGroup, stagedOn,
 }: {
-  valueFor: (path: string) => Level;
+  valueFor: (pageId: PageId) => Level;
   /** When provided, a value differing from the default renders as an override. */
-  defaultFor?: ((path: string) => Level) | null;
-  onSet: (path: string, level: Level) => void;
+  defaultFor?: ((pageId: PageId) => Level) | null;
+  onSet: (pageId: PageId, level: Level) => void;
   openGroups: string[];
   onToggleGroup: (group: string) => void;
-  stagedOn?: (path: string) => boolean;
+  stagedOn?: (pageId: PageId) => boolean;
 }) {
   return (
     <div className="flex flex-col gap-2.5">
-      {PAGE_CATALOG.map(([group, pages]) => {
-        const granted = pages.filter((p) => valueFor(p.path) !== "none").length;
+      {PAGE_GROUPS.map(([group, pages]) => {
+        const granted = pages.filter((p) => valueFor(p.page_id) !== "NONE").length;
         const open = openGroups.includes(group);
-        const changed = stagedOn ? pages.filter((p) => stagedOn(p.path)).length : 0;
+        const changed = stagedOn ? pages.filter((p) => stagedOn(p.page_id)).length : 0;
         return (
           <div
             key={group}
@@ -46,16 +47,16 @@ export function AccessEditor({
               <span className="ml-auto text-[12px] font-semibold text-secondary">{granted} of {pages.length}</span>
             </div>
             {open && pages.map((p) => {
-              const v = valueFor(p.path);
-              const isOvr = defaultFor ? defaultFor(p.path) !== v : false;
+              const v = valueFor(p.page_id);
+              const isOvr = defaultFor ? defaultFor(p.page_id) !== v : false;
               return (
                 <div
-                  key={p.path}
+                  key={p.page_id}
                   className="flex items-center gap-3 px-[15px] py-[11px]"
                   style={{ borderTop: "1px solid var(--outline-variant)", background: isOvr ? "rgba(242,116,5,0.04)" : "#fff" }}
                 >
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-on-surface">{p.name}</div>
+                    <div className="text-[13px] font-semibold text-on-surface">{p.label}</div>
                     <div className="text-[11.5px] text-secondary">{p.path}</div>
                   </div>
                   <span className="flex-1" />
@@ -67,7 +68,7 @@ export function AccessEditor({
                       <TriangleAlert size={11} strokeWidth={2.5} />override
                     </span>
                   )}
-                  <LevelSeg value={v} override={isOvr} onChange={(lv) => onSet(p.path, lv)} />
+                  <LevelSeg value={v} override={isOvr} onChange={(lv) => onSet(p.page_id, lv)} />
                 </div>
               );
             })}

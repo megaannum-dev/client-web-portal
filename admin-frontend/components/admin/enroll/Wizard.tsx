@@ -9,17 +9,17 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Copy, Mail, MapPin,
-  Phone, RefreshCw, Save, UserRoundPlus,
+  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Mail, MapPin,
+  Phone, Save, UserRoundPlus,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Checkbox, Help, IconButton, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
+import { Checkbox, Help, Label, Notice, SelectField, TextField } from "@/components/admin/Shared";
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, ROLES, ROLE_IDX, LEVEL_LABEL, PAGE_BY_PATH } from "@/lib/admin/catalog";
-import { genPassword } from "@/lib/admin/password";
+import { ALL_PAGES, EXPIRY_OPTS, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
+import type { PageId } from "@/lib/pages-config";
 
 type StepKey = "identity" | "role" | "access" | "creds";
 
@@ -37,7 +37,7 @@ export interface WizardProps {
 export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onToggleGroup, onLeave, onSubmit }: WizardProps) {
   const store = useAdminStore();
   const [touched, setTouched] = useState(false);
-  const roleIdx = d.role ? ROLE_IDX[d.role] : null;
+  const role = d.role || null;
 
   const emailBad = !!d.email && !/@megaannum\.ai$/.test(d.email.trim());
   const isEdit = d.mode === "edit";
@@ -47,21 +47,29 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const step0ok = !!d.first.trim() && !!d.last.trim() && !!d.email.trim() && !emailBad;
   const canNext = cur === "identity" ? step0ok : cur === "role" ? !!d.role : true;
 
-  const valueFor = (path: string): Level => (path in d.ovr ? d.ovr[path] : store.eff(path, roleIdx ?? 0));
-  const defaultFor = (path: string): Level => store.eff(path, roleIdx ?? 0);
-  const setLevel = (path: string, lv: Level) => {
+  const valueFor = (pageId: PageId): Level => (pageId in d.ovr ? d.ovr[pageId] : store.eff(pageId, role ?? ROLE_CODES[0]));
+  const defaultFor = (pageId: PageId): Level => store.eff(pageId, role ?? ROLE_CODES[0]);
+  const setLevel = (pageId: PageId, lv: Level) => {
     const next = { ...d.ovr };
-    if (lv === defaultFor(path)) delete next[path]; else next[path] = lv;
+    if (lv === defaultFor(pageId)) delete next[pageId]; else next[pageId] = lv;
     patchDraft({ ovr: next });
   };
   const ovrCount = Object.keys(d.ovr).length;
-  const granted = roleIdx == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.path) !== "none").length;
+  const granted = role == null ? 0 : ALL_PAGES.filter((p) => valueFor(p.page_id) !== "NONE").length;
+
+  /** "This user is about to stop being an active RM" (role changing away from RM) plus a
+   *  non-empty book — the same predicate DeactivateModal uses for its trigger (FE-15). */
+  const leavingRm = isEdit && d.origRole === "RM" && d.role !== "" && d.role !== "RM" && (d.client_count ?? 0) > 0;
+  const activeRmOptions = (store.staff ?? [])
+    .filter((x) => x.role === "RM" && x.status === "ACTIVE" && x.firebase_uid !== d.orig)
+    .map((x) => ({ value: x.firebase_uid, label: `${x.name} · ${x.client_count ?? 0} clients` }));
+  const canSubmit = !leavingRm || !!d.reassign_book_to;
 
   const DONE: Record<StepKey, string> = {
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
-    role: d.role ? `${d.role} · ${ROLES.find((r) => r.code === d.role)?.name ?? ""}` : "—",
+    role: d.role || "—",
     access: `${granted} of ${store.totalPages} pages · ${ovrCount} override${ovrCount === 1 ? "" : "s"}`,
-    creds: isEdit ? "Credentials unchanged" : "Temporary password issued",
+    creds: isEdit ? "Credentials unchanged" : "Set-password link sent",
   };
   const LABEL: Record<StepKey, string> = { identity: "Identity", role: "Role", access: "Access review", creds: "Credentials" };
   const SUB: Record<StepKey, string> = { identity: "Who is joining.", role: "What they hold.", access: "What that grants.", creds: "How they get in." };
@@ -70,8 +78,8 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     role: <>One role per user — it sets the standing page access defined in <b>System Config</b>.</>,
     access: <>Resolved from the role. Any level changed here is recorded as a <b>per-user override</b>, with a reason and an expiry. Groups collapse — open only what you are changing.</>,
     creds: isEdit
-      ? <>Reissue sign-in credentials for {d.first || "this user"}. Leave them alone to keep the current password.</>
-      : <>How {d.first || "this user"} gets in the first time. Nothing is sent until you create the account.</>,
+      ? <>Re-send the set-password link for {d.first || "this user"}. Their current password keeps working until they use a new link.</>
+      : <>{d.first || "This user"} sets their own password from a link we email to <b>{d.email || "the work email"}</b>. Nothing is sent until you create the account.</>,
   };
 
   const next = () => {
@@ -153,29 +161,39 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               {cur === "role" && (
                 <div className="flex flex-col gap-3.5">
                   <div className="grid grid-cols-3 gap-3">
-                    {ROLES.map((r) => {
-                      const on = r.code === d.role;
+                    {ROLE_CODES.map((code) => {
+                      const on = code === d.role;
                       return (
                         <button
-                          key={r.code}
+                          key={code}
                           type="button"
-                          onClick={() => patchDraft({ role: r.code, ovr: {} })}
+                          onClick={() => patchDraft({ role: code, ovr: {} })}
                           className="flex flex-col items-start gap-1 rounded-xl px-[15px] py-3.5 text-left transition-all"
                           style={{ background: on ? "rgba(242,116,5,0.06)" : "#fff", border: `1px solid ${on ? "var(--primary)" : "var(--outline-variant)"}` }}
                         >
                           <span className="flex items-center gap-[7px] text-[14px] font-bold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>
-                            {on && <CheckCircle2 size={15} strokeWidth={2} />}{r.code}
+                            {on && <CheckCircle2 size={15} strokeWidth={2} />}{code}
                           </span>
-                          <span className="text-[12px] text-secondary">{r.name}</span>
-                          <span className="mt-1 text-[11.5px] text-secondary">{store.grantedFor(ROLE_IDX[r.code])} of {store.totalPages} pages</span>
+                          <span className="mt-1 text-[11.5px] text-secondary">{store.grantedFor(code)} of {store.totalPages} pages</span>
                         </button>
                       );
                     })}
                   </div>
-                  <Notice tone="info">
-                    {isEdit
-                      ? <>Changing the role swaps the whole standing access set. Existing exceptions stay — manage them from <b>Manage overrides</b> in the directory.</>
-                      : "Access is never set per person here — pick the closest role, then adjust on the next step if this person genuinely differs."}
+                  <Notice tone={leavingRm ? "warn" : "info"}>
+                    {leavingRm ? (
+                      <>
+                        <b>{d.client_count} clients</b> and <b>{d.open_ticket_count} open tickets</b> move to:
+                        <span className="mt-2 block max-w-[260px]">
+                          <SelectField value={d.reassign_book_to ?? ""} onChange={(v) => patchDraft({ reassign_book_to: v })}
+                            placeholder="Pick a receiving RM…" options={activeRmOptions} />
+                        </span>
+                        Closed tickets stay on the record as theirs. Existing exceptions stay — manage them from <b>Manage overrides</b>.
+                      </>
+                    ) : isEdit ? (
+                      <>Changing the role swaps the whole standing access set. Existing exceptions stay — manage them from <b>Manage overrides</b> in the directory.</>
+                    ) : (
+                      "Access is never set per person here — pick the closest role, then adjust on the next step if this person genuinely differs."
+                    )}
                   </Notice>
                 </div>
               )}
@@ -184,38 +202,39 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                 <div className="flex flex-col gap-3.5">
                   <AccessEditor valueFor={valueFor} defaultFor={defaultFor} onSet={setLevel}
                     openGroups={openGroups} onToggleGroup={onToggleGroup} stagedOn={(p) => p in d.ovr} />
-                  {ovrCount > 0 ? (
-                    <Notice tone="warn">
-                      <b>{ovrCount} override{ovrCount === 1 ? "" : "s"} on this account:</b>{" "}
-                      {Object.keys(d.ovr).map((p) => `${PAGE_BY_PATH[p].name}, ${LEVEL_LABEL[defaultFor(p)]} → ${LEVEL_LABEL[d.ovr[p]]}`).join(" · ")}. Each is recorded with a reason and an expiry.
-                    </Notice>
-                  ) : (
-                    <Notice tone="info">No exceptions — {d.role} defaults apply exactly. Change any level above to record an override.</Notice>
-                  )}
+                  <div className="flex items-start gap-4">
+                    <span className="flex-1">
+                      {ovrCount > 0 ? (
+                        <Notice tone="warn">
+                          <b>{ovrCount} override{ovrCount === 1 ? "" : "s"} on this account:</b>{" "}
+                          {Object.keys(d.ovr).map((id) => {
+                            const pageId = id as PageId;
+                            return `${PAGE_BY_ID[pageId].label}, ${LEVEL_LABEL[defaultFor(pageId)]} → ${LEVEL_LABEL[d.ovr[pageId]]}`;
+                          }).join(" · ")}. Each is recorded with a reason and the expiry chosen here.
+                        </Notice>
+                      ) : (
+                        <Notice tone="info">No exceptions — {d.role} defaults apply exactly. Change any level above to record an override.</Notice>
+                      )}
+                    </span>
+                    {ovrCount > 0 && (
+                      <span className="w-[190px] shrink-0">
+                        <SelectField label="Overrides expire" value={d.ovrExpiry}
+                          onChange={(v) => patchDraft({ ovrExpiry: v })} options={EXPIRY_OPTS} />
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
               {cur === "creds" && (
                 <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
-                  <TextField label="Temporary password" value={d.pw} onChange={(v) => patchDraft({ pw: v })} mono
-                    trail={
-                      <span className="inline-flex gap-1">
-                        <IconButton icon={RefreshCw} size={14} title="Generate a new one"
-                          onClick={() => { patchDraft({ pw: genPassword() }); toast("New temporary password generated."); }} />
-                        <IconButton icon={Copy} size={14} title="Copy"
-                          onClick={() => toast.success("Temporary password copied to the clipboard.")} />
-                      </span>
-                    }
-                    help="12 characters, generated. Must be changed at first sign-in." />
-                  <SelectField label="Password expires" value={d.expiry} onChange={(v) => patchDraft({ expiry: v })} options={["Never", "24 hours", "72 hours", "7 days"]}
-                    help={d.expiry === "Never" ? "The temporary password stays valid until it is used or reset." : "After this an admin must reissue one."} />
                   <div className="rounded-xl border border-outline-variant bg-surface-low p-[14px_16px]" style={{ gridColumn: "1 / -1" }}>
                     <Checkbox on={d.invite} onChange={(v) => patchDraft({ invite: v })}>
                       Email the invitation to <b>{d.email || "the work email"}</b>
                     </Checkbox>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <Notice tone="warn"><b>Creates the account immediately</b> — no second approver. The temporary password is shown once, on the screen after this.</Notice>
+                    <Notice tone="warn"><b>Creates the account immediately</b> — no second approver.</Notice>
                   </div>
                 </div>
               )}
@@ -226,7 +245,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
               <span className="ml-auto flex gap-3">
                 {step > 0 && <Button variant="secondary" onClick={() => setStep(step - 1)}>Back</Button>}
                 {last
-                  ? <Button icon={isEdit ? Save : UserRoundPlus} onClick={onSubmit}>{isEdit ? "Save changes" : "Create account"}</Button>
+                  ? <Button icon={isEdit ? Save : UserRoundPlus} disabled={!canSubmit} onClick={onSubmit}>{isEdit ? "Save changes" : "Create account"}</Button>
                   : <Button iconRight={ArrowRight} onClick={next}>Next</Button>}
               </span>
             </div>

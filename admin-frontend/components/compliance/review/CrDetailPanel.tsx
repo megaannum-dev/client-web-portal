@@ -3,6 +3,7 @@
 import { Check, X, Shield, User, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { DetailShell, Fact, Notice, SectionLabel, CrStatusChip } from "@/components/compliance/Shared";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { coMoney } from "@/lib/compliance/mock";
 import type { RedemptionView } from "@/lib/onboarding/types";
 
@@ -37,6 +38,7 @@ export function CrDetailPanel({
   // row that's already "PC-approved".
   const pending = r.status === "awaiting_co";
   const awaitingPc = r.status === "awaiting_pc";
+  const canEdit = useCanEdit("compliance.review");
   return (
     <DetailShell
       eyebrow="Redemption · compliance gate"
@@ -46,7 +48,7 @@ export function CrDetailPanel({
       onClose={onClose}
     >
       {/* View/Edit Gate Function */}
-      {r.emergent && (
+      {canEdit && r.emergent && (
         <div className="mb-2.5">
           <Notice tone="bad" icon={TriangleAlert}>
             <b>Emergent Big Redemption</b> — full redemption of all units, client requires instant liquidity. Expected cash-out is <b>T+1</b> (one business day). Prioritize this review.
@@ -54,9 +56,11 @@ export function CrDetailPanel({
         </div>
       )}
       {/* View/Edit Gate Function */}
-      <Notice tone="warn" icon={Shield}>
-        <b>Compliance gate</b> — exceeds US${COMPLIANCE_THRESHOLD.toLocaleString()} ({coMoney(r.amount)}). Compliance decides first; PC gives the final sign-off before release.
-      </Notice>
+      {canEdit && (
+        <Notice tone="warn" icon={Shield}>
+          <b>Compliance gate</b> — exceeds US${COMPLIANCE_THRESHOLD.toLocaleString()} ({coMoney(r.amount)}). Compliance decides first; PC gives the final sign-off before release.
+        </Notice>
+      )}
       <div className="mt-3.5 flex items-center gap-[7px] text-[12.5px] text-secondary">
         <User size={13} strokeWidth={2} />Client anonymized · {r.ref}
       </div>
@@ -91,9 +95,9 @@ export function CrDetailPanel({
         {pending ? (
           <>
             {/* View/Edit Gate Function */}
-            <Button variant="secondary" icon={X} onClick={() => onDecision(r.id, "reject")}>Reject</Button>
+            {canEdit && <Button variant="secondary" icon={X} onClick={() => onDecision(r.id, "reject")}>Reject</Button>}
             {/* View/Edit Gate Function */}
-            <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
+            {canEdit && <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>}
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">

@@ -1,5 +1,4 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
-import { rolesForPath } from "@/lib/pages-config";
 
 export default function PcLayout({
   children,
@@ -7,7 +6,7 @@ export default function PcLayout({
   children: React.ReactNode;
 }) {
   return (
-    <RoleGuard allowedRoles={rolesForPath("/pc/model-management")}>
+    <RoleGuard prefix="/pc">
       {children}
     </RoleGuard>
   );
