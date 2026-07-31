@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 
 from firebase_admin import auth
 from firebase_admin.auth import ActionCodeSettings
@@ -12,24 +13,43 @@ from app.core.security import _init_firebase
 logger = logging.getLogger(__name__)
 
 
+def generate_password() -> str:
+    """A fresh, securely random password for a newly-enrolled staff account
+    (~96 bits of entropy) -- shown once to the enrolling admin, never logged."""
+    return secrets.token_urlsafe(12)
+
+
 class FirebaseIdentityService:
     """The ONLY module in the codebase that mutates Firebase Auth identities."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def create_user(self, email: str) -> str:
+    def create_user(self, email: str, password: str | None = None) -> str:
         """Admin SDK create; returns the new uid. Raises on failure (caller catches).
 
-        PASSWORDLESS by construction (C-1): no `password` argument, so the account
-        holds no password credential at all until its holder sets one through the
-        emailed set-password link. There is no interval in which a credential the
-        system chose exists."""
+        Passwordless by default (C-1): pass no `password` to leave the account
+        with no credential until its holder sets one through the emailed
+        set-password link. Staff enrollment now passes a generated `password`
+        instead, so the account is usable immediately."""
         if self._settings.firebase_auth_disabled:
             return f"dev-{email}"  # unchanged: deterministic synthetic uid
         _init_firebase(self._settings)
-        user = auth.create_user(email=email)  # was: password=_DEFAULT_PASSWORD
+        kwargs = {"email": email}
+        if password is not None:
+            kwargs["password"] = password
+        user = auth.create_user(**kwargs)
         return user.uid
+
+    def set_password(self, uid: str, password: str) -> None:
+        """Sets a Firebase Auth identity's password directly. Used only when
+        `ensure_identity` adopts a pre-existing (orphaned) identity during staff
+        enrollment, so the adopted account ends up with the password this
+        enrollment generated."""
+        if self._settings.firebase_auth_disabled:
+            return  # nothing real to update for a synthetic uid
+        _init_firebase(self._settings)
+        auth.update_user(uid, password=password)
 
     def get_user_by_email(self, email: str) -> str | None:
         if self._settings.firebase_auth_disabled:
@@ -80,7 +100,7 @@ class FirebaseIdentityService:
             )
             return auth.generate_sign_in_with_email_link(email, action_code_settings)
 
-    def ensure_identity(self, email: str) -> tuple[str, bool]:
+    def ensure_identity(self, email: str, password: str | None = None) -> tuple[str, bool]:
         """Returns (uid, created). If an identity already exists for `email`
         (a prior failed commit left a class-A orphan), ADOPTS its uid instead
         of creating a new one -- `created=False` in that case.
@@ -89,8 +109,15 @@ class FirebaseIdentityService:
         caller's compensation step distinguish "this request minted the identity"
         from "this request adopted someone else's" -- an adopted identity must
         NEVER be deleted on compensation (Risk A1).
+
+        When `password` is given (staff enrollment), the adopted branch also
+        sets it via `set_password`, so an adopted orphan ends up with exactly
+        the password this enrollment generated -- same end state as the create
+        branch. Other callers pass no password and this is unchanged.
         """
         existing_uid = self.get_user_by_email(email)
         if existing_uid is not None:
+            if password is not None:
+                self.set_password(existing_uid, password)
             return existing_uid, False
-        return self.create_user(email), True
+        return self.create_user(email, password), True

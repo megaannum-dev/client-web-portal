@@ -12,8 +12,8 @@ from app.core.config import Settings
 from app.core.security import set_portal_claims
 from app.libs.access.repository import AccessRepository, from_wire
 from app.libs.clients.service import ClientService
-from app.libs.identity.mailer import send_set_password_email
-from app.libs.identity.service import FirebaseIdentityService
+from app.libs.identity.mailer import send_account_ready_email, send_set_password_email
+from app.libs.identity.service import FirebaseIdentityService, generate_password
 from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
@@ -118,10 +118,10 @@ class StaffService:
         start_date: date | None,
         address: str | None,
         overrides: list[StaffOverrideIn],
-        send_link: bool,
+        notify: bool,
         identity: FirebaseIdentityService,
         settings: Settings,
-    ) -> tuple[User, bool, int]:
+    ) -> tuple[User, bool, int, str]:
         """Saga: Firebase identity first, DB row second (parity with BE-12).
         Firebase-fail -> ensure_identity raises before any DB write -> zero rows.
         Commit-fail on a newly-created identity (created=True) -> compensating
@@ -132,11 +132,16 @@ class StaffService:
         override + the "account.created" audit row are all flushed in the SAME
         transaction and committed together (§6 BE-17 Done-when) -- a commit failure
         rolls all of it back at once, in lockstep with the compensating delete_user.
-        set_portal_claims and the set-password email are Firebase/mailer side
+        set_portal_claims and the account-ready email are Firebase/mailer side
         effects, not DB rows, so they happen strictly AFTER the commit succeeds --
         the email ordering is load-bearing (§6): a send failure must never strand
-        an already-committed account, so it can never run inside the try block."""
-        uid, created = identity.ensure_identity(email)
+        an already-committed account, so it can never run inside the try block.
+
+        A fresh password is generated up front and set on the Firebase identity
+        (create or adopt, either way) inside `ensure_identity` -- it is returned
+        once to the caller and never logged or persisted anywhere else."""
+        password = generate_password()
+        uid, created = identity.ensure_identity(email, password=password)
         user_id = uuid.uuid4()
         try:
             self.repo.create_with_profile(
@@ -176,13 +181,12 @@ class StaffService:
         set_portal_claims(uid, "admin", role.value, settings)  # Risk A4
         user = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
 
-        link_sent = False
-        if send_link:
-            link = identity.generate_set_password_link(email)
-            link_sent = send_set_password_email(
-                to=email, name=name, link=link, portal=Portal.ADMIN, settings=settings
+        notified = False
+        if notify:
+            notified = send_account_ready_email(
+                to=email, name=name, portal=Portal.ADMIN, settings=settings
             )
-        return user, link_sent, len(overrides)
+        return user, notified, len(overrides), password
 
     def send_set_password_link(
         self, uid: str, *, actor: User, identity: FirebaseIdentityService, settings: Settings

@@ -39,9 +39,10 @@ class StaffEnrollIn(BaseModel):
     department: str | None = None
     start_date: date | None = None
     address: str | None = None
-    send_link: bool  # the wizard's "Email the invitation" checkbox
+    notify: bool  # the wizard's "Email an account-ready notice" checkbox
     overrides: list[StaffOverrideIn] = []
-    # NOTE: no `password` field, in or out (§ 7.1).
+    # NOTE: no `password` field IN -- the backend always generates it (see
+    # StaffCreatedOut.generated_password for the one-time OUT value).
 
     @field_validator("email")
     @classmethod
@@ -88,8 +89,9 @@ class StaffCreatedOut(BaseModel):
     email: str
     role: AdminRole
     status: Literal["INITIATED"]  # always INITIATED for a fresh enrollment
-    link_sent: bool
+    notified: bool
     override_count: int
+    generated_password: str  # shown once to the enrolling admin; never logged or stored
 
 
 class LinkSentOut(BaseModel):

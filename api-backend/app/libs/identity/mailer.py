@@ -74,3 +74,41 @@ def send_set_password_email(
     except Exception:  # noqa: BLE001 -- never raises, by contract
         logger.exception("set-password email could not be queued for %s", to)
         return False
+
+
+def send_account_ready_email(*, to: str, name: str, portal: Portal, settings: Settings) -> bool:
+    """Queues a "your account is ready" notice for a staff account created with a
+    generated password (the admin hands the password off directly) -- same
+    queue/never-raises/dev-bypass contract as `send_set_password_email`, but
+    intentionally carries NO link and NO password: the admin is the only
+    channel for the credential."""
+    if settings.firebase_auth_disabled:
+        logger.info("account-ready email (dev bypass) to=%s portal=%s", to, portal.value)
+        return True
+
+    sign_in_url = _PORTAL_SIGN_IN_URL[portal]
+    resend_contact = _PORTAL_RESEND_CONTACT[portal]
+    subject = f"Your {portal.value} portal account is ready"
+    text = (
+        f"Hi {name},\n\n"
+        f"Your account ({to}) has been created for the {portal.value} portal.\n"
+        f"Ask {resend_contact} for your sign-in credentials.\n\n"
+        f"Sign in at: {sign_in_url}"
+    )
+    html = (
+        f"<p>Hi {name},</p>"
+        f"<p>Your account (<strong>{to}</strong>) has been created for the "
+        f"{portal.value} portal.</p>"
+        f"<p>Ask {resend_contact} for your sign-in credentials.</p>"
+        f'<p>Sign in at: <a href="{sign_in_url}">{sign_in_url}</a></p>'
+    )
+
+    try:
+        _init_firebase(settings)
+        firestore.client().collection(_MAIL_COLLECTION).add(
+            {"to": [to], "message": {"subject": subject, "html": html, "text": text}}
+        )
+        return True
+    except Exception:  # noqa: BLE001 -- never raises, by contract
+        logger.exception("account-ready email could not be queued for %s", to)
+        return False

@@ -36,7 +36,7 @@ def enroll_staff(
     settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(require_action(Action.USER_WRITE))],
 ) -> StaffCreatedOut:
-    admin_user, link_sent, override_count = service.enroll(
+    admin_user, notified, override_count, generated_password = service.enroll(
         caller_uid=user.firebase_uid,
         caller_name=user.name,
         email=body.email,
@@ -47,7 +47,7 @@ def enroll_staff(
         start_date=body.start_date,
         address=body.address,
         overrides=body.overrides,
-        send_link=body.send_link,
+        notify=body.notify,
         identity=identity,
         settings=settings,
     )
@@ -56,8 +56,9 @@ def enroll_staff(
         email=body.email,
         role=body.role,
         status="INITIATED",
-        link_sent=link_sent,
+        notified=notified,
         override_count=override_count,
+        generated_password=generated_password,
     )
 
 
