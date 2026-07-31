@@ -49,11 +49,16 @@ export function Directory({
     [STATUS_LABEL.DEACTIVATED]: users.filter((u) => u.status === "DEACTIVATED").length,
   };
   const q = query.trim().toLowerCase();
-  const shown = users.filter((u) => {
-    const passFilter = filter === "All" ? true : STATUS_LABEL[u.status] === filter;
-    const passQ = !q || [u.name ?? "", u.email ?? "", u.role].join(" ").toLowerCase().includes(q);
-    return passFilter && passQ;
-  });
+  const shown = users
+    .filter((u) => {
+      const passFilter = filter === "All" ? true : STATUS_LABEL[u.status] === filter;
+      const passQ = !q || [u.name ?? "", u.email ?? "", u.role].join(" ").toLowerCase().includes(q);
+      return passFilter && passQ;
+    })
+    // Deactivated accounts sink to the bottom regardless of filter/search order —
+    // .sort is stable, so ties (both active, both deactivated) keep their
+    // original relative order.
+    .sort((a, b) => Number(a.status === "DEACTIVATED") - Number(b.status === "DEACTIVATED"));
 
   return (
     <>
