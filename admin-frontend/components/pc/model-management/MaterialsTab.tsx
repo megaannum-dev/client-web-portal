@@ -25,11 +25,13 @@ export function MaterialsTab({
   materials,
   onUpload,
   onDownload,
+  canEdit,
 }: {
   m: Model;
   materials: Material[];
   onUpload: (file: File) => Promise<boolean>;
   onDownload: (material: Material) => void;
+  canEdit: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<File | null>(null);
@@ -81,6 +83,9 @@ export function MaterialsTab({
 
   // Empty draft state (no stored materials and nothing staged).
   if (!staged && !materials.length && m.status === "draft") {
+    if (!canEdit) {
+      return <div className="text-[13px] text-secondary">No materials yet.</div>;
+    }
     return (
       <div className="flex flex-col items-center gap-2.5 rounded-md border-[1.5px] border-dashed border-outline px-[18px] py-7 text-center">
         <input ref={fileInputRef} type="file" className="hidden" onChange={onPick} />
@@ -98,20 +103,24 @@ export function MaterialsTab({
 
   return (
     <>
-      <input ref={fileInputRef} type="file" className="hidden" onChange={onPick} />
-      {stagedCard ?? (
-        <div
-          onClick={pickFile}
-          className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-dashed border-outline px-4 py-5 text-center"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-primary-fixed text-primary">
-            <Upload size={20} strokeWidth={1.75} />
-          </span>
-          <div className="text-[14px] font-bold">Upload new version</div>
-          <div className="text-[12.5px] text-secondary">
-            New file saves as <b>v{nextVer}</b> and logs a change.
-          </div>
-        </div>
+      {canEdit && (
+        <>
+          <input ref={fileInputRef} type="file" className="hidden" onChange={onPick} />
+          {stagedCard ?? (
+            <div
+              onClick={pickFile}
+              className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-[1.5px] border-dashed border-outline px-4 py-5 text-center"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-primary-fixed text-primary">
+                <Upload size={20} strokeWidth={1.75} />
+              </span>
+              <div className="text-[14px] font-bold">Upload new version</div>
+              <div className="text-[12.5px] text-secondary">
+                New file saves as <b>v{nextVer}</b> and logs a change.
+              </div>
+            </div>
+          )}
+        </>
       )}
       {materials.length > 0 && (
         <>
