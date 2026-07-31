@@ -90,11 +90,16 @@ def get_board(
 def get_onboarding_by_client(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
 ) -> OnboardingDTO:
     """Registered before /rm/onboardings/{onboarding_id} -- same registration-order
     reason as rm-options/doc-specs above ("by-client" would otherwise be swallowed
-    as an invalid onboarding_id path param)."""
+    as an invalid onboarding_id path param).
+
+    Gated by CLIENT_VIEW, not an onboarding action -- its only caller is the
+    client-info detail page's read-only KYC & Documents card (same reasoning as
+    get_client_events_rm below): a user with client-info access but no onboarding
+    grant still needs to see this client's document status."""
     return svc.detail_by_client(client_id)
 
 
