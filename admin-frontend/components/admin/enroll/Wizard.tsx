@@ -39,12 +39,11 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const [touched, setTouched] = useState(false);
   const role = d.role || null;
 
-  const emailBad = !!d.email && !/@megaannum\.ai$/.test(d.email.trim());
   const isEdit = d.mode === "edit";
   const keys: StepKey[] = isEdit ? ["identity", "role"] : ["identity", "role", "access", "creds"];
   const cur = keys[step];
   const last = step === keys.length - 1;
-  const step0ok = !!d.first.trim() && !!d.last.trim() && !!d.email.trim() && !emailBad;
+  const step0ok = !!d.first.trim() && !!d.last.trim() && !!d.email.trim();
   const canNext = cur === "identity" ? step0ok : cur === "role" ? !!d.role : true;
 
   const valueFor = (pageId: PageId): Level => (pageId in d.ovr ? d.ovr[pageId] : store.eff(pageId, role ?? ROLE_CODES[0]));
@@ -84,7 +83,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const next = () => {
     if (!canNext) {
       setTouched(true);
-      toast.warning(cur === "identity" ? "Fill first name, last name and a @megaannum.ai email." : "Pick a role to continue.");
+      toast.warning(cur === "identity" ? "Fill first name, last name and a work email." : "Pick a role to continue.");
       return;
     }
     setTouched(false);
@@ -147,10 +146,9 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                     invalid={touched && !d.first.trim() ? "Required." : null} />
                   <TextField label="Last name" value={d.last} onChange={(v) => patchDraft({ last: v })} placeholder="Petrova" required
                     invalid={touched && !d.last.trim() ? "Required." : null} />
-                  <TextField label="Work email" value={d.email} onChange={(v) => patchDraft({ email: v })} placeholder="s.petrova@megaannum.ai"
+                  <TextField label="Work email" value={d.email} onChange={(v) => patchDraft({ email: v })} placeholder="s.petrova@example.com"
                     icon={Mail} required span
-                    invalid={emailBad ? "Must be a @megaannum.ai address." : touched && !d.email.trim() ? "Required." : null}
-                    help={<>Must be a <b>@megaannum.ai</b> address.</>} />
+                    invalid={touched && !d.email.trim() ? "Required." : null} />
                   <TextField label="Phone" value={d.phone} onChange={(v) => patchDraft({ phone: v })} placeholder="+41 44 668 21 07" icon={Phone} />
                   <TextField label="Start date" value={d.start} onChange={(v) => patchDraft({ start: v })} icon={CalendarDays} help="Defaults to today." />
                   <TextField label="Correspondence address" value={d.addr} onChange={(v) => patchDraft({ addr: v })} placeholder="Bahnhofstrasse 42, 8001 Zürich, CH" icon={MapPin} span />
