@@ -17,44 +17,22 @@
 
    FE-13: AddOverrideModal (add an override from the ledger, not from
    a per-user row) moved to config/ConfigModals.tsx — the ledger it
-   serves is now a System Config view.
+   serves is now a System Config view. Fix B: this page's own
+   ManageOverridesModal (a per-user duplicate of that same ledger) was
+   removed entirely — System Config's view is now the only entry point.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  Ban, Copy, History, Mail, Plus, RotateCcw, Users, UserRoundPlus, X,
+  Ban, Copy, History, Mail, RotateCcw, Users, UserRoundPlus,
 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import {
-  Checkbox, Label, LevelDiff, Modal, Notice, SelectField, TextField,
+  Checkbox, Label, Modal, Notice, SelectField, TextField,
 } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { ALL_PAGES, LEVEL_LABEL } from "@/lib/admin/catalog";
 import { todayLabel } from "@/lib/admin/today";
-import type { Level, Role, StaffOut } from "@/lib/admin/types";
-import type { PageId } from "@/lib/pages-config";
-
-const EXPIRY_OPTS = ["30 days", "90 days", "30 Sep 2026", "31 Dec 2026", "No expiry"];
-
-/** "30 days" / "30 Sep 2026" / "No expiry" -> an ISO instant, or null (no expiry). */
-function expiryToISO(exp: string): string | null {
-  if (exp === "No expiry") return null;
-  const relative = /^(\d+)\s+days$/.exec(exp);
-  if (relative) {
-    const d = new Date();
-    d.setDate(d.getDate() + Number(relative[1]));
-    return d.toISOString();
-  }
-  const d = new Date(exp);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-/** An `expires_at` ISO instant (or null) -> the console's short display format. */
-function expiryLabel(iso: string | null): string {
-  if (!iso) return "No expiry";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : todayLabel(d);
-}
+import type { Role, StaffOut } from "@/lib/admin/types";
 
 /* ---- send set-password link -------------------------------- */
 export function SendLinkModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
@@ -83,69 +61,6 @@ export function SendLinkModal({ user: u, onClose }: { user: StaffOut; onClose: (
     >
       <Checkbox on={mail} onChange={setMail}>Email the link to {u.email}</Checkbox>
       <Notice tone="info">Any earlier unused link stops working the moment this is sent.</Notice>
-    </Modal>
-  );
-}
-
-/* ---- manage overrides (per user) ------------------------------ */
-export function ManageOverridesModal({ user: u, onClose }: { user: StaffOut; onClose: () => void }) {
-  const store = useAdminStore();
-  const mine = store.ovrFor(u.firebase_uid);
-  const [pageId, setPageId] = useState<PageId | "">("");
-  const [lv, setLv] = useState<Level>("VIEW");
-  const [exp, setExp] = useState("90 days");
-  const [why, setWhy] = useState("");
-  const [touched, setTouched] = useState(false);
-  const taken = mine.map((o) => o.page_id);
-  const opts = ALL_PAGES.filter((p) => !taken.includes(p.page_id)).map((p) => ({ value: p.page_id, label: `${p.label} · ${p.path}` }));
-
-  const add = async () => {
-    if (!pageId || !why.trim()) { setTouched(true); toast.warning("A page and a reason are required."); return; }
-    const ok = await store.addOverride({ firebase_uid: u.firebase_uid, page_id: pageId, level: lv, reason: why.trim(), expires_at: expiryToISO(exp) });
-    if (ok) { setPageId(""); setWhy(""); setTouched(false); }
-  };
-
-  return (
-    <Modal
-      title="Manage overrides"
-      sub={`${u.name} · ${u.role} · ${mine.length} active exception${mine.length === 1 ? "" : "s"}`}
-      width={520}
-      onClose={onClose}
-      foot={
-        <>
-          <Button variant="secondary" onClick={onClose}>Close</Button>
-          <span className="ml-auto"><Button icon={Plus} onClick={add}>Grant override</Button></span>
-        </>
-      }
-    >
-      {mine.length === 0 ? (
-        <Notice tone="info">No exceptions — {u.name} is on the {u.role} default everywhere.</Notice>
-      ) : (
-        mine.map((o) => (
-          <div key={o.id} className="rounded-xl border border-outline-variant bg-surface-low p-[13px_15px]">
-            <div className="flex items-center justify-between gap-3.5">
-              <div>
-                <div className="text-[13px] font-semibold">{o.page_label}</div>
-                <div className="text-[11.5px] text-secondary">{o.page_path}</div>
-              </div>
-              <LevelDiff from={o.role_default} to={o.level} override />
-            </div>
-            <div className="mt-[9px] text-[12px] text-secondary">{o.reason} · expires <b>{expiryLabel(o.expires_at)}</b> · granted by {o.granted_by}</div>
-            <div className="mt-[11px] flex gap-2.5">
-              <Button variant="secondary" icon={X} onClick={() => store.revokeOverride(o.id)}>Revoke</Button>
-            </div>
-          </div>
-        ))
-      )}
-      <div className="h-px bg-outline-variant" />
-      <Label>Add an exception</Label>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-        <SelectField label="Page" value={pageId} onChange={(v) => setPageId(v as PageId)} options={opts} placeholder="Select a page…" span required />
-        <SelectField label="Level" value={lv} onChange={(v) => setLv(v as Level)} options={[{ value: "NONE", label: "None" }, { value: "VIEW", label: "View" }, { value: "EDIT", label: "Edit" }]} />
-        <SelectField label="Expires" value={exp} onChange={setExp} options={EXPIRY_OPTS} />
-        <TextField label="Reason" value={why} onChange={setWhy} placeholder="Required — shown in the overrides ledger" span required invalid={touched && !why.trim() ? "Required." : null} />
-      </div>
-      {pageId && <Notice tone="info">{u.role} default for this page is <b>{LEVEL_LABEL[store.eff(pageId, u.role)]}</b> — this grants <b>{LEVEL_LABEL[lv]}</b>.</Notice>}
     </Modal>
   );
 }

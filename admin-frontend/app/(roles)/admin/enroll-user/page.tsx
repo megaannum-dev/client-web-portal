@@ -7,9 +7,8 @@
 
    Two page-local views (not in the shared store, same as any
    other route's local UI state): directory | wizard. The per-user
-   overrides ledger moved to System Config as a third view (FE-13) —
-   the directory's "Overrides (N)" action now links there instead of
-   flipping a page-local view.
+   overrides ledger moved to System Config as its own view (FE-13) —
+   this page no longer has any override-management entry point.
    ============================================================ */
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,7 +16,7 @@ import { AuditModal } from "@/components/admin/AuditModal";
 import { Directory } from "@/components/admin/enroll/Directory";
 import { Wizard } from "@/components/admin/enroll/Wizard";
 import {
-  CreatedModal, DeactivateModal, ManageOverridesModal, ReactivateModal, SendLinkModal,
+  CreatedModal, DeactivateModal, ReactivateModal, SendLinkModal,
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
@@ -33,7 +32,6 @@ type View = "directory" | "wizard";
 type ModalState =
   | { kind: "audit" }
   | { kind: "sendLink"; user: StaffOut }
-  | { kind: "overrides"; user: StaffOut }
   | { kind: "deactivate"; user: StaffOut }
   | { kind: "reactivate"; user: StaffOut }
   | { kind: "created"; info: CreatedInfo };
@@ -125,7 +123,6 @@ export default function EnrollUserPage() {
           onEnroll={startEnroll}
           onEdit={startEdit}
           onReset={(u) => setModal({ kind: "sendLink", user: u })}
-          onManageOverrides={(u) => setModal({ kind: "overrides", user: u })}
           onDeactivate={(u) => setModal({ kind: "deactivate", user: u })}
           onReactivate={(u) => setModal({ kind: "reactivate", user: u })}
         />
@@ -133,7 +130,6 @@ export default function EnrollUserPage() {
 
       {modal?.kind === "audit" && <AuditModal onClose={closeModal} />}
       {modal?.kind === "sendLink" && <SendLinkModal user={modal.user} onClose={closeModal} />}
-      {modal?.kind === "overrides" && <ManageOverridesModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "deactivate" && <DeactivateModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "reactivate" && <ReactivateModal user={modal.user} onClose={closeModal} />}
       {modal?.kind === "created" && (
