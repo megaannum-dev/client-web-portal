@@ -28,10 +28,14 @@ class StaffEnrollIn(BaseModel):
     department: str | None = None
     start_date: date | None = None
     address: str | None = None
-    notify: bool  # the wizard's "Email an account-ready notice" checkbox
+    notify: bool  # the wizard's "Email a set-password link" checkbox
     overrides: list[StaffOverrideIn] = []
-    # NOTE: no `password` field IN -- the backend always generates it (see
-    # StaffCreatedOut.generated_password for the one-time OUT value).
+    # Generated client-side and previewed/regenerable on the Credentials step;
+    # the backend sets this exact value as the account's initial password (see
+    # StaffCreatedOut.generated_password, echoed back). The new user can still
+    # take it over via the emailed set-password link (`notify` above), which
+    # resets whatever password was set here.
+    password: str = Field(min_length=8)
 
 
 class StaffUpdateIn(BaseModel):  # all optional; omitted = unchanged
@@ -66,7 +70,7 @@ class StaffCreatedOut(BaseModel):
     email: str
     role: AdminRole
     status: Literal["INITIATED"]  # always INITIATED for a fresh enrollment
-    notified: bool
+    link_sent: bool
     override_count: int
     generated_password: str  # shown once to the enrolling admin; never logged or stored
 

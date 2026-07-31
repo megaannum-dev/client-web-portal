@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import secrets
 
 from firebase_admin import auth
 from firebase_admin.auth import ActionCodeSettings
@@ -11,12 +10,6 @@ from app.core.config import Settings
 from app.core.security import _init_firebase
 
 logger = logging.getLogger(__name__)
-
-
-def generate_password() -> str:
-    """A fresh, securely random password for a newly-enrolled staff account
-    (~96 bits of entropy) -- shown once to the enrolling admin, never logged."""
-    return secrets.token_urlsafe(12)
 
 
 class FirebaseIdentityService:
