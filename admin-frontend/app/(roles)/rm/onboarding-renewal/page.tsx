@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { OnboardingBoard } from "@/components/rm/OnboardingBoard";
 import { OnboardingModal } from "@/components/rm/OnboardingModal";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 function OnboardingRenewalContent() {
   const [onboarding, setOnboarding] = useState(false);
   const board = useOnboardingBoard(); // single shared instance — lifted per §6 FE-1
+  const canEdit = useCanEdit("rm.onboarding-renewal");
 
   return (
     <div className="mx-auto">
@@ -18,11 +20,12 @@ function OnboardingRenewalContent() {
         <PageHeader
           title="Onboarding & Renewal"
           subtitle="Pipeline board — click any card to open its KYC & document panel."
-          actions={<Button icon={UserRoundPlus} onClick={() => setOnboarding(true)}>Start Onboarding</Button>}
+          /* View/Edit Gate Function */
+          actions={canEdit && <Button icon={UserRoundPlus} onClick={() => setOnboarding(true)}>Start Onboarding</Button>}
         />
       </div>
       <OnboardingBoard {...board} />
-      {onboarding && (
+      {canEdit && onboarding && (
         <OnboardingModal
           onClose={() => setOnboarding(false)}
           startOnboarding={board.startOnboarding}
