@@ -161,6 +161,13 @@ function FeeSheet({
             </tr>
           </thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="border-t border-outline-variant px-3.5 py-12 text-center text-[13px] text-secondary">
+                  No fee data — no fee source is wired yet.
+                </td>
+              </tr>
+            )}
             {rows.map((r, i) => {
               const on = open === r.key;
               const topBorder = i ? "border-t border-outline-variant" : "";
@@ -230,7 +237,8 @@ export default function CommissionTrackingPage() {
   const paid = rows.filter((r) => r.status === "paid").length;
   const invoiced = rows.filter((r) => r.status === "invoiced").length;
   const accrued = rows.filter((r) => r.status === "accrued").length;
-  const pct = (n: number) => Math.round((n / rows.length) * 100);
+  // Guard the empty book — 0/0 would put NaN into SegBar's widths.
+  const pct = (n: number) => (rows.length ? Math.round((n / rows.length) * 100) : 0);
 
   return (
     <div className="w-full">

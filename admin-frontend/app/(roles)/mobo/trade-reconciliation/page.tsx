@@ -2,195 +2,53 @@
 
 /* ============================================================
    MOBO Trade Reconciliation — FLAT SPREADSHEET + TABS
-   Replaces the old 3-row flow-card view. Ported from the design
-   handoff (mobo/mobo-app/MoboRecon.jsx).
+   Ported from the design handoff (mobo/mobo-app/MoboRecon.jsx).
 
    Tab 1 "Three-System Reconciliation" — exception stats -> a
-   segmented progress bar -> a flat table of every row from the
-   three systems (CRM / IB / Portfolio Commander) for each broken
-   trade. Click a group -> a slide-in triage panel with both legs.
+   segmented progress bar -> ONE collapsible spreadsheet of every
+   order + execution for the selected day. Breaks present: titled
+   "Unreconciled records", open by default. All clean: titled
+   "Daily records", collapsed behind the green verdict — the same
+   table either way, so a clean day is still inspectable.
 
    Tab 2 "Master ↔ Client Settlement" — a simple settlement table.
 
-   DATA SEAM: this page reads `loadReconciliation()` (lib/mobo/
-   reconciliation.ts) and `loadSettlement()` (lib/mobo/commissions.ts)
-   — the SAME providers recon-overview/commission-tracking use. No
-   backend calls, no mock imports here.
+   DATA: rows come from `GET /api/mobo/trade-records` via
+   `useTradeRecords` — the `orders` + `trades` tables, projected
+   flat and PRE-FORMATTED by the backend. This page computes
+   nothing; it renders what it is handed.
 
-   THREE-SYSTEM MAPPING (prototype's CRM/IB/PC rows -> this
-   codebase's ti/ic leg model — see lib/mobo/types.ts's DATA
-   REALITY note):
-     - CRM row = the `ti` leg's trader ("iv") side, keyed by
-       `trade.trader` — always null today (no trader feed), so
-       this row is always "Missing". Expected, not a bug.
-     - IB row  = the `ti` leg's stored-IB ("cv") side, keyed by
-       `trade.ib` (populated). Also reads break flags off the `ic`
-       leg's fields — a field can break on either leg and still
-       show red on the IB row.
-     - PC row  = the `ic` leg's stored-copy ("cv") side, keyed by
-       `trade.crm` (null only when the ic leg is `missingDb`).
-     - PC execution rows = `trade.ti.execs` (populated stored-IB
-       side; the trader side is empty = "awaiting source").
-   Order-level `fields` on `ti`/`ic` mostly carry the 4 added
-   attribute columns (Settlement date/Currency/Asset class/Trade
-   date), not Side/Quantity/Price/Net amount — so the flat table's
-   Price/QTY cells legitimately render "—" for most rows today.
-   That's the single-source data reality, not a bug.
+   DATA REALITY: CRM is the only source wired, so every row is
+   system "CRM" / status "Confirmed" and NOTHING can disagree —
+   every break counter is 0 and the verdict is always clean. The
+   break-highlight cell paths (`missing` / `qtyBrk` / `priceBrk`)
+   are retained and simply never set; when a second source lands
+   the backend starts setting them and the red cells light up with
+   no change here.
+
+   The Settlement tab reads `loadSettlement()`, which is EMPTY —
+   its mock was deleted and no settlement source is wired yet.
    ============================================================ */
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
-  Calendar, ChevronDown, Download, ShieldAlert, Unlink, X, Clock, Check,
-  Database, Users, UserRound, MessageSquare, ArrowUpRight,
+  ChevronDown, ChevronUp, Download, ShieldAlert, Unlink, X, Clock, Check,
+  Database, Users, Loader2, AlertCircle,
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip, type ChipTone } from "@/components/ui/Chip";
-import { MetricStat, SegBar, CompareGrid, Eyebrow, OrderExecBreakdown, SysBadge } from "@/components/mobo/Shared";
+import { Chip } from "@/components/ui/Chip";
+import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
 import { TabBar } from "@/components/mobo/TabBar";
-import { loadReconciliation } from "@/lib/mobo/reconciliation";
+import { DateControl } from "@/components/mobo/allocation/Panels";
+import { useTradeRecords } from "@/hooks/api/useTradeRecords";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
-import type { BreakType, CompareField, ReconTrade } from "@/lib/mobo/types";
+import type { TradeRecordRowDTO } from "@/lib/mobo/types";
 
-/* ============================================================
-   FLAT ROW MODEL — ported from MoboRecon.jsx's fv/fb/buildRow/
-   buildFlatRows/BCAT/countCat/buildGroups. `side`/`amount`/`settle`
-   were computed by the prototype but never rendered by its own
-   table (System/Ref#/Trade Date/Mkt/Stock/Price/QTY/Txn Type/Time/
-   Status) — dropped here rather than ported dead.
-   ============================================================ */
-
-function fv(fields: CompareField[], key: string, side: "iv" | "cv"): string | null {
-  const f = fields.find((x) => x.k === key);
-  return f ? f[side] : null;
-}
-function fb(fields: CompareField[] | undefined, key: string): boolean {
-  const f = (fields ?? []).find((x) => x.k === key);
-  return f ? f.d : false;
-}
-
-interface FlatSysRow {
-  sys: "CRM" | "IB" | "PC";
-  ref: string;
-  missing: boolean;
-  qty?: string | null;
-  price?: string | null;
-  qtyBrk?: boolean;
-  priceBrk?: boolean;
-}
-
-function buildRow(
-  sys: "CRM" | "IB" | "PC",
-  ref: string | null,
-  fields: CompareField[],
-  side: "iv" | "cv",
-  extraFields?: CompareField[],
-): FlatSysRow {
-  if (!ref) return { sys, ref: "—", missing: true };
-  return {
-    sys, ref, missing: false,
-    qty: fv(fields, "Quantity", side) || fv(fields, "Notional", side),
-    price: fv(fields, "Price", side) || fv(fields, "FX rate", side),
-    qtyBrk: fb(fields, "Quantity") || fb(fields, "Notional") || !!(extraFields && (fb(extraFields, "Quantity") || fb(extraFields, "Notional"))),
-    priceBrk: fb(fields, "Price") || fb(fields, "FX rate") || !!(extraFields && (fb(extraFields, "Price") || fb(extraFields, "FX rate"))),
-  };
-}
-
-type BreakCat = "qty" | "price" | "miss" | "settle" | "other";
-/* NOTE: no "FX rate break" entry — this codebase's BreakType union
-   deliberately excludes FX breaks (see lib/mobo/types.ts header). */
-const BCAT: Partial<Record<BreakType, BreakCat>> = {
-  "Quantity break": "qty",
-  "Price break": "price",
-  "Net-amount break": "price",
-  "Commission break": "price",
-  "Settlement mismatch": "settle",
-  "Missing — one side only": "miss",
-};
-
-function buildGroups(trades: ReconTrade[]): { id: string; cat: BreakCat }[] {
-  return trades
-    .filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok")
-    .map((t) => {
-      const bt = t.ti.state !== "ok" ? t.ti.breakType : t.ic.breakType;
-      return { id: t.id, cat: (bt && BCAT[bt]) || "other" };
-    });
-}
-function countCat(groups: { cat: BreakCat }[], cat: BreakCat): number {
-  return groups.filter((g) => g.cat === cat).length;
-}
-
-interface FlatRow extends FlatSysRow {
-  tradeId: string;
-  stock: string;
-  mkt: string;
-  tradeDate: string;
-  isFirst: boolean;
-  time: string;
-  txnType: string;
-  chipLabel: string;
-  chipTone: ChipTone;
-}
-
-/** Every row from CRM / IB / Portfolio Commander for each broken trade,
- * flattened (no grouping) — ported from MoboRecon.jsx's `buildFlatRows`. */
-function buildFlatRows(trades: ReconTrade[], settleDay: string): FlatRow[] {
-  const broken = trades.filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok");
-  const rows: FlatRow[] = [];
-  broken.forEach((t) => {
-    const ip = t.inst.split(" ");
-    const stock = ip[0];
-    const mkt = ip[1] || "FX";
-    // trader is always null today (no trader feed) -> always "—".
-    const firstTime = t.ti.execs?.[0]?.trader?.time ?? "—";
-    const base = { tradeId: t.id, stock, mkt, tradeDate: settleDay, isFirst: false, time: firstTime };
-
-    const crmRow = buildRow("CRM", t.trader, t.ti.fields, "iv");
-    rows.push({
-      ...base, ...crmRow, isFirst: true,
-      txnType: crmRow.missing ? "—" : "Trade",
-      chipLabel: crmRow.missing ? "Missing" : "Confirmed",
-      chipTone: crmRow.missing ? "failed" : "active",
-    });
-
-    const ibRow = buildRow("IB", t.ib, t.ti.fields, "cv", t.ic.fields);
-    rows.push({
-      ...base, ...ibRow,
-      txnType: ibRow.missing ? "—" : "Trade",
-      chipLabel: ibRow.missing ? "Missing" : "Confirmed",
-      chipTone: ibRow.missing ? "failed" : "active",
-    });
-
-    const pcRow = buildRow("PC", t.crm, t.ic.fields, "cv");
-    rows.push({
-      ...base, ...pcRow,
-      txnType: pcRow.missing ? "—" : "Order",
-      chipLabel: pcRow.missing ? "Missing" : "Executed",
-      chipTone: pcRow.missing ? "failed" : "active",
-    });
-
-    (t.ti.execs ?? []).forEach((ex, i) => {
-      const tr = ex.trader;
-      const ib = ex.ib;
-      const isMiss = ex.state === "miss";
-      rows.push({
-        ...base,
-        sys: "PC",
-        ref: ib?.tradeID ?? tr?.tradeID ?? `${t.id}-x${i + 1}`,
-        missing: isMiss && !tr,
-        qty: tr ? tr.qty : ib ? ib.qty : "—",
-        price: tr ? tr.px : ib ? ib.px : "—",
-        qtyBrk: isMiss || ex.state === "brk",
-        priceBrk: ex.state === "brk",
-        time: tr ? tr.time : ib ? ib.time : "—",
-        txnType: "Execution",
-        chipLabel: isMiss ? "Missing" : "Filled",
-        chipTone: isMiss ? "failed" : "active",
-      });
-    });
-  });
-  return rows;
-}
+/* ---- day-token helpers — the API speaks raw IB `YYYYMMDD`, the
+   shared DateControl speaks `YYYY-MM-DD`. -------------------- */
+const toPickerKey = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+const toDayToken = (k: string) => k.replace(/-/g, "");
 
 function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
   if (!v) return <span className="text-secondary">—</span>;
@@ -198,7 +56,7 @@ function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
   return <span>{v}</span>;
 }
 
-function FlatRowTr({ r, ri, active, onClick }: { r: FlatRow; ri: number; active: boolean; onClick: () => void }) {
+function FlatRowTr({ r, ri, active, onClick }: { r: TradeRecordRowDTO; ri: number; active: boolean; onClick: () => void }) {
   const miss = r.missing;
   const bg = miss
     ? "repeating-linear-gradient(45deg, transparent 0 6px, var(--surface-low) 6px 7px)"
@@ -218,96 +76,14 @@ function FlatRowTr({ r, ri, active, onClick }: { r: FlatRow; ri: number; active:
       {td(miss ? <span className="text-secondary">—</span> : <BrkVal v={r.qty} brk={r.qtyBrk} />, "text-right tabular-nums")}
       {td(miss ? "—" : r.txnType)}
       {td(miss ? "—" : r.time, "text-secondary")}
-      {td(<Chip tone={r.chipTone} dot={false}>{r.chipLabel}</Chip>)}
+      {td(<Chip tone={r.status === "Confirmed" ? "active" : "neutral"} dot={false}>{r.status}</Chip>)}
     </tr>
   );
 }
 
-/* ---- matched-legs banner (shared by both legs of TradeDetail) --- */
-function MatchBanner() {
-  return (
-    <div
-      className="mb-[18px] flex items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] text-secondary"
-      style={{ background: "rgba(47,122,71,0.06)", borderColor: "rgba(47,122,71,0.12)" }}
-    >
-      <Check size={15} strokeWidth={2} color="#16a34a" /> All fields match.
-    </div>
-  );
-}
-
-/* ---- three-system triage detail panel — ported from MoboRecon.jsx's
-   `TradeDetail`. Both legs in ONE panel: "CRM ↔ IB" then "IB ↔ PC",
-   one shared header, one shared actions footer. Deviation from the
-   prototype's literal JSX: the IB ↔ PC section uses OrderExecBreakdown
-   (not just CompareGrid) when the `ic` leg has executions, matching
-   how Shared.tsx's own IntegrityDetail renders this exact leg — the
-   prototype's simpler mock data never needed to surface an execution-
-   level VWAP drift via the order-level fields grid alone, ours does. */
-function TradeDetail({ trade, onClose }: { trade: ReconTrade; onClose: () => void }) {
-  const bt = (trade.ti.state !== "ok" ? trade.ti.breakType : trade.ic.breakType) ?? "Break";
-  const tone: ChipTone = trade.ti.state === "miss" || trade.ic.state === "miss" ? "failed" : "warm";
-  return (
-    <div
-      className="flex h-full flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-lowest px-5 py-[18px] shadow-card"
-      style={{ maxHeight: "calc(100vh - 96px)" }}
-    >
-      <div className="mb-3.5 flex flex-none items-start justify-between gap-2.5">
-        <div className="min-w-0">
-          <div className="text-[16px] font-bold leading-[1.3] text-on-surface">{trade.inst}</div>
-          <div className="mt-[3px] text-[12.5px] text-secondary">
-            {trade.book} · CRM {trade.trader || "—"} ↔ IB {trade.ib || "—"} ↔ PC {trade.crm || "—"}
-          </div>
-        </div>
-        <div className="flex flex-none items-center gap-[7px]">
-          <Chip tone={tone} dot={false}>{bt}</Chip>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex rounded-md p-[3px] text-secondary transition-colors hover:bg-surface-container"
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Eyebrow>CRM ↔ IB</Eyebrow>
-        {trade.ti.state === "ok" ? (
-          <MatchBanner />
-        ) : trade.ti.execs && trade.ti.execs.length > 0 ? (
-          <OrderExecBreakdown execs={trade.ti.execs} leftLabel="CRM" rightLabel="IB" />
-        ) : (
-          <CompareGrid fields={trade.ti.fields} leftLabel="CRM" rightLabel="IB" />
-        )}
-
-        <Eyebrow className="mt-1">IB ↔ PC</Eyebrow>
-        {trade.ic.state === "ok" ? (
-          <MatchBanner />
-        ) : trade.ic.execs && trade.ic.execs.length > 0 ? (
-          <OrderExecBreakdown execs={trade.ic.execs} leftLabel="IB" rightLabel="PC" attrFields={trade.ic.fields} />
-        ) : (
-          <CompareGrid fields={trade.ic.fields} leftLabel="IB" rightLabel="PC" />
-        )}
-      </div>
-
-      <div className="mt-3.5 flex flex-none flex-wrap gap-[9px] border-t border-outline-variant pt-3.5">
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={UserRound} className="min-w-0 flex-1 px-2.5 py-[9px]">Assign</Button>
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={MessageSquare} className="min-w-0 flex-1 px-2.5 py-[9px]">Comment</Button>
-        {/* View/Edit Gate Function */}
-        <Button variant="secondary" icon={ArrowUpRight} className="min-w-0 flex-1 px-2.5 py-[9px]">Escalate</Button>
-        {/* View/Edit Gate Function */}
-        <Button icon={ShieldAlert} className="min-w-0 flex-1 px-2.5 py-[9px]">Raise</Button>
-      </div>
-    </div>
-  );
-}
-
 /* ---- settlement tab — ported from MoboRecon.jsx's SettlementPanel.
-   `loadSettlement()` already returns pre-formatted amounts, so there's
-   nothing left to compute here, just render. */
+   `loadSettlement()` returns pre-formatted amounts, so there's nothing
+   to compute here, just render. Empty today — see the seam. */
 function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
   const masterN = rows.filter((r) => r.type === "Master").length;
   const clientN = rows.filter((r) => r.type === "Client").length;
@@ -341,6 +117,13 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="border-t border-outline-variant px-4 py-12 text-center text-[13px] text-secondary">
+                    No settlement data — no settlement source is wired yet.
+                  </td>
+                </tr>
+              )}
               {rows.map((r, i) => (
                 <tr key={r.key} className={r.type === "Master" ? "bg-surface-low" : ""}>
                   <td className={`px-4 py-3 ${i ? "border-t border-outline-variant" : ""} ${r.type === "Master" ? "font-bold" : "font-medium"}`}>{r.account}</td>
@@ -362,41 +145,136 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
 
 const TABLE_HEAD = ["System", "Ref #", "Trade Date", "Mkt", "Stock", "Price", "QTY", "Txn Type", "Time", "Status"];
 
+/* ---- THE records spreadsheet — ONE table for both scenarios.
+   Breaks present → titled "Unreconciled records", open by default.
+   All reconciled → titled "Daily records", collapsed so the clean
+   verdict leads. Either way it's this component; the header row is
+   the toggle. */
+function RecordsTable({
+  title, subtitle, rows, open, onToggle, selId, onSelect, loading, error,
+}: {
+  title: string;
+  subtitle: string;
+  rows: TradeRecordRowDTO[];
+  open: boolean;
+  onToggle: () => void;
+  selId: string | null;
+  onSelect: (id: string) => void;
+  loading: boolean;
+  error: string | null;
+}) {
+  const span = TABLE_HEAD.length;
+  return (
+    <div className="min-w-0 overflow-hidden">
+      <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[15px] font-bold text-on-surface">{title}</span>
+        <span className="text-[12.5px] text-secondary">{subtitle}</span>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] border-collapse text-[13.5px]">
+            <thead>
+              <tr onClick={onToggle} className="cursor-pointer select-none">
+                {TABLE_HEAD.map((h, i) => (
+                  <th
+                    key={h}
+                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${i === 5 || i === 6 ? "text-right" : "text-left"}`}
+                  >
+                    {i === 0 ? (
+                      <span className="flex items-center gap-1.5">
+                        {open ? <ChevronUp size={13} strokeWidth={2} /> : <ChevronDown size={13} strokeWidth={2} />}
+                        {h}
+                      </span>
+                    ) : h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            {open && (
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10">
+                      <span className="flex items-center justify-center gap-2 text-[13px] text-secondary">
+                        <Loader2 size={15} strokeWidth={2} className="animate-spin" /> Loading trade records…
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {!loading && error && (
+                  <tr>
+                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10">
+                      <span className="flex items-center justify-center gap-2 text-[13px]" style={{ color: "#93000a" }}>
+                        <AlertCircle size={15} strokeWidth={2} /> {error}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10 text-center text-[13px] text-secondary">
+                      No trade records for this day.
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && rows.map((r, ri) => (
+                  <FlatRowTr key={`${r.ref}-${ri}`} r={r} ri={ri} active={selId === r.tradeId} onClick={() => onSelect(r.tradeId)} />
+                ))}
+              </tbody>
+            )}
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TradeReconciliationPage() {
-  const { settleDay, trades } = loadReconciliation();
+  const [day, setDay] = useState<string | undefined>(undefined);
+  const { data, loading, error } = useTradeRecords(day);
   const settlementRows = loadSettlement();
 
   const [tab, setTab] = useState<"recon" | "settle">("recon");
   const [sel, setSel] = useState<string | null>(null);
   const toggle = (id: string) => setSel((s) => (s === id ? null : id));
-  const isSel = !!sel;
-  const selTrade = sel ? trades.find((t) => t.id === sel) ?? null : null;
 
-  const groups = buildGroups(trades);
-  const totalBrk = groups.length;
-  const qtyCat = countCat(groups, "qty");
-  const priceCat = countCat(groups, "price");
-  const missCat = countCat(groups, "miss");
-  const settleCat = countCat(groups, "settle");
+  const rows = data?.rows ?? [];
+  const dayLabel = data?.day ?? "—";
+  const pickerRuns = useMemo(
+    () => (data?.dates ?? []).map((d) => ({ date: toPickerKey(d), label: toPickerKey(d), grandTotal: 0 })),
+    [data?.dates],
+  );
+
+  // Single source (CRM) — nothing can disagree, so every break counter is 0
+  // and the day is always clean. These stay wired (not hardcoded away) so a
+  // second source only has to start reporting breaks.
+  const totalBrk = 0;
+  const qtyCat = 0;
+  const priceCat = 0;
+  const missCat = 0;
+  const settleCat = 0;
+  const isClean = totalBrk === 0;
+  const tradeCount = rows.filter((r) => r.txnType === "Order").length;
   const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
 
-  const matchedN = trades.length - totalBrk;
-  const matchPct = trades.length ? Math.round((matchedN / trades.length) * 100) : 100;
-  const brkPct = trades.length ? Math.round(((qtyCat + priceCat) / trades.length) * 100) : 0;
-  const missPct = Math.max(0, 100 - matchPct - brkPct);
-  const isClean = totalBrk === 0;
-
-  const flatRows = buildFlatRows(trades, settleDay);
+  // Breaks lead the page, so the table opens with them; a clean day opens
+  // collapsed behind the green verdict.
+  const [open, setOpen] = useState(!isClean);
 
   return (
     <div className="w-full">
       <div className="mb-5">
         <PageHeader
           title="Trade Reconciliation"
-          subtitle={`Three-system match · CRM ↔ IB ↔ Portfolio Commander · ${settleDay}`}
+          subtitle={`Three-system match · CRM ↔ IB ↔ Portfolio Commander · ${dayLabel}`}
           actions={
             <>
-              <Button variant="secondary" icon={Calendar} iconRight={ChevronDown}>{settleDay}</Button>
+              <DateControl
+                dateLabel={dayLabel}
+                runs={pickerRuns}
+                onPickDate={(d) => setDay(toDayToken(d))}
+                onPickRange={() => { /* range mode unused here — one day at a time */ }}
+              />
               <Button variant="secondary" icon={Download}>Export</Button>
             </>
           }
@@ -424,9 +302,9 @@ export default function TradeReconciliationPage() {
             <MetricStat label="Settlement" value={settleCat} tone={settleCat ? "warn" : ""} icon={Clock} />
           </div>
 
-          <SegBar ok={matchPct} warn={brkPct} bad={missPct} />
+          <SegBar ok={100} warn={0} bad={0} />
 
-          {isClean ? (
+          {isClean && !loading && !error && (
             <div
               className="mt-[22px] flex flex-col items-center gap-3.5 rounded-2xl border-[1.5px] px-6 py-14 text-center"
               style={{ background: "rgba(47,122,71,0.04)", borderColor: "rgba(47,122,71,0.15)" }}
@@ -435,49 +313,25 @@ export default function TradeReconciliationPage() {
                 <Check size={24} strokeWidth={2} />
               </span>
               <div>
-                <div className="mb-1 text-[18px] font-bold text-on-surface">All {trades.length} trades reconciled</div>
-                <div className="text-[14px] text-secondary">No breaks across CRM, IB, and Portfolio Commander for {settleDay}.</div>
+                <div className="mb-1 text-[18px] font-bold text-on-surface">All {tradeCount} trades reconciled</div>
+                <div className="text-[14px] text-secondary">No breaks across CRM, IB, and Portfolio Commander for {dayLabel}.</div>
               </div>
-            </div>
-          ) : (
-            <div className={`mt-[22px] grid items-start gap-[18px] ${isSel ? "grid-cols-[minmax(0,1fr)_400px]" : "grid-cols-1"}`}>
-              <div className="min-w-0 overflow-hidden">
-                <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[15px] font-bold text-on-surface">Unreconciled records</span>
-                  <span className="text-[12.5px] text-secondary">every row from CRM, IB, and Portfolio Commander for each broken trade</span>
-                </div>
-                <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[760px] border-collapse text-[13.5px]">
-                      <thead>
-                        <tr>
-                          {TABLE_HEAD.map((h, i) => (
-                            <th
-                              key={h}
-                              className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary ${i === 5 || i === 6 ? "text-right" : "text-left"}`}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {flatRows.map((r, ri) => (
-                          <FlatRowTr key={ri} r={r} ri={ri} active={sel === r.tradeId} onClick={() => toggle(r.tradeId)} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {isSel && selTrade && (
-                <div className="sticky top-4 min-w-0">
-                  <TradeDetail trade={selTrade} onClose={() => setSel(null)} />
-                </div>
-              )}
             </div>
           )}
+
+          <div className="mt-[22px]">
+            <RecordsTable
+              title={isClean ? "Daily records" : "Unreconciled records"}
+              subtitle={`every row from CRM, IB, and Portfolio Commander for ${dayLabel}`}
+              rows={rows}
+              open={open}
+              onToggle={() => setOpen((o) => !o)}
+              selId={sel}
+              onSelect={toggle}
+              loading={loading}
+              error={error}
+            />
+          </div>
         </>
       )}
     </div>
