@@ -14,6 +14,7 @@ import { Matrix } from "@/components/pc/allocation-matrix/Matrix";
 import { DetailPanel } from "@/components/pc/allocation-matrix/DetailPanel";
 import { ConfirmModal } from "@/components/pc/allocation-matrix/ConfirmModal";
 import { EmptyPeriod } from "@/components/pc/allocation-matrix/EmptyPeriod";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 interface Coord { cid: string; mid: string }
 
@@ -31,6 +32,7 @@ export default function AllocationMatrixPage() {
   const selectedStatus = data?.periods.find((p) => p.label === period)?.status;
   const confirmed = selectedStatus === "confirmed" || justConfirmed;
   const historical = !!OPEN && period !== OPEN;
+  const canEdit = useCanEdit("pc.allocation-matrix");
 
   const handleConfirm = () => {
     const openPeriodId = data?.periods.find((p) => p.status === "open")?.id;
@@ -74,8 +76,11 @@ export default function AllocationMatrixPage() {
               <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>
             ) : confirmed ? (
               <Button variant="secondary" icon={Check} disabled>Confirmed · read-only</Button>
-            ) : (
+            ) : canEdit ? (
+              /* View/Edit Gate Function */
               <Button icon={Check} onClick={() => setConfirmModal(true)}>Confirm allocation</Button>
+            ) : (
+              <Button variant="secondary" icon={Eye} disabled>View only</Button>
             )}
           </div>
         </div>
@@ -96,7 +101,7 @@ export default function AllocationMatrixPage() {
         <Matrix data={data} view={view} onOpen={(cid, mid) => setOpen({ cid, mid })} />
       </div>
       {open && <DetailPanel data={data} period={period} cid={open.cid} mid={open.mid} onClose={() => setOpen(null)} />}
-      {confirmModal && <ConfirmModal data={data} period={OPEN} onClose={() => setConfirmModal(false)} onConfirm={handleConfirm} />}
+      {canEdit && confirmModal && <ConfirmModal data={data} period={OPEN} onClose={() => setConfirmModal(false)} onConfirm={handleConfirm} />}
     </div>
   );
 }
