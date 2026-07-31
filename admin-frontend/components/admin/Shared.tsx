@@ -9,6 +9,7 @@
    yet. Shared by both Enroll User and System Config.
    ============================================================ */
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle, TriangleAlert, Check, CheckCircle2, ChevronDown, Eye,
   Grid3x3, Info, Minus, Pencil, Users, UserRound, X,
@@ -418,10 +419,13 @@ export function Modal({
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
-  return (
+  const [root, setRoot] = useState<Element | null>(null);
+  useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
+  if (!root) return null;
+  return createPortal(
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="absolute inset-0 z-[60] flex items-center justify-center p-8"
+      className="pointer-events-auto absolute inset-0 z-[60] flex items-center justify-center p-8"
       style={{ background: "rgba(15,15,15,0.22)", backdropFilter: "blur(3px)" }}
     >
       <div
@@ -442,7 +446,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    root,
   );
 }
 
