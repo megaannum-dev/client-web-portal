@@ -33,12 +33,13 @@ export interface StaffEnrollIn {
   start_date?: string | null;
   address?: string | null;
   notify: boolean;
+  password: string;
   overrides?: Array<{ page_id: PageId; level: AccessLevel; reason: string; expires_at: string | null }>;
 }
 
 export interface StaffCreatedOut {
   firebase_uid: string; email: string; role: Role;
-  status: StaffStatus; notified: boolean; override_count: number;
+  status: StaffStatus; link_sent: boolean; override_count: number;
   generated_password: string;
 }
 

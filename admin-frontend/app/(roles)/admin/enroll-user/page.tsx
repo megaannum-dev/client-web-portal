@@ -21,6 +21,7 @@ import {
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { expiryToIso, isoDateOrNull, todayLabel } from "@/lib/admin/today";
+import { generatePassword } from "@/lib/admin/password";
 import type { EnrollDraft, Level, PageId, Role, StaffOut } from "@/lib/admin/types";
 
 /** The reason recorded on every override created by the enroll wizard — the literal
@@ -39,7 +40,7 @@ type ModalState =
 function blankDraft(): EnrollDraft {
   return {
     mode: "new", first: "", last: "", email: "", phone: "", start: todayLabel(), addr: "", dept: "",
-    role: "", ovr: {}, ovrExpiry: "90 days", notify: true,
+    role: "", ovr: {}, ovrExpiry: "90 days", notify: true, password: generatePassword(),
   };
 }
 
@@ -64,7 +65,7 @@ export default function EnrollUserPage() {
     setDraft({
       mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
       phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
-      dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", notify: false,
+      dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", notify: false, password: "",
       client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
       reassign_book_to: null,
     });
@@ -94,7 +95,7 @@ export default function EnrollUserPage() {
       email: d.email.trim(), first_name: d.first.trim(), last_name: d.last.trim(), role: d.role as Role,
       phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
       start_date: isoDateOrNull(d.start), address: d.addr.trim() || null,
-      notify: d.notify,
+      notify: d.notify, password: d.password,
       overrides: (Object.keys(d.ovr) as PageId[]).map((page_id) => ({
         page_id,
         level: d.ovr[page_id]!,
@@ -103,7 +104,7 @@ export default function EnrollUserPage() {
       })),
     });
     if (!created) return;
-    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, notified: created.notified, password: created.generated_password, ovr: created.override_count } });
+    setModal({ kind: "created", info: { name, email: created.email, roleCode: created.role, linkSent: created.link_sent, password: created.generated_password, ovr: created.override_count } });
   };
 
   return (

@@ -9,8 +9,8 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Mail, MapPin,
-  Phone, Save, UserRoundPlus,
+  ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Copy, Mail, MapPin,
+  Phone, RotateCcw, Save, UserRoundPlus,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -18,8 +18,40 @@ import { Checkbox, Help, Label, Notice, SelectField, TextField } from "@/compone
 import { AccessEditor } from "@/components/admin/AccessEditor";
 import { isLockedForAdmin, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import { ALL_PAGES, EXPIRY_OPTS, ROLE_CODES, LEVEL_LABEL, PAGE_BY_ID } from "@/lib/admin/catalog";
+import { generatePassword } from "@/lib/admin/password";
 import type { EnrollDraft, Level } from "@/lib/admin/types";
 import type { PageId } from "@/lib/pages-config";
+
+/** Editable password preview for the Credentials step — regenerate or type a
+ *  replacement, then copy. Submitted verbatim on create (§ lib/admin/password);
+ *  the new user can still take the account over later via the emailed
+ *  set-password link (the Checkbox below this field). */
+function PasswordField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  const iconBtn = "shrink-0 cursor-pointer rounded border border-outline p-1.5 text-secondary hover:bg-surface-container";
+  return (
+    <TextField
+      label="Password" value={value} onChange={onChange} mono span
+      trail={
+        <span className="flex shrink-0 gap-1.5">
+          <button type="button" title="Regenerate" onClick={() => onChange(generatePassword())} className={iconBtn}>
+            <RotateCcw size={15} strokeWidth={2} />
+          </button>
+          <button type="button" title={copied ? "Copied!" : "Copy"} onClick={copy} className={iconBtn}>
+            <Copy size={15} strokeWidth={2} />
+          </button>
+        </span>
+      }
+      help={`${value.length} characters, generated. Share it with the user directly.`}
+      invalid={value.length < 8 ? "At least 8 characters." : null}
+    />
+  );
+}
 
 type StepKey = "identity" | "role" | "access" | "creds";
 
@@ -63,13 +95,13 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
   const activeRmOptions = (store.staff ?? [])
     .filter((x) => x.role === "RM" && x.status === "ACTIVE" && x.firebase_uid !== d.orig)
     .map((x) => ({ value: x.firebase_uid, label: `${x.name} · ${x.client_count ?? 0} clients` }));
-  const canSubmit = !leavingRm || !!d.reassign_book_to;
+  const canSubmit = (!leavingRm || !!d.reassign_book_to) && (isEdit || d.password.length >= 8);
 
   const DONE: Record<StepKey, string> = {
     identity: `${d.first} ${d.last}`.trim() + (d.email ? ` · ${d.email}` : ""),
     role: d.role || "—",
     access: `${granted} of ${store.totalPages} pages · ${ovrCount} override${ovrCount === 1 ? "" : "s"}`,
-    creds: "Password generated",
+    creds: d.notify ? "Password set · link will be sent" : "Password set",
   };
   const LABEL: Record<StepKey, string> = { identity: "Identity", role: "Role", access: "Access review", creds: "Credentials" };
   const SUB: Record<StepKey, string> = { identity: "Who is joining.", role: "What they hold.", access: "What that grants.", creds: "How they get in." };
@@ -77,7 +109,7 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
     identity: <>The work email becomes the sign-in identity and cannot be changed later.</>,
     role: <>One role per user — it sets the standing page access defined in <b>System Config</b>.</>,
     access: <>Resolved from the role. Any level changed here is recorded as a <b>per-user override</b>, with a reason and an expiry. Groups collapse — open only what you are changing.</>,
-    creds: <>A password is generated and shown to you once you create the account — share it with {d.first || "this user"} directly.</>,
+    creds: <>A password is generated below — regenerate it if you like, then share it with {d.first || "this user"} directly once the account is created. {d.first || "They"} can also set their own later via an emailed link.</>,
   };
 
   const next = () => {
@@ -226,9 +258,10 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
 
               {cur === "creds" && (
                 <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
+                  <PasswordField value={d.password} onChange={(v) => patchDraft({ password: v })} />
                   <div className="rounded-xl border border-outline-variant bg-surface-low p-[14px_16px]" style={{ gridColumn: "1 / -1" }}>
                     <Checkbox on={d.notify} onChange={(v) => patchDraft({ notify: v })}>
-                      Email an account-ready notice to <b>{d.email || "the work email"}</b>
+                      Email a set-password link to <b>{d.email || "the work email"}</b>
                     </Checkbox>
                   </div>
                   <div style={{ gridColumn: "1 / -1" }}>

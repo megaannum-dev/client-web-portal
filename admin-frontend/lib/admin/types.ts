@@ -89,6 +89,10 @@ export interface EnrollDraft {
   /** The single expiry applied to every override recorded on this enrollment (FE-14). */
   ovrExpiry: string;
   notify: boolean;
+  /** Generated client-side, previewed/regenerable on the Credentials step, and
+   *  submitted verbatim on create — unused (empty) in edit mode, which has no
+   *  Credentials step. */
+  password: string;
   /** RM-only counts carried in from StaffOut, null for every other role (FE-15). */
   client_count?: number | null;
   open_ticket_count?: number | null;

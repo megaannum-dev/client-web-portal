@@ -11,9 +11,12 @@
    OverrideIn.
 
    FE-12 (superseded): ResetModal renamed to SendLinkModal, link-only
-   creation, no password row. Reverted — enrollment now generates a
-   real password server-side; CreatedModal shows it once (below),
-   while SendLinkModal (the row-action resend) is unchanged.
+   creation, no password row. Reverted — enrollment generates a password
+   (client-side, previewed/regenerable on the wizard's Credentials step)
+   set on the identity at creation; CreatedModal shows it once (below)
+   AND reports whether a set-password link was also emailed, so the new
+   user can take the account over with their own password instead.
+   SendLinkModal (the row-action resend) is unchanged.
 
    FE-13: AddOverrideModal (add an override from the ledger, not from
    a per-user row) moved to config/ConfigModals.tsx — the ledger it
@@ -162,7 +165,7 @@ export function ReactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
 }
 
 /* ---- created (post-enroll summary) -------------------------------- */
-export interface CreatedInfo { name: string; email: string; roleCode: Role; notified: boolean; password: string; ovr: number }
+export interface CreatedInfo { name: string; email: string; roleCode: Role; linkSent: boolean; password: string; ovr: number }
 
 /** Local copy-to-clipboard row, matching the working pattern in
  *  components/rm/RequestTickets.tsx (copied-state + setTimeout reset). */
@@ -204,13 +207,13 @@ export function CreatedModal({
         </>
       }
     >
-      {m.notified ? (
+      {m.linkSent ? (
         <Notice tone="ok">
-          <b>Share the password below with {m.name.split(" ")[0]}</b> — the account-ready notice has been emailed to {m.email}.
+          <b>Share the password below with {m.name.split(" ")[0]}</b> — a set-password link has also been emailed to {m.email}, in case they'd rather choose their own.
         </Notice>
       ) : (
         <Notice tone="warn">
-          Account created as {m.email}, but <b>the account-ready email could not be sent</b>. Share the password directly.
+          Account created as {m.email}, but <b>the set-password link could not be sent</b>. Share the password directly — use <b>Send set-password link</b> from the directory to retry the link.
         </Notice>
       )}
       <div className="overflow-hidden rounded-xl border border-outline-variant">
