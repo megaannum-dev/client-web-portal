@@ -94,7 +94,7 @@ export function ModelDetailPanel({
           ) : tab === "changes" ? (
             <ChangesTab m={m} />
           ) : tab === "symbols" ? (
-            <SymbolsTab m={m} onMutate={onRefetch} />
+            <SymbolsTab m={m} onMutate={onRefetch} canEdit={canEdit} />
           ) : (
             <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} onOpenSymbols={onOpenSymbols} canEdit={canEdit} />
           )}

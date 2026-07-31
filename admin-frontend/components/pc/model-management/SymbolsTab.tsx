@@ -36,11 +36,12 @@ function buildSymbolBook(m: Model): BookRow[] {
 }
 
 function SymbolBookRow({
-  row, onSetActive, onRemove,
+  row, onSetActive, onRemove, canEdit,
 }: {
   row: BookRow;
   onSetActive: (active: boolean) => void;
   onRemove: () => void;
+  canEdit: boolean;
 }) {
   const { entry, trail } = row;
   const latest = trail[0];
@@ -54,27 +55,33 @@ function SymbolBookRow({
       <td className={`${td} text-secondary`}>{updatedDate}</td>
       <td className={`${td} text-secondary`}>{effectiveDate}</td>
       <td className={td}>
-        <button
-          type="button"
-          onClick={() => onSetActive(!entry.active)}
-          title={entry.active ? "Deactivate" : "Activate"}
-          className="cursor-pointer border-none bg-transparent p-0"
-        >
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => onSetActive(!entry.active)}
+            title={entry.active ? "Deactivate" : "Activate"}
+            className="cursor-pointer border-none bg-transparent p-0"
+          >
+            <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
+          </button>
+        ) : (
           <Chip tone={entry.active ? "active" : "neutral"}>{entry.active ? "Active" : "Inactive"}</Chip>
-        </button>
+        )}
       </td>
       <td className={`${td} pr-3 text-secondary`}>
         <div className="flex items-center justify-between gap-2">
           <span>{latest?.user ?? "—"}</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Remove ${entry.symbol}`}
-            title="Remove"
-            className="shrink-0 cursor-pointer text-secondary opacity-55 transition-opacity hover:text-error hover:opacity-100"
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={`Remove ${entry.symbol}`}
+              title="Remove"
+              className="shrink-0 cursor-pointer text-secondary opacity-55 transition-opacity hover:text-error hover:opacity-100"
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -82,10 +89,12 @@ function SymbolBookRow({
 }
 
 export function SymbolsTab({
-  m, onMutate,
+  m, onMutate, canEdit,
 }: {
   m: Model;
   onMutate: () => void;
+  /** View/Edit Gate Function — hides/disables every mutating control below. */
+  canEdit: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -127,19 +136,21 @@ export function SymbolsTab({
         <span className="font-bold text-on-surface">{inactiveCount}</span> inactive
       </div>
 
-      <div className="mb-3.5 flex gap-2">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void commitAdd(); } }}
-          disabled={busy}
-          placeholder="Add symbol — e.g. AAPL"
-          className="flex-1 rounded border border-outline-variant bg-white px-3 py-[9px] text-[13.5px] text-on-surface outline-none focus:border-primary"
-        />
-        <Button icon={Plus} disabled={!draft.trim() || busy} onClick={() => void commitAdd()}>
-          Add
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="mb-3.5 flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void commitAdd(); } }}
+            disabled={busy}
+            placeholder="Add symbol — e.g. AAPL"
+            className="flex-1 rounded border border-outline-variant bg-white px-3 py-[9px] text-[13.5px] text-on-surface outline-none focus:border-primary"
+          />
+          <Button icon={Plus} disabled={!draft.trim() || busy} onClick={() => void commitAdd()}>
+            Add
+          </Button>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="py-[30px] text-center text-[13.5px] text-secondary">No assets recorded yet.</div>
@@ -162,6 +173,7 @@ export function SymbolsTab({
                   row={row}
                   onSetActive={(active) => void handleSetActive(row.entry.symbol, active)}
                   onRemove={() => void handleRemove(row.entry.symbol)}
+                  canEdit={canEdit}
                 />
               ))}
             </tbody>
