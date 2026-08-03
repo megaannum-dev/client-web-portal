@@ -42,7 +42,7 @@ def db_factory():
 @pytest.fixture
 def fake_storage(monkeypatch):
     storage = FakeStorage()
-    monkeypatch.setattr("app.libs.onboarding.service.get_storage", lambda: storage)
+    monkeypatch.setattr("app.libs.onboarding.service.get_storage", lambda bucket: storage)
     return storage
 
 
