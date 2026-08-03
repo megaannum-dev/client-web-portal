@@ -172,7 +172,10 @@ export default function ClientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const { data: onboarding } = useOnboardingByClient(id);
   const { data: events } = useClientEvents(id);
-  const { data: contactLogs, loading: contactLogsLoading, createEntry: createContactLogEntry } = useContactLogs(id);
+  const {
+    data: contactLogs, loading: contactLogsLoading,
+    createEntry: createContactLogEntry, downloadAttachment: downloadContactLogAttachment,
+  } = useContactLogs(id);
   const canEdit = useCanEdit("rm.client-info");
 
   if (nf) notFound(); // Next.js 404
@@ -378,6 +381,7 @@ export default function ClientDetailPage() {
           entries={contactLogs ?? []}
           loading={contactLogsLoading}
           onCreate={createContactLogEntry}
+          onDownloadAttachment={downloadContactLogAttachment}
         />
       </div>
 

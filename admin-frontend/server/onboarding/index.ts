@@ -59,6 +59,25 @@ export async function createContactLogEntry(
 ): Promise<APIResult<ContactLogEntryDTO>> {
   return apiClientFormData<ContactLogEntryDTO>(ENDPOINTS.RM.CLIENT_CONTACT_LOGS(clientId), formData);
 }
+/** Contact-log attachment download — same base64 proxy pattern as downloadDocumentRm below. */
+export async function downloadContactLogAttachment(
+  clientId: string, logId: string,
+): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
+  const token = (await cookies()).get("id_token")?.value ?? "";
+  const url = `${getApiBase()}${ENDPOINTS.RM.CLIENT_CONTACT_LOG_DOWNLOAD(clientId, logId)}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
+    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? "attachment";
+    const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { success: true, data: { filename, contentType, base64: buf.toString("base64") } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };
+  }
+}
 /** RM-scoped mirror of Compliance's downloadDocument below (base64 proxy —
  * cookie token can't ride a plain <a href>). */
 export async function downloadDocumentRm(

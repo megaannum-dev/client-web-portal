@@ -39,6 +39,8 @@ export const ENDPOINTS = {
     ONBOARDING_BY_CLIENT: (clientId: string) => `${RM}/onboardings/by-client/${encodeURIComponent(clientId)}`,
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
     CLIENT_CONTACT_LOGS:  (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs`,
+    CLIENT_CONTACT_LOG_DOWNLOAD: (clientId: string, logId: string) =>
+      `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs/${encodeURIComponent(logId)}/download`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
