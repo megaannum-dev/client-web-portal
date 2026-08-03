@@ -41,6 +41,20 @@ from app.libs.onboarding.schemas import (
 )
 from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
+
+
+def fix_mojibake_filename(name: str | None) -> str | None:
+    """Browsers that send a non-ASCII filename as a plain multipart
+    `filename=` param (no RFC-2231 `filename*=`) get it decoded as latin-1
+    by the parser even though the browser encoded it as UTF-8 -- this
+    re-decodes it. ponytail: heuristic re-decode, not a parser-level fix;
+    upgrade at the multipart-parsing layer if this proves insufficient."""
+    if not name:
+        return name
+    try:
+        return name.encode("latin-1").decode("utf-8")
+    except UnicodeError:
+        return name
 from app.models.onboarding import (
     AllotRdmpKind,
     AllotRdmpStatus,
@@ -850,6 +864,15 @@ class OnboardingService:
     def list_contact_logs(self, client_id: uuid.UUID) -> list[ContactLogEntryDTO]:
         return [self._contact_log_to_dto(log) for log in self.repo.list_contact_logs(client_id)]
 
+    def download_contact_log_attachment(
+        self, client_id: uuid.UUID, log_id: uuid.UUID
+    ) -> tuple[BinaryIO, str, str | None]:
+        log = self.repo.get_contact_log(client_id, log_id)
+        if log is None or log.doc_storage_key is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No file attached to this contact log")
+        stream = get_storage().open(log.doc_storage_key)
+        return stream, log.doc_filename or "attachment", log.doc_content_type
+
     def create_contact_log(
         self,
         client_id: uuid.UUID,
@@ -873,7 +896,7 @@ class OnboardingService:
                 content_type=file.content_type,
                 subdir=f"client_contact_logs/{client_id}",
             )
-            doc_filename = file.filename
+            doc_filename = fix_mojibake_filename(file.filename)
             doc_content_type = file.content_type
             doc_size_bytes = file.size
         log = self.repo.create_contact_log(

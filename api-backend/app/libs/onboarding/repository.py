@@ -570,6 +570,16 @@ class OnboardingRepository:
             .all()
         )
 
+    def get_contact_log(
+        self, user_id: uuid.UUID, log_id: uuid.UUID
+    ) -> ClientContactLog | None:
+        """Scoped by both IDs so a log can't be fetched via another client's URL."""
+        return (
+            self.db.query(ClientContactLog)
+            .filter(ClientContactLog.user_id == user_id, ClientContactLog.id == log_id)
+            .one_or_none()
+        )
+
     def list_subscriptions_for_client(
         self, user_id: uuid.UUID
     ) -> list[tuple[ClientSubscription, Model]]:

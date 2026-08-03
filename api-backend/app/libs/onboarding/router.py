@@ -33,7 +33,7 @@ from app.libs.onboarding.schemas import (
     TransactionDetailRequest,
     VerdictReq,
 )
-from app.libs.onboarding.service import OnboardingService
+from app.libs.onboarding.service import OnboardingService, fix_mojibake_filename
 from app.libs.users.repository import AdminProfileRepository
 from app.models.users import AdminRole, User
 
@@ -156,6 +156,21 @@ async def create_client_contact_log(
     )
 
 
+@router.get("/rm/clients/{client_id}/contact-logs/{log_id}/download")
+def download_contact_log_attachment(
+    client_id: uuid.UUID,
+    log_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> StreamingResponse:
+    stream, filename, content_type = svc.download_contact_log_attachment(client_id, log_id)
+    return StreamingResponse(
+        stream,
+        media_type=content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/rm/onboardings/{onboarding_id}", response_model=OnboardingDTO)
 def get_onboarding_detail(
     onboarding_id: uuid.UUID,
@@ -182,7 +197,7 @@ async def upload_document(
         onboarding_id,
         doc_type,
         stream=file.file,
-        filename=file.filename or doc_type,
+        filename=fix_mojibake_filename(file.filename) or doc_type,
         content_type=file.content_type,
         caller_uid=user.firebase_uid,
     )
