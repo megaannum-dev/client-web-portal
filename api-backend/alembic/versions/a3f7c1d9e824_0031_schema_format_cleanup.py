@@ -252,6 +252,70 @@ def upgrade() -> None:
     )
     # --- end DB-3 -------------------------------------------------------------
 
+    # --- DB-5 -------------------------------------------------------------
+    # client_profiles: drop the surrogate id, promote user_id (already NOT
+    # NULL + unique since 8f2a1c9d4b6e/0003) to the primary key. Follows
+    # 8f2a1c9d4b6e:37-58,117-124 exactly (see that revision for the house
+    # precedent on MySQL PK surgery).
+    cp_row_count = conn.execute(
+        sa.text("SELECT COUNT(*) FROM client_profiles")
+    ).scalar()
+
+    # Step 1: pre-condition -- no inbound FK onto client_profiles.id.
+    inbound = conn.execute(
+        sa.text(
+            "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND REFERENCED_TABLE_NAME = 'client_profiles' "
+            "AND REFERENCED_COLUMN_NAME = 'id'"
+        )
+    ).scalar()
+    _require(inbound == 0, f"client_profiles.id has {inbound} inbound FK(s); cannot drop")
+
+    # Step 2: strip AUTO_INCREMENT first (an AI column must remain a key),
+    # then swap the PK, then drop the now-redundant unique key -- only AFTER
+    # the new PK exists, so fk_client_profiles_user is never left without a
+    # backing index (the same 1553 hazard DB-1 fixes in 0027).
+    op.execute("ALTER TABLE client_profiles MODIFY COLUMN id INT NOT NULL")
+    op.execute(
+        "ALTER TABLE client_profiles "
+        "DROP PRIMARY KEY, "
+        "DROP COLUMN id, "
+        "ADD PRIMARY KEY (user_id)"
+    )
+    op.execute("ALTER TABLE client_profiles DROP INDEX ux_client_profiles_user_id")
+
+    # Step 3: post-condition self-assertions.
+    pk_cols = [
+        r[0]
+        for r in conn.execute(
+            sa.text(
+                "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'client_profiles' "
+                "AND CONSTRAINT_NAME = 'PRIMARY' ORDER BY ORDINAL_POSITION"
+            )
+        ).fetchall()
+    ]
+    _require(pk_cols == ["user_id"], f"client_profiles PK is {pk_cols}, expected ['user_id']")
+    _require(
+        conn.execute(sa.text("SELECT COUNT(*) FROM client_profiles")).scalar()
+        == cp_row_count,
+        "client_profiles row count changed during migration",
+    )
+    # Raises RuntimeError if the FK is missing -- reuses the DB-1/0003 idiom.
+    _require(
+        conn.execute(
+            sa.text(
+                "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'client_profiles' "
+                "AND COLUMN_NAME = 'user_id' AND REFERENCED_TABLE_NAME = 'users'"
+            )
+        ).scalar()
+        is not None,
+        "fk_client_profiles_user no longer resolves after PK swap",
+    )
+    # --- end DB-5 -------------------------------------------------------------
+
 
 def downgrade() -> None:
     # --- DB-2 ---------------------------------------------------------------
@@ -308,3 +372,16 @@ def downgrade() -> None:
         "WHERE doc_storage_key IS NOT NULL AND doc_storage_key NOT LIKE 'client_contact_logs/%'"
     )
     # --- end DB-3 -------------------------------------------------------------
+
+    # --- DB-5 -------------------------------------------------------------
+    # Re-add the unique key BEFORE dropping the PK, so fk_client_profiles_user
+    # is never left without a backing index. Schema-identical to pre-migration,
+    # values are NOT: MySQL renumbers id from 1 in physical row order.
+    op.execute("ALTER TABLE client_profiles ADD UNIQUE KEY ux_client_profiles_user_id (user_id)")
+    op.execute(
+        "ALTER TABLE client_profiles "
+        "DROP PRIMARY KEY, "
+        "ADD COLUMN id INT NOT NULL AUTO_INCREMENT FIRST, "
+        "ADD PRIMARY KEY (id)"
+    )
+    # --- end DB-5 -------------------------------------------------------------
