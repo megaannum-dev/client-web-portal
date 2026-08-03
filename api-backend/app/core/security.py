@@ -128,7 +128,7 @@ def verify_firebase_id_token_string(id_token: str | None, settings: Settings) ->
         return _extract_dev_claims(id_token)
     if not id_token or not id_token.strip():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="id_token is required"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="id_token is required"
         )
     try:
         _init_firebase(settings)

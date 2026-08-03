@@ -128,12 +128,16 @@ def test_get_view_route_passes_date_query_param_through(client, stub_service):
     stub_service.get_view.assert_called_once_with("2026-06-01")
 
 
-def test_get_view_route_404_when_service_returns_none(client, stub_service):
+def test_get_view_route_200_empty_view_when_service_returns_none(client, stub_service):
+    """BE-10 row 9: no data for the date is a normal 200 empty render, not a 404."""
     http, _Session, _user = client
     stub_service.get_view.return_value = None
     resp = http.get("/api/mobo/post-trade-allocation?date=1999-01-01")
-    assert resp.status_code == 404
-    assert "detail" in resp.json()
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["tradeDate"] == "1999-01-01"
+    assert body["models"] == []
+    assert body["grandTotal"] == 0.0
 
 
 def test_list_runs_route_200_default_excludes_empty(client, stub_service):

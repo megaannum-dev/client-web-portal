@@ -69,7 +69,7 @@ def update_period(
     if body.status == PeriodStatus.CONFIRMED:
         return service.confirm_period(period_id, actor=actor.firebase_uid)
     raise HTTPException(
-        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status.HTTP_409_CONFLICT,
         f"Unsupported period status transition: {body.status!r}",
     )
 

@@ -150,7 +150,7 @@ def edit_model(
             result = service.delete_model(model_id, actor=actor.firebase_uid)
         else:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_409_CONFLICT,
                 f"Invalid status transition: {new_status!r}",
             )
     if updates:

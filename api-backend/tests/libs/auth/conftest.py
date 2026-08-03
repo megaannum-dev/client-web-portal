@@ -63,8 +63,8 @@ def assert_can_authenticate_passthrough(user: User, db: object) -> None:
 
 def assert_can_authenticate_disabled(user: User, db: object) -> None:
     """Fake seam: the 'not active' case -- always raises, matching the real
-    function's documented status code (proposal §4.6 / §7)."""
-    raise HTTPException(403, "Account disabled")
+    function's documented status code (proposal §4.6 / §7; BE-10 020: 401)."""
+    raise HTTPException(401, "Account disabled")
 
 
 class FakeAssertCanAuthenticate:

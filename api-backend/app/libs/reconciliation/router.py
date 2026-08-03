@@ -28,5 +28,5 @@ def get_trade_records(
     an empty `rows` list, not a 404: "nothing traded" is a real answer.
     """
     if date is not None and (len(date) != 8 or not date.isdigit()):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "date must be a YYYYMMDD token")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "date must be a YYYYMMDD token")
     return build_view(db, date)

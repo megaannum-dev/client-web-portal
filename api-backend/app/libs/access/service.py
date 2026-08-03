@@ -82,8 +82,9 @@ class AccessService:
         (upsert for VIEW/EDIT, delete for NONE -- D-3, never a stored NONE row),
         one publication row and one audit row are written, and the whole thing
         commits together. Any failure -- including one injected mid-apply --
-        rolls back all of it and surfaces as a plain-string 500 (§3.1's
-        unchanged envelope for every exception but this unit's own 409)."""
+        rolls back all of it and surfaces as a plain-string 409 (BE-10 row 10:
+        failed write, not an unexpected server fault -- §3.1's unchanged
+        envelope for every exception but this unit's own 409)."""
         latest = self.repo.latest_publication()
         current_token = latest.published_at if latest is not None else None
         if current_token != body.base_published_at:
@@ -120,7 +121,7 @@ class AccessService:
             self.repo.db.commit()
         except Exception as exc:
             self.repo.db.rollback()
-            raise HTTPException(500, "Failed to publish access matrix") from exc
+            raise HTTPException(409, "Failed to publish access matrix") from exc
 
         return self.read_matrix()
 
@@ -232,7 +233,7 @@ class AccessService:
             self.repo.db.commit()
         except Exception as exc:
             self.repo.db.rollback()
-            raise HTTPException(500, "Failed to grant override") from exc
+            raise HTTPException(409, "Failed to grant override") from exc
 
         role_levels = self.repo.levels_for_role(role)
         return self._to_override_out(
@@ -261,7 +262,7 @@ class AccessService:
             self.repo.db.commit()
         except Exception as exc:
             self.repo.db.rollback()
-            raise HTTPException(500, "Failed to revoke override") from exc
+            raise HTTPException(409, "Failed to revoke override") from exc
 
     # --- audit (BE-11) ---
     def list_audit(self, *, limit: int, before: datetime | None) -> list[AuditOut]:
