@@ -77,7 +77,7 @@ class AccessService:
         """ONE transaction, ONE commit (C-5): optimistic-concurrency check against
         latest_publication().published_at (both None === fresh DB, the only match
         for an absent token) -- a mismatch is a 409 with the structured
-        {"detail": "matrix_changed_since_read", "published": {...}} body (§7.1,
+        {"detail": "<sentence>", "code": "matrix_changed_since_read"} body (§7.1,
         the layer's one structured exception). Then every change is applied
         (upsert for VIEW/EDIT, delete for NONE -- D-3, never a stored NONE row),
         one publication row and one audit row are written, and the whole thing
@@ -87,14 +87,12 @@ class AccessService:
         latest = self.repo.latest_publication()
         current_token = latest.published_at if latest is not None else None
         if current_token != body.base_published_at:
-            published = (
-                {"at": latest.published_at.isoformat(), "by": latest.actor_name or ""}
-                if latest is not None
-                else None
-            )
             raise HTTPException(
                 status_code=409,
-                detail={"detail": "matrix_changed_since_read", "published": published},
+                detail={
+                    "detail": "The access matrix changed since you loaded it. Refresh and retry.",
+                    "code": "matrix_changed_since_read",
+                },
             )
 
         try:
