@@ -17,7 +17,7 @@
 | Sibling layer schedules | `docs/execution-schedules/020-schema-format-cleanup-refactor-be.md`, `docs/execution-schedules/020-schema-format-cleanup-refactor-fe.md` |
 | Prompt (dispatch harness) | `docs/prompts/020-schema-format-cleanup-refactor-db.md` |
 
-**Unit ID space this schedule sequences:** `DB-1 … DB-5` (definitions live in the impl doc — do not restate them here). **DB-4 is withdrawn** (proposal D-12, impl §1.1(3)) — it has no work unit and is not scheduled in any wave; it is retained below only as a zero-commit stub for traceability.
+**Unit ID space this schedule sequences:** `DB-1 … DB-5`, plus **DB-6** (definitions live in the impl doc — do not restate them here). **DB-4 is withdrawn** (proposal D-12, impl §1.1(3)) — it has no work unit and is not scheduled in any wave; it is retained below only as a zero-commit stub for traceability. **DB-6 is a mid-run addendum** (impl §1.1(4) / §6 DB-6), added after W1/W2 had already committed, per §9's own change protocol — it is not a proposal-020 finding, it repairs a second historical-downgrade defect discovered while proving DB-1's full-chain round trip.
 
 ---
 
@@ -32,7 +32,7 @@
 
 **Layer independence.** This schedule does not wait on the `-be` or `-fe` schedules. The seam is frozen in the proposal and re-pinned in impl doc §7. All three layer branches merge back into `schema-repository-refactor-bugfix` in whatever order the human chooses.
 
-**Exit signal:** DB-1, DB-2, DB-3 and DB-5 committed on the layer branch; `alembic downgrade base && alembic upgrade head` green against the scratch DB; the §3.2 gate green; PR opened against `schema-repository-refactor-bugfix`. **The orchestrator does not push, does not merge.**
+**Exit signal:** DB-1, DB-2, DB-3, DB-5 and DB-6 committed on the layer branch; `alembic downgrade base && alembic upgrade head` green against the scratch DB (achievable only once DB-6 lands — see impl §1.1(4)); the §3.2 gate green; PR opened against `schema-repository-refactor-bugfix`. **The orchestrator does not push, does not merge.**
 
 ---
 
@@ -45,6 +45,7 @@
 | `DB-3` | `DB-1` | Same rollback-verifiability reason. Independent of DB-2 and DB-5. |
 | `DB-5` | `DB-1` | Same rollback-verifiability reason. Independent of DB-2 and DB-3. |
 | `DB-4` | — | **Withdrawn.** No commit, no wave. Retained as a heading only (impl §6). |
+| `DB-6` | `DB-1` | Same rollback-verifiability reason (repairs the second historical-downgrade defect DB-1's own full-chain criterion was blocked on). Independent of DB-2, DB-3 and DB-5 — different file, no shared state. |
 
 **Graph invariants:** no cycles; every edge intra-layer; absence of an edge = safe to run in parallel **subject to the §7 shared-file resolution below** (DB-2/DB-3/DB-5 share one revision file).
 
@@ -58,7 +59,8 @@
 |---|---|---|---|
 | W1 | `DB-1` | n/a (single unit) | — |
 | W2 | `DB-2`, `DB-3`, `DB-5` | **serialized** (shared file — see §7) | W1 committed |
-| **W-final** | Validation + Test | yes (two dispatches) | W2 committed |
+| W3 | `DB-6` | n/a (single unit) | W1 committed (added mid-run after W2; no dependency on W2's content) |
+| **W-final** | Validation + Test | yes (two dispatches) | W2 and W3 committed |
 
 ### Algorithm (pseudocode)
 
@@ -67,6 +69,7 @@ dispatch DB-1 alone; wait for commit; run wave gate (§6)
 for unit in [DB-2, DB-3, DB-5]:            # serialized, not parallel — shared file
     dispatch unit; wait for commit
 run wave gate (§6) — if red, STOP
+dispatch DB-6 alone; wait for commit; run wave gate (§6)   # added mid-run, see §9 change protocol
 dispatch Validation + Test in parallel; wait for both
 if both PASS: open PR against schema-repository-refactor-bugfix
 ```
@@ -95,6 +98,14 @@ if both PASS: open PR against schema-repository-refactor-bugfix
 
 *Not scheduled — DB-4 (withdrawn):* no commit is produced. The one residual assertion its withdrawal leaves behind (`recon_sessions`, `algotrade_orders`, `algotrade_executions` all still exist after `upgrade()`; `allocation_model_snapshots` keeps its composite PK) is folded into the W-final test wave, not a wave of its own.
 
+### Wave W3 (added mid-run, human-directed 2026-08-03)
+
+| Unit | Brief | Files touched | Done when |
+|---|---|---|---|
+| `DB-6` | Repair `0009`'s `downgrade()`: complete the `ib_activity` reconstruction | `modify: api-backend/alembic/versions/f0e1d2c3b4a5_0009_pc_workspace_db_refactor.py` (`downgrade()`, `_af_cols`, `:373-447`) | commit exists on layer branch; full `alembic downgrade base && upgrade head` round trip green from head `a3f7c1d9e824`, crossing `0009`/`0006` with no error |
+
+**Barrier before W-final:** DB-6 committed AND wave-gate checks (§6) pass, in addition to W2's barrier.
+
 ---
 
 ## 6. Wave gates (barriers between waves)
@@ -104,7 +115,7 @@ At the end of each feature wave, run in order — a failure blocks the next wave
 1. **Lint / format** — `.\.venv\Scripts\ruff.exe check .` && `.\.venv\Scripts\ruff.exe format --check .` (run from `api-backend/`; `alembic/` is excluded by `pyproject.toml`, so this stage is a no-op for migration files and real for `app/models/*.py`).
 2. **Type-check** — `.\.venv\Scripts\mypy.exe app` (run from `api-backend/`; `alembic` excluded).
 3. **Unit tests** — `.\.venv\Scripts\python.exe -m pytest -q` (run from `api-backend/`). **Caveat carried from impl §3.2:** until BE-1 (sibling layer) lands, this stage aborts at collection with 6 import errors — treat a green run here as "collection succeeded and the migration tests passed", not as the full suite.
-4. **Migration round-trip smoke** — `alembic downgrade base && alembic upgrade head` against the scratch DB. This is DB-1's own acceptance criterion (§8.3) and must be re-run at every wave boundary, not only at the end.
+4. **Migration round-trip smoke** — `alembic downgrade base && alembic upgrade head` against the scratch DB. This is DB-1's own acceptance criterion (§8.3) and must be re-run at every wave boundary, not only at the end. **Before DB-6 lands (i.e. at the W1 and W2 boundaries), a full `downgrade base` is expected to fail at the pre-existing `0009`/`0006` boundary** (impl §1.1(4)) — at those boundaries, substitute the narrower isolated round trip through the revision(s) each wave actually touched, and treat the full-chain failure as a known, already-flagged condition, not a new red gate. After DB-6 (W3 boundary onward), the full round trip is expected to actually pass and should be held to that standard.
 
 **Human gates:**
 - [ ] **DB-2's row-count review (within W2).** The migration logs five row-count values at INFO (impl §6 step 5) before it is committed. A human reviews these counts before DB-3 or DB-5 touch the same revision file — a surprising number here is the last chance to catch it before the file grows further.
@@ -133,7 +144,7 @@ At the end of each feature wave, run in order — a failure blocks the next wave
 
 ### 8.1 Validation agent
 
-- [ ] DB-1, DB-2, DB-3, DB-5 each have at least one commit on the layer branch.
+- [ ] DB-1, DB-2, DB-3, DB-5, DB-6 each have at least one commit on the layer branch.
 - [ ] `api-backend/alembic/versions/a3f7c1d9e824_0031_schema_format_cleanup.py` contains three separately-bannered blocks (`# --- DB-2 ---`, `# --- DB-3 ---`, `# --- DB-5 ---`).
 - [ ] Every "Files" entry from impl §6 matches the actual working-tree state.
 - [ ] No revision in `alembic/versions/` (old or new) drops an index/unique constraint before the FK that depends on it — the invariant DB-1 exists to establish repo-wide.
@@ -163,7 +174,7 @@ Both agents must return **PASS**. If either fails: do not open a PR; report ever
 
 ## 10. Definition of done
 
-- [ ] W1 and W2 committed on the layer branch; each wave gate green.
+- [ ] W1, W2 and W3 committed on the layer branch; each wave gate green.
 - [ ] W-final validation agent: PASS.
 - [ ] W-final test agent: PASS.
 - [ ] PR opened against `schema-repository-refactor-bugfix`.

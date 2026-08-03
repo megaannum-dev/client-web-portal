@@ -28,8 +28,11 @@
 | DB-3 | § Layer 1 **B-2** | Yes — user req. |
 | DB-4 | § Layer 1 **B-3** | **WITHDRAWN** — no work unit; see §6 |
 | DB-5 | § Layer 1 **B-4** | Accepted |
+| DB-6 | none — mid-run addendum, not a proposal finding | Human-directed 2026-08-03 |
 
 **DB-4 is withdrawn and its ID is retired, not reused.** DB-5 keeps its number. Unit IDs are stable once published (the sibling `-be` / `-fe` docs and the execution schedule reference them), so renumbering to close the gap would silently repoint every external citation.
+
+**DB-6 is an addendum, not a proposal-020 finding.** It was added mid-run, after DB-1 through DB-5 were already committed, per the execution schedule's own change protocol (schedule §9: "New units mid-run: add to the impl doc first ... Never dispatch an un-specified unit"). It repairs a second historical-downgrade defect discovered while proving DB-1's full-chain round trip, in the same spirit as DB-1 itself — see §1.1(4) and §6 DB-6.
 
 ### 1.1 Source-verification notes
 
@@ -50,6 +53,8 @@ The first two entries below were discrepancies against the proposal's original t
    EoD serves three live routes and the PTA run path is live, so `recon_sessions` is live storage, not dead surface. Raised through §7.3's change protocol; the human decision is recorded as proposal **D-12** and the proposal's § Layer 1 B-3 now reads "**Refactor: none. No DDL, no data change.**" Backend C-5 is narrowed from "delete the package" to "delete the two dead routes and the router mount" (proposal `:50`, `:421`). Consequences for this layer: **DB-4 does not exist as a work unit**, `recon_sessions` / its composite FK / the write-only `allocation_user_id` column all survive this branch untouched, and the surrogate-PK question on `allocation_model_snapshots` stays withdrawn per D-2 and goes to the recon rework alongside `allocation_user_id`.
 
    **Two residual inconsistencies in the amended proposal, flagged not fixed** (this doc does not edit the proposal): its **§4.2** Database row still reads "drops the dead recon tables", which is now false for this layer — §7.2 below states the corrected obligation. And **D-12 is cited at `:50` and `:421` but has no entry in the "Design decisions (settled)" list**, unlike D-1 … D-11. Both are proposal-side edits for whoever owns the next revision.
+
+4. **A second historical-downgrade defect, found while proving DB-1's full-chain round trip — RESOLVED as DB-6.** DB-1's own acceptance criterion is a full `alembic downgrade base && upgrade head` round trip (§6 DB-1 "Done when"). Running that full chain (not just the isolated round trip through `0027`) surfaced a second, unrelated pre-existing defect several revisions below anything DB-1/2/3/5 touch: `f0e1d2c3b4a5_0009_pc_workspace_db_refactor.py`'s `downgrade()` recreates `ib_activity` with an **incomplete column set** — it omits, in total, **23** of the 91 columns that `c3d4e5f6a7b8_0006_merge_orders_trades_into_ib_activity.py`'s own `_activity_columns()` builder expects to read back out of that table (a static diff against `0006`'s `_NUMERIC` tuple alone found 8; the empirical round trip found 15 more across the datetime/text/string buckets — see §6 DB-6 for the full, verified list). When the downgrade chain reaches `0006` after `0009`'s downgrade has run, `0006`'s `downgrade()` SELECTs those columns from the `ib_activity` that `0009`'s downgrade just (incompletely) rebuilt, and MySQL raises `Unknown column '<name>' in 'SELECT'`. (On a scratch DB that had been stamped-not-migrated, this can *also* manifest as `Table 'orders' already exists` if `0009`'s downgrade errors before reaching its own `drop_table` calls — same defect, environment-dependent symptom; the clean-schema symptom above is the one that matters.) Human-directed on 2026-08-03 to fix immediately as a new unit rather than defer: see **DB-6** in §6, fixed and empirically confirmed via a genuine full round trip on 2026-08-03.
 
 ---
 
@@ -639,6 +644,87 @@ Order matters in both directions: the unique key is re-added **before** the PK i
 
 ---
 
+### DB-6 — Repair `0009`'s `downgrade()`: complete the `ib_activity` reconstruction (Human-directed 2026-08-03)
+
+- **Proposal ref:** none — mid-run addendum, see §1.1(4). Not a proposal-020 finding; added under schedule §9's change protocol because it blocks the same full-chain round trip DB-1 exists to make provable.
+- **Module:** none of §5.1/§5.2/§5.3 — this is a standalone repair to a third, unrelated historical revision, structurally identical in kind to DB-1 (§5.1) but against a different file. Not folded into §5.1 because DB-1's "Owns features" is fixed at publication and sibling docs may already cite it; DB-6 is its own unit instead of silently expanding DB-1's scope.
+- **Files:** `modify: api-backend/alembic/versions/f0e1d2c3b4a5_0009_pc_workspace_db_refactor.py` (`downgrade()`, the `_af_cols` list, currently `:373-447`).
+- **Dependencies:** DB-1 (same rollback-verifiability rationale — this is what DB-1's own full-chain acceptance criterion was blocked on). Independent of DB-2, DB-3, DB-5 and their shared revision file; touches neither.
+
+**Contract (required code):**
+
+The defect: `f0e1d2c3b4a5_0009_pc_workspace_db_refactor.py:373-447`'s `downgrade()` rebuilds `ib_activity` from a hand-written `_af_cols` list that omits columns `c3d4e5f6a7b8_0006_merge_orders_trades_into_ib_activity.py`'s own `_activity_columns()` builder (`:138-156`) puts on that table's full 91-column shape. When the downgrade chain reaches `0006` after `0009`, `0006`'s `downgrade()` (`:187-195`) `SELECT`s the full `_col_list()` from the `ib_activity` that `0009`'s downgrade just rebuilt without those columns, and MySQL raises `Unknown column '<name>' in 'SELECT'`.
+
+**Corrected against the empirical round trip, 2026-08-03.** The list below was originally drafted from a static diff against `0006`'s 22-entry `_NUMERIC` tuple alone (8 columns: `changeInPrice`, `changeInQuantity`, `closePrice`, `cost`, `fifoPnlRealized`, `fxRateToBase`, `initialInvestment`, `mtmPnl`). Running the actual `alembic downgrade base` against a real MySQL database — the acceptance criterion below, per DB-1's own "empirical, not the diff" principle (§6 DB-1) — showed those 8 were necessary but **not sufficient**: the round trip still failed on `Unknown column 'holdingPeriodDateTime'`. A full column-by-column diff against `0006`'s complete 91-column `_activity_columns()` builder (all five buckets: `_NUMERIC`, `_DATE`, `_DATETIME`, `_TEXT`, `_STRING`) found **15 more** missing across the datetime/text/string buckets. The complete, verified set is **23 columns**:
+
+- 8 `Numeric(28, 10)`: `changeInPrice`, `changeInQuantity`, `closePrice`, `cost`, `fifoPnlRealized`, `fxRateToBase`, `initialInvestment`, `mtmPnl`
+- 4 `String(20)`: `holdingPeriodDateTime`, `openDateTime`, `whenRealized`, `whenReopened`
+- 1 `Text()`: `notes`
+- 10 `String(255)`: `exchOrderId`, `openCloseIndicator`, `origOrderID`, `origTransactionID`, `positionActionID`, `relatedTradeID`, `relatedTransactionID`, `rtn`, `tradeID`, `traderID`
+
+After all 23 are added, `_af_cols` matches `0006`'s 91-column `_activity_columns()` set exactly (0 missing, 0 extra — verified programmatically as part of implementation). Add them as `sa.Column(name, <type>, nullable=True)`, matching `0006`'s own name/type for each:
+
+```python
+    _af_cols = [
+        sa.Column("id", sa.Uuid(native_uuid=False), primary_key=True),
+        sa.Column("accountId", sa.String(255), nullable=True),
+        ...
+        sa.Column("ibCommission", sa.Numeric(28, 10), nullable=True),
+        sa.Column("ibCommissionCurrency", sa.String(255), nullable=True),
+        sa.Column("settleDateTarget", sa.String(8), nullable=True),
+        sa.Column("taxes", sa.Numeric(28, 10), nullable=True),
+        # --- DB-6: columns 0006's downgrade() SELECTs but this rebuild never
+        # recreated, because 0009's own TCF-schema orders/trades tables never
+        # carried them past the upgrade() merge in the first place. Their values
+        # are unrecoverable (lost the moment 0009's upgrade() ran); this adds
+        # the columns back as NULL so 0006's downgrade() can complete, matching
+        # 0006's own _activity_columns() builder (b34f8c1a9d27 sibling precedent:
+        # repair a never-successfully-executed downgrade() in place). ---
+        sa.Column("changeInPrice", sa.Numeric(28, 10), nullable=True),
+        sa.Column("changeInQuantity", sa.Numeric(28, 10), nullable=True),
+        sa.Column("closePrice", sa.Numeric(28, 10), nullable=True),
+        sa.Column("cost", sa.Numeric(28, 10), nullable=True),
+        sa.Column("fifoPnlRealized", sa.Numeric(28, 10), nullable=True),
+        sa.Column("fxRateToBase", sa.Numeric(28, 10), nullable=True),
+        sa.Column("initialInvestment", sa.Numeric(28, 10), nullable=True),
+        sa.Column("mtmPnl", sa.Numeric(28, 10), nullable=True),
+        # --- DB-6 (empirical addendum, found via the round trip, not the static
+        # diff above): 15 more columns missing across the datetime/text/string
+        # buckets, same unrecoverable-value rationale. ---
+        sa.Column("holdingPeriodDateTime", sa.String(20), nullable=True),
+        sa.Column("openDateTime", sa.String(20), nullable=True),
+        sa.Column("whenRealized", sa.String(20), nullable=True),
+        sa.Column("whenReopened", sa.String(20), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("exchOrderId", sa.String(255), nullable=True),
+        sa.Column("openCloseIndicator", sa.String(255), nullable=True),
+        sa.Column("origOrderID", sa.String(255), nullable=True),
+        sa.Column("origTransactionID", sa.String(255), nullable=True),
+        sa.Column("positionActionID", sa.String(255), nullable=True),
+        sa.Column("relatedTradeID", sa.String(255), nullable=True),
+        sa.Column("relatedTransactionID", sa.String(255), nullable=True),
+        sa.Column("rtn", sa.String(255), nullable=True),
+        sa.Column("tradeID", sa.String(255), nullable=True),
+        sa.Column("traderID", sa.String(255), nullable=True),
+        sa.Column("transactionID", sa.String(255), nullable=True),
+        sa.Column("brokerageOrderID", sa.String(255), nullable=True),
+        ...
+    ]
+```
+
+No other statement in `0009`'s `downgrade()` changes: the backfill `INSERT INTO ib_activity (...)` (`:612-617`) already omits these columns from its target list, which is correct and stays that way — there is no surviving source data for them (0009's own `upgrade()` never carried them into the TCF-schema `orders`/`trades` tables it created), so they come back `NULL`, the same "recoverable in schema, not in values" shape DB-5 already documents for its own column (§6 DB-5 "Reversible in schema, not in values").
+
+**Behavior / invariants:**
+
+- **Editing this historical `downgrade()` in place is legitimate for the same reason DB-1's edit is**: this full downgrade path has never executed successfully end-to-end in any environment (it fails before reaching this fix's problem the moment it hits `0006`), so no environment's state depends on the present, incomplete column list.
+- **This is schema repair, not data recovery.** All 23 columns' original values were already unrecoverably discarded by `0009`'s own `upgrade()` (they exist nowhere downstream of it), so this fix cannot and does not restore them — it only makes the reconstructed table's *shape* match what the next revision down the chain (`0006`) requires to run at all. Recorded here so nobody expects a fuller restoration than schema shape.
+- **Scope boundary.** Only `_af_cols` in `0009`'s `downgrade()` changes. `_tcf_cols` (the `ib_trades` reconstruction, `:455-545`) already matches `0009`'s own `_trade_row_cols` schema column-for-column and is not touched. No statement in `0006`, `0009`'s `upgrade()`, or any other revision changes.
+- **Independent of DB-2/DB-3/DB-5.** This unit touches neither the shared `a3f7c1d9e824_0031_schema_format_cleanup.py` revision nor any `app/models/*.py` file, so it has no ordering dependency on W2 and could in principle have run any time after DB-1. It lands after W2 here only because it was discovered while validating DB-1's full-chain criterion post-W2, not because anything requires that order.
+
+**Done when:** from `api-backend/`, against a scratch MySQL database at head `a3f7c1d9e824` (i.e. with DB-1/2/3/5 already applied): `alembic downgrade base` completes with exit code 0 all the way to the schema's root, in particular crossing `f0e1d2c3b4a5_0009` and `c3d4e5f6a7b8_0006` without the `Unknown column` error; `alembic upgrade head` then returns to `a3f7c1d9e824` cleanly. This is DB-1's own full-chain acceptance criterion, now actually achievable — **confirmed empirically on 2026-08-03** against a genuinely re-migrated scratch DB (the shared scratch instance had been found stamped-not-migrated; it was dropped and rebuilt via a real `upgrade head` before this confirmation).
+
+---
+
 ## 7. Frozen seam (from the proposal — verbatim)
 
 ### 7.1 The seam (verbatim from proposal § 4. Cross-layer seam (frozen here) § 4.1)
@@ -750,6 +836,7 @@ Status-code conventions, applied to the outliers listed in Layer 2 C-3:
 | DB-3 | Prefixed keys in the three columns lose exactly their group segment; already-stripped keys and `NULL`s are untouched; `eod_records.file_storage_key` is untouched; re-running the statements changes zero rows; `downgrade()` re-prepends exactly the three prefixes | none |
 | DB-4 | **Withdrawn — no unit, no tests.** The only assertion carrying its intent is negative and belongs to DB-2/DB-3/DB-5's shared migration fixture: after `upgrade()`, `recon_sessions`, `algotrade_orders` and `algotrade_executions` all still exist | none |
 | DB-5 | `client_profiles` ends with a single-column PK on `user_id`, no `id`, no redundant unique key, an intact `fk_client_profiles_user` and an unchanged row count; the inbound-FK pre-check aborts the migration when an inbound FK exists; `downgrade()` restores an `INT AUTO_INCREMENT` `id` PK | none |
+| DB-6 | `alembic downgrade base` from head `a3f7c1d9e824` completes with no MySQL error crossing `f0e1d2c3b4a5_0009` and `c3d4e5f6a7b8_0006`; `alembic upgrade head` then returns to head; all 23 added columns exist on the reconstructed `ib_activity` and are `NULL` (not present as any other value); `0006`'s downgrade successfully partitions rows into `orders`/`trades` afterward | none |
 
 ### 8.3 Test goals (per unit)
 
@@ -787,6 +874,13 @@ Status-code conventions, applied to the outliers listed in Layer 2 C-3:
 - **Invariants:** row count and every non-`id` column value are preserved across `upgrade()`, across `downgrade()`, and across a full `upgrade → downgrade → upgrade` cycle. `user_id` is `NOT NULL` and unique at every point in that cycle, and `fk_client_profiles_user` never exists without a backing index — the ordering property that DB-1 exists to enforce elsewhere applies to this unit's own statements and should be exercised, not assumed. The one thing that is **not** invariant, and must be asserted as such rather than accidentally relied on: `id` values after a `downgrade()` are renumbered from 1 and do not match the originals.
 - **Seam mocks:** none.
 
+#### DB-6
+
+- **Positive:** from a database at head `a3f7c1d9e824` (DB-1/2/3/5 already applied), a full `alembic downgrade base` runs to completion crossing both `f0e1d2c3b4a5_0009` and `c3d4e5f6a7b8_0006` with no MySQL error, and a subsequent `alembic upgrade head` returns to `a3f7c1d9e824`. This full-chain round trip **is** the acceptance criterion, mirroring DB-1's own — a test that only inspects `_af_cols` for the presence of the added column names proves nothing about MySQL and must not be written in its place. Additionally assert, immediately after `0009`'s downgrade step (before `0006`'s downgrade runs), that `ib_activity` has all 23 added columns and that seeded rows report `NULL` for each of them.
+- **Negative:** against the pre-fix `_af_cols` (columns missing), the downgrade across `0009`→`0006` fails with a MySQL error naming one of the missing columns (empirically, `changeInPrice` is the first one MySQL's `SELECT` evaluation reaches, then `holdingPeriodDateTime` once the first 8 are fixed) — a test should demonstrate the pre-fix state actually fails this way, then that the fix does not.
+- **Invariants:** the fix is schema-only for those 23 columns — no test may assert non-`NULL` values for them post-downgrade, since no source data survives `0009`'s own `upgrade()` to populate them; asserting `NULL` is itself the invariant, not a gap to fill. `ib_trades`'s reconstruction (`_tcf_cols`) is unaffected by this fix and should be spot-checked as unchanged (same column count/names as before DB-6). No row in any table changes as a result of DB-6 beyond the two tables `0009`'s own downgrade already rebuilds (`ib_activity`, `ib_trades`) — DB-6 adds columns to one of them, it does not add or change any DML statement.
+- **Seam mocks:** none. DB-6 touches no seam clause; it is pre-existing schema-history repair, structurally the same kind of unit as DB-1.
+
 ### 8.4 Aggregate gate
 
 - All unit tests green is a **local gate** run before commit / PR hand-off (§3.2). A red test blocks the unit. The tests themselves are never committed — `api-backend/.gitignore:28` ignores `/tests/` — so this gate runs on the implementer's or orchestrator's machine, not from repo-committed CI.
@@ -799,7 +893,7 @@ Status-code conventions, applied to the outliers listed in Layer 2 C-3:
 
 **Definition of done (this layer):**
 
-- [ ] DB-1 committed as its own commit; DB-2, DB-3 and DB-5 committed into `api-backend/alembic/versions/a3f7c1d9e824_0031_schema_format_cleanup.py`. Each commit left the branch green.
+- [ ] DB-1 committed as its own commit; DB-2, DB-3 and DB-5 committed into `api-backend/alembic/versions/a3f7c1d9e824_0031_schema_format_cleanup.py`; DB-6 committed as its own commit against `f0e1d2c3b4a5_0009_pc_workspace_db_refactor.py`. Each commit left the branch green.
 - [ ] **DB-4 stayed withdrawn:** the new revision contains no `drop_table`, `recon_sessions` / `algotrade_orders` / `algotrade_executions` all still exist after `upgrade()`, `allocation_model_snapshots` still has its composite PK, and `git diff` shows `api-backend/app/models/recon.py` unmodified.
 - [ ] ORM edits in `app/models/pc.py`, `app/models/onboarding.py`, `app/models/users.py` match the post-migration schema — `alembic revision --autogenerate` against a migrated scratch DB produces an empty revision.
 - [ ] `alembic downgrade base && alembic upgrade head` completes against a scratch MySQL database from this branch's head. This is proposal Goal 9 and the thing DB-1 exists to make possible.
