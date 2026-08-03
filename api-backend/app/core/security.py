@@ -117,7 +117,8 @@ def _init_firebase(settings: Settings) -> None:
         except Exception as exc:
             raise RuntimeError(
                 "Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or "
-                "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local smoke tests."
+                "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local "
+                "smoke tests."
             ) from exc
 
 
