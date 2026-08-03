@@ -79,7 +79,7 @@ def list_models(
     return {"models": service.list_models()}
 
 
-@router.get("/models/{model_id}")
+@router.get("/models/{model_id}", response_model=ModelDetailOut)
 def get_model(
     model_id: uuid.UUID,
     service: Annotated[ModelService, Depends(_get_model_service)],

@@ -74,7 +74,7 @@ def update_period(
     )
 
 
-@router.get("/allocation")
+@router.get("/allocation", response_model=AllocationViewOut, responses={304: {}})
 def get_allocation(
     response: Response,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
