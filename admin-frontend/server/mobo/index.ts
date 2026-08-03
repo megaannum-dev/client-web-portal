@@ -2,9 +2,17 @@
 
 import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
-import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO, PtaHistoryDTO } from "@/lib/mobo/types";
+import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO, PtaHistoryDTO, TradeRecordsViewDTO } from "@/lib/mobo/types";
 
 export type { APIResult };
+
+/** GET the flat trade-records spreadsheet; omitted date = latest day present. */
+export async function getTradeRecords(date?: string): Promise<APIResult<TradeRecordsViewDTO>> {
+  const path = date
+    ? `${ENDPOINTS.MOBO.TRADE_RECORDS}?date=${encodeURIComponent(date)}`
+    : ENDPOINTS.MOBO.TRADE_RECORDS;
+  return apiClient<TradeRecordsViewDTO>(path);
+}
 
 /** GET the view for a trade date; omitted date = most recent run (§4.1). */
 export async function getPostTradeAllocation(date?: string): Promise<APIResult<PtaViewDTO>> {

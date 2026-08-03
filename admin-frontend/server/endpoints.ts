@@ -51,6 +51,7 @@ export const ENDPOINTS = {
     TICKET_STATUS:  (ref: string) => `${RM}/tickets/${encodeURIComponent(ref)}/status`,
   },
   MOBO: {
+    TRADE_RECORDS: `${MOBO}/trade-records`,
     PTA:      `${MOBO}/post-trade-allocation`,
     PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
     PTA_RUN:  `${MOBO}/post-trade-allocation/run`,

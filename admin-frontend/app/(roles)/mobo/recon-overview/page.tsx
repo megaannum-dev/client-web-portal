@@ -78,7 +78,9 @@ export default function MoboDashboardPage() {
   // SINGLE SOURCE: every figure on this page is read from the same bundle the
   // recon screen consumes, so the dashboard and recon never disagree.
   const { settleDay, counters, trades } = loadReconciliation();
-  const { totalBillable } = computeFeeTotals(loadCommissions().rows);
+  // Empty today — the fee seam has no source wired, so this tile reads $0.
+  const { month: feeMonth, rows: feeRows } = loadCommissions();
+  const { totalBillable } = computeFeeTotals(feeRows);
 
   const openBreaks = counters.breaks + counters.unmatched;
   const brokenTrades = trades.filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok");
@@ -117,7 +119,7 @@ export default function MoboDashboardPage() {
         <MetricStat label="Trades to reconcile" value={counters.reconciled.toLocaleString("en-US")} icon={Inbox} />
         <MetricStat label="Auto-matched" value={counters.autoMatchedPct} sub={counters.matched.toLocaleString("en-US")} tone="ok" icon={Link2} />
         <MetricStat label="Open breaks" value={openBreaks} sub={`${counters.breaks} field · ${counters.unmatched} unmatched`} tone="warn" icon={Unlink} onClick={goRecon} />
-        <MetricStat label="Fees billable · May" value={fmtFeeShort(totalBillable)} sub="management + incentive" icon={Receipt} onClick={goCommissions} />
+        <MetricStat label={`Fees billable · ${feeMonth}`} value={fmtFeeShort(totalBillable)} sub="management + incentive" icon={Receipt} onClick={goCommissions} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
