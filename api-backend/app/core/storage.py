@@ -1,10 +1,13 @@
-"""BE-1 — File storage adapter.
+"""BE-5 — File storage adapter + the ``Bucket`` registry.
 
-The DB stores only opaque ``storage_key`` strings.  Swapping LocalStorage →
-NasStorage requires changes only here — nothing else in the feature package
-changes.
+The DB stores only opaque ``storage_key`` strings, always relative to a
+single bucket. Swapping ``LocalStorage`` -> ``NasStorage`` requires changes
+only here — nothing in a feature package changes.
 
 Active implementation is chosen by ``STORAGE_BACKEND`` (default: ``local``).
+
+Imports only ``app.core.config`` + stdlib — never a feature package
+(``app.libs...``). See proposal seam §7.1(b).
 """
 
 from __future__ import annotations
@@ -12,10 +15,21 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime, timezone
+from enum import StrEnum
+from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO, NamedTuple, Protocol
 
 from app.core.config import get_settings
+
+
+class Bucket(StrEnum):
+    MARKETING = "marketing"  # model_materials.storage_key
+    KYC = "kyc"  # onboarding_documents.storage_key
+    CONTACT_LOG = "contact_log"  # client_contact_logs.doc_storage_key
+    REPORTS = "reports"  # eod_records.file_storage_key  (EoD + EoM)
+    LEGAL = "legal"  # read-only drop zone, no metadata table
+    STATEMENTS = "statements"  # read-only drop zone, no metadata table
 
 
 class StoredFile(NamedTuple):
@@ -35,7 +49,7 @@ class FileStorage(Protocol):
         content_type: str | None = None,
         subdir: str | None = None,
     ) -> str:
-        """Persist *stream* and return an opaque storage_key."""
+        """Persist *stream* and return an opaque, bucket-relative storage_key."""
         ...
 
     def open(self, storage_key: str) -> BinaryIO:
@@ -49,7 +63,7 @@ class FileStorage(Protocol):
 
 
 class LocalStorage:
-    """Writes files to a configured filesystem mount (``STORAGE_ROOT``)."""
+    """Writes files to a configured filesystem mount — one root per bucket."""
 
     def __init__(self, root: str | os.PathLike[str]) -> None:
         self._root = Path(root)
@@ -133,11 +147,18 @@ class NasStorage:
         raise NotImplementedError("NasStorage is not yet configured")
 
 
-def get_storage() -> FileStorage:
-    """Return the active FileStorage implementation based on config."""
-    settings = get_settings()
-    backend = settings.storage_backend.lower()
-    if backend == "nas":
+def _bucket_root(bucket: Bucket) -> Path:
+    """Per-bucket override if set, else `{storage_root}/{bucket.value}`.
+    The setting name is `storage_root_{bucket.value}` for all six — no mapping table."""
+    s = get_settings()
+    override = getattr(s, f"storage_root_{bucket.value}")
+    return Path(override) if override else Path(s.storage_root) / bucket.value
+
+
+@lru_cache(maxsize=None)
+def get_storage(bucket: Bucket) -> FileStorage:
+    """The active FileStorage for one bucket. Cached per bucket, so each root is
+    mkdir-ed exactly once per process (LocalStorage.__init__)."""
+    if get_settings().storage_backend.lower() == "nas":
         return NasStorage()
-    # Default: local
-    return LocalStorage(settings.storage_root)
+    return LocalStorage(_bucket_root(bucket))
