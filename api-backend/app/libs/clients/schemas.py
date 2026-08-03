@@ -36,6 +36,7 @@ class ClientListItemOut(BaseModel):
     # read straight off client_profiles; see ClientProfilePatch below for the
     # writable subset of these.
     occupation: str | None = None
+    date_of_birth: date | None = None
     anniversary: date | None = None
     spouse_name: str | None = None
     children: str | None = None
