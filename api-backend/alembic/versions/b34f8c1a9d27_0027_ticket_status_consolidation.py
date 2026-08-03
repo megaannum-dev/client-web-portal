@@ -19,6 +19,11 @@ the trade record it produces:
 downgrade() drops the new column/constraints but does NOT attempt to restore
 the REPLIED/CLOSED split -- that distinction is destroyed by the upgrade
 backfill and cannot be recovered.
+
+Note on editing this historical downgrade() in place (proposal 020 / DB-1):
+this is legitimate only because this downgrade() has never executed
+successfully in any environment, so no environment's state depends on its
+present (broken) statement ordering.
 """
 
 from typing import Sequence, Union
@@ -59,11 +64,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_client_tickets_linked_allotment_id", "client_tickets", type_="unique"
-    )
+    # MySQL refuses to drop an index that a foreign key still depends on
+    # (OperationalError 1553, "Cannot drop index ... needed in a foreign key
+    # constraint"), so the FK is released before the UNIQUE that backs it.
+    # Same ordering as 29a586aaf08b / 0014:156-157.
     op.drop_constraint(
         "fk_client_tickets_linked_allotment_id", "client_tickets", type_="foreignkey"
+    )
+    op.drop_constraint(
+        "uq_client_tickets_linked_allotment_id", "client_tickets", type_="unique"
     )
     op.drop_column("client_tickets", "linked_allotment_id")
 
