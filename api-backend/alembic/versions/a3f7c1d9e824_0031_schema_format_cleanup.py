@@ -188,6 +188,70 @@ def upgrade() -> None:
         )
     # --- end DB-2 -------------------------------------------------------------
 
+    # --- DB-3 -----------------------------------------------------------------
+    # Bucket-relative storage keys (proposal 020, B-2). Each UPDATE is
+    # LIKE-guarded, so it is idempotent and safe to re-run after a partial
+    # failure. eod_records.file_storage_key is NOT touched: EoD writes
+    # "{YYYY-MM}/" straight at the shared root (app/libs/eod/service.py:130-135),
+    # so its values are already bucket-relative -- touching it would corrupt
+    # the one column that was already correct.
+    db3 = {}
+    db3["model_materials"] = conn.execute(
+        sa.text(
+            "UPDATE model_materials "
+            "SET storage_key = SUBSTRING(storage_key, LENGTH('models_mrkt_materials/') + 1) "
+            "WHERE storage_key LIKE 'models_mrkt_materials/%'"
+        )
+    ).rowcount
+    db3["onboarding_documents"] = conn.execute(
+        sa.text(
+            "UPDATE onboarding_documents "
+            "SET storage_key = SUBSTRING(storage_key, LENGTH('client_kyc_docs/') + 1) "
+            "WHERE storage_key LIKE 'client_kyc_docs/%'"
+        )
+    ).rowcount
+    db3["client_contact_logs"] = conn.execute(
+        sa.text(
+            "UPDATE client_contact_logs "
+            "SET doc_storage_key = SUBSTRING(doc_storage_key, LENGTH('client_contact_logs/') + 1) "
+            "WHERE doc_storage_key LIKE 'client_contact_logs/%'"
+        )
+    ).rowcount
+    for table, n in db3.items():
+        logger.info("0031 DB-3  %s keys stripped: %s", table, n)
+
+    _require(
+        conn.execute(
+            sa.text(
+                "SELECT COUNT(*) FROM model_materials "
+                "WHERE storage_key LIKE 'models_mrkt_materials/%'"
+            )
+        ).scalar()
+        == 0,
+        "model_materials still holds prefixed storage_key values",
+    )
+    _require(
+        conn.execute(
+            sa.text(
+                "SELECT COUNT(*) FROM onboarding_documents "
+                "WHERE storage_key LIKE 'client_kyc_docs/%'"
+            )
+        ).scalar()
+        == 0,
+        "onboarding_documents still holds prefixed storage_key values",
+    )
+    _require(
+        conn.execute(
+            sa.text(
+                "SELECT COUNT(*) FROM client_contact_logs "
+                "WHERE doc_storage_key LIKE 'client_contact_logs/%'"
+            )
+        ).scalar()
+        == 0,
+        "client_contact_logs still holds prefixed doc_storage_key values",
+    )
+    # --- end DB-3 -------------------------------------------------------------
+
 
 def downgrade() -> None:
     # --- DB-2 ---------------------------------------------------------------
@@ -224,3 +288,23 @@ def downgrade() -> None:
             comment=None,
         )
     # --- end DB-2 -------------------------------------------------------------
+
+    # --- DB-3 -----------------------------------------------------------------
+    # Re-prepend the same three prefixes. NOT LIKE-guarded so rows that
+    # already carry the prefix (idempotent retry) are not double-prefixed.
+    # NULL keys stay NULL both ways -- LIKE/NOT LIKE never matches NULL, so
+    # the explicit IS NOT NULL guard is what actually excludes them.
+    op.execute(
+        "UPDATE model_materials SET storage_key = CONCAT('models_mrkt_materials/', storage_key) "
+        "WHERE storage_key IS NOT NULL AND storage_key NOT LIKE 'models_mrkt_materials/%'"
+    )
+    op.execute(
+        "UPDATE onboarding_documents SET storage_key = CONCAT('client_kyc_docs/', storage_key) "
+        "WHERE storage_key IS NOT NULL AND storage_key NOT LIKE 'client_kyc_docs/%'"
+    )
+    op.execute(
+        "UPDATE client_contact_logs "
+        "SET doc_storage_key = CONCAT('client_contact_logs/', doc_storage_key) "
+        "WHERE doc_storage_key IS NOT NULL AND doc_storage_key NOT LIKE 'client_contact_logs/%'"
+    )
+    # --- end DB-3 -------------------------------------------------------------
