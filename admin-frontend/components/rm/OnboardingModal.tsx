@@ -79,7 +79,7 @@ export function OnboardingModal({
 }: {
   onClose: () => void;
 } & Pick<UseOnboardingBoardResult, "startOnboarding" | "uploadDocument" | "fetchRmOptions" | "fetchDocSpecs">) {
-  const { data: models } = useModels();
+  const { data: models, error: modelsError } = useModels();
   const liveModels = (models ?? []).filter((m) => m.status === "live");
   const [rmOptions, setRmOptions] = useState<RmOptionDTO[]>([]);
   const [docSpecs, setDocSpecs] = useState<DocSpecDTO[]>([]);
@@ -362,6 +362,9 @@ export function OnboardingModal({
                 <option value="" disabled>Select a model…</option>
                 {liveModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
+              {modelsError && (
+                <span className="text-[12.5px] text-primary">Failed to load models: {modelsError}</span>
+              )}
             </ObField>
           </div>
           <ObField label="Model Unit" required>
