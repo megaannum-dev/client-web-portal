@@ -16,6 +16,7 @@ import app.models.reports as _models_reports  # noqa: F401 — registers reports
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
 from app.core.database import Base, engine
+from app.core.errors import GENERIC_500
 from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
@@ -23,7 +24,6 @@ from app.libs.auth.router import router as auth_router
 from app.libs.client_portal.router import router as client_portal_router
 from app.libs.client_portal.service import assert_upload_window_valid
 from app.libs.clients.router import router as clients_router
-from app.libs.eod.router import router as eod_router
 from app.libs.onboarding.router import router as onboarding_router
 from app.libs.onboarding.scheduler import start_scheduler as start_onboarding_scheduler
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
@@ -36,8 +36,6 @@ from app.libs.users.router import router as users_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-GENERIC_500 = "Internal server error."
 
 
 @asynccontextmanager
@@ -125,7 +123,6 @@ app.include_router(post_trade_allocation_router, prefix="/api")
 app.include_router(clients_router, prefix="/api")  # /api/rm/…
 app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
-app.include_router(eod_router, prefix="/api")
 app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes

@@ -12,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials
 
 from app.core.config import Settings, get_settings
+from app.core.errors import GENERIC_500
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +132,9 @@ def verify_firebase_id_token_string(id_token: str | None, settings: Settings) ->
     try:
         _init_firebase(settings)
     except RuntimeError as exc:
+        logger.exception("Firebase Admin SDK initialization failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_500
         ) from exc
     try:
         return auth.verify_id_token(
@@ -160,8 +162,9 @@ def verify_firebase_token(
     try:
         _init_firebase(settings)
     except RuntimeError as exc:
+        logger.exception("Firebase Admin SDK initialization failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_500
         ) from exc
     try:
         return auth.verify_id_token(
