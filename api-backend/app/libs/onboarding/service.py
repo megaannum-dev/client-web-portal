@@ -13,7 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.storage import Bucket, get_storage
+from app.core.storage import Bucket, client_folder, get_storage
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -232,6 +232,18 @@ class OnboardingService:
             return options
         return [o for o in options if o.uid == caller_uid]
 
+    def _client_folder(self, user_id: uuid.UUID, *, bucket: Bucket) -> str:
+        """BE-8: the one per-client folder name, shared by the KYC and
+        contact-log call sites -- both route through app.core.storage.client_folder
+        so the same client lands in the same-named directory in either bucket."""
+        profile = (
+            self.db.query(ClientProfile).filter(ClientProfile.user_id == user_id).one_or_none()
+        )
+        user = self.db.get(User, user_id)
+        assert user is not None
+        name = (profile.name if profile else None) or ""
+        return client_folder(name, user.firebase_uid, bucket=bucket)
+
     def upload_document(
         self,
         onboarding_id: uuid.UUID,
@@ -253,14 +265,11 @@ class OnboardingService:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Document cannot be reuploaded in its current status"
             )
-        # ponytail: subdir still carries the "client_kyc_docs/" group prefix --
-        # client_folder(name, uid, bucket=...) (BE-8, next wave) is what drops
-        # it; this unit only repoints the bucket + import, per its contract.
         storage_key = get_storage(Bucket.KYC).save(
             stream,
             suggested_name=filename,
             content_type=content_type,
-            subdir=f"client_kyc_docs/{self.repo.client_folder_name(onboarding)}",
+            subdir=self._client_folder(onboarding.user_id, bucket=Bucket.KYC),
         )
         self.repo.upload_document(
             doc,
@@ -910,14 +919,11 @@ class OnboardingService:
         doc_storage_key = doc_filename = doc_content_type = None
         doc_size_bytes = None
         if file is not None:
-            # ponytail: subdir still carries the "client_contact_logs/" group
-            # prefix + raw client UUID -- client_folder(...) (BE-8) unifies
-            # this with the KYC slug convention; not this unit's job.
             doc_storage_key = get_storage(Bucket.CONTACT_LOG).save(
                 file.file,
                 suggested_name=file.filename or "upload",
                 content_type=file.content_type,
-                subdir=f"client_contact_logs/{client_id}",
+                subdir=self._client_folder(client_id, bucket=Bucket.CONTACT_LOG),
             )
             doc_filename = fix_mojibake_filename(file.filename)
             doc_content_type = file.content_type

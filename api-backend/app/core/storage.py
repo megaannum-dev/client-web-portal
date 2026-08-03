@@ -13,6 +13,7 @@ Imports only ``app.core.config`` + stdlib — never a feature package
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -172,3 +173,24 @@ def get_storage(bucket: Bucket) -> FileStorage:
     if get_settings().storage_backend.lower() == "nas":
         return NasStorage()
     return LocalStorage(_bucket_root(bucket))
+
+
+def client_folder(name: str, uid: str, *, bucket: Bucket) -> str:
+    """The per-client directory name inside *bucket*: `{Slug_Name}_{uid[-8:]}`.
+
+    RESOLVE-THEN-CREATE (D-10, BE-8): glob `*_{uid[-8:]}` in the bucket root
+    first and reuse an existing directory if one is found. A client rename
+    therefore never strands the old folder or splits a client across two
+    directories; only a client with no folder yet gets a freshly-slugged name.
+
+    The uid suffix is the TRAILING 8 chars: real firebase uids are random
+    throughout, but any sequential/test uid scheme is distinguished at the end
+    (the reason recorded at the former onboarding/repository.py:274-276).
+    """
+    suffix = uid[-8:]
+    root = _bucket_root(bucket)
+    for existing in sorted(root.glob(f"*_{suffix}")):
+        if existing.is_dir():
+            return existing.name
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_") or "client"
+    return f"{slug}_{suffix}"
