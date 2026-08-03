@@ -20,6 +20,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO, NamedTuple, Protocol
 
+from fastapi import HTTPException, status
+
 from app.core.config import get_settings
 
 
@@ -86,9 +88,17 @@ class LocalStorage:
             fh.write(stream.read())
         return key
 
-    def open(self, storage_key: str) -> BinaryIO:  # type: ignore[return]
-        path = self._root / storage_key
-        return path.open("rb")  # caller is responsible for closing
+    def _resolve(self, storage_key: str) -> Path:
+        """Resolve a bucket-relative key to an absolute path, refusing anything
+        that escapes the bucket root. TRUST BOUNDARY — not simplified away."""
+        root = self._root.resolve()
+        target = (root / storage_key).resolve()
+        if target != root and root not in target.parents:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown storage key")
+        return target
+
+    def open(self, storage_key: str) -> BinaryIO:
+        return self._resolve(storage_key).open("rb")  # caller is responsible for closing
 
     def list(self, subdir: str) -> list[StoredFile]:
         base = self._root / subdir
