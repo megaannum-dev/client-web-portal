@@ -8,13 +8,13 @@ from typing import BinaryIO
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.storage import Bucket, get_storage
 from app.libs.eod.pdf import get_renderer
 from app.libs.eod.presenter import merge_day_view
 from app.libs.eod.repository import EodRepository
 from app.libs.reconciliation.dtos import ReconciliationResult
 from app.libs.reconciliation.engine import reconcile
 from app.libs.reconciliation.formatting import fmt_usd
-from app.libs.trade_models.storage import get_storage
 from app.models.eod import EodLeg, EodRecord
 from app.models.eod import EodStatus as DbEodStatus
 from app.schemas.eod import EodOutcome, EodReportViewOut, EodStatus
@@ -128,7 +128,7 @@ class EodService:
         view = self.build_day_view(trade_date_iso)
         pdf_bytes = get_renderer().render(view)
         month_subdir = trade_date.strftime("%Y-%m")
-        storage_key = get_storage().save(
+        storage_key = get_storage(Bucket.REPORTS).save(
             BytesIO(pdf_bytes),
             suggested_name=f"EoD-{trade_date_iso}.pdf",
             content_type="application/pdf",
@@ -200,7 +200,7 @@ class EodService:
         record = self._resolve_record(trade_date_iso)
         if record.status != DbEodStatus.SIGNED or record.file_storage_key is None:
             raise HTTPException(status.HTTP_409_CONFLICT, "This day has not been signed off yet")
-        stream = get_storage().open(record.file_storage_key)
+        stream = get_storage(Bucket.REPORTS).open(record.file_storage_key)
         filename = f"EoD-{record.trade_date.isoformat()}.pdf"
         return stream, filename
 

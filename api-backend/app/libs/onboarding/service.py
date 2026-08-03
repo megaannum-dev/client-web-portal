@@ -13,6 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.storage import Bucket, get_storage
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -39,7 +40,6 @@ from app.libs.onboarding.schemas import (
     TransactionDetailRequest,
     VerdictReq,
 )
-from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
 
 
@@ -253,7 +253,10 @@ class OnboardingService:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Document cannot be reuploaded in its current status"
             )
-        storage_key = get_storage().save(
+        # ponytail: subdir still carries the "client_kyc_docs/" group prefix --
+        # client_folder(name, uid, bucket=...) (BE-8, next wave) is what drops
+        # it; this unit only repoints the bucket + import, per its contract.
+        storage_key = get_storage(Bucket.KYC).save(
             stream,
             suggested_name=filename,
             content_type=content_type,
@@ -481,7 +484,7 @@ class OnboardingService:
         doc = self._require_document(onboarding_id, doc_type)
         if doc.storage_key is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No file uploaded for this document")
-        stream = get_storage().open(doc.storage_key)
+        stream = get_storage(Bucket.KYC).open(doc.storage_key)
         return stream, doc.filename or doc.doc_type, doc.content_type
 
     def download_all_documents(self, onboarding_id: uuid.UUID) -> tuple[BinaryIO, str]:
@@ -494,7 +497,7 @@ class OnboardingService:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for doc in docs:
                 assert doc.storage_key is not None  # filtered above
-                with get_storage().open(doc.storage_key) as fh:
+                with get_storage(Bucket.KYC).open(doc.storage_key) as fh:
                     zf.writestr(f"{doc.doc_type}_{doc.filename or doc.doc_type}", fh.read())
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
@@ -887,7 +890,7 @@ class OnboardingService:
         log = self.repo.get_contact_log(client_id, log_id)
         if log is None or log.doc_storage_key is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No file attached to this contact log")
-        stream = get_storage().open(log.doc_storage_key)
+        stream = get_storage(Bucket.CONTACT_LOG).open(log.doc_storage_key)
         return stream, log.doc_filename or "attachment", log.doc_content_type
 
     def create_contact_log(
@@ -907,7 +910,10 @@ class OnboardingService:
         doc_storage_key = doc_filename = doc_content_type = None
         doc_size_bytes = None
         if file is not None:
-            doc_storage_key = get_storage().save(
+            # ponytail: subdir still carries the "client_contact_logs/" group
+            # prefix + raw client UUID -- client_folder(...) (BE-8) unifies
+            # this with the KYC slug convention; not this unit's job.
+            doc_storage_key = get_storage(Bucket.CONTACT_LOG).save(
                 file.file,
                 suggested_name=file.filename or "upload",
                 content_type=file.content_type,

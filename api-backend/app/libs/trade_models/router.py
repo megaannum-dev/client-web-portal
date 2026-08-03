@@ -13,10 +13,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, sta
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.storage import Bucket, FileStorage, get_storage
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
 from app.libs.trade_models.service import ModelService
-from app.libs.trade_models.storage import FileStorage, get_storage
 from app.libs.trade_models.schemas import (
     ChangeOut,
     MaterialOut,
@@ -39,9 +39,13 @@ router = APIRouter(prefix="/pc", tags=["pc"])
 # ---------------------------------------------------------------------------
 
 
+def _marketing_storage() -> FileStorage:
+    return get_storage(Bucket.MARKETING)
+
+
 def _get_model_service(
     db: Annotated[Session, Depends(get_db)],
-    storage: Annotated[FileStorage, Depends(get_storage)],
+    storage: Annotated[FileStorage, Depends(_marketing_storage)],
 ) -> ModelService:
     return ModelService(db, storage)
 

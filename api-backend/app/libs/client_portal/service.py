@@ -12,7 +12,7 @@ from typing import BinaryIO, Literal
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.storage import Bucket, StoredFile, get_storage
 from app.libs.client_portal.repository import ClientPortalRepository
 from app.libs.client_portal.schemas import (
     ClientProfileDTO,
@@ -39,7 +39,6 @@ from app.libs.onboarding.service import (
     _EDITABLE_STATUSES,
     OnboardingService,
 )
-from app.libs.trade_models.storage import StoredFile, get_storage
 from app.models.onboarding import (
     AllotRdmpStatus,
     ClientAllotmentRedemption,
@@ -53,6 +52,7 @@ from app.models.users import AdminRole, ClientProfile, User
 
 _PERIOD_RE = re.compile(r"^(\d{4}-\d{2})[_-]")
 _SCOPES = {"legal", "statements"}
+_SCOPE_BUCKET: dict[str, Bucket] = {"legal": Bucket.LEGAL, "statements": Bucket.STATEMENTS}
 
 _TERMINAL = {TicketStatus.RESOLVED, TicketStatus.DECLINED}
 _FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
@@ -113,7 +113,6 @@ class ClientPortalService:
         self.repo = ClientPortalRepository(db)
         self.onboarding_repo = OnboardingRepository(db)
         self.onboarding = OnboardingService(db)  # C-6/C-7 delegation target
-        self._settings = get_settings()
 
     # ---------- Profile (BE-2) ----------
     def _require_profile(self, user_id: uuid.UUID) -> ClientProfile:
@@ -265,33 +264,43 @@ class ClientPortalService:
         material = self.repo.latest_material(model_id)
         if material is None or material.storage_key is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No material uploaded for this model")
-        return get_storage().open(material.storage_key), material.filename, material.content_type
+        return (
+            get_storage(Bucket.MARKETING).open(material.storage_key),
+            material.filename,
+            material.content_type,
+        )
 
     # ---------- Documents (BE-7) ----------
-    def _scope_subdir(self, scope: str, user_id: uuid.UUID) -> str:
+    def _scope_target(self, scope: str, user_id: uuid.UUID) -> tuple[Bucket, str]:
+        """(bucket, within-bucket subdir) for a document scope.
+        legal      -> (LEGAL, "")                      # the bucket root IS the drop zone
+        statements -> (STATEMENTS, "<client folder>")  # or "__no_cycle__" -> lists empty
+        """
         if scope not in _SCOPES:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown scope: {scope!r}")
+        bucket = _SCOPE_BUCKET[scope]
         if scope == "legal":
-            return self._settings.legal_docs_subdir
+            return bucket, ""
         onboarding = self.onboarding_repo.get_by_user_id(user_id)
         if onboarding is None:
-            return f"{self._settings.client_statements_subdir}/__no_cycle__"  # lists as empty
+            return bucket, "__no_cycle__"  # lists as empty
         folder = self.onboarding_repo.client_folder_name(onboarding)
-        return f"{self._settings.client_statements_subdir}/{folder}"
+        return bucket, folder
 
     def list_documents(self, scope: str, *, user_id: uuid.UUID) -> list[StoredFileDTO]:
-        subdir = self._scope_subdir(scope, user_id)
-        return [self._to_stored_file_dto(f, scope) for f in get_storage().list(subdir)]
+        bucket, subdir = self._scope_target(scope, user_id)
+        return [self._to_stored_file_dto(f, scope) for f in get_storage(bucket).list(subdir)]
 
     def download_document(
         self, scope: str, key: str, *, user_id: uuid.UUID
     ) -> tuple[BinaryIO, str, str | None]:
-        subdir = self._scope_subdir(scope, user_id)
-        listing = get_storage().list(subdir)  # MANDATORY (C-4): re-list, don't trust the key string
+        bucket, subdir = self._scope_target(scope, user_id)
+        # MANDATORY (C-4): re-list, don't trust the key string.
+        listing = get_storage(bucket).list(subdir)
         match = next((f for f in listing if f.key == key), None)
         if match is None:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not authorized for this document")
-        return get_storage().open(match.key), match.filename, None
+        return get_storage(bucket).open(match.key), match.filename, None
 
     def _to_stored_file_dto(self, f: StoredFile, scope: str) -> StoredFileDTO:
         period = None
