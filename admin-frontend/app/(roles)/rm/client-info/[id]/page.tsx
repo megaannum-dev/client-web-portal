@@ -272,7 +272,7 @@ export default function ClientDetailPage() {
             <InfoField label="Registered Address" value={data.address ?? "—"} />
             <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
             <InfoField label="ID Info" value={[data.idType, data.idNumber].filter(Boolean).join(" ") || "—"} />
-            <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
+            <InfoField label="Date of Birth" value={data.dateOfBirth ?? "—"} />
             <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
             <InfoField label="Authorized Person" value={data.authorizedByName ?? "—"} />
           </div>
