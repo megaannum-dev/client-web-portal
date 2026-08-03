@@ -27,6 +27,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
+# decimal fraction: 0.020000 = 2% (proposal 020, DB-2) -- frozen seam § 4.1(a)
+_FEE_COMMENT = "decimal fraction: 0.020000 = 2% (proposal 020, DB-2)"
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -89,8 +92,12 @@ class ClientOnboarding(Base):
         Uuid(native_uuid=False), ForeignKey("models.id"), nullable=False
     )
     multiplier: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
-    mgmt_fee: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
-    incentive_fee: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
+    mgmt_fee: Mapped[Decimal | None] = mapped_column(
+        Numeric(9, 6), nullable=True, comment=_FEE_COMMENT
+    )
+    incentive_fee: Mapped[Decimal | None] = mapped_column(
+        Numeric(9, 6), nullable=True, comment=_FEE_COMMENT
+    )
     ibhk_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sw_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # --- widened 2026-07-20 (D-9): genuinely new columns, no prior home anywhere ---
