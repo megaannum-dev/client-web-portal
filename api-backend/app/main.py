@@ -1,8 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app.models.access as _models_access  # noqa: F401 — registers access tables with Base.metadata
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
@@ -31,6 +36,8 @@ from app.libs.users.router import router as users_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+GENERIC_500 = "Internal server error."
 
 
 @asynccontextmanager
@@ -63,6 +70,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Normalize `detail` to a string; lift a dict's slug into `code`.
+    The string case (116 of 117 raise sites) is passed through UNTOUCHED."""
+    detail: Any = exc.detail
+    body: dict[str, Any]
+    if isinstance(detail, str):
+        body = {"detail": detail}
+    elif isinstance(detail, dict):
+        inner = detail.get("detail")
+        body = {"detail": str(inner) if inner is not None else GENERIC_500}
+        code = detail.get("code") or (inner if isinstance(inner, str) else None)
+        if code:
+            body["code"] = str(code)
+    else:
+        body = {"detail": str(detail)}
+    return JSONResponse(body, status_code=exc.status_code, headers=getattr(exc, "headers", None))
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Flatten Pydantic's list-of-objects into a one-line string; keep the raw
+    list under `errors` for any client that wants field-level detail."""
+    errors = jsonable_encoder(exc.errors())
+    first = errors[0] if errors else None
+    if first is not None:
+        loc = ".".join(str(p) for p in first.get("loc", [])[1:]) or "request"
+        detail = f"{loc}: {first.get('msg', 'invalid value')}"
+    else:
+        detail = "Invalid request."
+    return JSONResponse(
+        {"detail": detail, "code": "validation_error", "errors": errors}, status_code=422
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Fixed generic message — never str(exc) (§4.1(c), and B-1)."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse({"detail": GENERIC_500}, status_code=500)
+
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
