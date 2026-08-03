@@ -24,6 +24,7 @@ import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
+import { saveBase64File } from "@/lib/download";
 
 const COMPLIANCE_THRESHOLD = 300000;
 
@@ -39,15 +40,6 @@ function resolveDeepLink(params: URLSearchParams): { tab: CoTab; openObId: strin
     openObId: params.get("openObId"),
     openCrId: params.get("openCrId"),
   };
-}
-
-// Rehydrate a base64 download payload into a Blob and trigger a save dialog
-// (mirrors app/(roles)/pc/model-management/page.tsx's saveBase64File).
-function saveBase64File(filename: string, contentType: string, base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 function ComplianceReviewContent() {

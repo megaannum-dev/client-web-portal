@@ -11,6 +11,7 @@ import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
 import { fmtTimestamp } from "@/lib/pc/format";
+import { saveBase64File } from "@/lib/download";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -83,17 +84,6 @@ function KanbanCard({ item, selected, onClick }: { item: KycBoardClient; selecte
 const NON_BLOCKING_DOC_STATUSES = new Set<DocStatus>(["uploaded", "verified", "in_review"]);
 
 type DownloadResult = { success: boolean; error?: string; filename?: string; contentType?: string; base64?: string };
-
-// Rehydrate a base64 download payload into a Blob and trigger a save dialog
-// (mirrors app/(roles)/compliance/review/page.tsx's saveBase64File — cookie
-// token can't ride a plain <a href>, so every download in this codebase is a
-// base64 proxy decoded client-side instead).
-function saveBase64File(filename: string, contentType: string, base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
 
 function KycPanel({
   item, onClose, onOpenProfile, onUploadDoc, onSubmitAll, onDownload, onDownloadAll,

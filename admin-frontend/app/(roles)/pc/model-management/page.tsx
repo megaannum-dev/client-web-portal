@@ -16,17 +16,10 @@ import { ModelDetailPanel } from "@/components/pc/model-management/ModelDetailPa
 import { CreateModelForm, type NewModelDraft } from "@/components/pc/model-management/CreateModelForm";
 import { EditModelForm } from "@/components/pc/model-management/EditModelForm";
 import { CalcModal } from "@/components/pc/model-management/CalcModal";
+import { saveBase64File } from "@/lib/download";
 
 type Layout = "grid" | "table";
 type Tab = "overview" | "symbols" | "materials" | "changes";
-
-// Rehydrate a base64 download payload into a Blob and trigger a save dialog.
-function saveBase64File(filename: string, contentType: string, base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
 
 const TOGGLES: [Layout, typeof LayoutGrid, string][] = [
   ["grid", LayoutGrid, "Card view"],
