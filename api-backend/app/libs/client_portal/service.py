@@ -254,12 +254,17 @@ class ClientPortalService:
             for m in self.repo.recommended_models(set() if include_subscribed else subscribed_ids)
         ]
 
-    def model_material_stream(self, model_id: uuid.UUID) -> tuple[BinaryIO, str, str | None]:
+    def model_material_stream(
+        self, model_id: uuid.UUID, *, user_id: uuid.UUID
+    ) -> tuple[BinaryIO, str, str | None]:
+        # Security boundary (BE-15) -- gate lives here, not the router, so any
+        # future caller inherits it. Same 404 as the not-found case below so an
+        # unentitled client cannot distinguish "no material" from "no access".
+        if not self.repo.has_subscription(user_id, model_id):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No material uploaded for this model")
         material = self.repo.latest_material(model_id)
         if material is None or material.storage_key is None:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, "No material uploaded for this model"
-            )
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No material uploaded for this model")
         return get_storage().open(material.storage_key), material.filename, material.content_type
 
     # ---------- Documents (BE-7) ----------
