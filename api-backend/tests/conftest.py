@@ -61,7 +61,7 @@ class FakeIdentityService:
     Superset of the three former per-package copies:
 
         __init__(self, settings=None, *, existing=None, fail_ensure=False, fail_ensure_exc=None)
-        ensure_identity(email) -> tuple[str, bool]     # adopt (created=False) vs mint
+        ensure_identity(email, password=None) -> tuple[str, bool]  # adopt (created=False) vs mint
         delete_user(uid) -> None
         generate_set_password_link(email) -> str       # mirrors identity/service.py:66
         fail_next_ensure(exc) -> None                  # one-shot failure, from the staff copy
@@ -96,7 +96,7 @@ class FakeIdentityService:
     def fail_next_ensure(self, exc: Exception) -> None:
         self._one_shot_fail = exc
 
-    def ensure_identity(self, email: str) -> tuple[str, bool]:
+    def ensure_identity(self, email: str, password: str | None = None) -> tuple[str, bool]:
         self.ensure_identity_calls.append(email)
         if self._one_shot_fail is not None:
             exc, self._one_shot_fail = self._one_shot_fail, None

@@ -79,9 +79,12 @@ def _enroll(session, *, role, email="new@example.com", identity=None, caller_uid
     identity = identity or FakeIdentityService()
     service = StaffService(session)
     with patch("app.libs.staff.service.set_portal_claims") as claim_mock:
-        user, invite_link = service.enroll(
-            caller_uid=caller_uid, email=email, name="New Staff", role=role,
-            phone_number="555-0100", identity=identity, settings=Settings(),
+        user, invite_link, _override_count, _password = service.enroll(
+            caller_uid=caller_uid, caller_name="Super Admin", email=email,
+            name="New Staff", role=role, phone_number="555-0100",
+            department=None, start_date=None, address=None,
+            overrides=[], notify=True, password="Sup3rSecret!1",
+            identity=identity, settings=Settings(firebase_auth_disabled=True),
         )
     return service, identity, claim_mock, user, invite_link
 
@@ -120,8 +123,11 @@ def test_enroll_firebase_fail_leaves_zero_db_rows(session):
     with patch("app.libs.staff.service.set_portal_claims"):
         with pytest.raises(RuntimeError, match="firebase down"):
             service.enroll(
-                caller_uid="super-admin-uid", email="fails@example.com", name="Nope",
-                role=AdminRole.RM, phone_number=None, identity=identity, settings=Settings(),
+                caller_uid="super-admin-uid", caller_name="Super Admin",
+                email="fails@example.com", name="Nope", role=AdminRole.RM,
+                phone_number=None, department=None, start_date=None, address=None,
+                overrides=[], notify=True, password="Sup3rSecret!1",
+                identity=identity, settings=Settings(),
             )
 
     assert session.query(User).count() == 0
@@ -136,8 +142,11 @@ def test_enroll_commit_fail_on_newly_created_identity_triggers_compensating_dele
          patch.object(session, "commit", side_effect=RuntimeError("db down")):
         with pytest.raises(RuntimeError, match="db down"):
             service.enroll(
-                caller_uid="super-admin-uid", email="orphan@example.com", name="Orphan",
-                role=AdminRole.RM, phone_number=None, identity=identity, settings=Settings(),
+                caller_uid="super-admin-uid", caller_name="Super Admin",
+                email="orphan@example.com", name="Orphan", role=AdminRole.RM,
+                phone_number=None, department=None, start_date=None, address=None,
+                overrides=[], notify=True, password="Sup3rSecret!1",
+                identity=identity, settings=Settings(),
             )
 
     # the uid minted by ensure_identity (created=True) is exactly the one compensated away
@@ -158,8 +167,11 @@ def test_enroll_commit_fail_on_adopted_identity_never_calls_delete(session):
          patch.object(session, "commit", side_effect=RuntimeError("db down")):
         with pytest.raises(RuntimeError, match="db down"):
             service.enroll(
-                caller_uid="super-admin-uid", email="adopted@example.com", name="Adopted",
-                role=AdminRole.RM, phone_number=None, identity=identity, settings=Settings(),
+                caller_uid="super-admin-uid", caller_name="Super Admin",
+                email="adopted@example.com", name="Adopted", role=AdminRole.RM,
+                phone_number=None, department=None, start_date=None, address=None,
+                overrides=[], notify=True, password="Sup3rSecret!1",
+                identity=identity, settings=Settings(),
             )
 
     assert identity.delete_user_calls == []
