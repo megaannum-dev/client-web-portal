@@ -106,7 +106,9 @@ def session():
 @pytest.fixture
 def fake_storage(monkeypatch):
     storage = FakeStorage()
-    monkeypatch.setattr("app.libs.onboarding.service.get_storage", lambda: storage)
+    # BE-7 made get_storage bucket-aware (one positional Bucket arg); this
+    # double is shared across every bucket for tests that don't care which.
+    monkeypatch.setattr("app.libs.onboarding.service.get_storage", lambda bucket: storage)
     return storage
 
 
