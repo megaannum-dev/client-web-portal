@@ -384,6 +384,45 @@ def downgrade() -> None:
         sa.Column("ibCommissionCurrency", sa.String(255), nullable=True),
         sa.Column("settleDateTarget", sa.String(8), nullable=True),
         sa.Column("taxes", sa.Numeric(28, 10), nullable=True),
+        # --- DB-6: 8 columns 0006's downgrade() SELECTs but this rebuild never
+        # recreated, because 0009's own TCF-schema orders/trades tables never
+        # carried them past the upgrade() merge in the first place. Their values
+        # are unrecoverable (lost the moment 0009's upgrade() ran); this adds
+        # the columns back as NULL so 0006's downgrade() can complete, matching
+        # 0006's own _NUMERIC tuple (b34f8c1a9d27 sibling precedent: repair a
+        # never-successfully-executed downgrade() in place). ---
+        sa.Column("changeInPrice", sa.Numeric(28, 10), nullable=True),
+        sa.Column("changeInQuantity", sa.Numeric(28, 10), nullable=True),
+        sa.Column("closePrice", sa.Numeric(28, 10), nullable=True),
+        sa.Column("cost", sa.Numeric(28, 10), nullable=True),
+        sa.Column("fifoPnlRealized", sa.Numeric(28, 10), nullable=True),
+        sa.Column("fxRateToBase", sa.Numeric(28, 10), nullable=True),
+        sa.Column("initialInvestment", sa.Numeric(28, 10), nullable=True),
+        sa.Column("mtmPnl", sa.Numeric(28, 10), nullable=True),
+        # --- DB-6 (empirical addendum, beyond the doc's documented 8): the
+        # round trip against a real MySQL database still failed after the 8
+        # Numeric columns above were added, on 'Unknown column
+        # holdingPeriodDateTime'. Diffing this list against 0006's full
+        # _activity_columns() found 15 more columns missing across the
+        # datetime/text/string buckets, for the same reason as the 8 above
+        # (0009's own upgrade() never carried them past the TCF-schema
+        # orders/trades merge) — added here as NULL so 0006's downgrade()
+        # can complete. Same unrecoverable-value rationale as the 8 above. ---
+        sa.Column("holdingPeriodDateTime", sa.String(20), nullable=True),
+        sa.Column("openDateTime", sa.String(20), nullable=True),
+        sa.Column("whenRealized", sa.String(20), nullable=True),
+        sa.Column("whenReopened", sa.String(20), nullable=True),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("exchOrderId", sa.String(255), nullable=True),
+        sa.Column("openCloseIndicator", sa.String(255), nullable=True),
+        sa.Column("origOrderID", sa.String(255), nullable=True),
+        sa.Column("origTransactionID", sa.String(255), nullable=True),
+        sa.Column("positionActionID", sa.String(255), nullable=True),
+        sa.Column("relatedTradeID", sa.String(255), nullable=True),
+        sa.Column("relatedTransactionID", sa.String(255), nullable=True),
+        sa.Column("rtn", sa.String(255), nullable=True),
+        sa.Column("tradeID", sa.String(255), nullable=True),
+        sa.Column("traderID", sa.String(255), nullable=True),
         sa.Column("transactionID", sa.String(255), nullable=True),
         sa.Column("brokerageOrderID", sa.String(255), nullable=True),
         sa.Column("clearingFirmID", sa.String(255), nullable=True),
