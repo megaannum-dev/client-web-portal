@@ -33,7 +33,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 /** The 11 fields this modal edits, out of the full ClientRow. */
 type EditableFields = Pick<
   ClientRow,
-  | "address" | "countryOfResidence" | "authorizedPerson" | "occupation" | "anniversary"
+  | "address" | "countryOfResidence" | "occupation" | "anniversary"
   | "spouseName" | "children" | "personalInterests" | "communicationPreferences"
   | "giftHospitalityPreferences" | "relationshipNotes"
 >;
@@ -45,7 +45,6 @@ type FormState = { [K in keyof EditableFields]: string };
 const PATCH_KEY: Record<keyof FormState, keyof ClientPatchReq> = {
   address: "address",
   countryOfResidence: "country_of_residence",
-  authorizedPerson: "authorized_person",
   occupation: "occupation",
   anniversary: "anniversary",
   spouseName: "spouse_name",
@@ -60,7 +59,6 @@ function toFormState(client: EditableFields): FormState {
   return {
     address: client.address ?? "",
     countryOfResidence: client.countryOfResidence ?? "",
-    authorizedPerson: client.authorizedPerson ?? "",
     occupation: client.occupation ?? "",
     anniversary: client.anniversary ?? "",
     spouseName: client.spouseName ?? "",
@@ -138,9 +136,6 @@ export function EditClientModal({
         </Field>
         <Field label="Country of Residence">
           <input className={inputCls} value={form.countryOfResidence} onChange={set("countryOfResidence")} />
-        </Field>
-        <Field label="Authorized Person">
-          <input className={inputCls} value={form.authorizedPerson} onChange={set("authorizedPerson")} />
         </Field>
         <Field label="Occupation">
           <input className={inputCls} value={form.occupation} onChange={set("occupation")} />
