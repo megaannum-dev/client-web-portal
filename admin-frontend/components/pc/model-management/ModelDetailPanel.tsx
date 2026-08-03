@@ -17,7 +17,7 @@ type Tab = "overview" | "symbols" | "materials" | "changes";
    SLIDE-IN DETAIL  (Overview · Symbols · Materials · Changes)
    ============================================================ */
 export function ModelDetailPanel({
-  m, tab, materials, onTab, onClose, onEdit, onDuplicate, onOpenSymbols, onPublish, onDelete, onUploadMaterial, onDownloadMaterial, onRefetch,
+  m, tab, materials, onTab, onClose, onEdit, onDuplicate, onOpenSymbols, onPublish, onDelete, onUploadMaterial, onDownloadMaterial, onRefetch, canEdit,
 }: {
   m: Model;
   tab: Tab;
@@ -33,6 +33,8 @@ export function ModelDetailPanel({
   onUploadMaterial: (id: string, file: File) => Promise<boolean>;
   onDownloadMaterial: (modelId: string, material: Material) => void;
   onRefetch: () => void;
+  /** View/Edit Gate Function — hides/disables every mutating control below. */
+  canEdit: boolean;
 }) {
   const TABS: [Tab, string][] = [["overview", "Overview"], ["symbols", "Symbols"], ["materials", "Materials"], ["changes", "Changes"]];
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -87,16 +89,17 @@ export function ModelDetailPanel({
               materials={materials}
               onUpload={(file) => onUploadMaterial(m.id, file)}
               onDownload={(mat) => onDownloadMaterial(m.id, mat)}
+              canEdit={canEdit}
             />
           ) : tab === "changes" ? (
             <ChangesTab m={m} />
           ) : tab === "symbols" ? (
-            <SymbolsTab m={m} onMutate={onRefetch} />
+            <SymbolsTab m={m} onMutate={onRefetch} canEdit={canEdit} />
           ) : (
-            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} onOpenSymbols={onOpenSymbols} />
+            <OverviewTab m={m} onEdit={onEdit} onDuplicate={onDuplicate} onOpenSymbols={onOpenSymbols} canEdit={canEdit} />
           )}
         </div>
-        {m.status === "draft" && (() => {
+        {canEdit && m.status === "draft" && (() => {
           // Publish prerequisites mirror the backend ModelService.publish_model
           // checks (model_size > 0 and at least one material). Reasons are
           // surfaced inline so the user knows what's missing.

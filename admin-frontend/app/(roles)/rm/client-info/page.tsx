@@ -25,6 +25,7 @@ import {
   type CountItem,
 } from "@/lib/mock/rm-data";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { useClientBook } from "@/hooks/api/useClientBook";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { useRmTickets } from "@/hooks/api/useRmTickets";
@@ -65,6 +66,7 @@ export default function RmDashboardPage() {
   const { data, loading, error } = useClientBook();
   const { data: board } = useOnboardingBoard();
   const { data: tickets } = useRmTickets();
+  const canEdit = useCanEdit("rm.client-info");
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -161,9 +163,12 @@ export default function RmDashboardPage() {
               <h3 className="text-[18px] font-semibold text-on-surface">Client Book</h3>
               <span className="text-[13px] text-secondary">{data?.length ?? 0} clients</span>
             </div>
-            <Link href="/rm/onboarding-renewal">
-              <Button icon={UserRoundPlus}>Onboard new</Button>
-            </Link>
+            {/* View/Edit Gate Function */}
+            {canEdit && (
+              <Link href="/rm/onboarding-renewal">
+                <Button icon={UserRoundPlus}>Onboard new</Button>
+              </Link>
+            )}
           </header>
 
           {/* Dominating client search */}
@@ -439,16 +444,17 @@ export default function RmDashboardPage() {
         {/* Right rail — accordion, one card open at a time, fills book height */}
         <RailAccordion
           cards={[
-            {
+            /* View/Edit Gate Function */
+            ...(canEdit ? [{
               icon: Inbox,
               label: "Requests Tickets",
               value: String(ticketsTotal),
               sub: "across 3 types",
-              mode: "count",
+              mode: "count" as const,
               items: ticketCounts,
               footerLabel: "Review requests",
-              onFooter: () => {},
-            },
+              onFooter: () => router.push("/rm/requests"),
+            }] : []),
             {
               icon: CalendarClock,
               label: "Renewals Due",

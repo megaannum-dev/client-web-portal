@@ -8,10 +8,11 @@
    the handoff's inline-style prototype didn't have equivalents for
    yet. Shared by both Enroll User and System Config.
    ============================================================ */
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle, TriangleAlert, Check, CheckCircle2, ChevronDown, Eye,
-  Grid3x3, Info, Minus, Pencil, Users, X,
+  Grid3x3, Info, Minus, Pencil, Users, UserRound, X,
 } from "@/lib/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Level } from "@/lib/admin/types";
@@ -30,18 +31,18 @@ export function Help({ children, className, style }: { children: ReactNode; clas
 
 /* ---- access level glyph (None / View / Edit) ---------------- */
 const LEVEL_STYLE: Record<Level, { bg: string; fg: string; icon: typeof Minus }> = {
-  none: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
-  view: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
-  edit: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
+  NONE: { bg: "var(--surface-container)", fg: "var(--secondary)", icon: Minus },
+  VIEW: { bg: "#eef2f7", fg: "#3d4655", icon: Eye },
+  EDIT: { bg: "rgba(242,116,5,0.14)", fg: "var(--primary)", icon: Pencil },
 };
-const LEVEL_TITLE: Record<Level, string> = { none: "None", view: "View", edit: "Edit" };
+const LEVEL_TITLE: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
 
-export function LevelBadge({ level = "none", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
-  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.none;
+export function LevelBadge({ level = "NONE", override, size = 28 }: { level?: Level; override?: boolean; size?: number }) {
+  const s = LEVEL_STYLE[level] ?? LEVEL_STYLE.NONE;
   const Icon = s.icon;
   return (
     <span
-      title={LEVEL_TITLE[level] + (override ? " · per-user override" : "")}
+      title={(LEVEL_TITLE[level] ?? LEVEL_TITLE.NONE) + (override ? " · per-user override" : "")}
       className="relative inline-flex shrink-0 items-center justify-center rounded"
       style={{
         width: size, height: size, background: s.bg, color: s.fg,
@@ -60,8 +61,8 @@ export function LevelBadge({ level = "none", override, size = 28 }: { level?: Le
 }
 
 /* ---- segmented None / View / Edit control -------------------- */
-const SEG_ORDER: Level[] = ["none", "view", "edit"];
-export function LevelSeg({ value = "none", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
+const SEG_ORDER: Level[] = ["NONE", "VIEW", "EDIT"];
+export function LevelSeg({ value = "NONE", override, onChange }: { value?: Level; override?: boolean; onChange?: (lv: Level) => void }) {
   return (
     <span
       className="inline-flex gap-0.5 rounded-[9px] p-[3px]"
@@ -81,7 +82,7 @@ export function LevelSeg({ value = "none", override, onChange }: { value?: Level
             className={`inline-flex items-center gap-1.5 rounded-[7px] px-[11px] py-[5px] text-[12.5px] font-semibold transition-all ${onChange ? "cursor-pointer" : "cursor-default"}`}
             style={{
               background: on ? "#fff" : "transparent",
-              color: on ? (lv === "edit" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
+              color: on ? (lv === "EDIT" ? "var(--primary)" : "var(--on-surface)") : "var(--secondary)",
               fontWeight: on ? 700 : 600,
               boxShadow: on ? "var(--shadow-card)" : "none",
             }}
@@ -315,9 +316,14 @@ export function FilterChip({ label, n, on, onClick }: { label: string; n: number
   );
 }
 
-/* ---- matrix <-> role view switcher ----------------------------------- */
-export function ViewSwitch({ view, onChange }: { view: "matrix" | "role"; onChange: (v: "matrix" | "role") => void }) {
-  const items: [("matrix" | "role"), typeof Grid3x3, string][] = [["matrix", Grid3x3, "Matrix"], ["role", Users, "By role"]];
+/* ---- matrix <-> role <-> overrides view switcher ----------------------- */
+export type ConfigView = "matrix" | "role" | "overrides";
+export function ViewSwitch({ view, onChange }: { view: ConfigView; onChange: (v: ConfigView) => void }) {
+  const items: [ConfigView, typeof Grid3x3, string][] = [
+    ["matrix", Grid3x3, "Matrix"],
+    ["role", Users, "By role"],
+    ["overrides", UserRound, "Overrides"],
+  ];
   return (
     <span className="inline-flex gap-0.5 rounded-full p-[3px]" style={{ background: "var(--surface-container)", border: "1px solid var(--outline-variant)" }}>
       {items.map(([k, Icon, lab]) => {
@@ -338,17 +344,41 @@ export function ViewSwitch({ view, onChange }: { view: "matrix" | "role"; onChan
   );
 }
 
-/* ---- dropdown menu (click-away) ---------------------------------------- */
+/* ---- dropdown menu (click-away) -----------------------------------------
+   Portals into #content-overlay-root (same target the admin Modal uses) so it
+   isn't clipped by whatever overflow-hidden Card/section its trigger sits in.
+   Position is computed from the trigger's own rect on open, right-aligned
+   under it, rather than CSS `position: relative` on a wrapper — a portal
+   can't rely on an ancestor's positioning context. */
 export type MenuItemDef = [label: string, icon: typeof Info, danger?: boolean] | "-";
 export function DropdownMenu({
-  items, onClose, onPick, className, width = 236,
-}: { items: MenuItemDef[]; onClose: () => void; onPick: (label: string) => void; className?: string; width?: number }) {
-  return (
+  items, onClose, onPick, anchorRef, width = 236, align = "right",
+}: {
+  items: MenuItemDef[]; onClose: () => void; onPick: (label: string) => void;
+  anchorRef: RefObject<HTMLElement | null>; width?: number; align?: "left" | "right";
+}) {
+  const [root, setRoot] = useState<Element | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    const overlayRoot = document.getElementById("content-overlay-root");
+    setRoot(overlayRoot);
+    if (!overlayRoot || !anchorRef.current) return;
+    const anchorRect = anchorRef.current.getBoundingClientRect();
+    const overlayRect = overlayRoot.getBoundingClientRect();
+    setPos({
+      top: anchorRect.bottom - overlayRect.top + 6,
+      left: align === "right" ? anchorRect.right - overlayRect.left - width : anchorRect.left - overlayRect.left,
+    });
+  }, [anchorRef, width, align]);
+
+  if (!root || !pos) return null;
+  return createPortal(
     <>
-      <div onClick={onClose} className="fixed inset-0 z-[44]" />
+      <div onClick={onClose} className="pointer-events-auto fixed inset-0 z-[44]" />
       <div
-        className={`absolute z-[45] rounded-2xl bg-white p-[7px] shadow-overlay ${className ?? ""}`}
-        style={{ width, border: "1px solid var(--outline-variant)" }}
+        className="pointer-events-auto absolute z-[45] rounded-2xl bg-white p-[7px] shadow-overlay"
+        style={{ width, top: pos.top, left: pos.left, border: "1px solid var(--outline-variant)" }}
       >
         {items.map((it, i) =>
           it === "-" ? (
@@ -358,7 +388,8 @@ export function DropdownMenu({
           ),
         )}
       </div>
-    </>
+    </>,
+    root,
   );
 }
 function MenuItem({ item, onPick }: { item: [string, typeof Info, boolean?]; onPick: (label: string) => void }) {
@@ -392,13 +423,13 @@ export function Td({ children, className }: { children: ReactNode; className?: s
     </td>
   );
 }
-export function UserCell({ initials, name, sub }: { initials: string; name: string; sub: string }) {
+export function UserCell({ initials, name, sub }: { initials: string; name: string | null; sub?: string | null }) {
   return (
     <div className="flex items-center gap-[11px]">
-      <Avatar initial={initials[0]} size={34} />
+      <Avatar initial={initials[0] ?? "?"} size={34} />
       <div className="min-w-0">
-        <div className="text-[13.5px] font-semibold text-on-surface">{name}</div>
-        <div className="text-[12px] text-secondary">{sub}</div>
+        <div className="text-[13.5px] font-semibold text-on-surface">{name ?? "—"}</div>
+        <div className="text-[12px] text-secondary">{sub ?? "—"}</div>
       </div>
     </div>
   );
@@ -413,10 +444,13 @@ export function Modal({
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
-  return (
+  const [root, setRoot] = useState<Element | null>(null);
+  useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
+  if (!root) return null;
+  return createPortal(
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="absolute inset-0 z-[60] flex items-center justify-center p-8"
+      className="pointer-events-auto absolute inset-0 z-[60] flex items-center justify-center p-8"
       style={{ background: "rgba(15,15,15,0.22)", backdropFilter: "blur(3px)" }}
     >
       <div
@@ -437,7 +471,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    root,
   );
 }
 

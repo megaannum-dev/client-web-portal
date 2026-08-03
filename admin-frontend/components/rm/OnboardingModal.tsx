@@ -24,6 +24,7 @@ import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
 import { parseFeePercent } from "@/lib/onboarding/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
 const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents"];
@@ -78,7 +79,7 @@ export function OnboardingModal({
 }: {
   onClose: () => void;
 } & Pick<UseOnboardingBoardResult, "startOnboarding" | "uploadDocument" | "fetchRmOptions" | "fetchDocSpecs">) {
-  const { data: models } = useModels();
+  const { data: models, error: modelsError } = useModels();
   const liveModels = (models ?? []).filter((m) => m.status === "live");
   const [rmOptions, setRmOptions] = useState<RmOptionDTO[]>([]);
   const [docSpecs, setDocSpecs] = useState<DocSpecDTO[]>([]);
@@ -94,6 +95,7 @@ export function OnboardingModal({
   // onboarding id once it exists, right before closing (FE bug: this used to
   // be a filename-only preview that never reached the server at all).
   const [docs, setDocs] = useState<Record<string, File>>({});
+  const canEdit = useCanEdit("rm.onboarding-renewal");
 
   // Server pre-scopes this list to what the caller may assign: every RM for
   // ADMIN, just the caller's own row for anyone else -- so the same always-
@@ -295,38 +297,52 @@ export function OnboardingModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             {/* View/Edit Gate Function */}
-            <ObField label="Anniversary">
-              <input className={inputCls} type="date" value={form.anniversary} onChange={set("anniversary")} />
-            </ObField>
+            {canEdit && (
+              <ObField label="Anniversary">
+                <input className={inputCls} type="date" value={form.anniversary} onChange={set("anniversary")} />
+              </ObField>
+            )}
             {/* View/Edit Gate Function */}
-            <ObField label="Spouse's Name">
-              <input className={inputCls} value={form.spouseName} onChange={set("spouseName")} placeholder="e.g. Jamie Lin" />
-            </ObField>
+            {canEdit && (
+              <ObField label="Spouse's Name">
+                <input className={inputCls} value={form.spouseName} onChange={set("spouseName")} placeholder="e.g. Jamie Lin" />
+              </ObField>
+            )}
             <div className="col-span-2">
               {/* View/Edit Gate Function */}
-              <ObField label="Children's Names and Ages">
-                <input className={inputCls} value={form.childrenNames} onChange={set("childrenNames")} placeholder="e.g. Ava (12), Noah (9)" />
-              </ObField>
+              {canEdit && (
+                <ObField label="Children's Names and Ages">
+                  <input className={inputCls} value={form.childrenNames} onChange={set("childrenNames")} placeholder="e.g. Ava (12), Noah (9)" />
+                </ObField>
+              )}
             </div>
             <div className="col-span-2">
               {/* View/Edit Gate Function */}
-              <ObField label="Personal Interests">
-                <input className={inputCls} value={form.personalInterests} onChange={set("personalInterests")} placeholder="e.g. Golf, sailing, contemporary art" />
-              </ObField>
+              {canEdit && (
+                <ObField label="Personal Interests">
+                  <input className={inputCls} value={form.personalInterests} onChange={set("personalInterests")} placeholder="e.g. Golf, sailing, contemporary art" />
+                </ObField>
+              )}
             </div>
             {/* View/Edit Gate Function */}
-            <ObField label="Communication Preferences">
-              <input className={inputCls} value={form.commPrefs} onChange={set("commPrefs")} placeholder="e.g. Prefers calls over email" />
-            </ObField>
+            {canEdit && (
+              <ObField label="Communication Preferences">
+                <input className={inputCls} value={form.commPrefs} onChange={set("commPrefs")} placeholder="e.g. Prefers calls over email" />
+              </ObField>
+            )}
             {/* View/Edit Gate Function */}
-            <ObField label="Gift / Hospitality Preferences">
-              <input className={inputCls} value={form.giftPrefs} onChange={set("giftPrefs")} placeholder="e.g. No alcohol, enjoys fine dining" />
-            </ObField>
+            {canEdit && (
+              <ObField label="Gift / Hospitality Preferences">
+                <input className={inputCls} value={form.giftPrefs} onChange={set("giftPrefs")} placeholder="e.g. No alcohol, enjoys fine dining" />
+              </ObField>
+            )}
             <div className="col-span-2">
               {/* View/Edit Gate Function */}
-              <ObField label="Other Relationship Notes">
-                <input className={inputCls} value={form.otherPrefNotes} onChange={set("otherPrefNotes")} placeholder="Anything else relevant to the relationship" />
-              </ObField>
+              {canEdit && (
+                <ObField label="Other Relationship Notes">
+                  <input className={inputCls} value={form.otherPrefNotes} onChange={set("otherPrefNotes")} placeholder="Anything else relevant to the relationship" />
+                </ObField>
+              )}
             </div>
           </div>
         </div>
@@ -346,6 +362,9 @@ export function OnboardingModal({
                 <option value="" disabled>Select a model…</option>
                 {liveModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
+              {modelsError && (
+                <span className="text-[12.5px] text-primary">Failed to load models: {modelsError}</span>
+              )}
             </ObField>
           </div>
           <ObField label="Model Unit" required>

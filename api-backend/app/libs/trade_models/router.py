@@ -109,7 +109,7 @@ def _detail_with_audit(service: ModelService, model_id: uuid.UUID) -> ModelDetai
 def create_model(
     body: ModelCreate,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> object:
     return service.create_model(
         name=body.name,
@@ -134,7 +134,7 @@ def edit_model(
     model_id: uuid.UUID,
     body: ModelUpdate,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> object:
     updates = body.model_dump(exclude_unset=True)
     result = None
@@ -174,7 +174,7 @@ def upload_material(
     model_id: uuid.UUID,
     file: UploadFile,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> object:
     return service.upload_material(
         model_id,
@@ -214,7 +214,7 @@ def add_symbol(
     model_id: uuid.UUID,
     body: SymbolAddIn,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> object:
     service.add_symbol(model_id, body.symbol, actor=actor.firebase_uid)
     return _detail_with_audit(service, model_id)
@@ -226,7 +226,7 @@ def set_symbol(
     symbol: str,
     body: SymbolPatchIn,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> object:
     service.set_symbol_active(model_id, symbol, body.active, actor=actor.firebase_uid)
     return _detail_with_audit(service, model_id)
@@ -237,7 +237,7 @@ def delete_symbol(
     model_id: uuid.UUID,
     symbol: str,
     service: Annotated[ModelService, Depends(_get_model_service)],
-    actor: Annotated[User, Depends(require_action(Action.MODEL_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
 ) -> Response:
     service.remove_symbol(model_id, symbol, actor=actor.firebase_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

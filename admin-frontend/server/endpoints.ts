@@ -4,6 +4,7 @@ const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
 const CO = "/api/co";
 const REPORTS = "/api/reports";
+const ADMIN = "/api/admin";
 
 export const ENDPOINTS = {
   PC: {
@@ -38,6 +39,8 @@ export const ENDPOINTS = {
     ONBOARDING_BY_CLIENT: (clientId: string) => `${RM}/onboardings/by-client/${encodeURIComponent(clientId)}`,
     CLIENT_EVENTS:        (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/events`,
     CLIENT_CONTACT_LOGS:  (clientId: string) => `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs`,
+    CLIENT_CONTACT_LOG_DOWNLOAD: (clientId: string, logId: string) =>
+      `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs/${encodeURIComponent(logId)}/download`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
@@ -69,5 +72,14 @@ export const ENDPOINTS = {
   REPORTS: {
     EOM_COMMENTS: `${REPORTS}/eom-comments`,
     EOM_COMMENT: (reportName: string) => `${REPORTS}/eom-comments/${encodeURIComponent(reportName)}`,
+  },
+  ADMIN: {
+    STAFF:               `${ADMIN}/staff`,
+    STAFF_MEMBER:        (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}`,
+    STAFF_SET_PW_LINK:   (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}/set-password-link`,
+    ACCESS_MATRIX:       `${ADMIN}/access/matrix`,
+    ACCESS_OVERRIDES:    `${ADMIN}/access/overrides`,
+    ACCESS_OVERRIDE:     (id: string) => `${ADMIN}/access/overrides/${encodeURIComponent(id)}`,
+    AUDIT:               `${ADMIN}/audit`,
   },
 } as const;

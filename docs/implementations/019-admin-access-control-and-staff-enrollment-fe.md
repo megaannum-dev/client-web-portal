@@ -2193,7 +2193,8 @@ separate track (the proposal's phase 5). -->
 ## 9. Definition of done & rollback
 
 **Definition of done (this layer):**
-- [ ] Every §6 unit committed on `claude/admin-pages-backend-proposal-f0c9fc-fe`; each commit left the branch green. FE-17 is either committed or explicitly recorded as dropped because Q-5 selected the reset link.
+- [ ] Every §6 unit committed on `admin-pages-integration-fe`; each commit left the branch green. FE-17 is either committed or explicitly recorded as dropped because Q-5 selected the reset link.
+  - **FE-17 explicitly recorded as dropped** (2026-07-30): Q-5 outcome recorded in `019-admin-access-control-and-staff-enrollment-be.md` §6 BE-13 — "reset link ACCEPTED directly over a passwordless identity". This layer's scope is exactly FE-1…FE-16.
 - [ ] `npx vitest run && npx tsc --noEmit && npx next lint` green in **both** `admin-frontend/` and `client-frontend/`.
 - [ ] `npx tsx admin-frontend/lib/pages.check.ts` prints `pages.check.ts: OK`.
 - [ ] Every § Dead code purged frontend grep returns nothing, across both frontends: `OPERATE`, `temporary password` (case-insensitive), `genPassword`, `mock/admin-data`, `ROLE_PAGES`, `ALL_OPERATE`, `ALL_EDIT`, `accessLevel(`, `pagesForRole`, `rolesForPath`, `seedLevels`, `ROLE_IDX`, `PAGE_BY_PATH`, `nextId`, `signUpWithEmailPassword`, `postBackendRegister`, `isRegistering`, `email-already-in-use`, and any path literal in `lib/admin/catalog.ts`.

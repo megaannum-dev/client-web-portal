@@ -14,6 +14,7 @@ import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { Check } from "@/lib/icons";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import type { ClientRow, ClientPatchReq } from "@/lib/rm/clients";
 
 const inputCls =
@@ -32,7 +33,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 /** The 11 fields this modal edits, out of the full ClientRow. */
 type EditableFields = Pick<
   ClientRow,
-  | "address" | "countryOfResidence" | "authorizedPerson" | "occupation" | "anniversary"
+  | "address" | "countryOfResidence" | "occupation" | "anniversary"
   | "spouseName" | "children" | "personalInterests" | "communicationPreferences"
   | "giftHospitalityPreferences" | "relationshipNotes"
 >;
@@ -44,7 +45,6 @@ type FormState = { [K in keyof EditableFields]: string };
 const PATCH_KEY: Record<keyof FormState, keyof ClientPatchReq> = {
   address: "address",
   countryOfResidence: "country_of_residence",
-  authorizedPerson: "authorized_person",
   occupation: "occupation",
   anniversary: "anniversary",
   spouseName: "spouse_name",
@@ -59,7 +59,6 @@ function toFormState(client: EditableFields): FormState {
   return {
     address: client.address ?? "",
     countryOfResidence: client.countryOfResidence ?? "",
-    authorizedPerson: client.authorizedPerson ?? "",
     occupation: client.occupation ?? "",
     anniversary: client.anniversary ?? "",
     spouseName: client.spouseName ?? "",
@@ -82,6 +81,7 @@ export function EditClientModal({
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const canEdit = useCanEdit("rm.client-info");
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -122,9 +122,11 @@ export function EditClientModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
+          {canEdit && (
+            <Button icon={Check} disabled={saving} onClick={save}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          )}
         </>
       }
     >
@@ -134,9 +136,6 @@ export function EditClientModal({
         </Field>
         <Field label="Country of Residence">
           <input className={inputCls} value={form.countryOfResidence} onChange={set("countryOfResidence")} />
-        </Field>
-        <Field label="Authorized Person">
-          <input className={inputCls} value={form.authorizedPerson} onChange={set("authorizedPerson")} />
         </Field>
         <Field label="Occupation">
           <input className={inputCls} value={form.occupation} onChange={set("occupation")} />

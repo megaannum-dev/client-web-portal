@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import threading
 from typing import Annotated
 
 import firebase_admin
@@ -16,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 FIREBASE_CLOCK_SKEW_SECONDS = 10
 security = HTTPBearer(auto_error=False)
+
+# FastAPI runs sync dependencies (this module's _init_firebase included) in a
+# threadpool, so concurrent requests race on the check-then-init sequence
+# below without this lock -- the loser's initialize_app() raises an unhandled
+# ValueError("The default Firebase app already exists").
+_firebase_init_lock = threading.Lock()
 
 
 def _decode_jwt_payload_unverified(token: str) -> dict[str, object]:
@@ -73,43 +80,44 @@ def extract_uid_email(claims: dict, settings: Settings) -> tuple[str, str | None
 def _init_firebase(settings: Settings) -> None:
     if settings.firebase_auth_disabled:
         return
-    try:
-        firebase_admin.get_app()
-        return
-    except ValueError:
-        pass
-
-    opts: dict[str, str] = {}
-    if settings.firebase_project_id:
-        opts["projectId"] = settings.firebase_project_id
-
-    if settings.firebase_service_account_json:
-        info = json.loads(settings.firebase_service_account_json)
-        cred = credentials.Certificate(info)
-        firebase_admin.initialize_app(cred, opts)
-        return
-
-    cred_path = settings.firebase_credentials_path
-    if cred_path:
-        cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred, opts)
-        return
-
-    if settings.firebase_project_id:
+    with _firebase_init_lock:
         try:
-            firebase_admin.initialize_app(options=opts)
+            firebase_admin.get_app()
             return
-        except Exception:
+        except ValueError:
             pass
 
-    try:
-        cred = credentials.ApplicationDefault()
-        firebase_admin.initialize_app(cred, opts)
-    except Exception as exc:
-        raise RuntimeError(
-            "Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or "
-            "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local smoke tests."
-        ) from exc
+        opts: dict[str, str] = {}
+        if settings.firebase_project_id:
+            opts["projectId"] = settings.firebase_project_id
+
+        if settings.firebase_service_account_json:
+            info = json.loads(settings.firebase_service_account_json)
+            cred = credentials.Certificate(info)
+            firebase_admin.initialize_app(cred, opts)
+            return
+
+        cred_path = settings.firebase_credentials_path
+        if cred_path:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred, opts)
+            return
+
+        if settings.firebase_project_id:
+            try:
+                firebase_admin.initialize_app(options=opts)
+                return
+            except Exception:
+                pass
+
+        try:
+            cred = credentials.ApplicationDefault()
+            firebase_admin.initialize_app(cred, opts)
+        except Exception as exc:
+            raise RuntimeError(
+                "Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or "
+                "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local smoke tests."
+            ) from exc
 
 
 def verify_firebase_id_token_string(id_token: str | None, settings: Settings) -> dict:  # type: ignore[type-arg]

@@ -2,7 +2,6 @@
 
 import {
   GoogleAuthProvider,
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   onIdTokenChanged,
   signInWithEmailAndPassword,
@@ -10,9 +9,9 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { BackendAuthError, postBackendLogin, postBackendLogout, postBackendRegister } from "@/lib/auth-api";
+import { BackendAuthError, postBackendLogin, postBackendLogout } from "@/lib/auth-api";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { writeIdTokenCookie } from "@/lib/id-token";
 import type { PortalUser } from "@/types/portal";
@@ -26,7 +25,6 @@ type AuthContextValue = {
   firebaseReady: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
-  signUpWithEmailPassword: (email: string, password: string, role: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   refreshPortalUser: () => Promise<void>;
@@ -41,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [backendSyncing, setBackendSyncing] = useState(false);
   const [backendSyncError, setBackendSyncError] = useState<string | null>(null);
   const firebaseReady = isFirebaseConfigured();
-  const isRegistering = useRef(false);
 
   useEffect(() => {
     if (!firebaseReady) {
@@ -60,14 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setBackendSyncError(null);
 
       if (!next) {
-        setBackendSyncing(false);
-        setLoading(false);
-        return;
-      }
-
-      // Registration is in progress — signUpWithEmailPassword owns portalUser state
-      // for this cycle. Skip the login sync to prevent a competing MariaDB write.
-      if (isRegistering.current) {
         setBackendSyncing(false);
         setLoading(false);
         return;
@@ -136,28 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   }, [firebaseReady]);
 
-  const signUpWithEmailPassword = useCallback(async (email: string, password: string, role: string) => {
-    if (!firebaseReady) return;
-    const auth = getFirebaseAuth();
-    isRegistering.current = true;
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const token = await cred.user.getIdToken();
-      setBackendSyncing(true);
-      const profile = await postBackendRegister(token, role);
-      setPortalUser(profile);
-    } catch (err) {
-      // Firebase credential was created but backend registration failed.
-      // Sign out to restore a clean unauthenticated state before surfacing the error.
-      try { await signOut(auth); } catch { /* noop */ }
-      throw err;
-    } finally {
-      isRegistering.current = false;
-      setBackendSyncing(false);
-      setLoading(false);
-    }
-  }, [firebaseReady]);
-
   const signOutUser = useCallback(async () => {
     if (!firebaseReady) return;
     try {
@@ -212,7 +179,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firebaseReady,
       signInWithGoogle,
       signInWithEmailPassword,
-      signUpWithEmailPassword,
       signOutUser,
       getIdToken,
       refreshPortalUser,
@@ -226,7 +192,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firebaseReady,
       signInWithGoogle,
       signInWithEmailPassword,
-      signUpWithEmailPassword,
       signOutUser,
       getIdToken,
       refreshPortalUser,

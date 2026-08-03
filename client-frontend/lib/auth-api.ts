@@ -24,9 +24,6 @@ async function parseApiError(res: Response, methodPath: string): Promise<string>
   }
   const base = getApiBase();
   if (res.status === 404) {
-    if (methodPath.includes("/api/dev/register")) {
-      return "Self-registration is not available in this environment.";
-    }
     return `${detail} (${methodPath} → ${base}). If you recently added auth routes, restart the FastAPI server.`;
   }
   return `${detail} (${res.status} ${methodPath})`;
@@ -37,22 +34,6 @@ export class BackendAuthError extends Error {
     super(message);
     this.name = "BackendAuthError";
   }
-}
-
-// Dev-only provisioning surface. 404 in a non-dev backend means "not mounted",
-// not "restart the server" — parseApiError's 404 branch is split above to
-// handle this permanently-absent-in-prod case correctly.
-export async function postBackendRegister(idToken: string | null): Promise<PortalUser> {
-  const base = getApiBase();
-  const res = await fetch(`${base}/api/dev/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "client" }),
-  });
-  if (!res.ok) {
-    throw new BackendAuthError(await parseApiError(res, "POST /api/dev/register"), res.status);
-  }
-  return (await res.json()) as PortalUser;
 }
 
 // Bind-only — 403 means "no account staged for this uid, or account disabled".
@@ -71,9 +52,9 @@ export async function postBackendLogin(idToken: string | null): Promise<PortalUs
 }
 
 /**
- * After Firebase sign-in or app reload, sync portal profile via login only.
- * Login binds an existing account only — it never creates one; `postBackendRegister`
- * (dev-only) is the sole provisioning path from this frontend.
+ * After Firebase sign-in or app reload, sync the portal profile via login only.
+ * Login binds an existing account; nothing in this frontend can create one — every
+ * account is provisioned by an authorised actor (D-7).
  */
 export async function syncPortalUserAfterFirebaseAuth(idToken: string | null): Promise<PortalUser> {
   return postBackendLogin(idToken);

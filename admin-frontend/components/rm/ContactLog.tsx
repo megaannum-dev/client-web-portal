@@ -17,11 +17,17 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/rm/Shared";
 import { fmtTimestamp } from "@/lib/pc/format";
+import { useCanEdit } from "@/hooks/usePageAccess";
+import { saveBase64File } from "@/lib/download";
 import {
   Plus, ChevronRight, Paperclip, FileText, Phone, Video, Users, Mail, MessageCircle, Check, X,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import type { ContactLogEntryDTO } from "@/lib/onboarding/types";
+
+type DownloadAttachmentResult = {
+  success: boolean; error?: string; filename?: string; contentType?: string; base64?: string;
+};
 
 function fmtBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -47,11 +53,24 @@ function channelIcon(channel: string): LucideIcon {
 const fieldBase =
   "w-full rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary";
 
-function ContactLogRow({ item, last }: { item: ContactLogEntryDTO; last: boolean }) {
+function ContactLogRow({
+  item, last, onDownloadAttachment,
+}: {
+  item: ContactLogEntryDTO;
+  last: boolean;
+  onDownloadAttachment: (logId: string) => Promise<DownloadAttachmentResult>;
+}) {
   // ponytail: the old mock's client-side "just added, highlight it" accent
   // dot has no server equivalent -- dropped rather than faked from created_at.
   const [open, setOpen] = useState(false);
   const Icon = channelIcon(item.channel);
+
+  const handleDownload = () => {
+    void onDownloadAttachment(item.id).then((r) => {
+      if (r.success) saveBase64File(r.filename!, r.contentType!, r.base64!);
+      else alert(`Download failed: ${r.error}`);
+    });
+  };
   return (
     <div className="relative" style={{ paddingBottom: last ? 2 : 16 }}>
       <span
@@ -93,13 +112,17 @@ function ContactLogRow({ item, last }: { item: ContactLogEntryDTO; last: boolean
           <div className="flex flex-col gap-1.5">
             <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Relevant document</span>
             {item.doc_filename ? (
-              <span className="mt-0.5 inline-flex w-fit items-center gap-2 rounded-md border border-outline-variant bg-surface-lowest px-2.5 py-1.5">
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="mt-0.5 inline-flex w-fit cursor-pointer items-center gap-2 rounded-md border border-outline-variant bg-surface-lowest px-2.5 py-1.5 hover:bg-surface-low"
+              >
                 <FileText size={15} strokeWidth={1.75} className="text-primary" />
                 <span className="text-[13px] font-semibold text-on-surface">{item.doc_filename}</span>
                 {item.doc_size_bytes != null && (
                   <span className="text-[11.5px] text-secondary">{fmtBytes(item.doc_size_bytes)}</span>
                 )}
-              </span>
+              </button>
             ) : (
               <span className="text-[13px] text-secondary">None attached</span>
             )}
@@ -126,6 +149,8 @@ function NewContactLogModal({
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  // const [file, setFile] = useState<{ name: string; size: string } | null>(null);
+  const canEdit = useCanEdit("rm.client-info");
 
   const valid = !!(topic.trim() && date && desc.trim());
 
@@ -160,9 +185,11 @@ function NewContactLogModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto">Cancel</Button>
           {/* View/Edit Gate Function */}
-          <Button icon={Check} disabled={!valid || saving} onClick={() => valid && save()}>
-            {saving ? "Saving…" : "Save log"}
-          </Button>
+          {canEdit && (
+            <Button icon={Check} disabled={!valid || saving} onClick={() => valid && save()}>
+              {saving ? "Saving…" : "Save log"}
+            </Button>
+          )}
         </>
       }
     >
@@ -233,17 +260,21 @@ function NewContactLogModal({
               <span className="flex-1 truncate text-[13px] font-semibold text-on-surface">{file.name}</span>
               <span className="text-[11.5px] text-secondary">{fmtBytes(file.size)}</span>
               {/* View/Edit Gate Function */}
-              <button type="button" onClick={() => setFile(null)} className="shrink-0 cursor-pointer p-0.5 text-secondary">
-                <X size={15} strokeWidth={2} />
-              </button>
+              {canEdit && (
+                <button type="button" onClick={() => setFile(null)} className="shrink-0 cursor-pointer p-0.5 text-secondary">
+                  <X size={15} strokeWidth={2} />
+                </button>
+              )}
             </div>
           ) : (
             /* View/Edit Gate Function */
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-outline bg-surface-low px-3 py-4 text-[13px] font-semibold text-secondary">
-              <Paperclip size={15} strokeWidth={2} />
-              Attach a document — meeting notes, statement, signed instruction
-              <input type="file" className="hidden" onChange={onFile} />
-            </label>
+            canEdit && (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-outline bg-surface-low px-3 py-4 text-[13px] font-semibold text-secondary">
+                <Paperclip size={15} strokeWidth={2} />
+                Attach a document — meeting notes, statement, signed instruction
+                <input type="file" className="hidden" onChange={onFile} />
+              </label>
+            )
           )}
         </div>
         {inlineError && (
@@ -255,14 +286,16 @@ function NewContactLogModal({
 }
 
 export function ContactLogCard({
-  clientName, entries, loading, onCreate,
+  clientName, entries, loading, onCreate, onDownloadAttachment,
 }: {
   clientName: string;
   entries: ContactLogEntryDTO[];
   loading: boolean;
   onCreate: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+  onDownloadAttachment: (logId: string) => Promise<DownloadAttachmentResult>;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const canEdit = useCanEdit("rm.client-info");
 
   return (
     <Card
@@ -271,7 +304,7 @@ export function ContactLogCard({
         <div className="flex items-center gap-3">
           <span className="text-[12px] text-secondary">{entries.length} logs</span>
           {/* View/Edit Gate Function */}
-          <Button icon={Plus} onClick={() => setModalOpen(true)}>New log</Button>
+          {canEdit && <Button icon={Plus} onClick={() => setModalOpen(true)}>New log</Button>}
         </div>
       }
     >
@@ -283,7 +316,12 @@ export function ContactLogCard({
         <div className="relative h-[440px] overflow-y-auto pl-[22px] pr-1.5">
           <div className="absolute left-[5px] top-1 bottom-1 w-0.5 bg-outline-variant" />
           {entries.map((item, i) => (
-            <ContactLogRow key={item.id} item={item} last={i === entries.length - 1} />
+            <ContactLogRow
+              key={item.id}
+              item={item}
+              last={i === entries.length - 1}
+              onDownloadAttachment={onDownloadAttachment}
+            />
           ))}
         </div>
       )}

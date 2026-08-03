@@ -12,7 +12,9 @@ from typing import BinaryIO
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
 from app.libs.clients.service import ClientService
+from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.libs.onboarding.repository import OnboardingRepository
@@ -39,6 +41,20 @@ from app.libs.onboarding.schemas import (
 )
 from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
+
+
+def fix_mojibake_filename(name: str | None) -> str | None:
+    """Browsers that send a non-ASCII filename as a plain multipart
+    `filename=` param (no RFC-2231 `filename*=`) get it decoded as latin-1
+    by the parser even though the browser encoded it as UTF-8 -- this
+    re-decodes it. ponytail: heuristic re-decode, not a parser-level fix;
+    upgrade at the multipart-parsing layer if this proves insufficient."""
+    if not name:
+        return name
+    try:
+        return name.encode("latin-1").decode("utf-8")
+    except UnicodeError:
+        return name
 from app.models.onboarding import (
     AllotRdmpKind,
     AllotRdmpStatus,
@@ -54,7 +70,7 @@ from app.models.onboarding import (
     TransactionDetail,
 )
 from app.models.pc import ClientSubscription, Model
-from app.models.users import AccountStatus, AdminRole, ClientProfile, User
+from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
 _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
@@ -277,9 +293,21 @@ class OnboardingService:
         self.db.commit()
         return self._doc_to_dto(doc)
 
-    def approve(self, onboarding_id: uuid.UUID, *, compliance_uid: str) -> OnboardingDTO:
+    def approve(
+        self,
+        onboarding_id: uuid.UUID,
+        *,
+        compliance_uid: str,
+        identity: FirebaseIdentityService,
+        settings: Settings,
+    ) -> OnboardingDTO:
         """Atomic, kind-branched. See § Layer 2 §B / §C-2. Single commit for the
-        whole branch; any failure rolls back the entire set of writes."""
+        whole branch; any failure rolls back the entire set of writes.
+
+        BE-20 (019 § Layer 2 C-8/D-6a): strictly AFTER that commit succeeds, and
+        only on the `initial` branch, queue the client's set-password email --
+        never inside the transaction, never on a renewal, never if the commit
+        itself failed (the `except` re-raises before reaching this point)."""
         onboarding = self._require_onboarding(onboarding_id)
         if onboarding.status != "reviewing":
             raise HTTPException(status.HTTP_409_CONFLICT, "Cycle is not under review")
@@ -292,8 +320,9 @@ class OnboardingService:
                 status.HTTP_409_CONFLICT, "Every required document must be verified before approval"
             )
 
+        is_initial = onboarding.kind == OnboardingKind.INITIAL
         try:
-            if onboarding.kind == "initial":
+            if is_initial:
                 self._approve_initial(onboarding, compliance_uid=compliance_uid)
             else:  # "renewal"
                 self._approve_renewal(onboarding)
@@ -304,6 +333,17 @@ class OnboardingService:
         except Exception:
             self.db.rollback()
             raise
+
+        if is_initial:
+            display = self.repo.display_fields(onboarding)
+            link = identity.generate_set_password_link(display.email)
+            send_set_password_email(
+                to=display.email,
+                name=display.client_name,
+                link=link,
+                portal=Portal.CLIENT,
+                settings=settings,
+            )
         return self._to_dto(onboarding, with_documents=True)
 
     def _approve_initial(self, onboarding: ClientOnboarding, *, compliance_uid: str) -> None:
@@ -824,6 +864,15 @@ class OnboardingService:
     def list_contact_logs(self, client_id: uuid.UUID) -> list[ContactLogEntryDTO]:
         return [self._contact_log_to_dto(log) for log in self.repo.list_contact_logs(client_id)]
 
+    def download_contact_log_attachment(
+        self, client_id: uuid.UUID, log_id: uuid.UUID
+    ) -> tuple[BinaryIO, str, str | None]:
+        log = self.repo.get_contact_log(client_id, log_id)
+        if log is None or log.doc_storage_key is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No file attached to this contact log")
+        stream = get_storage().open(log.doc_storage_key)
+        return stream, log.doc_filename or "attachment", log.doc_content_type
+
     def create_contact_log(
         self,
         client_id: uuid.UUID,
@@ -847,7 +896,7 @@ class OnboardingService:
                 content_type=file.content_type,
                 subdir=f"client_contact_logs/{client_id}",
             )
-            doc_filename = file.filename
+            doc_filename = fix_mojibake_filename(file.filename)
             doc_content_type = file.content_type
             doc_size_bytes = file.size
         log = self.repo.create_contact_log(

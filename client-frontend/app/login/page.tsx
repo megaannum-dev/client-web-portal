@@ -222,12 +222,6 @@ function LoginForm() {
 
         {/* Footer */}
         <div className="pt-3 flex flex-col items-center gap-3">
-          <p className="text-body-sm text-secondary text-center">
-            {t("auth.login.no_account")}{" "}
-            <Link href="/register" className="font-bold text-primary hover:opacity-80 transition-opacity">
-              {t("auth.login.contact_administrator")}
-            </Link>
-          </p>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="text-label-md font-semibold text-secondary tracking-[0.05em] hover:text-on-surface transition-colors">
               {t("auth.login.privacy_policy")}

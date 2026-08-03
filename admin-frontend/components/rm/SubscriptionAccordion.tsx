@@ -11,6 +11,7 @@ import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
 import { fileTransactionDetail, getTransactionDetail } from "@/app/(roles)/rm/model-subscription/actions";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 export type OpenSubscriptionModal = (opts: {
   mode: "add-allotment" | "redemption";
@@ -170,6 +171,7 @@ function ModelAccordionItem({
     mgmtFee: model.mgmtFee,
     incentiveFee: model.incentiveFee,
   };
+  const canEdit = useCanEdit("rm.model-subscription");
   return (
     <div className={clsx("overflow-hidden rounded-md border border-outline-variant", open ? "bg-surface-lowest" : "bg-white")}>
       <button
@@ -218,10 +220,12 @@ function ModelAccordionItem({
             })}
           />
           {/* View/Edit Gate Function */}
-          <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
-            <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
-            <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
-          </div>
+          {canEdit && (
+            <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
+              <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
+              <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { getClient as _getClient, updateClient as _updateClient } from "@/server
 import {
   fetchOnboardingByClient as _fetchOnboardingByClient, fetchClientEvents as _fetchClientEvents,
   fetchContactLogs as _fetchContactLogs, createContactLogEntry as _createContactLogEntry,
+  downloadContactLogAttachment as _downloadContactLogAttachment,
 } from "@/server/onboarding";
 import type { ClientPatchReq } from "@/lib/rm/clients";
 
@@ -70,6 +71,16 @@ export async function createContactLogEntry(clientId: string, formData: FormData
   try {
     const r = await _createContactLogEntry(clientId, formData);
     logger.json("rm.createContactLogEntry", r.success ? { id: r.data.id } : r);
+    return r;
+  } catch (e) {
+    return toErrorResult(e);
+  }
+}
+
+export async function downloadContactLogAttachment(clientId: string, logId: string) {
+  try {
+    const r = await _downloadContactLogAttachment(clientId, logId);
+    logger.json("rm.downloadContactLogAttachment", r.success ? { filename: r.data.filename } : r);
     return r;
   } catch (e) {
     return toErrorResult(e);

@@ -10,8 +10,6 @@ export function getFirebaseAuthErrorCode(error: unknown): string | null {
 export function formatFirebaseAuthError(error: unknown): string {
   const code = getFirebaseAuthErrorCode(error);
   switch (code) {
-    case "auth/email-already-in-use":
-      return "This email is already registered in Firebase. Use Sign in with this email, or choose a different email.";
     case "auth/invalid-email":
       return "That email address is not valid.";
     case "auth/weak-password":

@@ -43,6 +43,8 @@ import { TabBar } from "@/components/mobo/TabBar";
 import { DateControl } from "@/components/mobo/allocation/Panels";
 import { useTradeRecords } from "@/hooks/api/useTradeRecords";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
+import type { BreakType, CompareField, ReconTrade } from "@/lib/mobo/types";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import type { TradeRecordRowDTO } from "@/lib/mobo/types";
 
 /* ---- day-token helpers — the API speaks raw IB `YYYYMMDD`, the

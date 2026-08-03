@@ -22,6 +22,7 @@ import { MetricStat, SegBar } from "@/components/mobo/Shared";
 import {
   loadCommissions, computeFeeTotals, fmtFee, fmtFeeShort, type FeeRow,
 } from "@/lib/mobo/commissions";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 const FEE_STATUS: Record<FeeRow["status"], { label: string; tone: ChipTone }> = {
   paid: { label: "Paid", tone: "active" },
@@ -72,6 +73,7 @@ function CalcCard({
 /* ---- expanded row: management + incentive fee calc side by side --- */
 function FeeBreakdown({ r, month }: { r: FeeRow; month: string }) {
   const noInc = r.gain <= 0;
+  const canEdit = useCanEdit("mobo.commission-tracking");
   return (
     <div className="border-t border-outline-variant bg-surface-low px-[18px] py-4">
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
@@ -120,14 +122,16 @@ function FeeBreakdown({ r, month }: { r: FeeRow; month: string }) {
             </>
           )}
         </span>
-        <div className="flex flex-none gap-2.5">
-          {/* View/Edit Gate Function */}
-          <Button variant="secondary" icon={FileText}>Fee note</Button>
-          {/* View/Edit Gate Function */}
-          <Button icon={r.status === "accrued" ? Receipt : Check}>
-            {r.status === "accrued" ? "Generate invoice" : "Fee approved"}
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="flex flex-none gap-2.5">
+            {/* View/Edit Gate Function */}
+            <Button variant="secondary" icon={FileText}>Fee note</Button>
+            {/* View/Edit Gate Function */}
+            <Button icon={r.status === "accrued" ? Receipt : Check}>
+              {r.status === "accrued" ? "Generate invoice" : "Fee approved"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

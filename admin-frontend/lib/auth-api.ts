@@ -24,9 +24,6 @@ async function parseApiError(res: Response, methodPath: string): Promise<string>
   }
   const base = getApiBase();
   if (res.status === 404) {
-    if (methodPath.includes("/api/dev/register")) {
-      return "Self-registration is not available in this environment.";
-    }
     return `${detail} (${methodPath} → ${base}). If you recently added auth routes, restart the FastAPI server.`;
   }
   return `${detail} (${res.status} ${methodPath})`;
@@ -53,27 +50,10 @@ export async function postBackendLogin(idToken: string | null): Promise<PortalUs
   return (await res.json()) as PortalUser;
 }
 
-// role is trusted by the backend ONLY when dev_mode is on (app/schemas/dev.py:
-// `role: AdminRole | None` — "trusted for admin portal in DEV ONLY"). The UI's
-// existing role dropdown (ADMIN/MOBO/RM/PM/PC/COMPLIANCE) is unchanged — it maps
-// 1:1 onto AdminRole and is safe to keep sending as-is.
-export async function postBackendRegister(idToken: string | null, role: string): Promise<PortalUser> {
-  const base = getApiBase();
-  const res = await fetch(`${base}/api/dev/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, portal: "admin", role }),
-  });
-  if (!res.ok) {
-    throw new BackendAuthError(await parseApiError(res, "POST /api/dev/register"), res.status);
-  }
-  return (await res.json()) as PortalUser;
-}
-
 /**
- * After Firebase sign-in or app reload, sync portal profile via login only.
- * Login binds an existing account only — it never creates one; `postBackendRegister`
- * (dev-only) is the sole provisioning path from this frontend.
+ * After Firebase sign-in or app reload, sync the portal profile via login only.
+ * Login binds an existing account; nothing in this frontend can create one — every
+ * account is provisioned by an authorised actor (D-7).
  */
 export async function syncPortalUserAfterFirebaseAuth(idToken: string | null): Promise<PortalUser> {
   return postBackendLogin(idToken);

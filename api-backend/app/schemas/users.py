@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -8,6 +10,11 @@ class UserOut(BaseModel):
     email: str | None
     role: str
     name: str | None
+    # BE-6 (§ 7.1). Absent key === NONE. Always {} for a Portal.CLIENT user --
+    # clients have no page matrix (§ 3 Non-Goals). Resolved per request from
+    # the DB, NOT carried in Firebase custom claims (D-2: 1000-byte cap +
+    # up-to-1h staleness).
+    grants: dict[str, Literal["VIEW", "EDIT"]] = {}
 
     model_config = {"from_attributes": True}
 

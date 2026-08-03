@@ -79,7 +79,7 @@ class ClientService:
 
         set_portal_claims(uid, "client", None, settings)  # Risk A4: stamp at provisioning
         staged = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
-        return staged, identity.generate_invite_link(email)
+        return staged, identity.generate_set_password_link(email)
 
     def list_visible(self, role: AdminRole, rm_firebase_uid: str) -> ClientListOut:
         rows = self.repo.list_visible(role, rm_firebase_uid)

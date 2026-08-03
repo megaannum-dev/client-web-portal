@@ -10,12 +10,13 @@ import type { Model } from "@/lib/pc/types";
    SLIDE-IN DETAIL — Overview tab
    ============================================================ */
 export function OverviewTab({
-  m, onEdit, onDuplicate, onOpenSymbols,
+  m, onEdit, onDuplicate, onOpenSymbols, canEdit,
 }: {
   m: Model;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onOpenSymbols: () => void;
+  canEdit: boolean;
 }) {
   return (
     <>
@@ -45,10 +46,12 @@ export function OverviewTab({
         {m.nav_perf && <Fact label="NAV and Performance" value={m.nav_perf} />}
         {m.subscription_redemption && <Fact label="Allotment & Redemption Process" value={m.subscription_redemption} />}
       </div>
-      <div className="mt-4 flex gap-2">
-        <Button variant="secondary" icon={Pencil} onClick={() => onEdit(m.id)}>Edit model</Button>
-        <Button variant="secondary" icon={Copy} onClick={() => onDuplicate(m.id)}>Duplicate</Button>
-      </div>
+      {canEdit && (
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" icon={Pencil} onClick={() => onEdit(m.id)}>Edit model</Button>
+          <Button variant="secondary" icon={Copy} onClick={() => onDuplicate(m.id)}>Duplicate</Button>
+        </div>
+      )}
     </>
   );
 }

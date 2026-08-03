@@ -14,6 +14,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Check, Info } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import type { TransactionDetailDTO } from "@/lib/onboarding/types";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 export interface SettlementDetails {
   bankAccount: string;
@@ -64,6 +65,7 @@ export function TransactionDetailModal({
   const [ccy, setCcy] = useState("USD");
   const [ref, setRef] = useState("");
   const canSave = !!bankAccount && !!amount && !!date && !!time;
+  const canEdit = useCanEdit("rm.model-subscription");
 
   return (
     <Modal
@@ -90,7 +92,7 @@ export function TransactionDetailModal({
           <>
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             {/* View/Edit Gate Function */}
-            <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>
+            {canEdit && <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>}
           </>
         )
       }

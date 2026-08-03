@@ -4,80 +4,68 @@
    ProtoStore.jsx). This models the internal-user directory and the
    role/page permission matrix shown in Enroll User + System Config.
 
-   NOT wired to `lib/pages-config.ts` — that file is the real route
-   guard (2 levels: OPERATE/VIEW). This is a separate, richer (3-level:
-   none/view/edit) management console over the same role set, entirely
-   mock-data-driven until a backend exists for it.
+   FE-8: the wire DTOs (StaffOut/StaffStatus/OverrideOut/AuditOut/
+   MatrixOut, from server/admin — FE-7) are re-exported here so
+   components import from one place, plus the display helpers that
+   derive `tone`/`initials`/`seen` from them at render time instead of
+   storing them.
+
+   FE-9: AdminStoreContext.tsx is API-backed and the legacy mock shapes
+   (AdminUser/Override/AuditEntry/UserStatus) are deleted — every
+   consumer now reads the DTOs above. `EnrollDraft` (with its temp-
+   password field and path-keyed `ovr`) is KEPT: the enroll wizard
+   (app/(roles)/admin/enroll-user/page.tsx, components/admin/enroll/
+   Wizard.tsx) still builds/consumes this exact shape until FE-11
+   migrates it.
    ============================================================ */
-import type { Role } from "@/lib/pages-config";
+import type { AccessLevel, PageId, Role } from "@/lib/pages-config";
+import type { AuditOut, MatrixOut, OverrideOut, StaffOut, StaffStatus } from "@/server/admin";
 
-export type { Role };
+export type { Role, PageId, AccessLevel };
+/** Alias retained so the console's existing call sites read naturally. Same type. */
+export type Level = AccessLevel;
 
-/** Standing access level for a page × role cell. */
-export type Level = "none" | "view" | "edit";
+// Re-export the DTOs so components import from one place, as they do today.
+export type { StaffOut, StaffStatus, OverrideOut, AuditOut, MatrixOut };
 
-export interface RoleDef {
-  code: Role;
-  name: string;
-}
-
-/** One page in the catalog, with its per-role standing levels (indexed like ROLES). */
-export interface PageDef {
-  name: string;
-  path: string;
-  levels: Level[];
-}
-
-export type PageGroup = [group: string, pages: PageDef[]];
-
-export interface FlatPage {
-  group: string;
-  name: string;
-  path: string;
-}
-
-export type UserStatus = "Active" | "Initiated" | "Deactivated";
+/** Display tone for a status chip. DERIVED from status — never stored. */
 export type StatusTone = "active" | "pending" | "neutral";
+const STATUS_TONE: Record<StaffStatus, StatusTone> = {
+  ACTIVE: "active", INITIATED: "pending", DEACTIVATED: "neutral",
+};
+export const toneFor = (s: StaffStatus): StatusTone => STATUS_TONE[s];
 
-export interface AdminUser {
-  initials: string;
-  name: string;
-  email: string;
-  role: Role;
-  dept: string;
-  status: UserStatus;
-  tone: StatusTone;
-  seen: string;
-}
+/** "Amara Rahim" → "AR". DERIVED from name — never stored. Null-safe, never throws. */
+export const initialsFor = (name: string | null): string =>
+  (name ?? "?").split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 
-export interface Override {
-  id: string;
-  initials: string;
-  name: string;
-  role: Role;
-  page: string;
-  path: string;
-  from: Level;
-  to: Level;
-  why: string;
-  by: string;
-  exp: string;
-  soon: boolean;
-}
+/** `last_sign_in_at` → the directory's "Last seen" cell. "—" when never signed in
+ *  or the timestamp doesn't parse (never throws on a malformed string). */
+export const seenFor = (iso: string | null): string => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = new Date();
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, now)) return `Today ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+};
 
-export interface AuditEntry {
-  id: string;
-  ts: string;
-  who: string;
-  what: string;
-  detail: string;
-}
+/** Status chip label — the wire value title-cased, so the filter chips and the chip text
+ *  read the DTO verbatim (no client-side derivation of status itself). */
+export const STATUS_LABEL: Record<StaffStatus, string> = {
+  ACTIVE: "Active", INITIATED: "Initiated", DEACTIVATED: "Deactivated",
+};
 
-/** A staged (unpublished) matrix edit, keyed by `path|roleIndex`. */
+/** A staged (unpublished) matrix edit, keyed by `page_id|role`. */
 export interface StagedChange {
-  path: string;
-  name: string;
-  role: number;
+  page_id: PageId;
+  label: string;
+  role: Role;
   from: Level;
   to: Level;
 }
@@ -94,8 +82,20 @@ export interface EnrollDraft {
   addr: string;
   dept: string;
   role: Role | "";
+  /** The role held before this edit — "was an RM, is becoming something else" needs this
+   *  because `role` above is already the *new* value by the time it's checked (FE-15). */
+  origRole?: Role;
   ovr: Record<string, Level>;
-  pw: string;
-  expiry: string;
-  invite: boolean;
+  /** The single expiry applied to every override recorded on this enrollment (FE-14). */
+  ovrExpiry: string;
+  notify: boolean;
+  /** Generated client-side, previewed/regenerable on the Credentials step, and
+   *  submitted verbatim on create — unused (empty) in edit mode, which has no
+   *  Credentials step. */
+  password: string;
+  /** RM-only counts carried in from StaffOut, null for every other role (FE-15). */
+  client_count?: number | null;
+  open_ticket_count?: number | null;
+  /** The receiving RM's firebase_uid when this edit hands over a book (FE-15). */
+  reassign_book_to?: string | null;
 }

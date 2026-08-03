@@ -111,6 +111,7 @@
   --surface-highest:    rgb(var(--color-surface-highest));
   --outline:            rgb(var(--color-outline));
   --outline-variant:    rgb(var(--color-outline-variant));
+  --error:              rgb(var(--color-error));
 }
 
 body {

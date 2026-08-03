@@ -27,6 +27,7 @@ export interface ClientListItemDTO {
   // NEW — "Further Information" fields, write-once-at-onboarding until now,
   // read (and now edited) via GET/PATCH /api/rm/clients/{client_id}.
   occupation?: string | null;
+  date_of_birth?: string | null; // date as YYYY-MM-DD, read-only
   anniversary?: string | null; // date as YYYY-MM-DD
   spouse_name?: string | null;
   children?: string | null;
@@ -77,6 +78,7 @@ export interface ClientRow {
   amountInTrade: number | null;
   // NEW -- "Further Information" fields (see ClientListItemDTO above).
   occupation: string | null;
+  dateOfBirth: string | null;
   anniversary: string | null;
   spouseName: string | null;
   children: string | null;
@@ -105,6 +107,7 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     cashDeposit: d.cash_deposit != null ? Number(d.cash_deposit) : null,
     amountInTrade: d.amount_in_trade != null ? Number(d.amount_in_trade) : null,
     occupation: d.occupation ?? null,
+    dateOfBirth: d.date_of_birth ?? null,
     anniversary: d.anniversary ?? null,
     spouseName: d.spouse_name ?? null,
     children: d.children ?? null,

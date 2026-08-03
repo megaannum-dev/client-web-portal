@@ -6,6 +6,7 @@ import {
   getClient, updateClient as _updateClient, getOnboardingByClient as _getOnboardingByClient,
   getClientEvents as _getClientEvents,
   getContactLogs as _getContactLogs, createContactLogEntry as _createContactLogEntry,
+  downloadContactLogAttachment as _downloadContactLogAttachment,
 } from "@/app/(roles)/rm/client-info/[id]/actions";
 import { getCachedById } from "@/hooks/api/useClientBook";
 import { dtoToRow, type ClientRow, type ClientPatchReq } from "@/lib/rm/clients";
@@ -149,6 +150,9 @@ export interface UseContactLogsResult {
   loading: boolean;
   error: string | null;
   createEntry: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+  downloadAttachment: (
+    logId: string,
+  ) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
 }
 
 export function useContactLogs(clientId: string): UseContactLogsResult {
@@ -184,5 +188,11 @@ export function useContactLogs(clientId: string): UseContactLogsResult {
     return { success: true };
   }, [clientId, fetch_]);
 
-  return { data, loading, error, createEntry };
+  const downloadAttachment = useCallback(async (logId: string) => {
+    const r = await _downloadContactLogAttachment(clientId, logId);
+    if (!r.success) return { success: false, error: r.error };
+    return { success: true, ...r.data };
+  }, [clientId]);
+
+  return { data, loading, error, createEntry, downloadAttachment };
 }

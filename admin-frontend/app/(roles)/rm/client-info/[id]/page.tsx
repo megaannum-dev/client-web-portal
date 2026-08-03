@@ -20,6 +20,7 @@ import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
 import type { ClientDoc, HistoryEntry } from "@/lib/mock/rm-data";
 import { ContactLogCard } from "@/components/rm/ContactLog";
 import { EditClientModal } from "@/components/rm/EditClientModal";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
@@ -171,7 +172,11 @@ export default function ClientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const { data: onboarding } = useOnboardingByClient(id);
   const { data: events } = useClientEvents(id);
-  const { data: contactLogs, loading: contactLogsLoading, createEntry: createContactLogEntry } = useContactLogs(id);
+  const {
+    data: contactLogs, loading: contactLogsLoading,
+    createEntry: createContactLogEntry, downloadAttachment: downloadContactLogAttachment,
+  } = useContactLogs(id);
+  const canEdit = useCanEdit("rm.client-info");
 
   if (nf) notFound(); // Next.js 404
 
@@ -229,11 +234,13 @@ export default function ClientDetailPage() {
             <p className="mt-1 text-[14px] text-secondary">Discretionary mandate · Client since {since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
-        <div className="flex gap-3">
-          {/* View/Edit Gate Function */}
-          <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit profile</Button>
-          <Button icon={Plus}>New Subscription</Button>
-        </div>
+        {/* View/Edit Gate Function */}
+        {canEdit && (
+          <div className="flex gap-3">
+            <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit profile</Button>
+            <Button icon={Plus}>New Subscription</Button>
+          </div>
+        )}
       </div>
 
       {/* Client information */}
@@ -268,7 +275,7 @@ export default function ClientDetailPage() {
             <InfoField label="Registered Address" value={data.address ?? "—"} />
             <InfoField label="Country of Residence" value={data.countryOfResidence ?? "—"} />
             <InfoField label="ID Info" value={[data.idType, data.idNumber].filter(Boolean).join(" ") || "—"} />
-            <InfoField label="Initiate Method" value={data.initiateMethod ?? "—"} />
+            <InfoField label="Date of Birth" value={data.dateOfBirth ?? "—"} />
             <InfoField label="Assigned RM" value={data.assignedRm ?? "Unassigned"} />
             <InfoField label="Authorized Person" value={data.authorizedByName ?? "—"} />
           </div>
@@ -293,14 +300,13 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="mt-5 flex justify-end gap-3">
-          <Button variant="secondary" icon={Download}>Investment Guideline</Button>
           <Button variant="secondary" icon={Download}>Client Monthly Report</Button>
         </div>
       </Card>
 
       {/* Subscribed models + KYC */}
       <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <Card title="Subscribed Models" action={<Button variant="secondary" icon={Plus}>Add</Button>}>
+        <Card title="Subscribed Models" action={canEdit && <Button variant="secondary" icon={Plus}>Add</Button>}>
           {data.subscriptions.length === 0 ? (
             <p className="py-1.5 text-[14px] text-secondary">No model subscriptions yet — onboarding in progress.</p>
           ) : (
@@ -375,6 +381,7 @@ export default function ClientDetailPage() {
           entries={contactLogs ?? []}
           loading={contactLogsLoading}
           onCreate={createContactLogEntry}
+          onDownloadAttachment={downloadContactLogAttachment}
         />
       </div>
 

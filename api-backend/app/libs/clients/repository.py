@@ -40,6 +40,7 @@ class ClientRow:
     id_type: str | None  # 014 C-8: client_onboardings.id_type, joined
     id_number: str | None  # 014 C-8: client_onboardings.id_number, joined
     occupation: str | None  # 019: client_profiles.occupation
+    date_of_birth: date | None
     anniversary: date | None
     spouse_name: str | None
     children: str | None
@@ -99,6 +100,7 @@ class ClientRepository:
                 ClientOnboarding.id_type,
                 ClientOnboarding.id_number,
                 ClientProfile.occupation,
+                ClientProfile.date_of_birth,
                 ClientProfile.anniversary,
                 ClientProfile.spouse_name,
                 ClientProfile.children,
@@ -218,6 +220,7 @@ class ClientRepository:
             id_type=r.id_type,
             id_number=r.id_number,
             occupation=r.occupation,
+            date_of_birth=r.date_of_birth,
             anniversary=r.anniversary,
             spouse_name=r.spouse_name,
             children=r.children,

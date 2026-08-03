@@ -9,23 +9,17 @@ import { LayoutGrid, List, Calculator, Plus } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { useModels } from "@/hooks/api/useModels";
 import { useModelDetail } from "@/hooks/api/useModelDetail";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { CardGrid } from "@/components/pc/model-management/CardGrid";
 import { ModelTable } from "@/components/pc/model-management/ModelTable";
 import { ModelDetailPanel } from "@/components/pc/model-management/ModelDetailPanel";
 import { CreateModelForm, type NewModelDraft } from "@/components/pc/model-management/CreateModelForm";
 import { EditModelForm } from "@/components/pc/model-management/EditModelForm";
 import { CalcModal } from "@/components/pc/model-management/CalcModal";
+import { saveBase64File } from "@/lib/download";
 
 type Layout = "grid" | "table";
 type Tab = "overview" | "symbols" | "materials" | "changes";
-
-// Rehydrate a base64 download payload into a Blob and trigger a save dialog.
-function saveBase64File(filename: string, contentType: string, base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: contentType }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
 
 const TOGGLES: [Layout, typeof LayoutGrid, string][] = [
   ["grid", LayoutGrid, "Card view"],
@@ -33,6 +27,7 @@ const TOGGLES: [Layout, typeof LayoutGrid, string][] = [
 ];
 
 export default function ModelManagementPage() {
+  const canEdit = useCanEdit("pc.model-management");
   const { data: models, refetch, createModel, updateModel, downloadLatestMaterial } = useModels();
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -101,7 +96,8 @@ export default function ModelManagementPage() {
               ))}
             </div>
             <Button variant="secondary" icon={Calculator} onClick={() => setCalc(true)} title="Fee calculator" aria-label="Fee calculator" className="px-[13px] py-2.5" />
-            <Button icon={Plus} onClick={() => setCreating(true)}>New model</Button>
+            {/* View/Edit Gate Function */}
+            {canEdit && <Button icon={Plus} onClick={() => setCreating(true)}>New model</Button>}
           </div>
         </div>
         {layout === "grid" ? (
@@ -118,16 +114,17 @@ export default function ModelManagementPage() {
           onUploadMaterial={async (_id, file) => { const r = await upload(file); if (r.success) refetch(); else alert(`Upload failed: ${r.error}`); return r.success; }}
           onDownloadMaterial={(_modelId, material) => { if (!material.id) return; void download(material.id).then((r) => (r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`))); }}
           onRefetch={refetchDetail}
+          canEdit={canEdit}
         />
       )}
-      {creating && (
+      {canEdit && creating && (
         <CreateModelForm
           onClose={() => { setCreating(false); setDuplicateSeed(null); }}
           onCreate={(draft) => { setDuplicateSeed(null); handleCreate(draft); }}
           initial={duplicateSeed ?? undefined}
         />
       )}
-      {editModel && <EditModelForm model={editModel} onClose={() => setEditId(null)} onSaved={() => { refetch(); refetchDetail(); }} />}
+      {canEdit && editModel && <EditModelForm model={editModel} onClose={() => setEditId(null)} onSaved={() => { refetch(); refetchDetail(); }} />}
       {calc && <CalcModal models={safeModels} onClose={() => setCalc(false)} />}
     </div>
   );

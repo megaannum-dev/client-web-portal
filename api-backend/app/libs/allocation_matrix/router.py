@@ -54,7 +54,7 @@ def _get_alloc_service(
 def create_period(
     body: PeriodCreate,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
-    _: Annotated[User, Depends(require_action(Action.ALLOCATION_MANAGE))],
+    _: Annotated[User, Depends(require_action(Action.ALLOCATION_WRITE))],
 ) -> object:
     return service.create_period(body.label)
 
@@ -64,7 +64,7 @@ def update_period(
     period_id: uuid.UUID,
     body: PeriodStatusUpdate,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
-    actor: Annotated[User, Depends(require_action(Action.ALLOCATION_MANAGE))],
+    actor: Annotated[User, Depends(require_action(Action.ALLOCATION_WRITE))],
 ) -> object:
     if body.status == PeriodStatus.CONFIRMED:
         return service.confirm_period(period_id, actor=actor.firebase_uid)

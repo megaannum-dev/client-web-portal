@@ -11,6 +11,7 @@ import app.models.reports as _models_reports  # noqa: F401 — registers reports
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
 from app.core.database import Base, engine
+from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
@@ -35,10 +36,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):  # type: ignore[type-arg]
     settings = get_settings()
-    if settings.app_env == "production" and (settings.dev_mode or settings.firebase_auth_disabled):
+    if settings.app_env == "production" and settings.firebase_auth_disabled:
         raise RuntimeError(
-            "Fail-closed: dev_mode/firebase_auth_disabled cannot be enabled when "
-            "APP_ENV=production."
+            "Fail-closed: firebase_auth_disabled cannot be enabled when APP_ENV=production."
         )
     assert_upload_window_valid()
     Base.metadata.create_all(bind=engine)
@@ -78,13 +78,8 @@ app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
+app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
-
-# --- Dev-only (mounted iff dev_mode) ---
-if get_settings().dev_mode:
-    from app.libs.dev.router import router as dev_router
-
-    app.include_router(dev_router, prefix="/api")
 
 
 @app.get("/health")
