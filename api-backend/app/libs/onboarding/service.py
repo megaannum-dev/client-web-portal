@@ -97,6 +97,19 @@ _SETTLEMENT_ELIGIBLE_STATUS = {
     AllotRdmpKind.REDEMPTION: AllotRdmpStatus.APPROVED,
 }
 
+# BE-13: Numeric(9, 6) -- the DB's own scale for mgmt_fee/incentive_fee.
+_FEE_Q = Decimal("0.000001")
+
+
+def _same_fee(a: Decimal | float | None, b: Decimal | float | None) -> bool:
+    """True when two fees are the same at the column's 6-dp scale.
+    Both operands are DECIMAL FRACTIONS (impl doc 020 §7.1(a)); mixing a float
+    DTO value with a Decimal column value is what makes the naive `==`
+    unreliable."""
+    if a is None or b is None:
+        return a is b
+    return Decimal(str(a)).quantize(_FEE_Q) == Decimal(str(b)).quantize(_FEE_Q)
+
 
 class OnboardingService:
     def __init__(self, db: Session) -> None:
@@ -359,9 +372,13 @@ class OnboardingService:
         surfaces as an IntegrityError, not a silent duplicate."""
         model = self.db.get(Model, onboarding.model_id)
         assert model is not None
-        mgmt_override = None if model.mgmt_fee == onboarding.mgmt_fee else onboarding.mgmt_fee
+        mgmt_override = (
+            None if _same_fee(model.mgmt_fee, onboarding.mgmt_fee) else onboarding.mgmt_fee
+        )
         incentive_override = (
-            None if model.incentive_fee == onboarding.incentive_fee else onboarding.incentive_fee
+            None
+            if _same_fee(model.incentive_fee, onboarding.incentive_fee)
+            else onboarding.incentive_fee
         )
 
         # ORDERING: read before upsert -- see docstring.
@@ -500,9 +517,9 @@ class OnboardingService:
 
         if existing is None:
             new_multiplier = req.multiplier  # new-subscription mode
-            mgmt_override = req.mgmt_fee if req.mgmt_fee != model.mgmt_fee else None
+            mgmt_override = None if _same_fee(model.mgmt_fee, req.mgmt_fee) else req.mgmt_fee
             incentive_override = (
-                req.incentive_fee if req.incentive_fee != model.incentive_fee else None
+                None if _same_fee(model.incentive_fee, req.incentive_fee) else req.incentive_fee
             )
         else:
             new_multiplier = existing.multiplier + req.multiplier  # D-4: additive
