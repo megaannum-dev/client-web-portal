@@ -1,12 +1,40 @@
 // FE-6 — pure DTO->view mapping, no fetch logic, mirroring lib/pc/models.ts's
-// mapDtoToModel convention. Reuses the EXISTING SubClient/SubModel/TxnRow
-// types from lib/mock/rm-data.ts verbatim -- this file produces values of
-// those types, it does not redefine them.
+// mapDtoToModel convention.
+// SubClient/SubModel/TxnRow's canonical home (moved from lib/mock/rm-data.ts,
+// which no longer has any mock subscription data to anchor them to — see
+// lib/rm/tickets.ts for the identical precedent with RequestTicket).
 import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
 import { formatFeePercent } from "@/lib/fee";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
-import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
+
+export type TxnRow = [
+  string, string, string, string, string, string, string, string, string,
+  AllotRdmpStatus | "",   // NEW 10th element — "" for Net rows and any legacy mock row
+  string?,                // NEW 11th element — transaction id, for settlement-detail filing;
+                           // absent for Net rows and mock/legacy rows (nothing to file against)
+  boolean?,               // NEW 12th element — has_transaction_detail; absent/undefined for
+                          // Net rows and any legacy mock row (nothing to file against)
+];
+export type SubModel = {
+  name: string;
+  status: string;
+  tone: ChipTone;
+  mgmtFee: string;
+  incentiveFee: string;
+  account: string;
+  modelId: string;   // NEW
+  modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
+  rows: TxnRow[];
+};
+export type SubClient = {
+  id: string;
+  name: string;
+  initials: string;
+  mandate: string;
+  aum: string;
+  models: SubModel[];
+};
 
 /** Status -> chip tone/label, per the proposal's A-2 refactor. Exhaustive
  *  switch, no default -- a 7th AllotRdmpStatus value fails tsc here, which

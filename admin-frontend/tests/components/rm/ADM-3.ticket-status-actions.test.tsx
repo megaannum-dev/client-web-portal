@@ -17,7 +17,7 @@ vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTicket: vi.fn() }));
 import { setTicketStatus } from "@/app/(roles)/rm/requests/actions";
 import { useRmTicket } from "@/hooks/api/useRmTickets";
 import { RequestTicketDetail } from "@/components/rm/RequestTickets";
-import type { RequestTicket } from "@/lib/mock/rm-data";
+import type { RequestTicket } from "@/lib/rm/tickets";
 
 function ok(data: unknown) {
   return { success: true as const, data };

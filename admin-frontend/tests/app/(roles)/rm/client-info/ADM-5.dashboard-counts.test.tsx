@@ -11,7 +11,7 @@ vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTickets: vi.fn() }));
 
 import { useRmTickets } from "@/hooks/api/useRmTickets";
 import RmDashboardPage from "@/app/(roles)/rm/client-info/page";
-import type { RequestTicket } from "@/lib/mock/rm-data";
+import type { RequestTicket } from "@/lib/rm/tickets";
 
 function ticket(overrides: Partial<RequestTicket> = {}): RequestTicket {
   return {

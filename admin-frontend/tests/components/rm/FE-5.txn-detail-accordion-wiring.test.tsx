@@ -16,7 +16,7 @@ vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
 
 import * as actions from "@/app/(roles)/rm/model-subscription/actions";
 import { SubscriptionAccordion } from "@/components/rm/SubscriptionAccordion";
-import type { SubClient, TxnRow } from "@/lib/mock/rm-data";
+import type { SubClient, TxnRow } from "@/lib/rm/subscriptions";
 import type { TransactionDetailDTO } from "@/lib/onboarding/types";
 
 const DETAILS: TransactionDetailDTO = {

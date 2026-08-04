@@ -50,9 +50,13 @@ describe("ADM-5 mock symbol deletion", () => {
     expect(sweep(/TICKET_QUEUE|REQUEST_TICKETS|isOpenTicket/)).toEqual([]);
   });
 
-  it("RM_CLIENTS, CLIENT_EXTRA, SUB_CLIENTS, MODEL_SIZES, OB_MODEL_CATALOG, getMockOverlay are still exported unchanged", () => {
+  it("RM_CLIENTS, CLIENT_EXTRA, MODEL_SIZES, OB_MODEL_CATALOG, getMockOverlay are still exported unchanged", () => {
+    // SUB_CLIENTS removed from this check by FE-15 (020 refactor, proposal D-13):
+    // it was dead mock data (superseded by live subscription data) and FE-15
+    // deletes it outright from lib/mock/rm-data.ts, along with its SubClient/
+    // SubModel/TxnRow types, which relocate to lib/rm/subscriptions.ts.
     const src = read("lib/mock/rm-data.ts");
-    for (const sym of ["RM_CLIENTS", "CLIENT_EXTRA", "SUB_CLIENTS", "MODEL_SIZES", "OB_MODEL_CATALOG"]) {
+    for (const sym of ["RM_CLIENTS", "CLIENT_EXTRA", "MODEL_SIZES", "OB_MODEL_CATALOG"]) {
       expect(src).toMatch(new RegExp(`export\\s+(const|type)\\s+${sym}\\b`));
     }
     expect(src).toMatch(/export\s+function\s+getMockOverlay/);

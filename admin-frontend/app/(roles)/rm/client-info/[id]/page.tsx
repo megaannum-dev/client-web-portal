@@ -17,7 +17,7 @@ import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
-import type { ClientDoc, HistoryEntry } from "@/lib/mock/rm-data";
+import type { ClientDoc, HistoryEntry } from "@/lib/rm/types";
 import { ContactLogCard } from "@/components/rm/ContactLog";
 import { EditClientModal } from "@/components/rm/EditClientModal";
 import { useCanEdit } from "@/hooks/usePageAccess";

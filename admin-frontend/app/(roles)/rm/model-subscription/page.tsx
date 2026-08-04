@@ -11,7 +11,8 @@ import {
   type SubscriptionModalMode,
   type SubscriptionModalContext,
 } from "@/components/rm/SubscriptionFormModal";
-import { OB_MODEL_CATALOG, type SubClient } from "@/lib/mock/rm-data";
+import { OB_MODEL_CATALOG } from "@/lib/mock/rm-data";
+import type { SubClient } from "@/lib/rm/subscriptions";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
 import { useCanEdit } from "@/hooks/usePageAccess";
 

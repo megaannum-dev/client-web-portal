@@ -3,7 +3,7 @@
    All data is mock; no backend wiring.
    ============================================================ */
 import type { ChipTone } from "@/components/ui/Chip";
-import type { AllotRdmpStatus } from "@/lib/onboarding/types";
+import type { SummaryItem, ClientDoc, HistoryEntry } from "@/lib/rm/types";
 
 export type RmClient = {
   id: string;
@@ -50,11 +50,6 @@ export const RM_CLIENTS: RmClient[] = [
   //   contact: "Greg Vance", title: "Partner", email: "g.vance@pikevance.com", assignedRm: "Dana Okafor" },
 ];
 
-export type SummaryItem = { id: string; c: string; d?: string; s?: string; t: ChipTone };
-
-/** Count-only row for the Open Requests card (dot + label + number, no navigation). */
-export type CountItem = { id: string; c: string; n: number; t: "primary" | "muted" };
-
 /** Renewals Due rail card — one row per client, sourced from RM_CLIENTS. */
 export const RENEWALS_DUE: SummaryItem[] = RM_CLIENTS.map((c) => ({
   id: c.id,
@@ -66,18 +61,6 @@ export const RENEWALS_DUE: SummaryItem[] = RM_CLIENTS.map((c) => ({
 /* ---- Per-client DETAIL mock data --------------------------- */
 type ClientModel = { name: string; status: string; tone: ChipTone; account: string; notes: string };
 
-export type ClientPreferences = {
-  birthday: string;
-  anniversary: string;
-  occupation: string;
-  spouseName: string;
-  childrenNames: string;
-  personalInterests: string;
-  commPrefs: string;
-  giftPrefs: string;
-  otherPrefNotes: string;
-};
-
 type ClientExtra = {
   address: string;
   country: string;
@@ -86,7 +69,6 @@ type ClientExtra = {
   cashValue: string;
   portfolioValue?: string;
   models: ClientModel[];
-  preferences?: ClientPreferences;
 };
 
 export const CLIENT_EXTRA: Record<string, ClientExtra> = {
@@ -170,8 +152,6 @@ export const CLIENT_EXTRA: Record<string, ClientExtra> = {
   // },
 };
 
-export type ClientDoc = { name: string; status: string; tone: ChipTone; icon: string };
-
 function clientDocs(c: Pick<RmClient, "kyc" | "tone">): ClientDoc[] {
   const v = c.kyc === "Verified";
   const overdue = c.tone === "overdue";
@@ -183,8 +163,6 @@ function clientDocs(c: Pick<RmClient, "kyc" | "tone">): ClientDoc[] {
     // { name: "Sanctions / PEP Screen", status: v ? "Verified" : "In Review", tone: v ? "active" : "review", icon: v ? "check" : "search" },
   ];
 }
-
-export type HistoryEntry = { t: string; d: string; accent?: boolean; detail?: string[] };
 
 function clientHistory(c: Pick<RmClient, "kyc" | "mandate">, models: ClientModel[]): HistoryEntry[] {
   const rm = "Dana Okafor";
@@ -209,270 +187,6 @@ function clientHistory(c: Pick<RmClient, "kyc" | "mandate">, models: ClientModel
   ];
 }
 
-export type ContactLogEntry = {
-  topic: string;
-  when: string;
-  channel: string;
-  icon: string;
-  desc: string;
-  interest?: string;
-  complaint?: string;
-  followUp?: string;
-  doc?: { name: string; size: string } | null;
-  accent?: boolean;
-  by?: string;
-};
-
-function clientContactLog(c: Pick<RmClient, "contact" | "mandate">, models: ClientModel[]): ContactLogEntry[] {
-  const m0 = models[0] ? models[0].name : "the proposed mandate";
-  const m1 = models[1] ? models[1].name : "an income sleeve";
-  const first = (c.contact || "The client").split(" ")[0];
-  return [
-    // {
-    //   topic: "Q2 portfolio review call", when: "26 May 2026 · 10:30", channel: "Phone call", icon: "phone", accent: true,
-    //   desc: `45 min review of ${m0} performance year to date. ${first} is comfortable with the current risk band but asked whether the equity weight can be lifted ahead of the next rebalance.`,
-    //   interest: `Interested in increasing exposure to ${m1}; asked for a fee illustration at a 2× multiple.`,
-    //   followUp: "Send indicative allocation + fee schedule before 5 Jun; book follow-up call week of 8 Jun.",
-    //   doc: { name: "Q2-review-notes.pdf", size: "184 KB" },
-    // },
-    // {
-    //   topic: "KYC document chase", when: "12 May 2026 · 16:05", channel: "Email", icon: "mail",
-    //   desc: `Reminded ${first} that the source-of-wealth pack is outstanding and explained which pages compliance still needs certified.`,
-    //   followUp: "Client to return certified copies by 20 May. Escalate to compliance if not received.",
-    //   doc: { name: "KYC-checklist-v3.pdf", size: "96 KB" },
-    // },
-    // {
-    //   topic: "Statement query — Q1 fee line", when: "07 Apr 2026 · 09:20", channel: "Phone call", icon: "phone",
-    //   desc: "Client queried the incentive fee accrual shown on the Q1 statement. Walked through the high-water-mark calculation line by line.",
-    //   complaint: "Raised as a complaint at the start of the call; withdrawn once the calculation was explained. Logged for the record.",
-    //   followUp: "Ops to add a fee-basis footnote to future statements.",
-    //   doc: null,
-    // },
-    // {
-    //   topic: "Annual relationship meeting", when: "18 Mar 2026 · 14:00", channel: "In-person meeting", icon: "users",
-    //   desc: `Met ${c.contact || "the client"} at the office with the CIO. Covered the ${c.mandate.toLowerCase()} mandate, market outlook and the succession plan for the family holding company.`,
-    //   interest: "Open to a private-markets allocation once liquidity from the H2 disposal lands.",
-    //   followUp: "Circulate meeting minutes; schedule private-markets briefing for Q3.",
-    //   doc: { name: "Annual-meeting-minutes.docx", size: "212 KB" },
-    // },
-    // {
-    //   topic: "Onboarding kickoff", when: "02 Feb 2026 · 11:15", channel: "Video call", icon: "video",
-    //   desc: "Introductory call covering portal access, reporting cadence and the operating model between the RM desk and middle office.",
-    //   followUp: "Portal credentials issued; nothing outstanding.",
-    //   doc: null,
-    // },
-  ];
-}
-
-const EMPTY_PREFERENCES: ClientPreferences = {
-  birthday: "—", anniversary: "—", occupation: "—", spouseName: "—", childrenNames: "—",
-  personalInterests: "—", commPrefs: "—", giftPrefs: "—", otherPrefNotes: "—",
-};
-
-export type ClientDetail = {
-  address: string;
-  country: string;
-  clientId: string;
-  phone: string;
-  portfolioValue: string;
-  cashValue: string;
-  models: ClientModel[];
-  docs: ClientDoc[];
-  history: HistoryEntry[];
-  preferences: ClientPreferences;
-  contactLog: ContactLogEntry[];
-};
-
-/** Resolve full detail for a client id; returns null if unknown. */
-export function getClientDetail(id: string): { client: RmClient; detail: ClientDetail } | null {
-  const c = RM_CLIENTS.find((x) => x.id === id);
-  if (!c) return null;
-  const x = CLIENT_EXTRA[c.id] ?? ({} as Partial<ClientExtra>);
-  const models = x.models ?? [];
-  return {
-    client: c,
-    detail: {
-      address: x.address || "—",
-      country: x.country || "—",
-      clientId: x.clientId || "MEGA-" + c.id.slice(0, 4).toUpperCase(),
-      phone: x.phone || "—",
-      portfolioValue: x.portfolioValue || c.aum,
-      cashValue: x.cashValue || "—",
-      models,
-      docs: clientDocs(c),
-      history: clientHistory(c, models),
-      preferences: x.preferences ?? EMPTY_PREFERENCES,
-      contactLog: clientContactLog(c, models),
-    },
-  };
-}
-
-/* ============================================================
-   Model Subscription — client → models → transactions
-   ============================================================ */
-export type TxnRow = [
-  string, string, string, string, string, string, string, string, string,
-  AllotRdmpStatus | "",   // NEW 10th element — "" for Net rows and any legacy mock row
-  string?,                // NEW 11th element — transaction id, for settlement-detail filing;
-                           // absent for Net rows and mock/legacy rows (nothing to file against)
-  boolean?,               // NEW 12th element — has_transaction_detail; absent/undefined for
-                          // Net rows and any legacy mock row (nothing to file against)
-];
-export type SubModel = {
-  name: string;
-  status: string;
-  tone: ChipTone;
-  mgmtFee: string;
-  incentiveFee: string;
-  account: string;
-  modelId: string;   // NEW
-  modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
-  rows: TxnRow[];
-};
-export type SubClient = {
-  id: string;
-  name: string;
-  initials: string;
-  mandate: string;
-  aum: string;
-  models: SubModel[];
-};
-
-export const SUB_CLIENTS: SubClient[] = [
-  {
-    id: "ardent", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$42.1M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "ardent-global-balanced",
-        rows: [
-          ["Allotment",  "01/01/2026", "IB-4471", "USD", "180,000",  "2×",  "200,000",  "25/12/2025", "—", "pending"],
-          ["Redemption", "01/03/2026", "IB-4471", "USD", "(80,000)", "−1×", "(100,000)", "—", "01/03/2026", "pending"],
-          ["Net",        "",           "",         "",    "100,000",  "1×",  "100,000",  "",  "", ""],
-        ],
-      },
-      { name: "Model A", status: "Active", tone: "active", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-4471", modelId: "ardent-model-a",
-        rows: [
-          ["Allotment", "15/02/2026", "IB-4471", "USD", "120,000", "2×", "240,000", "10/02/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "120,000", "2×", "240,000", "",           "", ""],
-        ],
-      },
-      { name: "ESG Tilt", status: "In Review", tone: "review", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-5582", modelId: "ardent-esg-tilt",
-        rows: [
-          ["Allotment", "28/05/2026", "IB-5582", "USD", "80,000", "2×", "160,000", "25/05/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-  {
-    id: "vela", name: "Vela Holdings", initials: "VH", mandate: "Discretionary", aum: "$31.4M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-2204", modelId: "vela-global-balanced",
-        rows: [
-          ["Allotment",  "01/11/2025", "IB-2204", "USD", "300,000",   "3×",  "900,000",   "28/10/2025", "—", "pending"],
-          ["Redemption", "01/04/2026", "IB-2204", "USD", "(100,000)", "−1×", "(300,000)", "—", "01/04/2026", "pending"],
-          ["Net",        "",           "",         "",    "200,000",   "2×",  "600,000",   "",  "", ""],
-        ],
-      },
-      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-2204", modelId: "vela-equity-growth",
-        rows: [
-          ["Allotment", "15/01/2026", "IB-2204", "USD", "150,000", "2×", "300,000", "12/01/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           "", ""],
-        ],
-      },
-      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-2255", modelId: "vela-income-core",
-        rows: [
-          ["Allotment", "01/03/2026", "IB-2255", "USD", "100,000", "2×", "200,000", "26/02/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
-        ],
-      },
-      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-2255", modelId: "vela-esg-tilt",
-        rows: [
-          ["Allotment", "01/02/2026", "IB-2255", "USD", "50,000", "1×", "50,000", "28/01/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "50,000", "1×", "50,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-  {
-    id: "northbridge", name: "Northbridge LP", initials: "NL", mandate: "Advisory", aum: "$18.9M",
-    models: [
-      { name: "Income Core", status: "Pending", tone: "pending", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-3310", modelId: "northbridge-income-core",
-        rows: [
-          ["Allotment", "15/06/2026", "IB-3310", "USD", "200,000", "2×", "400,000", "12/06/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "200,000", "2×", "400,000", "",           "", ""],
-        ],
-      },
-      { name: "Global Balanced", status: "Pending", tone: "pending", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-3310", modelId: "northbridge-global-balanced",
-        rows: [
-          ["Allotment", "01/07/2026", "IB-3310", "USD", "150,000", "2×", "300,000", "28/06/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "150,000", "2×", "300,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-  {
-    id: "selwyn", name: "Selwyn Asset Mgmt", initials: "SA", mandate: "Discretionary", aum: "$27.3M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-6620", modelId: "selwyn-global-balanced",
-        rows: [
-          ["Allotment",  "01/08/2025", "IB-6620", "CHF", "250,000",  "2×",    "500,000",   "28/07/2025", "—", "pending"],
-          ["Redemption", "01/01/2026", "IB-6620", "CHF", "(50,000)", "−0.5×", "(100,000)", "—", "02/01/2026", "pending"],
-          ["Net",        "",           "",         "",    "200,000",  "1.5×",  "400,000",   "",  "", ""],
-        ],
-      },
-      { name: "Equity Growth", status: "Active", tone: "active", mgmtFee: "1.5%", incentiveFee: "20%", account: "IB-6620", modelId: "selwyn-equity-growth",
-        rows: [
-          ["Allotment", "15/03/2026", "IB-6620", "CHF", "100,000", "2×", "200,000", "12/03/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
-        ],
-      },
-      { name: "ESG Tilt", status: "Active", tone: "active", mgmtFee: "0.8%", incentiveFee: "10%", account: "IB-6655", modelId: "selwyn-esg-tilt",
-        rows: [
-          ["Allotment", "10/03/2026", "IB-6655", "CHF", "100,000", "1×", "100,000", "07/03/2026", "—", "pending"],
-          ["Net",       "",           "",         "",    "100,000", "1×", "100,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-  {
-    id: "coalfield", name: "Coalfield & Co.", initials: "CC", mandate: "Discretionary", aum: "$9.7M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-1190", modelId: "coalfield-global-balanced",
-        rows: [
-          ["Allotment", "01/06/2025", "IB-1190", "AUD", "100,000", "2×", "200,000", "28/05/2025", "—", "pending"],
-          ["Net",       "",           "",         "",    "100,000", "2×", "200,000", "",           "", ""],
-        ],
-      },
-      { name: "Model A", status: "Overdue", tone: "overdue", mgmtFee: "1.25%", incentiveFee: "15%", account: "IB-1190", modelId: "coalfield-model-a",
-        rows: [
-          ["Allotment", "01/09/2025", "IB-1190", "AUD", "80,000", "2×", "160,000", "28/08/2025", "—", "pending"],
-          ["Net",       "",           "",         "",    "80,000", "2×", "160,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-  {
-    id: "pike", name: "Pike & Vance", initials: "PV", mandate: "Discretionary", aum: "$22.6M",
-    models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-9012", modelId: "pike-global-balanced",
-        rows: [
-          ["Allotment", "15/04/2025", "IB-9012", "USD", "220,000", "2×", "440,000", "12/04/2025", "—", "pending"],
-          ["Net",       "",           "",         "",    "220,000", "2×", "440,000", "",           "", ""],
-        ],
-      },
-      { name: "Income Core", status: "Active", tone: "active", mgmtFee: "0.75%", incentiveFee: "8%", account: "IB-9012", modelId: "pike-income-core",
-        rows: [
-          ["Allotment", "01/09/2025", "IB-9012", "USD", "180,000", "2×", "360,000", "28/08/2025", "—", "pending"],
-          ["Net",       "",           "",         "",    "180,000", "2×", "360,000", "",           "", ""],
-        ],
-      },
-    ],
-  },
-];
-
-/** Ids that have a full Client Detail page (present in RM_CLIENTS). */
-export const KNOWN_CLIENT_IDS = new Set(RM_CLIENTS.map((c) => c.id));
-
 /* ---- Model size & fee catalog — subscription entry form / onboarding modal */
 export const MODEL_SIZES: Record<string, number> = {
   "Global Balanced": 100000,
@@ -490,14 +204,6 @@ export const OB_MODEL_CATALOG: ModelCatalogEntry[] = [
   { model_id: "income-core", name: "Income Core", mgmtFee: "0.75%", incentiveFee: "8%" },
   { model_id: "esg-tilt", name: "ESG Tilt", mgmtFee: "0.8%", incentiveFee: "10%" },
 ];
-
-/* ============================================================
-   Request Tickets — moved to lib/rm/tickets.ts (ADM-5); the dashboard's
-   Open Requests counts and the ticket inbox are now both live-data
-   (useRmTickets), so no mock ticket queue lives here anymore.
-   Re-exported so existing `from "@/lib/mock/rm-data"` imports keep working.
-   ============================================================ */
-export type { RequestTicket } from "@/lib/rm/tickets";
 
 /* ============================================================
    Client Book — hash-based mock overlay (FE-8)

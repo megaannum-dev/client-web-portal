@@ -18,12 +18,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
-import {
-  RENEWALS_DUE,
-  getMockOverlay,
-  type SummaryItem,
-  type CountItem,
-} from "@/lib/mock/rm-data";
+import { RENEWALS_DUE, getMockOverlay } from "@/lib/mock/rm-data";
+import type { SummaryItem, CountItem } from "@/lib/rm/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { useClientBook } from "@/hooks/api/useClientBook";

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getTicket, getTickets } from "@/app/(roles)/rm/requests/actions";
-import { mapDtoToRequestTicket } from "@/lib/rm/tickets";
-import type { RequestTicket } from "@/lib/mock/rm-data";
+import { mapDtoToRequestTicket, type RequestTicket } from "@/lib/rm/tickets";
 
 export interface UseRmTicketsResult {
   data: RequestTicket[] | null;

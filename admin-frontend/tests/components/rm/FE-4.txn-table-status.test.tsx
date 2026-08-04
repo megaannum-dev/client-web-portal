@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SubscriptionAccordion } from "@/components/rm/SubscriptionAccordion";
-import type { SubClient, TxnRow } from "@/lib/mock/rm-data";
+import type { SubClient, TxnRow } from "@/lib/rm/subscriptions";
 
 function makeClient(rows: TxnRow[]): SubClient {
   return {
