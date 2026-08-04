@@ -90,14 +90,14 @@ export function HeaderActions() {
             <div className="h-px bg-outline-variant mx-5" />
 
             {/* Footer link */}
-            <div className="px-5 py-4">
+            {/* <div className="px-5 py-4">
               <Link
                 href="/profile"
                 className="text-[14px] font-bold text-primary hover:opacity-75 transition-opacity"
               >
                 View full profile
               </Link>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

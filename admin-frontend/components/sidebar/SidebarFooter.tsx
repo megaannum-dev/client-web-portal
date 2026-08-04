@@ -7,7 +7,7 @@ import { usePathname }      from "next/navigation";
 import clsx                 from "clsx";
 
 const FOOTER_ITEMS = [
-  { href: "/settings", icon: Settings, label: "Settings" },
+  // { href: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
 interface SidebarFooterProps {
