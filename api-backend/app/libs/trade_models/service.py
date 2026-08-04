@@ -14,8 +14,8 @@ from typing import IO, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.storage import FileStorage
 from app.libs.trade_models.repository import ModelRepository
-from app.libs.trade_models.storage import FileStorage
 from app.models.pc import (
     Model,
     ModelChange,
@@ -346,7 +346,7 @@ class ModelService:
             stream,
             suggested_name=filename,
             content_type=content_type,
-            subdir="models_mrkt_materials",
+            subdir=None,  # the MARKETING bucket IS the group (BE-7)
         )
 
         # Insert material row.

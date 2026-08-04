@@ -29,7 +29,7 @@ def _resolve_user(
         # (BE-21) before first use.
         user = repo.get_by_firebase_uid("dev-user")
         if user is None:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "No account staged for you")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No account staged for you")
         return user
 
     uid, email = extract_uid_email(claims, settings)
@@ -37,7 +37,7 @@ def _resolve_user(
     user = repo.get_by_firebase_uid(uid)
     if user is None:
         # BE-7: bind-only — unknown-but-verified token is rejected, never auto-created.
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "No account staged for you")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No account staged for you")
     if email and user.email != email:
         user = repo.update_email(user, email)
     return user

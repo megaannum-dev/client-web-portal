@@ -16,9 +16,13 @@ class Settings(BaseSettings):
 
     # PC workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
     storage_backend: str = "local"  # "local" | "nas"
-    storage_root: str = "./crm_filesystem"  # path for LocalStorage mount
-    legal_docs_subdir: str = "legal_docs"
-    client_statements_subdir: str = "client_statements"
+    storage_root: str = "./crm_filesystem"  # base for the six bucket defaults below (BE-5)
+    storage_root_marketing: str | None = None  # default: {storage_root}/marketing
+    storage_root_kyc: str | None = None  # default: {storage_root}/kyc
+    storage_root_contact_log: str | None = None  # default: {storage_root}/contact_log
+    storage_root_reports: str | None = None  # default: {storage_root}/reports
+    storage_root_legal: str | None = None  # default: {storage_root}/legal
+    storage_root_statements: str | None = None  # default: {storage_root}/statements
 
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"

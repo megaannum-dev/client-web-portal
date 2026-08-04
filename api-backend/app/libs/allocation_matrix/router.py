@@ -69,12 +69,12 @@ def update_period(
     if body.status == PeriodStatus.CONFIRMED:
         return service.confirm_period(period_id, actor=actor.firebase_uid)
     raise HTTPException(
-        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status.HTTP_409_CONFLICT,
         f"Unsupported period status transition: {body.status!r}",
     )
 
 
-@router.get("/allocation")
+@router.get("/allocation", response_model=AllocationViewOut, responses={304: {}})
 def get_allocation(
     response: Response,
     service: Annotated[AllocationService, Depends(_get_alloc_service)],
