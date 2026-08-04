@@ -6,10 +6,6 @@ import { describe, expect, it } from "vitest";
 
 const ADMIN_FRONTEND_ROOT = process.cwd();
 
-function read(relPath: string): string {
-  return fs.readFileSync(path.resolve(ADMIN_FRONTEND_ROOT, relPath), "utf-8");
-}
-
 // Plain array return (not a generator) — this tsconfig has no `target` set
 // (defaults below ES2015), so iterating a Generator trips TS2802.
 function walk(dir: string): string[] {
@@ -38,28 +34,19 @@ function sweep(pattern: RegExp): string[] {
 }
 
 describe("ADM-5 mock symbol deletion", () => {
-  it("TICKET_QUEUE, REQUEST_TICKETS, isOpenTicket, and the mock RequestTicket type are gone from lib/mock/rm-data.ts", () => {
-    const src = read("lib/mock/rm-data.ts");
-    expect(src).not.toMatch(/export\s+const\s+TICKET_QUEUE/);
-    expect(src).not.toMatch(/export\s+const\s+REQUEST_TICKETS/);
-    expect(src).not.toMatch(/isOpenTicket/);
-    expect(src).not.toMatch(/export\s+type\s+RequestTicket\b/);
-  });
-
   it("no remaining reference to TICKET_QUEUE/REQUEST_TICKETS/isOpenTicket anywhere under admin-frontend", () => {
     expect(sweep(/TICKET_QUEUE|REQUEST_TICKETS|isOpenTicket/)).toEqual([]);
   });
+});
 
-  it("RM_CLIENTS, CLIENT_EXTRA, MODEL_SIZES, OB_MODEL_CATALOG, getMockOverlay are still exported unchanged", () => {
-    // SUB_CLIENTS removed from this check by FE-15 (020 refactor, proposal D-13):
-    // it was dead mock data (superseded by live subscription data) and FE-15
-    // deletes it outright from lib/mock/rm-data.ts, along with its SubClient/
-    // SubModel/TxnRow types, which relocate to lib/rm/subscriptions.ts.
-    const src = read("lib/mock/rm-data.ts");
-    for (const sym of ["RM_CLIENTS", "CLIENT_EXTRA", "MODEL_SIZES", "OB_MODEL_CATALOG"]) {
-      expect(src).toMatch(new RegExp(`export\\s+(const|type)\\s+${sym}\\b`));
-    }
-    expect(src).toMatch(/export\s+function\s+getMockOverlay/);
+describe("FE-16: lib/mock/rm-data.ts deleted entirely", () => {
+  it("the file no longer exists", () => {
+    expect(fs.existsSync(path.resolve(ADMIN_FRONTEND_ROOT, "lib/mock/rm-data.ts"))).toBe(false);
+  });
+
+  it("nothing under admin-frontend imports from it (stale comments mentioning the old path don't count)", () => {
+    const importLine = /^\s*(import|export)\b.*from\s+["']@\/lib\/mock\/rm-data["']/m;
+    expect(sweep(importLine)).toEqual([]);
   });
 });
 

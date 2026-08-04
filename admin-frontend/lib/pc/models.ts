@@ -19,8 +19,8 @@ import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO
    fees are NOT stored on the model — they are 2% / 20% across the board
    until per-client overrides land. Decimal fractions (0.02 = 2%), per
    @/lib/fee. */
-const DEFAULT_MGMT_FRACTION = 0.02;
-const DEFAULT_INCENTIVE_FRACTION = 0.2;
+export const DEFAULT_MGMT_FRACTION = 0.02;
+export const DEFAULT_INCENTIVE_FRACTION = 0.2;
 
 /* ---- DTO→view mappers -------------------------------------- */
 

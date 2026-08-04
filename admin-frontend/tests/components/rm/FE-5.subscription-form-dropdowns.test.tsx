@@ -9,7 +9,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
+vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   submitAllotment: vi.fn().mockResolvedValue({ success: true, data: {} }),
   submitRedemption: vi.fn().mockResolvedValue({ success: true, data: {} }),
 }));
@@ -24,7 +25,7 @@ beforeEach(() => {
 });
 
 const CLIENTS = [{ id: "c1", name: "Acme" }];
-const MODELS = [{ id: "m1", name: "Model A", mgmtFee: "1.0%", incentiveFee: "10%" }];
+const MODELS = [{ id: "m1", name: "Model A", mgmtFee: "1.0%", incentiveFee: "10%", size: 120000 }];
 
 describe("FE-5 new-subscription dropdowns render from props, not the mock fixture", () => {
   it("client select lists exactly availableClients, model select lists exactly availableModels", () => {

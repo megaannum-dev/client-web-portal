@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useParams: () => ({ id: "client-1" }),
   notFound: vi.fn(),
 }));
@@ -13,18 +14,13 @@ vi.mock("next/navigation", () => ({
 // convention of one hooks/api/use*.ts file per domain hook (useOnboardingBoard,
 // useModels, etc.). If the implementation instead creates dedicated files,
 // regenerate this test against the actual paths.
-vi.mock("@/hooks/api/useClient", () => ({
+vi.mock("@/hooks/api/useClient", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useClient")>()),
   useClient: vi.fn(),
   useOnboardingByClient: vi.fn(),
   useClientEvents: vi.fn(),
 }));
-vi.mock("@/lib/mock/rm-data", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/mock/rm-data")>();
-  return { ...actual, getMockOverlay: vi.fn(actual.getMockOverlay) };
-});
-
 import { useClient, useOnboardingByClient, useClientEvents } from "@/hooks/api/useClient";
-import { getMockOverlay } from "@/lib/mock/rm-data";
 import { dtoToRow, type ClientListItemDTO, type ClientRow } from "@/lib/rm/clients";
 import ClientDetailPage from "@/app/(roles)/rm/client-info/[id]/page";
 
@@ -130,9 +126,11 @@ describe("FE-4 History — fetched, not mocked", () => {
 });
 
 describe("FE-4 invariant: Account Balance card is untouched", () => {
-  it("still renders via getMockOverlay", () => {
+  // FE-16 (020 refactor): lib/mock/rm-data.ts and getMockOverlay are deleted —
+  // this page already computes totalPortfolioValue from real data, not the
+  // mock overlay, so the invariant is just that the card still renders.
+  it("still renders", () => {
     render(<ClientDetailPage />);
-    expect(getMockOverlay).toHaveBeenCalledWith("client-1");
     expect(screen.getByText("Total Portfolio Value")).toBeInTheDocument();
   });
 });
