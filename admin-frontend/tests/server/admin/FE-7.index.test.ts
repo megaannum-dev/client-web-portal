@@ -178,6 +178,13 @@ describe("FE-7 server/admin/index.ts — one function per §7.1 route", () => {
 });
 
 describe("FE-7 app/(roles)/admin/actions.ts — the route-local logging wrapper", () => {
+  // Each test below vi.doMock's @/server/admin differently, then re-imports
+  // @/app/(roles)/admin/actions. Without resetModules, the second import resolves
+  // from the already-populated module registry (the first test's mock leaks in).
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
   it("forwards to server/admin and returns its result verbatim on success", async () => {
     vi.doMock("@/server/admin", () => ({
       getStaff: vi.fn(async () => ({ success: true, data: [] })),

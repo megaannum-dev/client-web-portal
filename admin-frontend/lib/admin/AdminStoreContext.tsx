@@ -153,6 +153,10 @@ export function AdminStoreProvider({
       const k = kFor(pageId, role);
       setStaged((s) => {
         const next = { ...s };
+        // No-op-drop rule: staging a cell back to its current published level (or to NONE
+        // when the cell is simply absent from `levels`, which is implicitly NONE) removes
+        // it from `staged` instead of recording a change — publish() only ever sends real
+        // diffs. Fixtures that stage a cell must give it a starting level that differs.
         if ((levels[k] ?? "NONE") === target) delete next[k];
         else next[k] = { page_id: pageId, label: PAGE_BY_ID[pageId].label, role, from: levels[k] ?? "NONE", to: target };
         return next;

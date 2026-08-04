@@ -25,7 +25,15 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: v
 const MATRIX_FIXTURE = {
   pages: [{ page_id: "pc.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
   roles: [{ code: "PC", name: "Portfolio Commander", user_count: 4 }],
-  levels: [{ page_id: "pc.model-management", role: "PC", level: "EDIT" }],
+  // mobo.commission-tracking/MOBO is given an explicit non-NONE level here (rather than
+  // being omitted) so that staging it to NONE below is a genuine change. stage() drops a
+  // staged cell as a no-op whenever it equals the cell's current level — and an omitted
+  // level is implicitly NONE, so staging an omitted cell to NONE would otherwise vanish
+  // before it ever reaches `staged` (see AdminStoreContext.tsx's `stage`).
+  levels: [
+    { page_id: "pc.model-management", role: "PC", level: "EDIT" },
+    { page_id: "mobo.commission-tracking", role: "MOBO", level: "EDIT" },
+  ],
   published: { at: "2026-07-01T00:00:00Z", by: "Omar Bakri" },
 };
 

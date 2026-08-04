@@ -107,8 +107,14 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
 
     it("eff returns the staged value when one is staged, taking precedence over published", () => {
       renderStore();
-      const store = ctx as unknown as { eff: (p: string, r: string) => string; stage: (p: string, r: string, to: string) => void };
-      act(() => store.stage("pc.model-management", "PC", "VIEW"));
+      act(() =>
+        (ctx as unknown as { stage: (p: string, r: string, to: string) => void }).stage(
+          "pc.model-management", "PC", "VIEW",
+        ),
+      );
+      // Re-read ctx fresh after act() — AdminStoreProvider hands out a new `value` object
+      // each render, so a reference captured before act() is stale by the time we read it.
+      const store = ctx as unknown as { eff: (p: string, r: string) => string };
       expect(store.eff("pc.model-management", "PC")).toBe("VIEW");
     });
 
