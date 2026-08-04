@@ -355,6 +355,6 @@ class SubscriptionRepository:
 
         row = self.db.query(
             func.max(CP.updated_at),
-            func.count(CP.id),
+            func.count(CP.user_id),
         ).one()
         return _WatermarkResult(max_updated_at=row[0], count=row[1] or 0)

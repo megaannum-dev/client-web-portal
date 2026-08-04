@@ -141,8 +141,8 @@ def _build_alloc(
     ib: IBAdapter, session: ReconSession, row, client_model_breaks: dict
 ) -> RcAllocOut:
     client, snapshot, model = row
-    brk = client_model_breaks.get((client.id, model.id))
-    amt = ib.allocated_for_client_model(session.ib_run_id, client.id, model.id)
+    brk = client_model_breaks.get((client.user_id, model.id))
+    amt = ib.allocated_for_client_model(session.ib_run_id, client.user_id, model.id)
     line = RcAllocModelLineOut(
         m=model.name,
         units=float(snapshot.multiplier),
@@ -154,7 +154,7 @@ def _build_alloc(
         ),
     )
     return RcAllocOut(
-        cid=str(client.id),
+        cid=str(client.user_id),
         client=client.name or "",
         st=line.st,
         total=line.amt,
@@ -183,12 +183,12 @@ def _build_port(
     crm: CRMAdapter, session: ReconSession, row, crm_breaks_by_client: dict
 ) -> RcPortOut:
     client, portfolio = row
-    brk = crm_breaks_by_client.get(client.id)
+    brk = crm_breaks_by_client.get(client.user_id)
     chg = crm.portfolio_delta_for_run(session.ib_run_id, client.user_id)
     post = portfolio.amount_in_trade
     pre = post - chg
     return RcPortOut(
-        cid=str(client.id),
+        cid=str(client.user_id),
         client=client.name or "",
         st="brk" if brk is not None else "ok",
         pre=fmt_usd(pre),
