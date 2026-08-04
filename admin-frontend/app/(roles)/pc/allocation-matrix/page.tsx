@@ -67,7 +67,7 @@ export default function AllocationMatrixPage() {
           </div>
           <div className="flex items-center gap-3">
             <SopInfo />
-            <ViewToggle view={view} onView={setView} />
+            {/* <ViewToggle view={view} onView={setView} /> */}
             {historical ? (
               <Button variant="secondary" icon={Eye} disabled>Read-only preview</Button>
             ) : confirmed ? (
