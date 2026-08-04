@@ -224,7 +224,7 @@ export function AdminStoreProvider({
         await refreshAudit();
         return { ok: true, published: result.data.published };
       }
-      if (result.code === "HTTP_409") {
+      if (result.code === "HTTP_409" || result.code === "matrix_changed_since_read") {
         await refreshMatrix();
         return { ok: false, conflict: true };
       }
