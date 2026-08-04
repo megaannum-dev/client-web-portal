@@ -328,14 +328,33 @@ describe("FE-6 components/rm/RequestTickets.tsx (RequestTicketDetail) — gated 
   });
 });
 
-// loadReconciliation()'s own mock dataset is empty in this environment (verified: it
-// returns zero trades, which renders the page's "all reconciled" empty state and never
-// mounts the breaks table) — mock it directly with a guaranteed single break so the
-// TradeDetail panel (and its 4 gated buttons) is reachable regardless of that dataset's
-// contents or how it varies over time. This module is used by BOTH
-// trade-reconciliation/page.tsx (settleDay + trades) AND recon-overview/page.tsx
-// (settleDay + counters + trades) — vi.mock is file-scoped, so the fixture must satisfy
-// every consumer in this file, not just the describe block that introduced it.
+// NOTE (triage, proposal 020 FE-4): the `loadReconciliation` mock below is dead —
+// lib/mobo/reconciliation.ts's own header says that function "is retired"; the real
+// current seam is useReconciliation() -> useTradeRecords() (hooks/api/useTradeRecords.ts),
+// which calls a real Next.js server action and throws ("cookies() called outside a
+// request scope") in this jsdom env, leaving recon-overview/page.tsx stuck on its
+// loading skeleton forever. Mocking the REAL seam directly so recon-overview's "Sign
+// off" gating is actually reachable; the stale loadReconciliation mock is left in place
+// (harmless — nothing imports it) rather than removed, since untangling it fully is out
+// of this unit's narrow triage scope.
+vi.mock("@/hooks/api/useTradeRecords", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useTradeRecords")>()),
+  useTradeRecords: () => ({
+    data: {
+      day: "Tue 03 Jun 2026",
+      dates: ["20260603"],
+      rows: [{
+        sys: "CRM", ref: "TRD-1", tradeId: "t1", tradeDate: "2026-06-03",
+        mkt: "US", stock: "AAPL", price: "187.40", qty: "100", txnType: "Order",
+        time: "09:31:02", status: "Confirmed", isFirst: true,
+      }],
+    },
+    loading: false,
+    error: null,
+    refetch: () => {},
+  }),
+}));
+
 vi.mock("@/lib/mobo/reconciliation", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/lib/mobo/reconciliation")>()),
   loadReconciliation: () => ({
@@ -354,6 +373,40 @@ vi.mock("@/lib/mobo/reconciliation", async (importOriginal) => ({
   }),
 }));
 
+// commission-tracking/page.tsx's loadCommissions() (lib/mobo/commissions.ts:72-74) is a
+// documented stub ("NO DATA... no fee/settlement API yet") returning zero rows, so there
+// is nothing to expand and no Fee note/invoice button to gate. Mock a single fee row so
+// the EDIT/VIEW gating on those buttons is reachable, same rationale as the
+// useTradeRecords mock above.
+vi.mock("@/lib/mobo/commissions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/mobo/commissions")>()),
+  loadCommissions: () => ({
+    month: "Jun 2026",
+    rows: [{
+      key: "r1",
+      client: { id: "c1", name: "Strathmore Fund", accCode: "AC-1000" },
+      model: { id: "m1", name: "Zero", acct: "U-1234567", aum: 1_000_000, mgmtBps: 100, incPct: 10 },
+      units: 5, aum: 1_000_000, mgmtBps: 100, mgmtFee: 10_000,
+      pnl: 50_000, shortfall: 0, gain: 50_000, incPct: 10, incFee: 5_000,
+      total: 15_000, status: "accrued",
+    }],
+  }),
+}));
+
+// TRIAGE NOTE (proposal 020 FE-4, checked against the current source, not the diff):
+// trade-reconciliation/page.tsx was fully rebuilt into a flat spreadsheet + tabs
+// (commit 8fed3bd, "rebuild Recon Overview/Trade Reconciliation, add Commission
+// Tracking") and that rebuild never carried over a TradeDetail panel or any
+// Assign/Comment/Escalate/Raise controls — there is no such UI, no `useCanEdit(` call,
+// and zero "View/Edit Gate Function" markers anywhere in the file today (verified by
+// reading the full current source, not by re-deriving from this test's failure). This
+// is proposal-019 FE-6 debt that was never carried into the later rebuild — a real,
+// pre-existing, separately-tracked gap, not something FE-13's skeleton swap broke and
+// not fixable by better mocking (the useTradeRecords mock above already lets this page
+// load real data past its skeleton; the missing UI is still missing regardless). Left
+// red on purpose: the marker-count/useCanEdit static-scan checks and the EDIT
+// behavioral assertion below. The VIEW behavioral assertion passes, but only because
+// the controls are unconditionally absent, not because gating was verified.
 describe("FE-6 app/(roles)/mobo/trade-reconciliation/page.tsx — gated by mobo.trade-reconciliation", () => {
   async function renderPageAndOpenFirstBreak() {
     const { default: TradeReconciliationPage } = await import("@/app/(roles)/mobo/trade-reconciliation/page");

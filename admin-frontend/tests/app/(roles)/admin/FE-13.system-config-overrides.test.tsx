@@ -8,7 +8,7 @@
 // override" action; `enroll-user/page.tsx`'s `View` union still has three members
 // (directory/wizard/overrides). Every assertion below is expected to fail (module
 // resolution or behavior mismatch) until FE-13 lands.
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUseAdminStore = vi.fn();
@@ -56,8 +56,13 @@ describe("FE-13 components/admin/config/OverridesLedger.tsx (moved, header strip
     expect(screen.getByText("Expiring in 30 days")).toBeInTheDocument();
     expect(screen.getByText("Users affected")).toBeInTheDocument();
     expect(screen.getByText("Roles affected")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument(); // Active overrides = 2
-    expect(screen.getByText("1")).toBeInTheDocument(); // Expiring in 30 days = 1
+    // With this 2-item fixture, Active overrides/Users affected/Roles affected
+    // all coincidentally equal 2 — scope each value to its own stat card
+    // (a <section>) instead of a bare getByText, which is ambiguous.
+    const activeCard = screen.getByText("Active overrides").closest("section")!;
+    expect(within(activeCard).getByText("2")).toBeInTheDocument(); // Active overrides = 2
+    const expiringCard = screen.getByText("Expiring in 30 days").closest("section")!;
+    expect(within(expiringCard).getByText("1")).toBeInTheDocument(); // Expiring in 30 days = 1
   });
 
   it("negative: renders no PageHeader of its own and no 'Back to directory' button", async () => {
@@ -89,7 +94,7 @@ describe("FE-13 app/(roles)/admin/system-config/page.tsx", () => {
       stagedList: [], totalPages: 16, overrides: OVERRIDES_FIXTURE,
       published: { at: "2026-07-01T00:00:00Z", by: "Omar Bakri" }, discard: vi.fn(),
       pages: [], roles: [], eff: vi.fn(() => "NONE"), ovrOn: vi.fn(() => false), staged: {},
-      roleUsers: vi.fn(() => 0), revokeOverride: vi.fn(),
+      roleUsers: vi.fn(() => 0), grantedFor: vi.fn(() => 0), revokeOverride: vi.fn(),
     });
   });
 

@@ -57,7 +57,11 @@ async function openPanel(status: OnboardingStatus, docs: DocumentDTO[]) {
   render(<OnboardingBoard {...(board as never)} />);
   fireEvent.click(screen.getByText("Jane Doe"));
   await waitFor(() => expect(board.fetchOnboarding).toHaveBeenCalled());
-  await waitFor(() => expect(screen.getByText("KYC Review · Alice")).toBeInTheDocument());
+  // KycPanel's header no longer renders a combined "{status label} · {owner}" string
+  // (OnboardingBoard.tsx:140-149) — it shows the name, "Assigned RM: {owner}", and a
+  // "KYC & Compliance Docs" label separately. The last one is unique to the panel
+  // (KanbanCard also renders "Assigned RM: Alice"), so it's the unambiguous open-signal.
+  await waitFor(() => expect(screen.getByText("KYC & Compliance Docs")).toBeInTheDocument());
   return board;
 }
 

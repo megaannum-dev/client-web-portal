@@ -72,10 +72,11 @@ describe("FE-5 groupsFor(grants, role) (lib/pages-config.ts)", () => {
     const hrefs = groups[0].pages.map((p) => p.href).sort();
     expect(hrefs).toEqual(
       [
-        "/compliance/overview", "/compliance/review",
+        "/compliance/review",
         "/rm/client-info", "/rm/onboarding-renewal", "/rm/model-subscription", "/rm/requests",
         "/mobo/trade-reconciliation", "/monthly-reports",
-        // mobo.recon-overview is hideFromNav — never listed even though granted VIEW.
+        // mobo.recon-overview AND compliance.overview are both hideFromNav (each is
+        // its role's default landing page) — neither is ever listed even though granted.
       ].sort(),
     );
   });

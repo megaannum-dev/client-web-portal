@@ -24,7 +24,7 @@ import type {
 export function ptaMoney(v: number): string {
   const abs = Math.abs(v);
   if (abs >= 1e6) return `$${(v / 1e6).toFixed(3)}M`;
-  if (abs >= 1e3) return `$${(v / 1e3).toFixed(3)}k`;
+  if (abs >= 1e3) return `$${Math.round(v / 1e3)}k`;
   return `$${Math.round(v)}`;
 }
 

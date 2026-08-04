@@ -8,8 +8,10 @@ vi.mock("next/navigation", async (importOriginal) => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
+// RmDashboardPage gates its "Requests Tickets" rail card on
+// useCanEdit("rm.client-info") (D-14 — see FE-6.gate-sites.test.tsx).
 vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()), useAuth: () => ({ portalUser: { name: "Dana" } }) }));
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()), useAuth: () => ({ portalUser: { name: "Dana", grants: { "rm.client-info": "EDIT" } } }) }));
 vi.mock("@/hooks/api/useClientBook", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/hooks/api/useClientBook")>()), useClientBook: () => ({ data: [], loading: false, error: null }) }));
 vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({

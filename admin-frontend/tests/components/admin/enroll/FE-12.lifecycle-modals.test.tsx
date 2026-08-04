@@ -50,25 +50,25 @@ describe("FE-12 SendLinkModal (was ResetModal)", () => {
 });
 
 describe("FE-12 CreatedModal", () => {
-  async function renderCreated(m: { name: string; email: string; roleCode: string; notified: boolean; password: string; ovr: number }) {
+  async function renderCreated(m: { name: string; email: string; roleCode: string; linkSent: boolean; password: string; ovr: number }) {
     const { CreatedModal } = await import("@/components/admin/enroll/LifecycleModals");
     return render(<CreatedModal m={m as never} onEnrollAnother={vi.fn()} onBackToDirectory={vi.fn()} />);
   }
 
-  it("positive: notified:true shows the 'share the password' notice", async () => {
-    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", notified: true, password: "sup3r-secret", ovr: 0 });
+  it("positive: linkSent:true shows the 'share the password' notice", async () => {
+    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", linkSent: true, password: "sup3r-secret", ovr: 0 });
     expect(screen.getByText(/share the password below/i)).toBeInTheDocument();
   });
 
-  it("negative: notified:false shows the warning notice, and still presents the account as created", async () => {
-    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", notified: false, password: "sup3r-secret", ovr: 0 });
-    expect(screen.getByText(/account-ready email could not be sent/i)).toBeInTheDocument();
+  it("negative: linkSent:false shows the warning notice, and still presents the account as created", async () => {
+    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", linkSent: false, password: "sup3r-secret", ovr: 0 });
+    expect(screen.getByText(/the set-password link could not be sent/i)).toBeInTheDocument();
     expect(screen.getByText(/share the password directly/i)).toBeInTheDocument();
     expect(screen.getByText("Account created")).toBeInTheDocument();
   });
 
   it("positive: renders the generated password with a copy button", async () => {
-    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", notified: true, password: "sup3r-secret", ovr: 0 });
+    await renderCreated({ name: "Sofia Petrova", email: "s@megaannum.ai", roleCode: "RM", linkSent: true, password: "sup3r-secret", ovr: 0 });
     expect(screen.getByText(/temporary password/i)).toBeInTheDocument();
     expect(screen.getByText("sup3r-secret")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^copy$/i }).length).toBeGreaterThan(0);

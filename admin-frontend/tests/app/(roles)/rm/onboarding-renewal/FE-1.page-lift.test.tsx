@@ -14,7 +14,9 @@ vi.mock("next/navigation", async (importOriginal) => ({
 // documented fallback for a real provider breaking the test).
 vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
-  useAuth: () => ({ portalUser: { grants: {} } }),
+  // OnboardingRenewalPage gates its "Start Onboarding" button on
+  // useCanEdit("rm.onboarding-renewal") (D-14 — see FE-6.gate-sites.test.tsx).
+  useAuth: () => ({ portalUser: { grants: { "rm.onboarding-renewal": "EDIT" } } }),
 }));
 vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/hooks/api/useOnboardingBoard")>()), useOnboardingBoard: vi.fn() }));
@@ -114,6 +116,11 @@ describe("FE-1 OnboardingModal uses the passed startOnboarding reference", () =>
     fireEvent.change(screen.getByPlaceholderText("e.g. Hong Kong SAR"), { target: { value: "HK" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
+    // A "Client Preference" step now sits between Basic Info and Trade Info
+    // (OnboardingModal.tsx page===2, no required fields — stepValid[1] is
+    // unconditionally true) — one more Next click skips through it.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
     fireEvent.change(screen.getByPlaceholderText("e.g. IB-8801"), { target: { value: "IB-1" } });
     fireEvent.change(screen.getByPlaceholderText("e.g. SW-4420"), { target: { value: "SW-1" } });
     fireEvent.change(screen.getByDisplayValue("Select a model…"), { target: { value: "m-1" } });
@@ -122,6 +129,8 @@ describe("FE-1 OnboardingModal uses the passed startOnboarding reference", () =>
     // mocked model here has no `size`, so the floor is 0, but the field
     // itself is still required (non-empty) for page2Valid to pass.
     fireEvent.change(screen.getByPlaceholderText("e.g. 250000"), { target: { value: "100000" } });
+    // Trade Info is now page 3; this click advances to page 4 (Documents),
+    // the actual last step where the Onboard Client submit button lives.
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     fireEvent.click(screen.getByRole("button", { name: /onboard client/i }));

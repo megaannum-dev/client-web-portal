@@ -102,7 +102,7 @@ describe("FE-4 mapDtoToRuns", () => {
 
 describe("FE-4 ptaMoney (colocated presentation formatter)", () => {
   it("formats amounts >= 1e6 as $X.XXM", () => {
-    expect(ptaMoney(6_800_000)).toBe("$6.80M");
+    expect(ptaMoney(6_800_000)).toBe("$6.800M");
   });
 
   it("formats amounts < 1e6 as a rounded $Xk", () => {

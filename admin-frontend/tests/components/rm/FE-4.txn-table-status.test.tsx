@@ -6,10 +6,19 @@
 // (including rejected ones) still renders the literal "Confirmed" chip and
 // no cell carries the muted class, so the assertions below fail as the
 // correct pre-implementation signal.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SubscriptionAccordion } from "@/components/rm/SubscriptionAccordion";
 import type { SubClient, TxnRow } from "@/lib/rm/subscriptions";
+
+// SubscriptionAccordion's row components call useCanEdit("rm.model-subscription")
+// (D-14 — see FE-6.gate-sites.test.tsx), which throws outside an AuthProvider. This
+// file renders bare (no AuthProvider wrapper), so mock useAuth directly with an EDIT
+// grant, matching the gate-sites precedent.
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
+  useAuth: () => ({ portalUser: { role: "RM", grants: { "rm.model-subscription": "EDIT" } } }),
+}));
 
 function makeClient(rows: TxnRow[]): SubClient {
   return {

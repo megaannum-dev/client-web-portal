@@ -100,14 +100,18 @@ describe("FE-16 AuthProvider AuthContextValue", () => {
     // (undefined) at call time — this positive-shaped assertion documents the intended
     // absence for readers of this file; the resolution failure is what actually signals
     // it pre-FE-16 (see the file-level NOTE above).
-    expect((mod as Record<string, unknown>).createUserWithEmailAndPassword).toBeUndefined();
+    // Checked via "in" rather than a direct property read: current Vitest wraps a
+    // factory-mocked module so that reading an unlisted property throws ("did you
+    // forget to return it from vi.mock") instead of returning undefined — "in" doesn't
+    // trigger that trap and still reflects the same real absence.
+    expect("createUserWithEmailAndPassword" in mod).toBe(false);
   });
 });
 
 describe("FE-16 lib/auth-api.ts", () => {
   it("negative: has no postBackendRegister export", async () => {
     const mod = await import("@/lib/auth-api");
-    expect((mod as Record<string, unknown>).postBackendRegister).toBeUndefined();
+    expect("postBackendRegister" in mod).toBe(false);
   });
 
   it("invariant: no request is ever issued to a /api/dev/register path (syncPortalUserAfterFirebaseAuth calls login only)", async () => {

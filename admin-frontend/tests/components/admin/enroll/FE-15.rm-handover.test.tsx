@@ -7,7 +7,7 @@
 // and Wizard.tsx's Role step Notice has no `leavingRm` branch. Every assertion below
 // targets the FE-15 contract (role-scoped, real counts, reassign_book_to on the real
 // patch call) and is expected to fail until FE-8/FE-9/FE-15 land.
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUseAdminStore = vi.fn();
@@ -95,7 +95,12 @@ describe("FE-15 DeactivateModal", () => {
     fireEvent.click(screen.getByText(/active receiver/i));
     fireEvent.click(screen.getByRole("button", { name: /deactivate account/i }));
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText(/pick a receiving rm/i)).toBeInTheDocument();
+    // Once a receiver is chosen, SelectField swaps its trigger text from the
+    // "Pick a receiving RM…" placeholder to the chosen option's own label
+    // (Shared.tsx:220) — so "still visible, not reset" is checked via the
+    // persisted selection and the picker's own heading, not the placeholder.
+    expect(screen.getByText(/hand this rm.s book to/i)).toBeInTheDocument();
+    expect(screen.getByText(/active receiver/i)).toBeInTheDocument();
     void toast;
   });
 
@@ -105,16 +110,27 @@ describe("FE-15 DeactivateModal", () => {
     const { DeactivateModal } = await import("@/components/admin/enroll/LifecycleModals");
     render(<DeactivateModal user={RM_WITH_BOOK as never} onClose={vi.fn()} />);
     fireEvent.click(screen.getByText(/pick a receiving rm/i));
-    expect(screen.queryByText(/jane doe/i)).not.toBeInTheDocument(); // self
-    expect(screen.queryByText(/gone already/i)).not.toBeInTheDocument(); // deactivated
-    expect(screen.queryByText(RM_WITH_BOOK.name)).not.toBeInTheDocument();
+    // "Jane Doe" legitimately appears elsewhere in the modal (the header subtitle,
+    // the handover description) — scope the negative checks to the open dropdown's
+    // option list (found via a real option, "Active Receiver") so a plain queryByText
+    // doesn't throw on those unrelated matches.
+    const optionList = screen.getByText(/active receiver/i).closest("div")!.parentElement!;
+    expect(within(optionList).queryByText(/jane doe/i)).not.toBeInTheDocument(); // self
+    expect(within(optionList).queryByText(/gone already/i)).not.toBeInTheDocument(); // deactivated
+    expect(within(optionList).queryByText(RM_WITH_BOOK.name)).not.toBeInTheDocument();
   });
 
   it("the 'not undone on reactivation' line is present whenever the picker is", async () => {
     mountStore([RM_WITH_BOOK, OTHER_RM]);
     const { DeactivateModal } = await import("@/components/admin/enroll/LifecycleModals");
     render(<DeactivateModal user={RM_WITH_BOOK as never} onClose={vi.fn()} />);
-    expect(screen.getByText(/not.*undone on reactivation/i)).toBeInTheDocument();
+    // "not" sits in its own <b> child, splitting the phrase across sibling text
+    // nodes/elements — getByText only reads a node's own direct text children, so
+    // match on the containing element's full (nested-inclusive) textContent instead.
+    expect(screen.getByText((_, el) =>
+      el?.tagName.toLowerCase() === "span" &&
+      /not\s+undone on reactivation/i.test(el.textContent?.replace(/\s+/g, " ") ?? ""),
+    )).toBeInTheDocument();
   });
 });
 

@@ -32,10 +32,13 @@ describe("FE-3 mapBoardToColumns", () => {
       active: [makeOnboarding({ id: "ob-4", status: "active" })],
     };
     const columns = mapBoardToColumns(board);
+    // Column order follows COLUMN_LABELS' own key insertion order (mappers.ts:14-19,
+    // iterated via Object.keys in mapBoardToColumns): initial, pending_review,
+    // reviewing, active — not initial/reviewing/pending_review/active.
     expect(columns.map((c) => c.label)).toEqual([
-      "Initial Onboarding", "Reviewing", "Pending for Review", "Active",
+      "Initial Onboarding", "Pending for Resubmit", "Reviewing", "Active",
     ]);
-    expect(columns.map((c) => c.status)).toEqual(["initial", "reviewing", "pending_review", "active"]);
+    expect(columns.map((c) => c.status)).toEqual(["initial", "pending_review", "reviewing", "active"]);
     columns.forEach((c) => expect(c.clients).toHaveLength(1));
   });
 

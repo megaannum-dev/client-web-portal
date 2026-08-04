@@ -10,6 +10,16 @@ import { renderWithAuth as render } from "@/tests/_helpers/renderWithAuth";
 import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
 import type { TransactionDetailDTO } from "@/lib/onboarding/types";
 
+// TransactionDetailModal gates its Save button on useCanEdit("rm.model-subscription")
+// (D-14: hidden, not disabled, when access is below EDIT — see FE-6.gate-sites.test.tsx).
+// A real, unauthenticated AuthProvider resolves every grant to "NONE", so Save would
+// never render; mock useAuth with an EDIT grant, matching the gate-sites precedent.
+const mockUseAuth = vi.fn(() => ({ portalUser: { role: "RM", grants: { "rm.model-subscription": "EDIT" } } }));
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
+  useAuth: () => mockUseAuth(),
+}));
+
 const DETAILS: TransactionDetailDTO = {
   id: "td-1", allotment_id: "a-1", bank_account: "HSBC-4471-001",
   settlement_amount: 180_000, transaction_date: "2026-08-01", transaction_time: "14:30",

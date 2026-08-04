@@ -48,7 +48,8 @@ describe("FE-6 PostTradeAllocationPage", () => {
 
   it("renders grandTotal/settleDay sourced from usePostTradeAllocation's data", () => {
     render(<PostTradeAllocationPage />);
-    expect(screen.getByText(/\$6\.80M/)).toBeInTheDocument();
+    // ptaMoney's M-branch uses toFixed(3) (FE-4 ptaMoney verdict A, lib/mobo/allocation.ts).
+    expect(screen.getByText(/\$6\.800M/)).toBeInTheDocument();
     expect(screen.getByText(/Tue 03 Jun 2026/)).toBeInTheDocument();
   });
 
@@ -89,9 +90,21 @@ describe("FE-6 PostTradeAllocationPage", () => {
   });
 
   it("DateControl's dropdown options come from usePostTradeAllocationRuns's runs, not a hardcoded const", () => {
-    render(<PostTradeAllocationPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Latest" }));
-    expect(screen.getByText(RUNS[0].label)).toBeInTheDocument();
+    // DateControl (components/mobo/allocation/Panels.tsx:389-588) is now a calendar-
+    // grid picker, not a dropdown list of run labels — a day cell gets a "has data" dot
+    // when its ISO date is in `dataSet = new Set(runs.map(r => r.date))` (:519, :541-546).
+    // Fix the clock inside RUNS[0].date's month so June 2026 is the default calendar view
+    // and the 3rd isn't treated as a future date (:402-404, :517).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15));
+    try {
+      render(<PostTradeAllocationPage />);
+      fireEvent.click(screen.getByRole("button", { name: "Latest" }));
+      const runDay = screen.getByRole("button", { name: "3" }); // RUNS[0].date === "2026-06-03"
+      expect(runDay.querySelector(".bg-primary-container")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("has no import resolving to lib/mock/mobo-data's PTA_MODELS/PTA_CLIENTS/PTA_UNITS", () => {

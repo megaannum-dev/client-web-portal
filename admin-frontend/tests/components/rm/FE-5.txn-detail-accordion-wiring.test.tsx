@@ -10,6 +10,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithAuth as render } from "@/tests/_helpers/renderWithAuth";
 
+// SubscriptionAccordion -> TransactionDetailModal gates Save on
+// useCanEdit("rm.model-subscription") (D-14 — see FE-6.gate-sites.test.tsx). A real,
+// unauthenticated AuthProvider resolves every grant to "NONE"; mock useAuth with an
+// EDIT grant so Save renders, matching the gate-sites precedent.
+const mockUseAuth = vi.fn(() => ({ portalUser: { role: "RM", grants: { "rm.model-subscription": "EDIT" } } }));
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
+  useAuth: () => mockUseAuth(),
+}));
+
 vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   fileTransactionDetail: vi.fn(),

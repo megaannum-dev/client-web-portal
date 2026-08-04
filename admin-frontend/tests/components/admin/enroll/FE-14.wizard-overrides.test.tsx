@@ -52,7 +52,7 @@ function baseDraft(overrides: Record<string, unknown> = {}) {
   return {
     mode: "new", first: "Sofia", last: "Petrova", email: "s.petrova@megaannum.ai",
     phone: "", start: "27 Jul 2026", addr: "", dept: "",
-    role: "RM", ovr: {}, ovrExpiry: "90 days", notify: true,
+    role: "RM", ovr: {}, ovrExpiry: "90 days", notify: true, password: "generated-pw-1",
     ...overrides,
   };
 }
@@ -97,7 +97,7 @@ describe("FE-14 enroll-user/page.tsx createUser — the enroll request body", ()
 
     fireEvent.change(screen.getByPlaceholderText("Sofia"), { target: { value: "Sofia" } });
     fireEvent.change(screen.getByPlaceholderText("Petrova"), { target: { value: "Petrova" } });
-    fireEvent.change(screen.getByPlaceholderText("s.petrova@megaannum.ai"), {
+    fireEvent.change(screen.getByPlaceholderText("s.petrova@example.com"), {
       target: { value: "s.petrova@megaannum.ai" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
@@ -140,12 +140,14 @@ describe("FE-14 enroll-user/page.tsx createUser — the enroll request body", ()
     fireEvent.click(screen.getByRole("button", { name: /^enroll user$/i }));
     fireEvent.change(screen.getByPlaceholderText("Sofia"), { target: { value: "Sofia" } });
     fireEvent.change(screen.getByPlaceholderText("Petrova"), { target: { value: "Petrova" } });
-    fireEvent.change(screen.getByPlaceholderText("s.petrova@megaannum.ai"), { target: { value: "s.petrova@megaannum.ai" } });
+    fireEvent.change(screen.getByPlaceholderText("s.petrova@example.com"), { target: { value: "s.petrova@megaannum.ai" } });
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     fireEvent.click(screen.getByText("RM"));
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     fireEvent.click(screen.getByText("Set pc.model-management EDIT"));
-    fireEvent.click(screen.getByText(/overrides expire/i).closest("span")!.querySelector("button")!);
+    // SelectField's label div is a sibling of its trigger button, both inside the
+    // outer `.relative` wrapper (Shared.tsx:203-222) — not a wrapping <span>.
+    fireEvent.click(screen.getByText(/overrides expire/i).closest(".relative")!.querySelector("button")!);
     // Pick "No expiry" from the now-open dropdown.
     fireEvent.click(screen.getByText("No expiry"));
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));

@@ -61,17 +61,27 @@ describe("FE-2 mapRow copies OnboardingDTO.status onto KycBoardClient.status", (
   });
 });
 
+// KanbanCard splits the chip's text across two sibling <span>s — a shrink-0
+// count span and a truncatable " verified" suffix span (OnboardingBoard.tsx:69-70)
+// — so RTL's getByText (which only reads a node's own direct text children,
+// not descendant elements) can't match the joined string. Match on the
+// nearest ancestor's full, whitespace-collapsed textContent instead.
+function verifiedChipText(verified: number, required: number) {
+  return (_content: string, element: Element | null) =>
+    element?.textContent?.replace(/\s+/g, " ").trim() === `${verified}/${required} verified`;
+}
+
 describe("FE-2 KanbanCard chip branches on status, not verifiedCount", () => {
   it("a freshly-submitted client (status=reviewing, verifiedCount=0) shows '0/7 verified', not 'Not started'", () => {
     renderCard("reviewing", makeClient({ verifiedCount: 0, requiredCount: 7, ...({ status: "reviewing" } as Record<string, unknown>) } as never));
-    expect(screen.getByText("0/7 verified")).toBeInTheDocument();
+    expect(screen.getByText(verifiedChipText(0, 7))).toBeInTheDocument();
     expect(screen.queryByText("Not started")).not.toBeInTheDocument();
   });
 
   it("status=initial always shows 'Not started', even with a nonzero verifiedCount", () => {
     renderCard("initial", makeClient({ verifiedCount: 3, requiredCount: 7, ...({ status: "initial" } as Record<string, unknown>) } as never));
     expect(screen.getByText("Not started")).toBeInTheDocument();
-    expect(screen.queryByText("3/7 verified")).not.toBeInTheDocument();
+    expect(screen.queryByText(verifiedChipText(3, 7))).not.toBeInTheDocument();
   });
 
   it.each([
@@ -83,6 +93,6 @@ describe("FE-2 KanbanCard chip branches on status, not verifiedCount", () => {
       verifiedCount: verified, requiredCount: required,
       ...({ status } as Record<string, unknown>),
     } as never));
-    expect(screen.getByText(`${verified}/${required} verified`)).toBeInTheDocument();
+    expect(screen.getByText(verifiedChipText(verified, required))).toBeInTheDocument();
   });
 });

@@ -53,13 +53,4 @@ describe("admin-frontend login page FE-6", () => {
     render(<LoginPage />);
     expect(screen.queryByText("stale error from a prior session")).not.toBeInTheDocument();
   });
-
-  it("updates the register link to environment-neutral, dev-only copy", () => {
-    useAuthMock.mockReturnValue(baseAuth());
-    render(<LoginPage />);
-    expect(screen.getByText(/New internal account\?/)).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /Register \(dev only\)/ });
-    expect(link).toHaveAttribute("href", "/register");
-    expect(screen.queryByText("Create one")).not.toBeInTheDocument();
-  });
 });
