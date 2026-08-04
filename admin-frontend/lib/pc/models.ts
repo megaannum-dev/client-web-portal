@@ -17,9 +17,10 @@ import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO
 
 /* Hardcoded fee rates per 006 (`pc-workspace-006-decisions`):
    fees are NOT stored on the model — they are 2% / 20% across the board
-   until per-client overrides land. */
-const DEFAULT_MGMT_PCT = 2;
-const DEFAULT_INCENTIVE_PCT = 20;
+   until per-client overrides land. Decimal fractions (0.02 = 2%), per
+   @/lib/fee. */
+export const DEFAULT_MGMT_FRACTION = 0.02;
+export const DEFAULT_INCENTIVE_FRACTION = 0.2;
 
 /* ---- DTO→view mappers -------------------------------------- */
 
@@ -66,8 +67,8 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
       date: a.created_at,
       ver: a.version ?? "—",
     })),
-    mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT,
-    incentive: dto.incentive_fee ?? DEFAULT_INCENTIVE_PCT,
+    mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_FRACTION,
+    incentive: dto.incentive_fee ?? DEFAULT_INCENTIVE_FRACTION,
     status: (dto.status ?? "draft") as Model["status"],
     version: dto.version ?? "—",
     materials: dto.materials ?? [],

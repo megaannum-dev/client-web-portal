@@ -182,11 +182,16 @@ Recorded on `main`, `admin-frontend`, route `/pc/model-management` (the dashboar
 
 | Measurement | Before (`main`) | After (FE-11) |
 |---|---|---|
-| Cold `next dev` → first paint of the route | `<TODO>` | `<TODO>` |
-| Warm recompile after a one-character edit to that `page.tsx` | `<TODO>` | `<TODO>` |
-| `next build` wall time | `<TODO>` | `<TODO>` |
+| Cold `next dev` → first paint of the route | `<TODO — requires human, dev server forbidden in this layer>` | `<TODO — requires human, dev server forbidden in this layer>` |
+| Warm recompile after a one-character edit to that `page.tsx` | `<TODO — requires human, dev server forbidden in this layer>` | `<TODO — requires human, dev server forbidden in this layer>` |
+| `next build` wall time | 1m 40.657s (successful build; ESLint temporarily bypassed via a since-reverted `next.config.mjs` edit, for measurement purposes only — see the 5-file pre-existing lint baseline noted below) | 3m 43.445s (successful build; ESLint temporarily bypassed the same way, then reverted before commit — see caveat below) |
 
 Method: `rm -rf .next` before each cold run; take the median of 3; read the timing from Next's own `✓ Compiled /… in Xs` line, not a stopwatch. **The "before" row must be filled before FE-11 edits `next.config.mjs`** — it is unrecoverable afterwards.
+
+**FE-11 "After" measurement notes (recorded by the implementer):**
+- With real lint (no bypass), `rm -rf .next && npx next build` in `admin-frontend` fails at the lint step on exactly the same 5 pre-existing files/errors as the documented baseline (`app/(roles)/mobo/trade-reconciliation/page.tsx`, `app/(roles)/rm/client-info/page.tsx`, `app/(roles)/rm/client-info/[id]/page.tsx`, `components/admin/enroll/LifecycleModals.tsx`, `lib/mock/rm-data.ts`) — confirming this unit introduced no new lint errors. The build itself reaches "✓ Compiled successfully" before failing at lint.
+- To get a wall-time figure comparable to the "Before" row, lint was bypassed the same way the orchestrator did (a temporary `eslint: { ignoreDuringBuilds: true }` in `next.config.mjs`), measured, then reverted — the committed `next.config.mjs` carries no lint bypass.
+- **Caveat:** the After run (3m 43.445s) was slower than Before (1m 40.657s) despite `optimizePackageImports` — this is very likely confounded by heavy concurrent build/test activity from another session sharing this machine/working directory during measurement (observed directly: uncommitted edits in this same session were repeatedly wiped by a concurrent hard-reset mid-unit, evidence of a live concurrent process). The two numbers are not a clean apples-to-apples comparison; a re-measurement on an idle machine is recommended before drawing a performance conclusion from this row.
 
 ---
 
@@ -576,9 +581,9 @@ Do not resolve this by updating all three assertions without opening the commit.
 
 | # | Test | Proposal's hypothesis | Verdict | Evidence |
 |---|---|---|---|---|
-| 1 | `tests/server/admin/FE-7.index.test.ts:197` — a thrown error is not funneled to `{success:false, code:"ACTION_ERROR"}` | **Most likely a real bug** — a swallowed error path in `app/(roles)/admin/actions.ts` | `<TODO — see the strong prior below>` | |
-| 2 | `tests/lib/admin/FE-10.publish.test.tsx:81` — 3 staged cells produce 2 changes | Plausibly correct: a stage equal to the published value is dropped as a no-op, with a fixture that does not reflect that | `<TODO>` | |
-| 3 | `tests/lib/admin/FE-9.store.test.tsx:109` — a staged `VIEW` does not beat a published `EDIT` | Likely a test bug: `eff` is called on a context object captured **before** `act`, i.e. a stale closure | `<TODO>` | |
+| 1 | `tests/server/admin/FE-7.index.test.ts:197` — a thrown error is not funneled to `{success:false, code:"ACTION_ERROR"}` | **Most likely a real bug** — a swallowed error path in `app/(roles)/admin/actions.ts` | **Test rewrite** | Added `beforeEach(() => vi.resetModules())` inside the `"FE-7 app/(roles)/admin/actions.ts …"` describe block (the only change — zero edits to `actions.ts` or anything it calls). Re-ran `npx vitest run tests/server/admin/FE-7.index.test.ts`: **19/19 passed**, including the row-1 test, with no source edits. This empirically confirms the leak was module-registry pollution from the prior test's `vi.doMock`, not a swallowed-error bug in `actions.ts`. |
+| 2 | `tests/lib/admin/FE-10.publish.test.tsx:81` — 3 staged cells produce 2 changes | Plausibly correct: a stage equal to the published value is dropped as a no-op, with a fixture that does not reflect that | **Fixture fix** | Confirmed by reading `stage()` in `AdminStoreContext.tsx` (~line 156): `if ((levels[k] ?? "NONE") === target) delete next[k];` — staging a cell back to its current level (or to `NONE` when the cell is simply absent from `levels`, itself implicitly `NONE`) is dropped before it ever reaches `staged`. `MATRIX_FIXTURE.levels` omitted `mobo.commission-tracking`/`MOBO` entirely, so staging it to `NONE` was a no-op — only 2 of 3 staged cells survived. Ran the test unmodified first and reproduced `expected […] to have a length of 3 but got 2`. Fix: added an explicit `{ page_id: "mobo.commission-tracking", role: "MOBO", level: "EDIT" }` row to `MATRIX_FIXTURE.levels` so staging it to `NONE` is a genuine diff, plus a comment on the drop line in `AdminStoreContext.tsx` naming the rule. Re-ran: **8/8 passed**, zero product-logic changes (comment only). |
+| 3 | `tests/lib/admin/FE-9.store.test.tsx:109` — a staged `VIEW` does not beat a published `EDIT` | Likely a test bug: `eff` is called on a context object captured **before** `act`, i.e. a stale closure | **Test rewrite** | Confirmed the pattern in source: `const store = ctx …` was captured immediately after `renderStore()`, before `act(() => store.stage(...))`; `store.eff(...)` then read that pre-act reference. `AdminStoreProvider` hands out a new `value` object every render, so the stale reference's `eff` closed over the pre-stage `staged` state. Rewrote to call `stage` via a cast on `ctx` directly, then re-cast `ctx` fresh *after* `act()` before reading `eff` — matching the re-read-after-act pattern already used by sibling tests in this same file (e.g. the "staged is never cleared by a failed mutation" test, which re-casts `ctx` post-act instead of reusing a pre-act binding). The rewritten assertion still proves staged (`VIEW`) beats published (`EDIT`) — only the reference is fresher. Re-ran `npx vitest run tests/lib/admin/FE-9.store.test.tsx`: **12/12 passed**, zero changes to `AdminStoreContext.tsx`'s precedence logic (`eff`/`stage` untouched). |
 
 **Row 1 — the gate, and a strong prior already established.** The verdict here must be recorded **before FE-7 lands**, because the envelope work rewrites the same error-handling path and would make a genuinely swallowed error look well-formed. Reproduction (run 2026-08-03, `main`):
 
@@ -1104,6 +1109,16 @@ Target: `admin-frontend/lib/icons.ts` (162 lines, ~145 `lucide-react` re-exports
 | iii | Move `lib/mock/*-data.ts` (~1111 lines of fixtures) out of the build graph | S | (ii) did not close it, and a bundle inspection actually implicates the mocks. Several are still imported by live code (`lib/mock/rm-data.ts` types are used by `lib/rm/subscriptions.ts:8`) — this is not a pure deletion. |
 | iv | `next/dynamic` around recharts (`StackedBarChart.tsx`, `portfolio/page.tsx`) | S | Only if the *route-level* timing for a chart route is the outlier. Zero dynamic imports exist in either app today, so this introduces a new pattern. |
 | v | Reduce `"use client"` sprawl (112/182 admin files, all 20 `page.tsx`) | L | **Explicitly NOT attempted on this branch.** Converting a page to a server component changes where data is fetched and where hooks may run — that is an architectural change wearing a performance costume, on a branch whose § Non-Goals forbids behaviour change. If the measurement implicates it, it gets its own proposal. |
+
+**Verdicts recorded (implementer, this branch):**
+
+| # | Candidate | Verdict |
+|---|---|---|
+| i | Remove `"lucide"` from `client-frontend/package.json` | **Taken.** Zero repo-wide imports of bare `"lucide"` confirmed (`grep -rn 'from "lucide"'` excluding `lucide-react`, both apps, zero hits). Removed; `package-lock.json` regenerated and `npm ci` verified clean. |
+| ii | `"target": "ES2017"` in `admin-frontend/tsconfig.json` | **Skipped-with-reason:** cannot be evaluated without a dev-server measurement, forbidden in this layer; defer to human with a dev environment. |
+| iii | Move `lib/mock/*-data.ts` out of the build graph | **Skipped-with-reason:** no empirical basis without dev-server/bundle-analysis measurement in this layer. |
+| iv | `next/dynamic` around recharts | **Skipped-with-reason:** no empirical basis without dev-server/bundle-analysis measurement in this layer. |
+| v | Reduce `"use client"` sprawl | **Skipped-with-reason (per doc):** explicitly not attempted on this branch — an architectural change wearing a performance costume, forbidden by § Non-Goals. |
 
 **Behavior / invariants:**
 - **Zero runtime behaviour change.** `optimizePackageImports` is a compile-time import rewrite; `--turbo` affects `next dev` only and never `next build` or `next start`. No rendered output may differ.

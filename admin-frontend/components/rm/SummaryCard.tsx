@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { ChevronDown } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
-import type { SummaryItem, CountItem } from "@/lib/mock/rm-data";
+import type { SummaryItem, CountItem } from "@/lib/rm/types";
 
 /* ---- SummaryCard -------------------------------------------- */
 interface SummaryCardBaseProps {

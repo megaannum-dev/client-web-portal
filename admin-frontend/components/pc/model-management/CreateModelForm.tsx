@@ -5,6 +5,7 @@ import { ChevronDown, FileText, Clock, Check, Upload, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
+import { parseFeePercent } from "@/lib/fee";
 import type { ModelStatus } from "@/lib/pc/types";
 
 /* ============================================================
@@ -206,19 +207,6 @@ export function CreateTextArea({
   );
 }
 
-/** Parse a fee-percentage text input into the stored value. Fees are kept on
- * the SAME whole-number percentage scale as `Model.mgmt` / `Model.incentive`
- * (e.g. "2.5" => 2.5, meaning 2.5%) — see `lib/pc/models.ts`
- * (`mgmt: dto.mgmt_fee ?? DEFAULT_MGMT_PCT`) and `lib/pc/format.ts`
- * (`m.mgmt / 100`), which both treat `mgmt_fee` as already-whole-number.
- * Empty or unparsable input => null (falls back to the hardcoded default). */
-export function parseFeePercent(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (trimmed === "") return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : null;
-}
-
 /** Build a `NewModelDraft` payload sent up to `handleCreate`. */
 export interface NewModelDraft {
   name: string;
@@ -310,8 +298,8 @@ export function CreateModelForm({
       liquidity: liquidity.trim() || undefined,
       reporting: reporting.trim() || undefined,
       nav_perf: navPerf.trim() || undefined,
-      mgmt_fee: parseFeePercent(mgmtFee),
-      incentive_fee: parseFeePercent(incentiveFee),
+      mgmt_fee: mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee),
+      incentive_fee: incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee),
     });
   };
 

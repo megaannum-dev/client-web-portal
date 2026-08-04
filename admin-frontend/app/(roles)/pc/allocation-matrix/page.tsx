@@ -15,6 +15,7 @@ import { DetailPanel } from "@/components/pc/allocation-matrix/DetailPanel";
 import { ConfirmModal } from "@/components/pc/allocation-matrix/ConfirmModal";
 import { EmptyPeriod } from "@/components/pc/allocation-matrix/EmptyPeriod";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import AllocationMatrixSkeleton from "./Skeleton";
 
 interface Coord { cid: string; mid: string }
 
@@ -43,12 +44,7 @@ export default function AllocationMatrixPage() {
     });
   };
 
-  if (loading && !data) return (
-    <div className="px-16 py-8">
-      <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Allocation Matrix</h1>
-      <div className="mt-8 text-center text-[15px] text-secondary">Loading allocation…</div>
-    </div>
-  );
+  if (loading && !data) return <AllocationMatrixSkeleton />;
   if (!data) return (
     <div className="px-16 py-8">
       <h1 className="text-[28px] font-semibold tracking-[-0.01em] text-on-surface">Allocation Matrix</h1>

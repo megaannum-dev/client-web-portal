@@ -6,7 +6,7 @@ export function getApiBase(): string {
   return raw.replace(/\/+$/, "");
 }
 
-async function parseApiError(res: Response, methodPath: string): Promise<string> {
+export async function parseApiError(res: Response, methodPath: string): Promise<string> {
   let detail = res.statusText;
   try {
     const errJson: unknown = await res.json();

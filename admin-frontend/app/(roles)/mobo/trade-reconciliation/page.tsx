@@ -33,7 +33,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ChevronDown, ChevronUp, Download, ShieldAlert, Unlink, X, Clock, Check,
-  Database, Users, Loader2, AlertCircle,
+  Database, Users, AlertCircle,
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +46,7 @@ import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
 import type { BreakType, CompareField, ReconTrade } from "@/lib/mobo/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import type { TradeRecordRowDTO } from "@/lib/mobo/types";
+import TradeReconciliationSkeleton from "./Skeleton";
 
 /* ---- day-token helpers — the API speaks raw IB `YYYYMMDD`, the
    shared DateControl speaks `YYYY-MM-DD`. -------------------- */
@@ -153,7 +154,7 @@ const TABLE_HEAD = ["System", "Ref #", "Trade Date", "Mkt", "Stock", "Price", "Q
    verdict leads. Either way it's this component; the header row is
    the toggle. */
 function RecordsTable({
-  title, subtitle, rows, open, onToggle, selId, onSelect, loading, error,
+  title, subtitle, rows, open, onToggle, selId, onSelect, error,
 }: {
   title: string;
   subtitle: string;
@@ -162,7 +163,6 @@ function RecordsTable({
   onToggle: () => void;
   selId: string | null;
   onSelect: (id: string) => void;
-  loading: boolean;
   error: string | null;
 }) {
   const span = TABLE_HEAD.length;
@@ -194,16 +194,7 @@ function RecordsTable({
             </thead>
             {open && (
               <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10">
-                      <span className="flex items-center justify-center gap-2 text-[13px] text-secondary">
-                        <Loader2 size={15} strokeWidth={2} className="animate-spin" /> Loading trade records…
-                      </span>
-                    </td>
-                  </tr>
-                )}
-                {!loading && error && (
+                {error && (
                   <tr>
                     <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10">
                       <span className="flex items-center justify-center gap-2 text-[13px]" style={{ color: "#93000a" }}>
@@ -212,14 +203,14 @@ function RecordsTable({
                     </td>
                   </tr>
                 )}
-                {!loading && !error && rows.length === 0 && (
+                {!error && rows.length === 0 && (
                   <tr>
                     <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10 text-center text-[13px] text-secondary">
                       No trade records for this day.
                     </td>
                   </tr>
                 )}
-                {!loading && !error && rows.map((r, ri) => (
+                {!error && rows.map((r, ri) => (
                   <FlatRowTr key={`${r.ref}-${ri}`} r={r} ri={ri} active={selId === r.tradeId} onClick={() => onSelect(r.tradeId)} />
                 ))}
               </tbody>
@@ -262,6 +253,8 @@ export default function TradeReconciliationPage() {
   // Breaks lead the page, so the table opens with them; a clean day opens
   // collapsed behind the green verdict.
   const [open, setOpen] = useState(!isClean);
+
+  if (loading && !data) return <TradeReconciliationSkeleton />;
 
   return (
     <div className="w-full">
@@ -330,7 +323,6 @@ export default function TradeReconciliationPage() {
               onToggle={() => setOpen((o) => !o)}
               selId={sel}
               onSelect={toggle}
-              loading={loading}
               error={error}
             />
           </div>

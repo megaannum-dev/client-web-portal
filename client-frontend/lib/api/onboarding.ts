@@ -1,20 +1,10 @@
-import { getApiBase } from "@/lib/auth-api";
+import { getApiBase, parseApiError } from "@/lib/auth-api";
 
 export interface SubscriptionDTO { model_id: string; model_name: string; units: number; ib_account: string | null; }
 export interface ClientEventDTO  { id: string; category: string; title: string; body: string; created_at: string; }
 
-async function unwrapResponse<T>(res: Response, path: string): Promise<T> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body: unknown = await res.json();
-      if (typeof body === "object" && body !== null && "detail" in body) {
-        const d = (body as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch { /* noop */ }
-    throw new Error(`${detail} (${res.status} ${path})`);
-  }
+async function unwrapResponse<T>(res: Response, methodPath: string): Promise<T> {
+  if (!res.ok) throw new Error(await parseApiError(res, methodPath));
   return (await res.json()) as T;
 }
 
@@ -22,7 +12,7 @@ export async function authedGet<T>(path: string, token: string | null): Promise<
   const res = await fetch(`${getApiBase()}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  return unwrapResponse<T>(res, path);
+  return unwrapResponse<T>(res, `GET ${path}`);
 }
 
 /** PATCH helper shared by lib/api/* modules — same Bearer/detail-unwrap convention as authedGet. */
@@ -35,7 +25,7 @@ export async function authedPatch<T>(path: string, token: string | null, body: u
     },
     body: JSON.stringify(body),
   });
-  return unwrapResponse<T>(res, path);
+  return unwrapResponse<T>(res, `PATCH ${path}`);
 }
 
 /** GET /api/client/subscriptions — the caller supplies its own fresh ID token

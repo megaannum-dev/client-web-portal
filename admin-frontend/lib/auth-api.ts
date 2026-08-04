@@ -6,6 +6,9 @@ export function getApiBase(): string {
   return raw.replace(/\/+$/, "");
 }
 
+/** Deliberate login-specific variant of `parseErrorEnvelope` (server/api-client.ts) —
+ *  appends a `(<status> <method> <path>)` suffix and a "restart the FastAPI server"
+ *  404 hint that the generic helper must NOT add everywhere. Not a duplicate to merge. */
 async function parseApiError(res: Response, methodPath: string): Promise<string> {
   let detail = res.statusText;
   try {

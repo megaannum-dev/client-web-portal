@@ -1,6 +1,6 @@
 "use server";
 
-import { apiClient, apiClientFormData, type APIResult } from "@/server/api-client";
+import { apiClient, apiClientFormData, parseErrorEnvelope, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
 import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
@@ -68,7 +68,10 @@ export async function downloadContactLogAttachment(
   try {
     const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
-    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    if (!res.ok) {
+      const { error, code } = await parseErrorEnvelope(res);
+      return { success: false, error, code };
+    }
     const cd = res.headers.get("Content-Disposition") ?? "";
     const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? "attachment";
     const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";
@@ -88,7 +91,10 @@ export async function downloadDocumentRm(
   try {
     const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
-    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    if (!res.ok) {
+      const { error, code } = await parseErrorEnvelope(res);
+      return { success: false, error, code };
+    }
     const cd = res.headers.get("Content-Disposition") ?? "";
     const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? docType;
     const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";
@@ -108,7 +114,10 @@ export async function downloadAllDocuments(
   try {
     const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
-    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    if (!res.ok) {
+      const { error, code } = await parseErrorEnvelope(res);
+      return { success: false, error, code };
+    }
     const contentType = res.headers.get("Content-Type") ?? "application/zip";
     const buf = Buffer.from(await res.arrayBuffer());
     return { success: true, data: { filename: "kyc-documents.zip", contentType, base64: buf.toString("base64") } };
@@ -145,7 +154,10 @@ export async function downloadDocument(
   try {
     const res = await fetch(url, { cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
-    if (!res.ok) return { success: false, error: `HTTP ${res.status}`, code: `HTTP_${res.status}` };
+    if (!res.ok) {
+      const { error, code } = await parseErrorEnvelope(res);
+      return { success: false, error, code };
+    }
     const cd = res.headers.get("Content-Disposition") ?? "";
     const filename = /filename="?([^";]+)"?/i.exec(cd)?.[1] ?? docType;
     const contentType = res.headers.get("Content-Type") ?? "application/octet-stream";

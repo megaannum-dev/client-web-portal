@@ -4,6 +4,7 @@ import {
   apiClient,
   apiClientConditional,
   apiClientFormData,
+  parseErrorEnvelope,
   type APIResult,
   type ConditionalResult,
 } from "@/server/api-client";
@@ -113,15 +114,8 @@ export async function downloadMaterial(
     });
     if (res.status === 401) return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
     if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
-      try {
-        const errJson: unknown = await res.json();
-        if (typeof errJson === "object" && errJson !== null && "detail" in errJson) {
-          const d = (errJson as { detail?: unknown }).detail;
-          if (typeof d === "string") msg = d;
-        }
-      } catch { /* noop */ }
-      return { success: false, error: msg, code: `HTTP_${res.status}` };
+      const { error, code } = await parseErrorEnvelope(res);
+      return { success: false, error, code };
     }
     // Pull the filename out of the Content-Disposition header (FastAPI sets
     // `attachment; filename="…"` in the download route).
