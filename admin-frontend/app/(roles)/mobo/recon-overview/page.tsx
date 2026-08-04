@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
-import { loadReconciliation } from "@/lib/mobo/reconciliation";
+import { useReconciliation } from "@/lib/mobo/reconciliation";
 import { loadCommissions, computeFeeTotals, fmtFeeShort } from "@/lib/mobo/commissions";
 import type { ReconTrade } from "@/lib/mobo/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
@@ -77,10 +77,24 @@ export default function MoboDashboardPage() {
 
   // SINGLE SOURCE: every figure on this page is read from the same bundle the
   // recon screen consumes, so the dashboard and recon never disagree.
-  const { settleDay, counters, trades } = loadReconciliation();
+  const { data, loading, error } = useReconciliation();
   // Empty today — the fee seam has no source wired, so this tile reads $0.
   const { month: feeMonth, rows: feeRows } = loadCommissions();
   const { totalBillable } = computeFeeTotals(feeRows);
+
+  // ponytail: minimal inline loading/error states — FE-13 replaces these with
+  // a shared RouteSkeleton once it lands for this route.
+  if (loading) {
+    return <div className="w-full py-16 text-center text-secondary">Loading…</div>;
+  }
+  if (error || !data) {
+    return (
+      <div className="w-full py-16 text-center text-secondary">
+        {error ?? "No data"}
+      </div>
+    );
+  }
+  const { settleDay, counters, trades } = data;
 
   const openBreaks = counters.breaks + counters.unmatched;
   const brokenTrades = trades.filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok");

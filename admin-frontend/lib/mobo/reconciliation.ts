@@ -1,19 +1,17 @@
+"use client";
+
 /* ============================================================
    MOBO — Reconciliation data-access SEAM
 
    This is the SINGLE place data reaches the MOBO UI. Every screen
-   and shared primitive binds to `loadReconciliation()` and the
-   types in `./types` — and NEVER imports `lib/mock` directly.
+   binds to `useReconciliation()` and the types in `./types`.
 
-   TODAY: `loadReconciliation()` returns a typed EMPTY bundle.
-   C2 wires the purgeable mock here as the ONLY import site of
-   `lib/mock`. When the backend API arrives, only the body of
-   `loadReconciliation` changes (fetch → deserialize into `Order`
-   / `Execution` → `mapOrdersToReconTrade`).
-
-   PURGE TEST (acceptance): deleting `lib/mock` and pointing the
-   provider at a real API must require ZERO edits here or in any
-   component — only the body of `loadReconciliation`.
+   Sources from GET /api/mobo/trade-records via the existing
+   `useTradeRecords` hook (already live behind the sibling
+   trade-reconciliation page) and maps each row through
+   `mapTradeRecordToReconTrade`. The former mock-backed
+   `loadReconciliation()` is retired — `lib/mock/mobo-data.ts` is
+   deleted.
 
    DATA REALITY (001 §6) is encoded by the mapper below:
      - the stored-IB column is populated; trader & fetched-IB
@@ -33,6 +31,7 @@
 import type {
   BreakType,
   CompareField,
+  EOD,
   EODByType,
   Execution,
   ExecRow,
@@ -41,24 +40,12 @@ import type {
   MatchState,
   Order,
   ReconCounters,
-  ReconLeg,
   ReconTrade,
+  ReconLeg,
   ReconView,
+  TradeRecordRowDTO,
 } from "./types";
-
-/* ---- The ONE-AND-ONLY mock import site ----------------------
-   Every screen binds to `loadReconciliation()` below; the mock
-   is reached ONLY here. Swapping to the real API replaces the
-   body of `loadReconciliation` (fetch → deserialize into Order /
-   Execution) and deletes this import — no component changes. */
-import {
-  EOD as MOCK_EOD,
-  EXCEPTIONS as MOCK_EXCEPTIONS,
-  FEEDS as MOCK_FEEDS,
-  SETTLE_DAY as MOCK_SETTLE_DAY,
-  STORED_INTEGRITY as MOCK_STORED_INTEGRITY,
-  STORED_TRADES as MOCK_STORED_TRADES,
-} from "../mock/mobo-data";
+import { useTradeRecords } from "@/hooks/api/useTradeRecords";
 
 /* ---- "awaiting source" sentinel ----------------------------
    In today's data reality the trader and fetched-IB columns have
@@ -426,6 +413,27 @@ export function mapOrdersToReconTrade(input: {
 }
 
 /**
+ * Maps a single-source trade-records row (`GET /api/mobo/trade-records`) into
+ * a `ReconTrade` view model. DATA REALITY: with only CRM wired, nothing can
+ * disagree — both legs are always `"ok"`, no `breakType`, `fields: []`. This
+ * is not a placeholder; it is the correct verdict for today's actual data
+ * (see trade-reconciliation page's own "every break counter is 0" reality).
+ */
+export function mapTradeRecordToReconTrade(row: TradeRecordRowDTO): ReconTrade {
+  const okLeg: ReconLeg = { state: "ok", ls: null, rs: null, fields: [] };
+  return {
+    id: row.tradeId,
+    inst: row.stock,
+    book: AWAITING_SOURCE, // no book/account field on this DTO yet
+    ib: row.ref,
+    trader: null, // awaiting source — no trader feed
+    crm: row.ref, // the row itself is the CRM record (sys is always "CRM" today)
+    ti: okLeg,
+    ic: okLeg,
+  };
+}
+
+/**
  * Re-base the top-of-page counters to SINGLE-SOURCE counts (no two-way
  * internal-vs-custodian gap). Derived from the mapped trades so the screens
  * never disagree with the recon table.
@@ -475,36 +483,50 @@ export function deriveEodByType(trades: ReconTrade[]): EODByType[] {
    PROVIDER — the seam itself
    ============================================================ */
 
+/** Honest empty EOD bundle — no EOD-aggregation source is wired yet. */
+const EMPTY_EOD: EOD = {
+  generated: AWAITING_SOURCE,
+  tradesReconciled: 0,
+  executions: 0,
+  notional: "$0",
+  books: 0,
+  matchedClean: 0,
+  breaksRaised: 0,
+  resolved: 0,
+  carried: 0,
+  dayOf: 0,
+  daysInMonth: 0,
+  byType: [],
+};
+
 /**
  * THE SINGLE DATA PROVIDER. Every MOBO screen calls this.
  *
- * C1: returns a typed EMPTY bundle.
- * C2: this body reads the purgeable mock (`lib/mock`) — the ONLY import
- *     site of the mock — and maps it through `mapOrdersToReconTrade`.
- * API: this body fetches the backend, deserializes into `Order` /
- *     `Execution`, and maps the same way. No component changes either time.
+ * Sources from `GET /api/mobo/trade-records` via the existing
+ * `useTradeRecords` hook and maps each row through
+ * `mapTradeRecordToReconTrade`. `exceptions`/`feeds` are honestly empty —
+ * no source is wired for either yet.
  */
-export function loadReconciliation(): ReconView {
-  // Map each stored AF/TCF order pair into a ReconTrade view model.
-  // The mapper derives `book` as a placeholder (symbol) until provided
-  // upstream; the mock carries the real account name, so overlay it here.
-  const trades: ReconTrade[] = MOCK_STORED_TRADES.map((t) => {
-    const key = t.af?.ibOrderID ?? t.tcf?.orderID ?? "";
-    return {
-      ...mapOrdersToReconTrade({ af: t.af, tcf: t.tcf, ic: MOCK_STORED_INTEGRITY[key] }),
-      book: t.book,
-    };
-  });
+export function useReconciliation(): {
+  data: ReconView | null;
+  loading: boolean;
+  error: string | null;
+} {
+  const { data: records, loading, error } = useTradeRecords();
 
-  const counters = deriveCounters(trades);
-  const byType = deriveEodByType(trades);
+  const data: ReconView | null = records
+    ? (() => {
+        const trades = records.rows.map(mapTradeRecordToReconTrade);
+        return {
+          settleDay: records.day,
+          trades,
+          counters: deriveCounters(trades), // unchanged — consumes ReconTrade[] only
+          exceptions: [],
+          feeds: [],
+          eod: { ...EMPTY_EOD, byType: deriveEodByType(trades) }, // unchanged derivation
+        };
+      })()
+    : null;
 
-  return {
-    settleDay: MOCK_SETTLE_DAY,
-    trades,
-    counters,
-    exceptions: MOCK_EXCEPTIONS,
-    feeds: MOCK_FEEDS,
-    eod: { ...MOCK_EOD, byType },
-  };
+  return { data, loading, error };
 }

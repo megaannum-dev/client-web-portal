@@ -12,6 +12,8 @@
 import { describe, expect, it } from "vitest";
 import { mapDtoToReconciliationFlow } from "@/lib/mobo/reconciliation-flow";
 import type { ReconciliationFlowViewDTO } from "@/lib/mobo/flow-types";
+import { mapTradeRecordToReconTrade } from "@/lib/mobo/reconciliation";
+import type { TradeRecordRowDTO } from "@/lib/mobo/types";
 
 const MATCHED_DTO: ReconciliationFlowViewDTO = {
   settleDay: "03 Jun 2026",
@@ -75,5 +77,42 @@ describe("FE-4 mapDtoToReconciliationFlow", () => {
 
   it("is deterministic — calling twice on the same DTO yields equal output", () => {
     expect(mapDtoToReconciliationFlow(MATCHED_DTO)).toEqual(mapDtoToReconciliationFlow(MATCHED_DTO));
+  });
+});
+
+// New for FE-10 (proposal 020): mapTradeRecordToReconTrade, added alongside
+// the existing mapOrdersToReconTrade in lib/mobo/reconciliation.ts as part of
+// rewiring recon-overview onto GET /api/mobo/trade-records.
+const SAMPLE_ROW: TradeRecordRowDTO = {
+  sys: "CRM",
+  ref: "401180022",
+  tradeId: "TRD-88142",
+  tradeDate: "03 Jun 2026",
+  mkt: "NYSE / NASDAQ",
+  stock: "AAPL",
+  price: "$187.40",
+  qty: "12,000",
+  txnType: "Buy",
+  time: "09:31:02",
+  status: "Confirmed",
+  isFirst: true,
+};
+
+describe("FE-10 mapTradeRecordToReconTrade", () => {
+  it("maps a trade-records row into a ReconTrade with both legs ok, no breakType, and empty fields", () => {
+    const trade = mapTradeRecordToReconTrade(SAMPLE_ROW);
+    expect(trade.id).toBe(SAMPLE_ROW.tradeId);
+    expect(trade.inst).toBe(SAMPLE_ROW.stock);
+    expect(trade.ti).toEqual({ state: "ok", ls: null, rs: null, fields: [] });
+    expect(trade.ic).toEqual({ state: "ok", ls: null, rs: null, fields: [] });
+    expect(trade.ti.breakType).toBeUndefined();
+    expect(trade.ic.breakType).toBeUndefined();
+  });
+
+  it("carries the row's ref as both the ib and crm identifiers (single CRM source)", () => {
+    const trade = mapTradeRecordToReconTrade(SAMPLE_ROW);
+    expect(trade.ib).toBe(SAMPLE_ROW.ref);
+    expect(trade.crm).toBe(SAMPLE_ROW.ref);
+    expect(trade.trader).toBeNull();
   });
 });
