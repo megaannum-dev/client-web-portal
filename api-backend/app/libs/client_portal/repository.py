@@ -43,6 +43,20 @@ class ClientPortalRepository:
     def get_portfolio(self, user_id: uuid.UUID) -> ClientPortfolio | None:
         return self.db.get(ClientPortfolio, user_id)  # DB B-3: may be None
 
+    def has_subscription(self, user_id: uuid.UUID, model_id: uuid.UUID) -> bool:
+        """True iff this client holds a client_subscriptions row for this model.
+        Cheaper single-row existence check for the hot path (BE-15) -- does not
+        reuse positions_for_client's join."""
+        return (
+            self.db.query(ClientSubscription.user_id)
+            .filter(
+                ClientSubscription.user_id == user_id,
+                ClientSubscription.model_id == model_id,
+            )
+            .first()
+            is not None
+        )
+
     def positions_for_client(self, user_id: uuid.UUID) -> list[tuple[ClientSubscription, Model]]:
         rows = (
             self.db.query(ClientSubscription, Model)

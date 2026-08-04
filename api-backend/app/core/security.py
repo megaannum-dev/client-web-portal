@@ -12,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials
 
 from app.core.config import Settings, get_settings
+from app.core.errors import GENERIC_500
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,8 @@ def _init_firebase(settings: Settings) -> None:
         except Exception as exc:
             raise RuntimeError(
                 "Firebase Admin SDK is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or "
-                "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local smoke tests."
+                "FIREBASE_CREDENTIALS_PATH, or set FIREBASE_AUTH_DISABLED=true for local "
+                "smoke tests."
             ) from exc
 
 
@@ -126,13 +128,14 @@ def verify_firebase_id_token_string(id_token: str | None, settings: Settings) ->
         return _extract_dev_claims(id_token)
     if not id_token or not id_token.strip():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="id_token is required"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="id_token is required"
         )
     try:
         _init_firebase(settings)
     except RuntimeError as exc:
+        logger.exception("Firebase Admin SDK initialization failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_500
         ) from exc
     try:
         return auth.verify_id_token(
@@ -160,8 +163,9 @@ def verify_firebase_token(
     try:
         _init_firebase(settings)
     except RuntimeError as exc:
+        logger.exception("Firebase Admin SDK initialization failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_500
         ) from exc
     try:
         return auth.verify_id_token(

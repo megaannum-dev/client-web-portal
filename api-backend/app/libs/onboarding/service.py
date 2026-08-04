@@ -13,6 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.storage import Bucket, client_folder, get_storage
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -39,7 +40,6 @@ from app.libs.onboarding.schemas import (
     TransactionDetailRequest,
     VerdictReq,
 )
-from app.libs.trade_models.storage import get_storage
 from app.libs.users.repository import AdminProfileRepository
 
 
@@ -96,6 +96,19 @@ _SETTLEMENT_ELIGIBLE_STATUS = {
     AllotRdmpKind.ALLOTMENT: AllotRdmpStatus.ACKNOWLEDGED,
     AllotRdmpKind.REDEMPTION: AllotRdmpStatus.APPROVED,
 }
+
+# BE-13: Numeric(9, 6) -- the DB's own scale for mgmt_fee/incentive_fee.
+_FEE_Q = Decimal("0.000001")
+
+
+def _same_fee(a: Decimal | float | None, b: Decimal | float | None) -> bool:
+    """True when two fees are the same at the column's 6-dp scale.
+    Both operands are DECIMAL FRACTIONS (impl doc 020 §7.1(a)); mixing a float
+    DTO value with a Decimal column value is what makes the naive `==`
+    unreliable."""
+    if a is None or b is None:
+        return a is b
+    return Decimal(str(a)).quantize(_FEE_Q) == Decimal(str(b)).quantize(_FEE_Q)
 
 
 class OnboardingService:
@@ -219,6 +232,18 @@ class OnboardingService:
             return options
         return [o for o in options if o.uid == caller_uid]
 
+    def _client_folder(self, user_id: uuid.UUID, *, bucket: Bucket) -> str:
+        """BE-8: the one per-client folder name, shared by the KYC and
+        contact-log call sites -- both route through app.core.storage.client_folder
+        so the same client lands in the same-named directory in either bucket."""
+        profile = (
+            self.db.query(ClientProfile).filter(ClientProfile.user_id == user_id).one_or_none()
+        )
+        user = self.db.get(User, user_id)
+        assert user is not None
+        name = (profile.name if profile else None) or ""
+        return client_folder(name, user.firebase_uid, bucket=bucket)
+
     def upload_document(
         self,
         onboarding_id: uuid.UUID,
@@ -240,11 +265,11 @@ class OnboardingService:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Document cannot be reuploaded in its current status"
             )
-        storage_key = get_storage().save(
+        storage_key = get_storage(Bucket.KYC).save(
             stream,
             suggested_name=filename,
             content_type=content_type,
-            subdir=f"client_kyc_docs/{self.repo.client_folder_name(onboarding)}",
+            subdir=self._client_folder(onboarding.user_id, bucket=Bucket.KYC),
         )
         self.repo.upload_document(
             doc,
@@ -359,9 +384,13 @@ class OnboardingService:
         surfaces as an IntegrityError, not a silent duplicate."""
         model = self.db.get(Model, onboarding.model_id)
         assert model is not None
-        mgmt_override = None if model.mgmt_fee == onboarding.mgmt_fee else onboarding.mgmt_fee
+        mgmt_override = (
+            None if _same_fee(model.mgmt_fee, onboarding.mgmt_fee) else onboarding.mgmt_fee
+        )
         incentive_override = (
-            None if model.incentive_fee == onboarding.incentive_fee else onboarding.incentive_fee
+            None
+            if _same_fee(model.incentive_fee, onboarding.incentive_fee)
+            else onboarding.incentive_fee
         )
 
         # ORDERING: read before upsert -- see docstring.
@@ -464,7 +493,7 @@ class OnboardingService:
         doc = self._require_document(onboarding_id, doc_type)
         if doc.storage_key is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No file uploaded for this document")
-        stream = get_storage().open(doc.storage_key)
+        stream = get_storage(Bucket.KYC).open(doc.storage_key)
         return stream, doc.filename or doc.doc_type, doc.content_type
 
     def download_all_documents(self, onboarding_id: uuid.UUID) -> tuple[BinaryIO, str]:
@@ -477,7 +506,7 @@ class OnboardingService:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for doc in docs:
                 assert doc.storage_key is not None  # filtered above
-                with get_storage().open(doc.storage_key) as fh:
+                with get_storage(Bucket.KYC).open(doc.storage_key) as fh:
                     zf.writestr(f"{doc.doc_type}_{doc.filename or doc.doc_type}", fh.read())
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
@@ -500,9 +529,9 @@ class OnboardingService:
 
         if existing is None:
             new_multiplier = req.multiplier  # new-subscription mode
-            mgmt_override = req.mgmt_fee if req.mgmt_fee != model.mgmt_fee else None
+            mgmt_override = None if _same_fee(model.mgmt_fee, req.mgmt_fee) else req.mgmt_fee
             incentive_override = (
-                req.incentive_fee if req.incentive_fee != model.incentive_fee else None
+                None if _same_fee(model.incentive_fee, req.incentive_fee) else req.incentive_fee
             )
         else:
             new_multiplier = existing.multiplier + req.multiplier  # D-4: additive
@@ -870,7 +899,7 @@ class OnboardingService:
         log = self.repo.get_contact_log(client_id, log_id)
         if log is None or log.doc_storage_key is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No file attached to this contact log")
-        stream = get_storage().open(log.doc_storage_key)
+        stream = get_storage(Bucket.CONTACT_LOG).open(log.doc_storage_key)
         return stream, log.doc_filename or "attachment", log.doc_content_type
 
     def create_contact_log(
@@ -890,11 +919,11 @@ class OnboardingService:
         doc_storage_key = doc_filename = doc_content_type = None
         doc_size_bytes = None
         if file is not None:
-            doc_storage_key = get_storage().save(
+            doc_storage_key = get_storage(Bucket.CONTACT_LOG).save(
                 file.file,
                 suggested_name=file.filename or "upload",
                 content_type=file.content_type,
-                subdir=f"client_contact_logs/{client_id}",
+                subdir=self._client_folder(client_id, bucket=Bucket.CONTACT_LOG),
             )
             doc_filename = fix_mojibake_filename(file.filename)
             doc_content_type = file.content_type

@@ -13,10 +13,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, sta
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.storage import Bucket, FileStorage, get_storage
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
 from app.libs.trade_models.service import ModelService
-from app.libs.trade_models.storage import FileStorage, get_storage
 from app.libs.trade_models.schemas import (
     ChangeOut,
     MaterialOut,
@@ -39,9 +39,13 @@ router = APIRouter(prefix="/pc", tags=["pc"])
 # ---------------------------------------------------------------------------
 
 
+def _marketing_storage() -> FileStorage:
+    return get_storage(Bucket.MARKETING)
+
+
 def _get_model_service(
     db: Annotated[Session, Depends(get_db)],
-    storage: Annotated[FileStorage, Depends(get_storage)],
+    storage: Annotated[FileStorage, Depends(_marketing_storage)],
 ) -> ModelService:
     return ModelService(db, storage)
 
@@ -79,7 +83,7 @@ def list_models(
     return {"models": service.list_models()}
 
 
-@router.get("/models/{model_id}")
+@router.get("/models/{model_id}", response_model=ModelDetailOut)
 def get_model(
     model_id: uuid.UUID,
     service: Annotated[ModelService, Depends(_get_model_service)],
@@ -146,7 +150,7 @@ def edit_model(
             result = service.delete_model(model_id, actor=actor.firebase_uid)
         else:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status.HTTP_409_CONFLICT,
                 f"Invalid status transition: {new_status!r}",
             )
     if updates:

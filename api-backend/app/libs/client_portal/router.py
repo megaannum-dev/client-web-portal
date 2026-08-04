@@ -105,9 +105,9 @@ def get_recommended_models(
 def download_model_material(
     model_id: UUID,
     svc: Annotated[ClientPortalService, Depends(_service)],
-    _user: Annotated[User, Depends(get_current_client_user)],
+    user: Annotated[User, Depends(get_current_client_user)],
 ) -> StreamingResponse:
-    stream, filename, content_type = svc.model_material_stream(model_id)
+    stream, filename, content_type = svc.model_material_stream(model_id, user_id=user.id)
     return StreamingResponse(
         stream,
         media_type=content_type or "application/octet-stream",

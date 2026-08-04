@@ -16,7 +16,7 @@ class OrderBreak:
 
 @dataclass(frozen=True)
 class ClientModelBreak:
-    client_id: int
+    client_id: uuid.UUID
     model_id: uuid.UUID
     expected: Decimal
     actual: Decimal
@@ -25,7 +25,7 @@ class ClientModelBreak:
 
 @dataclass(frozen=True)
 class CrmBreak:
-    client_id: int
+    client_id: uuid.UUID
     expected: Decimal
     actual: Decimal
     delta: Decimal
@@ -33,7 +33,7 @@ class CrmBreak:
 
 @dataclass(frozen=True)
 class CrmAlgoBreak:
-    client_id: int
+    client_id: uuid.UUID
     model_id: uuid.UUID
     reason: str  # 'ib_crm' | 'ib_algo' | 'both' -- which upstream check(s) failed
 

@@ -9,9 +9,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.pc import ModelChangeKind, ModelStatus
+
+_FEE_DESC = "Decimal fraction, not percent: 0.020000 means 2%. Must satisfy 0 <= fee < 1."
 
 
 # ---------------------------------------------------------------------------
@@ -69,8 +71,8 @@ class ModelCreate(BaseModel):
     liquidity: str | None = None
     reporting: str | None = None
     nav_perf: str | None = None
-    mgmt_fee: float | None = None
-    incentive_fee: float | None = None
+    mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
+    incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolIn] | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
@@ -87,9 +89,9 @@ class ModelUpdate(BaseModel):
     liquidity: str | None = None
     reporting: str | None = None
     nav_perf: str | None = None
-    mgmt_fee: float | None = None
-    incentive_fee: float | None = None
-    status: str | None = None   # "live" | "deleted" — triggers state machine
+    mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
+    incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
+    status: str | None = None  # "live" | "deleted" — triggers state machine
     symbols: list[SymbolIn] | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
@@ -111,8 +113,8 @@ class ModelOut(BaseModel):
     liquidity: str | None = None
     reporting: str | None = None
     nav_perf: str | None = None
-    mgmt_fee: float | None = None
-    incentive_fee: float | None = None
+    mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
+    incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolOut] = []
 
     model_config = {"from_attributes": True}

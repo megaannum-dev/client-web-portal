@@ -27,10 +27,13 @@ def _epsilon() -> Decimal:
     return Decimal(str(get_settings().recon_notional_epsilon))
 
 
-def _client_user_pairs(db: Session) -> list[tuple[int, uuid.UUID]]:
-    """Every (client_id, user_id) pair, for the IB<->CRM per-client step."""
-    rows = db.query(ClientProfile.id, ClientProfile.user_id).all()
-    return [(client_id, user_id) for client_id, user_id in rows]
+def _client_user_pairs(db: Session) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Every (client_id, user_id) pair, for the IB<->CRM per-client step.
+    client_id and user_id are the same value now that client_profiles.id was
+    dropped and user_id promoted to PK -- kept as a pair so callers that still
+    name them separately (the IB vs CRM identity) are undisturbed."""
+    rows = db.query(ClientProfile.user_id).all()
+    return [(user_id, user_id) for (user_id,) in rows]
 
 
 def _model_name(db: Session, model_id: uuid.UUID) -> str:
@@ -40,7 +43,7 @@ def _model_name(db: Session, model_id: uuid.UUID) -> str:
 
 def _client_model_expected_actual(
     db: Session, session: ReconSession, algo: AlgoTradeAdapter, ib: IBAdapter
-) -> Iterator[tuple[int, uuid.UUID, Decimal, Decimal]]:
+) -> Iterator[tuple[uuid.UUID, uuid.UUID, Decimal, Decimal]]:
     """For every client with a frozen allocation snapshot for the recon
     session's period+model, yield (client_id, model_id, expected, actual)
     where expected is IB's allocation for that (run, client, model) and
@@ -70,9 +73,9 @@ def _client_model_expected_actual(
         )
         if client is None:
             continue
-        expected = ib.allocated_for_client_model(session.ib_run_id, client.id, model_id)
+        expected = ib.allocated_for_client_model(session.ib_run_id, client.user_id, model_id)
         actual = (snapshot.multiplier / total_multiplier) * algo_total
-        yield client.id, model_id, expected, actual
+        yield client.user_id, model_id, expected, actual
 
 
 def _order_field_comparisons(
@@ -119,7 +122,7 @@ def reconcile(db: Session, session_id: uuid.UUID) -> ReconciliationResult:
 
     # --- Stage 2: fine-grained, fixed sequence ---------------------------
     # Step 1 -- IB <-> CRM, per client.
-    crm_ok_by_client: dict[int, bool] = {}
+    crm_ok_by_client: dict[uuid.UUID, bool] = {}
     for client_id, user_id in _client_user_pairs(db):
         expected = ib.allocated_for_client_model_total(session.ib_run_id, client_id)
         actual = crm.portfolio_delta_for_run(session.ib_run_id, user_id)
@@ -133,7 +136,7 @@ def reconcile(db: Session, session_id: uuid.UUID) -> ReconciliationResult:
             )
 
     # Step 2 -- IB <-> AlgoTrade, per (client, model).
-    algo_ok_by_client_model: dict[tuple[int, uuid.UUID], bool] = {}
+    algo_ok_by_client_model: dict[tuple[uuid.UUID, uuid.UUID], bool] = {}
     client_model_rows = _client_model_expected_actual(db, session, algo, ib)
     for client_id, model_id, expected, actual in client_model_rows:
         ok = abs(expected - actual) <= eps

@@ -5,9 +5,10 @@ Thin HTTP boundary, mirroring app/libs/allocation_matrix/router.py.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -43,7 +44,16 @@ def get_post_trade_allocation(
 ) -> object:
     view = service.get_view(date)
     if view is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No run for that date")
+        # BE-10 row 9: "no data for that date" is a normal empty render, not a 404 —
+        # synthesize the empty view here (mirrors the POST-handler pattern below),
+        # echoing the requested date back (today's, if none was requested).
+        raw_date = date.replace("-", "") if date else datetime.now(timezone.utc).strftime("%Y%m%d")
+        view = PostTradeAllocationView(
+            tradeDate=_format_date(raw_date),
+            settleDay=_format_settle_day(None),
+            grandTotal=0.0,
+            models=[],
+        )
     return view
 
 
