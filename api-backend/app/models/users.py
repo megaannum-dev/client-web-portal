@@ -193,9 +193,8 @@ class ClientProfile(Base):
 class AdminProfile(Base):
     __tablename__ = "admin_profiles"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(native_uuid=False), ForeignKey("users.id"), unique=True, index=True
+        Uuid(native_uuid=False), ForeignKey("users.id"), primary_key=True
     )
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[AdminRole] = mapped_column(
