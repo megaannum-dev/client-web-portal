@@ -8,7 +8,7 @@ import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
 import { CategorySelect, CreateField, CreateTextArea } from "./CreateModelForm";
-import { parseFeePercent } from "@/lib/fee";
+import { parseFeePercent, formatFeePercent } from "@/lib/fee";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
@@ -39,8 +39,11 @@ export function EditModelForm({
   const [liquidity, setLiquidity] = useState(model.liquidity ?? "");
   const [reporting, setReporting] = useState(model.reporting ?? "");
   const [navPerf, setNavPerf] = useState(model.nav_perf ?? "");
-  const [mgmtFee, setMgmtFee] = useState(model.mgmt_fee != null ? String(model.mgmt_fee) : "");
-  const [incentiveFee, setIncentiveFee] = useState(model.incentive_fee != null ? String(model.incentive_fee) : "");
+  // Displayed/edited as a percent string ("2" for 0.02); parseFeePercent on
+  // save re-derives the fraction, so an untouched field must round-trip back
+  // to the same fraction it started from, not silently shrink it 100x.
+  const [mgmtFee, setMgmtFee] = useState(model.mgmt_fee != null ? formatFeePercent(model.mgmt_fee).replace("%", "") : "");
+  const [incentiveFee, setIncentiveFee] = useState(model.incentive_fee != null ? formatFeePercent(model.incentive_fee).replace("%", "") : "");
 
   const commitSym = () => {
     const s = draftSym.trim().toUpperCase();
