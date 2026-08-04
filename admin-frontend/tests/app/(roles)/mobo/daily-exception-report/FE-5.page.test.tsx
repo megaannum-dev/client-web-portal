@@ -3,8 +3,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("@/hooks/api/useEodReport", () => ({ useEodReport: vi.fn() }));
-vi.mock("@/app/(roles)/mobo/daily-exception-report/actions", () => ({ downloadEodPdf: vi.fn() }));
+vi.mock("@/hooks/api/useEodReport", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useEodReport")>()), useEodReport: vi.fn() }));
+vi.mock("@/app/(roles)/mobo/daily-exception-report/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/mobo/daily-exception-report/actions")>()), downloadEodPdf: vi.fn() }));
 
 import { useEodReport } from "@/hooks/api/useEodReport";
 import { downloadEodPdf } from "@/app/(roles)/mobo/daily-exception-report/actions";

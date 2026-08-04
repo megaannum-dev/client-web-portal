@@ -7,9 +7,11 @@
 // Save just updates local state, so every mode='view'/fetch-triggering
 // assertion below fails as the correct pre-implementation signal.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithAuth as render } from "@/tests/_helpers/renderWithAuth";
 
-vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
+vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   fileTransactionDetail: vi.fn(),
   getTransactionDetail: vi.fn(),
 }));

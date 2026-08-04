@@ -2,9 +2,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/hooks/api/useOnboardingBoard", () => ({ useOnboardingBoard: vi.fn() }));
-vi.mock("@/hooks/api/useModels", () => ({ useModels: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+// A real AuthProvider's own loading-state effect causes an extra render pass
+// (portalUser/loading settle after mount), which this file's re-render-count
+// assertions are directly sensitive to — so useCanEdit is given a static
+// partial mock instead of the shared renderWithAuth helper (per FE-3's
+// documented fallback for a real provider breaking the test).
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
+  useAuth: () => ({ portalUser: { grants: {} } }),
+}));
+vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useOnboardingBoard")>()), useOnboardingBoard: vi.fn() }));
+vi.mock("@/hooks/api/useModels", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useModels")>()), useModels: vi.fn() }));
 
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";

@@ -16,7 +16,10 @@ const mockActions = vi.hoisted(() => ({
   getMatrix: vi.fn(), publishMatrix: vi.fn(), getOverrides: vi.fn(), grantOverride: vi.fn(),
   revokeOverride: vi.fn(), getAudit: vi.fn(),
 }));
-vi.mock("@/app/(roles)/admin/actions", () => mockActions);
+vi.mock("@/app/(roles)/admin/actions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/app/(roles)/admin/actions")>()),
+  ...mockActions,
+}));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 const MATRIX_FIXTURE = {

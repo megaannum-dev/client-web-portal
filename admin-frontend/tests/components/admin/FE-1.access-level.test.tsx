@@ -18,7 +18,8 @@ import type { Level } from "@/lib/admin/types";
 import type { StagedChange } from "@/lib/admin/types";
 
 const mockUseAdminStore = vi.fn();
-vi.mock("@/lib/admin/AdminStoreContext", () => ({
+vi.mock("@/lib/admin/AdminStoreContext", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/admin/AdminStoreContext")>()),
   useAdminStore: () => mockUseAdminStore(),
 }));
 

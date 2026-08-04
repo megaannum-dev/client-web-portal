@@ -5,7 +5,8 @@
 // below fails (the component always renders the editable form) as the
 // correct pre-implementation signal.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithAuth as render } from "@/tests/_helpers/renderWithAuth";
 import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
 import type { TransactionDetailDTO } from "@/lib/onboarding/types";
 

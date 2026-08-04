@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/pc/model-management/actions", () => ({
+vi.mock("@/app/(roles)/pc/model-management/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/pc/model-management/actions")>()),
   updateModel: vi.fn(),
 }));
 

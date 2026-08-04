@@ -13,15 +13,18 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { groupsFor, pageIdForPath, type GrantMap } from "@/lib/pages-config";
 
 const mockUseAuth = vi.fn();
-vi.mock("@/components/auth/AuthProvider", () => ({
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
   useAuth: () => mockUseAuth(),
 }));
 
 const mockReplace = vi.fn();
 const mockUsePathname = vi.fn();
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useRouter: () => ({ replace: mockReplace }),
   usePathname: () => mockUsePathname(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // D-11 day-one seed excerpt for COMPLIANCE: view on ~10 pages outside its own domain

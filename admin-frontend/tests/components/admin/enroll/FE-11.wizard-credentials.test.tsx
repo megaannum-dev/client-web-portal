@@ -13,7 +13,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const mockUseAdminStore = vi.fn();
-vi.mock("@/lib/admin/AdminStoreContext", () => ({
+vi.mock("@/lib/admin/AdminStoreContext", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/admin/AdminStoreContext")>()),
   useAdminStore: () => mockUseAdminStore(),
 }));
 

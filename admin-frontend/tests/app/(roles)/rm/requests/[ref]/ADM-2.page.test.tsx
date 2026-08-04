@@ -4,12 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 const notFoundMock = vi.fn();
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useParams: () => ({ ref: "REQ-1001" }),
+  useSearchParams: () => new URLSearchParams(),
   notFound: () => notFoundMock(),
 }));
-vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTicket: vi.fn() }));
-vi.mock("@/components/rm/RequestTickets", () => ({
+vi.mock("@/hooks/api/useRmTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useRmTickets")>()), useRmTicket: vi.fn() }));
+vi.mock("@/components/rm/RequestTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/rm/RequestTickets")>()),
   RequestTicketDetail: ({ ticket }: { ticket: { ref: string } }) => <div>Detail for {ticket.ref}</div>,
 }));
 

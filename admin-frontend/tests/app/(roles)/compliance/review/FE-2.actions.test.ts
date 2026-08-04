@@ -2,7 +2,8 @@
 // Regenerate: /test-gen standard.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/onboarding", () => ({
+vi.mock("@/server/onboarding", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/server/onboarding")>()),
   fetchComplianceQueue: vi.fn(),
   submitVerdict: vi.fn(),
   approveOnboarding: vi.fn(),

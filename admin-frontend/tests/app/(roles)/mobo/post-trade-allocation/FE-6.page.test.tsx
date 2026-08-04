@@ -7,7 +7,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
-vi.mock("@/hooks/api/usePostTradeAllocation", () => ({
+vi.mock("@/hooks/api/usePostTradeAllocation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/usePostTradeAllocation")>()),
   usePostTradeAllocation: vi.fn(),
   usePostTradeAllocationRuns: vi.fn(),
 }));

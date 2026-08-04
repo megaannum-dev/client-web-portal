@@ -7,7 +7,8 @@
 // correct/expected pre-implementation signal for this unit.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/rm", () => ({
+vi.mock("@/server/rm", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/server/rm")>()),
   submitAllotment: vi.fn(),
   submitRedemption: vi.fn(),
 }));

@@ -13,7 +13,8 @@ import type { GrantMap } from "@/lib/pages-config";
 import type { PortalUser } from "@/types/portal";
 
 const mockUseAuth = vi.fn();
-vi.mock("@/components/auth/AuthProvider", () => ({
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
   useAuth: () => mockUseAuth(),
 }));
 

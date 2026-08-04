@@ -12,12 +12,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUseAdminStore = vi.fn();
-vi.mock("@/lib/admin/AdminStoreContext", () => ({
+vi.mock("@/lib/admin/AdminStoreContext", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/admin/AdminStoreContext")>()),
   useAdminStore: () => mockUseAdminStore(),
 }));
 
 const mockSearchParams = new URLSearchParams();
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useSearchParams: () => mockSearchParams,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/admin/system-config",

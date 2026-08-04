@@ -8,7 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
+vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   submitAllotment: vi.fn(),
   submitRedemption: vi.fn(),
 }));

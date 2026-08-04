@@ -2,7 +2,8 @@
 // Regenerate: /test-gen standard.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/mobo", () => ({
+vi.mock("@/server/mobo", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/server/mobo")>()),
   getPostTradeAllocation: vi.fn(),
   getPostTradeAllocationRuns: vi.fn(),
   runPostTradeAllocation: vi.fn(),

@@ -4,13 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const replaceMock = vi.fn();
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useRouter: () => ({ replace: replaceMock }),
   useSearchParams: () => ({ get: () => null }),
 }));
 
 const useAuthMock = vi.fn();
-vi.mock("@/components/auth/AuthProvider", () => ({
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
   useAuth: () => useAuthMock(),
 }));
 

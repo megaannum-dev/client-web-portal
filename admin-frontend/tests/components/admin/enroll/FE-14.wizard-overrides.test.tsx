@@ -15,7 +15,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("@/components/admin/AccessEditor", () => ({
+vi.mock("@/components/admin/AccessEditor", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/admin/AccessEditor")>()),
   AccessEditor: ({ onSet }: { onSet: (pageId: string, level: string) => void }) => (
     <div>
       <button type="button" onClick={() => onSet("pc.model-management", "EDIT")}>Set pc.model-management EDIT</button>
@@ -24,7 +25,8 @@ vi.mock("@/components/admin/AccessEditor", () => ({
   ),
 }));
 
-vi.mock("@/lib/admin/catalog", () => ({
+vi.mock("@/lib/admin/catalog", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/admin/catalog")>()),
   LEVEL_LABEL: { NONE: "None", VIEW: "View", EDIT: "Edit" },
   PAGE_BY_ID: {
     "pc.model-management": { page_id: "pc.model-management", label: "Model Management", path: "/pc/model-management", group: "System" },
@@ -35,7 +37,8 @@ vi.mock("@/lib/admin/catalog", () => ({
 }));
 
 const mockUseAdminStore = vi.fn();
-vi.mock("@/lib/admin/AdminStoreContext", () => ({
+vi.mock("@/lib/admin/AdminStoreContext", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/admin/AdminStoreContext")>()),
   useAdminStore: () => mockUseAdminStore(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));

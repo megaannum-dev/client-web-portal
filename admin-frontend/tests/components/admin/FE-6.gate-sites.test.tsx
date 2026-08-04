@@ -53,7 +53,8 @@ const EXPECTED_MARKER_COUNTS: Record<string, number> = {
 };
 
 const mockUseAuth = vi.fn();
-vi.mock("@/components/auth/AuthProvider", () => ({
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
   useAuth: () => mockUseAuth(),
 }));
 
@@ -61,21 +62,25 @@ vi.mock("@/components/auth/AuthProvider", () => ({
 // the transitive `server-only` import throws when the module loads outside a server
 // component context (the same reason every existing SubscriptionAccordion-adjacent
 // test in this repo mocks this module — see tests/components/rm/FE-3/FE-5.*.test.tsx).
-vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
+vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   fileTransactionDetail: vi.fn(async () => ({ success: true, data: {} })),
   getTransactionDetail: vi.fn(async () => ({ success: true, data: null })),
   submitAllotment: vi.fn(),
   submitRedemption: vi.fn(),
 }));
 
-vi.mock("@/hooks/api/useModels", () => ({ useModels: () => ({ data: [] }) }));
+vi.mock("@/hooks/api/useModels", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useModels")>()), useModels: () => ({ data: [] }) }));
 
 // RequestTickets.tsx statically imports useRmTickets at module top level (even though
 // RequestTicketDetail itself doesn't call it) — mocked so the module loads without
 // pulling in the hook's own "use server" action chain.
-vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTickets: () => ({}) }));
+vi.mock("@/hooks/api/useRmTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useRmTickets")>()), useRmTickets: () => ({}) }));
 
-vi.mock("@/hooks/api/useSubscriptions", () => ({
+vi.mock("@/hooks/api/useSubscriptions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useSubscriptions")>()),
   useSubscriptions: () => ({
     clients: [],
     loading: false,
@@ -93,7 +98,8 @@ function withGrant(pageId: string, level: "EDIT" | "VIEW" | "NONE") {
 }
 
 const mockRouter = { push: vi.fn(), replace: vi.fn() };
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
   useRouter: () => mockRouter,
   usePathname: () => "/",
   useSearchParams: () => new URLSearchParams(),
@@ -330,7 +336,8 @@ describe("FE-6 components/rm/RequestTickets.tsx (RequestTicketDetail) — gated 
 // trade-reconciliation/page.tsx (settleDay + trades) AND recon-overview/page.tsx
 // (settleDay + counters + trades) — vi.mock is file-scoped, so the fixture must satisfy
 // every consumer in this file, not just the describe block that introduced it.
-vi.mock("@/lib/mobo/reconciliation", () => ({
+vi.mock("@/lib/mobo/reconciliation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/mobo/reconciliation")>()),
   loadReconciliation: () => ({
     settleDay: "Tue 03 Jun 2026",
     trades: [

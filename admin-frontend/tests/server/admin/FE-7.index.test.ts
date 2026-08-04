@@ -8,7 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockApiClient = vi.fn();
-vi.mock("@/server/api-client", () => ({
+vi.mock("@/server/api-client", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/server/api-client")>()),
   apiClient: (...args: unknown[]) => mockApiClient(...args),
 }));
 

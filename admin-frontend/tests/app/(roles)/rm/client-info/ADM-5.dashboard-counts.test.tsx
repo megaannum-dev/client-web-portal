@@ -3,11 +3,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ portalUser: { name: "Dana" } }) }));
-vi.mock("@/hooks/api/useClientBook", () => ({ useClientBook: () => ({ data: [], loading: false, error: null }) }));
-vi.mock("@/hooks/api/useOnboardingBoard", () => ({ useOnboardingBoard: () => ({ data: [] }) }));
-vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTickets: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()), useAuth: () => ({ portalUser: { name: "Dana" } }) }));
+vi.mock("@/hooks/api/useClientBook", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useClientBook")>()), useClientBook: () => ({ data: [], loading: false, error: null }) }));
+vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useOnboardingBoard")>()), useOnboardingBoard: () => ({ data: [] }) }));
+vi.mock("@/hooks/api/useRmTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useRmTickets")>()), useRmTickets: vi.fn() }));
 
 import { useRmTickets } from "@/hooks/api/useRmTickets";
 import RmDashboardPage from "@/app/(roles)/rm/client-info/page";

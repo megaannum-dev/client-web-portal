@@ -24,12 +24,14 @@ vi.mock("firebase/auth", () => ({
   signOut: (...args: unknown[]) => signOutMock(...args),
 }));
 
-vi.mock("@/lib/firebase", () => ({
+vi.mock("@/lib/firebase", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/firebase")>()),
   getFirebaseAuth: vi.fn(() => ({})),
   isFirebaseConfigured: vi.fn(() => true),
 }));
 
-vi.mock("@/lib/id-token", () => ({
+vi.mock("@/lib/id-token", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/id-token")>()),
   writeIdTokenCookie: vi.fn(),
 }));
 

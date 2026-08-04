@@ -3,8 +3,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTickets: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock("@/hooks/api/useRmTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useRmTickets")>()), useRmTickets: vi.fn() }));
 
 import { useRmTickets } from "@/hooks/api/useRmTickets";
 import { RequestTicketsInbox } from "@/components/rm/RequestTickets";

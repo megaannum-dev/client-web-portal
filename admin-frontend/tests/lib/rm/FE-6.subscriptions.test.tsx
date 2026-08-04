@@ -12,7 +12,8 @@ import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library
 import fs from "node:fs";
 import path from "node:path";
 
-vi.mock("@/app/(roles)/rm/model-subscription/actions", () => ({
+vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   fetchSubscriptions: vi.fn(),
   fetchClientAllotments: vi.fn(),
 }));

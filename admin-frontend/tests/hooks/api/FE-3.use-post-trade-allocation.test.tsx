@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/mobo/post-trade-allocation/actions", () => ({
+vi.mock("@/app/(roles)/mobo/post-trade-allocation/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/mobo/post-trade-allocation/actions")>()),
   getView: vi.fn(),
   getRuns: vi.fn(),
   runSync: vi.fn(),

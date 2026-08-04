@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/compliance/review/actions", () => ({
+vi.mock("@/app/(roles)/compliance/review/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/compliance/review/actions")>()),
   fetchComplianceQueue: vi.fn(),
   submitVerdict: vi.fn(),
   approveOnboarding: vi.fn(),

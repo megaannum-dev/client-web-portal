@@ -8,11 +8,18 @@
 // also touching page.tsx. If the implementation instead threads refetch through as a prop
 // from the page, this is a real spec gap — flag it rather than editing these assertions.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithAuth as render } from "@/tests/_helpers/renderWithAuth";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/app/(roles)/rm/requests/actions", () => ({ setTicketStatus: vi.fn() }));
-vi.mock("@/hooks/api/useRmTickets", () => ({ useRmTicket: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock("@/app/(roles)/rm/requests/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/requests/actions")>()), setTicketStatus: vi.fn() }));
+vi.mock("@/hooks/api/useRmTickets", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useRmTickets")>()), useRmTicket: vi.fn() }));
 
 import { setTicketStatus } from "@/app/(roles)/rm/requests/actions";
 import { useRmTicket } from "@/hooks/api/useRmTickets";

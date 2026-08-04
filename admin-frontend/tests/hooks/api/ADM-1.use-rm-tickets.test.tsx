@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/rm/requests/actions", () => ({
+vi.mock("@/app/(roles)/rm/requests/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/rm/requests/actions")>()),
   getTickets: vi.fn(),
 }));
 

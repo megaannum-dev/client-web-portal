@@ -3,7 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
-vi.mock("@/app/(roles)/pc/allotment-redemption/actions", () => ({
+vi.mock("@/app/(roles)/pc/allotment-redemption/actions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/app/(roles)/pc/allotment-redemption/actions")>()),
   fetchAllotments: vi.fn(),
   acknowledgeAllotment: vi.fn(),
 }));

@@ -2,8 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/hooks/api/useOnboardingBoard", () => ({ useOnboardingBoard: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useOnboardingBoard")>()), useOnboardingBoard: vi.fn() }));
 
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { OnboardingBoard } from "@/components/rm/OnboardingBoard";
