@@ -9,7 +9,7 @@
 // it to lib/onboarding/fee.ts or flag this goal as wrong; do not edit this
 // test to import from OnboardingModal.tsx.
 import { describe, expect, it } from "vitest";
-import { parseFeePercent } from "@/lib/onboarding/fee";
+import { parseFeePercent } from "@/lib/fee";
 
 describe("FE-9 parseFeePercent", () => {
   it("parses a percent string with a trailing % into a decimal fraction", () => {

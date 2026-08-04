@@ -3,6 +3,7 @@
 // types from lib/mock/rm-data.ts verbatim -- this file produces values of
 // those types, it does not redefine them.
 import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { formatFeePercent } from "@/lib/fee";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
@@ -31,12 +32,6 @@ export function initialsFromName(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   const letters = (words[0]?.[0] ?? "") + (words[1]?.[0] ?? "");
   return letters ? letters.toUpperCase() : "—";
-}
-
-/** "0.015" (Decimal-as-fraction, per §3.1's JSON-number convention) -> "1.5%".
- *  parseFloat after toFixed(2) trims trailing zeros (10 -> "10", not "10.00"). */
-function formatFeePercent(fraction: number): string {
-  return `${parseFloat((fraction * 100).toFixed(2))}%`;
 }
 
 /** One client's summary "Net" row — sourced from the AUTHORITATIVE current

@@ -7,14 +7,15 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
-import { CategorySelect, CreateField, CreateTextArea, parseFeePercent } from "./CreateModelForm";
+import { CategorySelect, CreateField, CreateTextArea } from "./CreateModelForm";
+import { parseFeePercent } from "@/lib/fee";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
    changed (the diff). `mgmt_fee` / `incentive_fee` are optional
    per-model overrides (null => the hardcoded 2 % / 20 % default from
-   `lib/pc/models.ts` applies); they are stored on the SAME
-   whole-number percentage scale as `Model.mgmt` / `Model.incentive`. */
+   `lib/pc/models.ts` applies); they are stored as decimal fractions
+   (0.02 = 2%), per `@/lib/fee`. */
 export function EditModelForm({
   model,
   onClose,
@@ -86,9 +87,9 @@ export function EditModelForm({
     if (trimmedNavPerf !== (model.nav_perf ?? "")) {
       patch.nav_perf = trimmedNavPerf === "" ? null : trimmedNavPerf;
     }
-    const mgmtFeeNum = parseFeePercent(mgmtFee);
+    const mgmtFeeNum = mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee);
     if (mgmtFeeNum !== (model.mgmt_fee ?? null)) patch.mgmt_fee = mgmtFeeNum;
-    const incentiveFeeNum = parseFeePercent(incentiveFee);
+    const incentiveFeeNum = incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee);
     if (incentiveFeeNum !== (model.incentive_fee ?? null)) patch.incentive_fee = incentiveFeeNum;
 
     return patch;

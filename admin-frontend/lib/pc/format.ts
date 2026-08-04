@@ -43,12 +43,14 @@ export function fmtMoneyShort(v: number): string {
 
 /**
  * Compute management + incentive fees for a model given a performance
- * figure and hurdle (both whole-number percentages). Hardcoded rates are
- * per-model (D-7); per-client overrides come later.
+ * figure and hurdle (whole-number percentages). `m.mgmt` / `m.incentive`
+ * are decimal fractions (0.02 = 2%, per @/lib/fee); `perf` / `hurdle` stay
+ * whole-number percentages. Hardcoded rates are per-model (D-7); per-client
+ * overrides come later.
  */
 export function computeFees(m: Model, perf: number, hurdle: number): FeeBreakdown {
-  const mgmtFee = (m.mgmt / 100) * m.size;
+  const mgmtFee = m.mgmt * m.size;
   const excess = Math.max(perf - hurdle, 0);
-  const incFee = (m.incentive / 100) * (excess / 100) * m.size;
+  const incFee = m.incentive * (excess / 100) * m.size;
   return { mgmtFee, incFee, total: mgmtFee + incFee, excess };
 }

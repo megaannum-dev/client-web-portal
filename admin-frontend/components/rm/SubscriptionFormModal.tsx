@@ -21,6 +21,7 @@ import {
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { MODEL_SIZES } from "@/lib/mock/rm-data";
+import { parseFeePercent } from "@/lib/fee";
 import { submitAllotment, submitRedemption } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type SubscriptionModalMode = "new-subscription" | "add-allotment" | "redemption";
@@ -151,8 +152,8 @@ export function SubscriptionFormModal({
           model_id: modelId,
           multiplier: parseFloat(multiplier) || 0,
           expected_cash_in: dateVal || null,
-          mgmt_fee: isNew ? parseFloat(mgmtFee) || null : null,
-          incentive_fee: isNew ? parseFloat(incentiveFee) || null : null,
+          mgmt_fee: isNew ? (mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee)) : null,
+          incentive_fee: isNew ? (incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee)) : null,
           source_ticket_ref: context.sourceTicketRef,
         });
     setSubmitting(false);

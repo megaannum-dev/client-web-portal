@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info, Lock } from "@/lib/icons";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
-import { parseFeePercent } from "@/lib/onboarding/fee";
+import { parseFeePercent } from "@/lib/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 
