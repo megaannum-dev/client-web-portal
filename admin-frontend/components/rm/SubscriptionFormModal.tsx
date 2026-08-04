@@ -20,7 +20,7 @@ import {
 } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
-import { MODEL_SIZES } from "@/lib/mock/rm-data";
+import { parseFeePercent } from "@/lib/fee";
 import { submitAllotment, submitRedemption } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type SubscriptionModalMode = "new-subscription" | "add-allotment" | "redemption";
@@ -74,7 +74,7 @@ export function SubscriptionFormModal({
   onClose: () => void;
   onSuccess?: () => void;
   availableClients?: { id: string; name: string }[];
-  availableModels?: { id: string; name: string; mgmtFee: string; incentiveFee: string }[];
+  availableModels?: { id: string; name: string; mgmtFee: string; incentiveFee: string; size: number }[];
 }) {
   const isNew = mode === "new-subscription";
   const isAddAllot = mode === "add-allotment";
@@ -97,7 +97,9 @@ export function SubscriptionFormModal({
   // Locked modes (add-allotment/redemption) are against a real, already-live
   // subscription — use its actual size, not a name-keyed lookup into the
   // new-subscription mock catalog (whose names don't cover live model names).
-  const modelSize = locked ? (context.modelSize ?? 0) : (MODEL_SIZES[model] ?? 0);
+  const modelSize = locked
+    ? (context.modelSize ?? 0)
+    : (availableModels.find((m) => m.id === modelId)?.size ?? 0);
   const multNum = emergent ? 0 : parseFloat(multiplier) || 0;
   const notional = emergent ? modelSize : modelSize * multNum;
   // "Expected Cash In/Out" is marked required (Field's asterisk) but, unlike a
@@ -151,8 +153,8 @@ export function SubscriptionFormModal({
           model_id: modelId,
           multiplier: parseFloat(multiplier) || 0,
           expected_cash_in: dateVal || null,
-          mgmt_fee: isNew ? parseFloat(mgmtFee) || null : null,
-          incentive_fee: isNew ? parseFloat(incentiveFee) || null : null,
+          mgmt_fee: isNew ? (mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee)) : null,
+          incentive_fee: isNew ? (incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee)) : null,
           source_ticket_ref: context.sourceTicketRef,
         });
     setSubmitting(false);

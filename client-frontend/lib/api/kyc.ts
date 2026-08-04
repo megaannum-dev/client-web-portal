@@ -1,5 +1,5 @@
 import { authedGet } from "@/lib/api/onboarding";
-import { getApiBase } from "@/lib/auth-api";
+import { getApiBase, parseApiError } from "@/lib/auth-api";
 
 // DocumentDTO reused verbatim from the Backend's onboarding schemas (D-8);
 // this module does not redefine it, it imports the shape as documented by the seam (§7.1).
@@ -43,17 +43,7 @@ export async function uploadKycDocument(token: string | null, docType: string, f
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body: unknown = await res.json();
-      if (typeof body === "object" && body !== null && "detail" in body) {
-        const d = (body as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch { /* noop */ }
-    throw new Error(`${detail} (${res.status} ${path})`);
-  }
+  if (!res.ok) throw new Error(await parseApiError(res, `POST ${path}`));
   return (await res.json()) as DocumentDTO;
 }
 
@@ -62,16 +52,6 @@ export async function uploadKycDocument(token: string | null, docType: string, f
 export async function downloadKycDocument(token: string | null, docType: string): Promise<Blob> {
   const path = `/api/client/kyc/${encodeURIComponent(docType)}/download`;
   const res = await fetch(`${getApiBase()}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body: unknown = await res.json();
-      if (typeof body === "object" && body !== null && "detail" in body) {
-        const d = (body as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch { /* noop */ }
-    throw new Error(`${detail} (${res.status} ${path})`);
-  }
+  if (!res.ok) throw new Error(await parseApiError(res, `GET ${path}`));
   return res.blob();
 }

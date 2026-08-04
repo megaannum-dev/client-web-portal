@@ -4,6 +4,7 @@ import { Pencil, Copy } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Fact, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
+import { formatFeePercent } from "@/lib/fee";
 import type { Model } from "@/lib/pc/types";
 
 /* ============================================================
@@ -23,8 +24,8 @@ export function OverviewTab({
       <div className="grid grid-cols-2 gap-[11px]">
         <Fact label="Model size" value={fmtMoney(m.size)} />
         <Fact label="Category" value={m.category.length > 0 ? <Ticks symbols={m.category} /> : "—"} />
-        <Fact label="Mgmt Fee" value={m.mgmt_fee ? `${m.mgmt_fee.toFixed(2)}%` : "2.00%"} />
-        <Fact label="Incentive Fee" value={m.incentive_fee ? `${m.incentive_fee.toFixed(2)}%` : "20.00%"} />
+        <Fact label="Mgmt Fee" value={m.mgmt_fee != null ? formatFeePercent(m.mgmt_fee) : formatFeePercent(0.02)} />
+        <Fact label="Incentive Fee" value={m.incentive_fee != null ? formatFeePercent(m.incentive_fee) : formatFeePercent(0.2)} />
         <div className="rounded-[10px] bg-surface-low px-[13px] py-[11px]" style={{ gridColumn: "1 / -1" }}>
           <div className="flex items-center justify-between">
             <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">Symbols</div>

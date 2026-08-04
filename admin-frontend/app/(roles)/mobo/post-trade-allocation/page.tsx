@@ -15,6 +15,7 @@ import { RefreshCw } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { ptaMoney } from "@/lib/mobo/allocation";
+import PostTradeAllocationSkeleton from "./Skeleton";
 import { usePostTradeAllocation, usePostTradeAllocationRuns, usePostTradeAllocationHistory } from "@/hooks/api/usePostTradeAllocation";
 import { toast } from "sonner";
 import type { PtaModelAllocation } from "@/lib/mobo/types";
@@ -105,6 +106,8 @@ export default function PostTradeAllocationPage() {
   const { series: historySeries } = usePostTradeAllocationHistory(
     rangeFrom, rangeTo, view === "range" && rangeScope === "per" ? rangeModelId : undefined,
   );
+
+  if (loading && !data) return <PostTradeAllocationSkeleton />;
 
   const scope: "all" | "per" = view === "per" ? "per" : view === "range" ? rangeScope : "all";
   const selectedModel = models.find((m) => m.id === modelId) ?? models[0];

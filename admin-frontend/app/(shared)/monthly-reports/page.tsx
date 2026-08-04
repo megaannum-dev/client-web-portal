@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { FileText, Download, ChevronLeft, ChevronRight, MessageSquarePlus, MessageSquareText } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { downloadAs } from "@/lib/downloadFile";
 import { MOCK_EOM_REPORTS } from "@/lib/mock/eom-reports";
 import { CommentModal } from "@/components/monthly-reports/CommentModal";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -11,6 +10,20 @@ import { useEomComments } from "@/hooks/api/useEomComments";
 import clsx from "clsx";
 
 const PAGE_SIZE = 5;
+
+// ponytail: local fetch+blob download since this page is still mock-backed
+// (MOCK_EOM_REPORTS, no real endpoint). Swap for lib/download.ts's
+// saveBase64File once monthly-reports gets a real authenticated endpoint.
+async function downloadReport(url: string, filename: string) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href, download: filename });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
+}
 
 export default function MonthlyReportsPage() {
   const { portalUser } = useAuth();
@@ -116,7 +129,7 @@ export default function MonthlyReportsPage() {
                     <td className="px-5 py-4 text-center">
                       <button
                         type="button"
-                        onClick={() => downloadAs("/dummy-EoM-Report.pdf", r.name)}
+                        onClick={() => downloadReport("/dummy-EoM-Report.pdf", r.name)}
                         className="text-primary hover:opacity-70 transition-opacity"
                         aria-label={`Download ${r.name}`}
                       >

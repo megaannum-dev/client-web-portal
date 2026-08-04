@@ -7,7 +7,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { statusToChip } from "@/lib/rm/subscriptions";
 import type { AllotRdmpStatus, TransactionDetailDTO } from "@/lib/onboarding/types";
-import type { SubClient, SubModel, TxnRow } from "@/lib/mock/rm-data";
+import type { SubClient, SubModel, TxnRow } from "@/lib/rm/subscriptions";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
 import { fileTransactionDetail, getTransactionDetail } from "@/app/(roles)/rm/model-subscription/actions";

@@ -11,9 +11,12 @@ import {
   type SubscriptionModalMode,
   type SubscriptionModalContext,
 } from "@/components/rm/SubscriptionFormModal";
-import { OB_MODEL_CATALOG, type SubClient } from "@/lib/mock/rm-data";
+import type { SubClient } from "@/lib/rm/subscriptions";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
+import { useModels } from "@/hooks/api/useModels";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import { formatFeePercent } from "@/lib/fee";
+import { DEFAULT_MGMT_FRACTION, DEFAULT_INCENTIVE_FRACTION } from "@/lib/pc/models";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
 
@@ -57,6 +60,7 @@ function resolveDeepLink(params: URLSearchParams, clients: SubClient[]): { openC
 function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
   const { clients, ensureAllotmentsLoaded, refetch, invalidateClientAllotments } = useSubscriptions();
+  const { data: models } = useModels();
   const [deepLink, setDeepLink] = useState<{ openClient: string; openModelKey: string } | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const deepLinkApplied = useRef(false);
@@ -75,14 +79,10 @@ function ModelSubscriptionContent() {
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
   const availableClients = clients?.map((c) => ({ id: c.id, name: c.name })) ?? [];
-  // ponytail: no models-list endpoint exists yet in this layer's scope — interim source is
-  // the mock model/fee catalog, already shaped as {id, name, mgmtFee, incentiveFee}. Swap for
-  // a real models-list hook when that endpoint lands.
-  const availableModels = OB_MODEL_CATALOG.map((m) => ({
-    id: m.model_id,
-    name: m.name,
-    mgmtFee: m.mgmtFee,
-    incentiveFee: m.incentiveFee,
+  const availableModels = (models ?? []).map((m) => ({
+    id: m.id, name: m.name, size: m.size,
+    mgmtFee: formatFeePercent(m.mgmt_fee ?? DEFAULT_MGMT_FRACTION),
+    incentiveFee: formatFeePercent(m.incentive_fee ?? DEFAULT_INCENTIVE_FRACTION),
   }));
 
   return (

@@ -18,12 +18,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
-import {
-  RENEWALS_DUE,
-  getMockOverlay,
-  type SummaryItem,
-  type CountItem,
-} from "@/lib/mock/rm-data";
+import type { SummaryItem, CountItem } from "@/lib/rm/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { useClientBook } from "@/hooks/api/useClientBook";
@@ -34,12 +29,22 @@ import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
 import { isTerminalStatus } from "@/lib/rm/tickets";
+import RmClientInfoSkeleton from "./Skeleton";
 
 // Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
 // duplicated rather than shared since that file doesn't export it (FE-4 scope).
 const ONBOARDING_TONE: Record<OnboardingStatus, ChipTone> = {
   initial: "neutral", reviewing: "review", pending_review: "pending", active: "active",
 };
+
+// RENEWALS_DUE is a local literal, not imported: no backend field for a
+// subscription renewal date exists anywhere in the app (proposal § C-0c).
+const RENEWALS_DUE: SummaryItem[] = [];
+
+// A client with no onboarding-board row (already fully onboarded, or not yet
+// tracked) has no mock overlay to borrow status/tone/renewal from anymore —
+// this is the honest "nothing to show" fallback.
+const NO_ONBOARDING_FALLBACK = { status: "—", tone: "neutral" as ChipTone, renewal: "—" };
 
 const emptyAdv = () => Object.fromEntries(ADV_FIELDS.map((f) => [f.key, ""]));
 
@@ -124,7 +129,8 @@ export default function RmDashboardPage() {
   ];
   const ticketsTotal = ticketCounts.reduce((sum, i) => sum + i.n, 0);
 
-  // Renewals — from mock data (lib/mock/rm-data.ts).
+  // Renewals — honest empty state; no backend field for a subscription
+  // renewal date exists anywhere in the app yet (proposal 020 § C-0c).
   const renewalsOverdue = RENEWALS_DUE.filter((i) => i.t === "overdue").length;
 
   // Onboarding — real onboarding board (013 integration): every column except
@@ -144,6 +150,8 @@ export default function RmDashboardPage() {
   // "initial" (not yet submitted) counts as awaiting KYC too — every
   // non-active client is, by definition, still waiting on KYC clearance.
   const onboardingAwaitingKyc = onboardingQueue.length;
+
+  if (loading && !data) return <RmClientInfoSkeleton />;
 
   return (
     <div className="relative -mx-16 -my-8 flex min-h-[calc(100vh_-_64px)] flex-col px-16 py-8">
@@ -349,11 +357,6 @@ export default function RmDashboardPage() {
             )}
           </div>
 
-          {/* Loading state */}
-          {loading && !data && (
-            <div className="px-5 py-10 text-center text-[13px] text-secondary">Loading…</div>
-          )}
-
           {/* Error state — rendered above the empty-state block */}
           {error && (
             <div className="px-5 py-3 text-[13px] font-medium text-error">{error}</div>
@@ -402,11 +405,10 @@ export default function RmDashboardPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const mockOverlay = getMockOverlay(r.id);
                   const ob = onboardingByUserId.get(r.id);
                   const overlay = ob
-                    ? { ...mockOverlay, status: COLUMN_LABELS[ob.status], tone: ONBOARDING_TONE[ob.status] }
-                    : mockOverlay;
+                    ? { ...NO_ONBOARDING_FALLBACK, status: COLUMN_LABELS[ob.status], tone: ONBOARDING_TONE[ob.status] }
+                    : NO_ONBOARDING_FALLBACK;
                   return (
                     <tr
                       key={r.id}

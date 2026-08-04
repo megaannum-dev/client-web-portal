@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchSubscriptions, fetchClientAllotments } from "@/app/(roles)/rm/model-subscription/actions";
 import { mapSubscriptionsToSubClients } from "@/lib/rm/subscriptions";
 import type { ClientSubscriptionsDTO, AllotRdmptDTO } from "@/lib/onboarding/types";
-import type { SubClient } from "@/lib/mock/rm-data";
+import type { SubClient } from "@/lib/rm/subscriptions";
 
 export interface UseSubscriptionsResult {
   clients: SubClient[] | null;

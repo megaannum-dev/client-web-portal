@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/auth-api";
+import { getApiBase, parseApiError } from "@/lib/auth-api";
 
 export interface StoredFileDTO {
   key: string;
@@ -15,22 +15,15 @@ function authHeaders(token: string | null): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function detailFromResponse(res: Response): Promise<string> {
-  let detail = res.statusText;
-  try {
-    const body: unknown = await res.json();
-    if (typeof body === "object" && body !== null && "detail" in body) {
-      const d = (body as { detail?: unknown }).detail;
-      if (typeof d === "string") detail = d;
-    }
-  } catch { /* noop */ }
-  return detail;
+async function detailFromResponse(res: Response, methodPath: string): Promise<string> {
+  return parseApiError(res, methodPath);
 }
 
 /** GET /api/client/documents/{scope} */
 export async function fetchDocuments(token: string | null, scope: DocumentScope): Promise<StoredFileDTO[]> {
-  const res = await fetch(`${getApiBase()}/api/client/documents/${scope}`, { headers: authHeaders(token) });
-  if (!res.ok) throw new Error(`${await detailFromResponse(res)} (${res.status} /api/client/documents/${scope})`);
+  const path = `/api/client/documents/${scope}`;
+  const res = await fetch(`${getApiBase()}${path}`, { headers: authHeaders(token) });
+  if (!res.ok) throw new Error(await detailFromResponse(res, `GET ${path}`));
   return (await res.json()) as StoredFileDTO[];
 }
 
@@ -38,6 +31,6 @@ export async function fetchDocuments(token: string | null, scope: DocumentScope)
 export async function downloadDocument(token: string | null, scope: DocumentScope, key: string): Promise<Blob> {
   const path = `/api/client/documents/${scope}/download?key=${encodeURIComponent(key)}`;
   const res = await fetch(`${getApiBase()}${path}`, { headers: authHeaders(token) });
-  if (!res.ok) throw new Error(`${await detailFromResponse(res)} (${res.status} ${path})`);
+  if (!res.ok) throw new Error(await detailFromResponse(res, `GET ${path}`));
   return res.blob();
 }

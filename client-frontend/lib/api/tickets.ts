@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/auth-api";
+import { getApiBase, parseApiError } from "@/lib/auth-api";
 
 export type TicketKind = "allotment" | "redemption" | "other";
 export type TicketStatus = "new" | "in_progress" | "resolved" | "declined";
@@ -38,16 +38,6 @@ export async function submitTicket(token: string | null, req: RaiseTicketReq): P
     },
     body: JSON.stringify(req),
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body: unknown = await res.json();
-      if (typeof body === "object" && body !== null && "detail" in body) {
-        const d = (body as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch { /* noop */ }
-    throw new Error(`${detail} (${res.status} ${path})`);
-  }
+  if (!res.ok) throw new Error(await parseApiError(res, `POST ${path}`));
   return (await res.json()) as ClientRequestDTO;
 }

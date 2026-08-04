@@ -68,8 +68,8 @@ export interface SymbolAuditEntry {
 /**
  * A trading model in the model book. `size` is the model size (the
  * total figure shown in the book; the allocation matrix carries a
- * per-unit size); `mgmt` / `incentive` are fee percentages (whole
- * numbers, e.g. 1.0 = 1%, 20 = 20%).
+ * per-unit size); `mgmt` / `incentive` are fee decimal fractions
+ * (e.g. 0.01 = 1%, 0.2 = 20%), per @/lib/fee.
  */
 export interface Model {
   id: string;
@@ -93,8 +93,8 @@ export interface Model {
   liquidity: string | null;
   reporting: string | null;
   nav_perf: string | null;
-  mgmt_fee: number | null;       // null → use DEFAULT_MGMT_PCT fallback
-  incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_PCT fallback
+  mgmt_fee: number | null;       // null → use DEFAULT_MGMT_FRACTION fallback
+  incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_FRACTION fallback
 }
 
 /** Fee figures derived from a model (see `computeFees`). */
