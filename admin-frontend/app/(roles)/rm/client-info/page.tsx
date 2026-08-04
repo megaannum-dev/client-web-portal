@@ -29,6 +29,7 @@ import type { KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";
 import { ADV_FIELDS } from "@/lib/rm/client-search-fields";
 import type { ClientRow } from "@/lib/rm/clients";
 import { isTerminalStatus } from "@/lib/rm/tickets";
+import RmClientInfoSkeleton from "./Skeleton";
 
 // Mirrors client-info/[id]/page.tsx's own ONBOARDING_STATUS_TONE lookup —
 // duplicated rather than shared since that file doesn't export it (FE-4 scope).
@@ -149,6 +150,8 @@ export default function RmDashboardPage() {
   // "initial" (not yet submitted) counts as awaiting KYC too — every
   // non-active client is, by definition, still waiting on KYC clearance.
   const onboardingAwaitingKyc = onboardingQueue.length;
+
+  if (loading && !data) return <RmClientInfoSkeleton />;
 
   return (
     <div className="relative -mx-16 -my-8 flex min-h-[calc(100vh_-_64px)] flex-col px-16 py-8">
@@ -353,11 +356,6 @@ export default function RmDashboardPage() {
               </div>
             )}
           </div>
-
-          {/* Loading state */}
-          {loading && !data && (
-            <div className="px-5 py-10 text-center text-[13px] text-secondary">Loading…</div>
-          )}
 
           {/* Error state — rendered above the empty-state block */}
           {error && (

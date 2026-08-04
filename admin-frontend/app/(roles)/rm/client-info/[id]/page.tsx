@@ -21,6 +21,7 @@ import type { ClientDoc, HistoryEntry } from "@/lib/rm/types";
 import { ContactLogCard } from "@/components/rm/ContactLog";
 import { EditClientModal } from "@/components/rm/EditClientModal";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import ClientDetailSkeleton from "./Skeleton";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
@@ -180,6 +181,8 @@ export default function ClientDetailPage() {
 
   if (nf) notFound(); // Next.js 404
 
+  if (loading && !data) return <ClientDetailSkeleton />;
+
   if (error) {
     return (
       <div className="mx-auto px-5 py-16 text-center text-[13px] font-medium text-error">
@@ -188,13 +191,7 @@ export default function ClientDetailPage() {
     );
   }
 
-  if (loading || !data) {
-    return (
-      <div className="mx-auto px-5 py-16 text-center text-[13px] text-secondary">
-        Loading…
-      </div>
-    );
-  }
+  if (!data) return <ClientDetailSkeleton />;
 
   // Real onboarding status (already fetched for the KYC card below) drives the
   // header chip instead of the mock overlay -- a client with a live subscription

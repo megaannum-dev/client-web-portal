@@ -18,6 +18,7 @@ import { useReconciliation } from "@/lib/mobo/reconciliation";
 import { loadCommissions, computeFeeTotals, fmtFeeShort } from "@/lib/mobo/commissions";
 import type { ReconTrade } from "@/lib/mobo/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import ReconOverviewSkeleton from "./Skeleton";
 
 function Legend({ color, label, value }: { color: string; label: string; value: string }) {
   return (
@@ -82,11 +83,7 @@ export default function MoboDashboardPage() {
   const { month: feeMonth, rows: feeRows } = loadCommissions();
   const { totalBillable } = computeFeeTotals(feeRows);
 
-  // ponytail: minimal inline loading/error states — FE-13 replaces these with
-  // a shared RouteSkeleton once it lands for this route.
-  if (loading) {
-    return <div className="w-full py-16 text-center text-secondary">Loading…</div>;
-  }
+  if (loading && !data) return <ReconOverviewSkeleton />;
   if (error || !data) {
     return (
       <div className="w-full py-16 text-center text-secondary">
