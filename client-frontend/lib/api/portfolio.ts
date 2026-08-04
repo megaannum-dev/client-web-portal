@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/auth-api";
+import { getApiBase, parseApiError } from "@/lib/auth-api";
 
 export interface PositionDTO {
   model_id: string;
@@ -33,17 +33,7 @@ async function authedGet<T>(path: string, token: string | null): Promise<T> {
   const res = await fetch(`${getApiBase()}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body: unknown = await res.json();
-      if (typeof body === "object" && body !== null && "detail" in body) {
-        const d = (body as { detail?: unknown }).detail;
-        if (typeof d === "string") detail = d;
-      }
-    } catch { /* noop */ }
-    throw new Error(`${detail} (${res.status} ${path})`);
-  }
+  if (!res.ok) throw new Error(await parseApiError(res, `GET ${path}`));
   return (await res.json()) as T;
 }
 
