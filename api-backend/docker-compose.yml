@@ -32,11 +32,13 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql+pymysql://${MARIADB_USER:-portal}:${MARIADB_PASSWORD:-portalsecret}@mariadb:3306/${MARIADB_DATABASE:-portal}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-client-web-portal-2026}
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-/secrets/firebase.json}
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Super Admin}
       DEV_MODE: ${DEV_MODE:-false}
       PC_PERIOD_OPEN_DAYS_BEFORE_END: ${PC_PERIOD_OPEN_DAYS_BEFORE_END:-9}
       STORAGE_ROOT: /app/crm_filesystem

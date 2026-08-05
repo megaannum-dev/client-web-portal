@@ -209,7 +209,7 @@ export function CreatedModal({
     >
       {m.linkSent ? (
         <Notice tone="ok">
-          <b>Share the password below with {m.name.split(" ")[0]}</b> — a set-password link has also been emailed to {m.email}, in case they'd rather choose their own.
+          <b>Share the password below with {m.name.split(" ")[0]}</b> — a set-password link has also been emailed to {m.email}, in case they&apos;d rather choose their own.
         </Notice>
       ) : (
         <Notice tone="warn">
@@ -227,7 +227,7 @@ export function CreatedModal({
       </div>
       <span className="flex items-center gap-2 text-[12px] text-secondary">
         <History size={14} strokeWidth={1.75} />
-        This password is shown once — copy it now, it won't be shown again.
+        This password is shown once — copy it now, it won&apos;t be shown again.
       </span>
     </Modal>
   );

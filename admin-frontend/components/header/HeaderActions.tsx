@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Bell, HelpCircle } from "@/lib/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
 

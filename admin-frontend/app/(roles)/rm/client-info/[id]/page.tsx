@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import clsx from "clsx";
 import {
-  ArrowLeft, Pencil, Plus, Eye, EyeOff, Bell, Check,
+  ArrowLeft, Pencil, Plus, Eye, EyeOff, Check,
   ChevronRight, ChevronDown, ChevronUp, Search, Clock, X, TriangleAlert, Download,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";

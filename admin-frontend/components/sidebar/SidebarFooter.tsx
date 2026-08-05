@@ -1,14 +1,19 @@
 "use client";
 
-import { LogOut, Settings } from "@/lib/icons";
-import { useAuth }          from "@/components/auth/AuthProvider";
-import { NavItem }          from "./NavItem";
-import { usePathname }      from "next/navigation";
-import clsx                 from "clsx";
+import { LogOut }      from "@/lib/icons";
+import { useAuth }     from "@/components/auth/AuthProvider";
+import { NavItem }     from "./NavItem";
+import { usePathname } from "next/navigation";
+import clsx            from "clsx";
+import type { LucideIcon } from "lucide-react";
 
-const FOOTER_ITEMS = [
-  // { href: "/settings", icon: Settings, label: "Settings" },
-] as const;
+type FooterItem = {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+};
+
+const FOOTER_ITEMS: FooterItem[] = [];
 
 interface SidebarFooterProps {
   isOpen: boolean;

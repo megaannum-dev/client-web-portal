@@ -26,7 +26,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
+api-backend/firebase-client-web-portal.json
 
 # vercel
 .vercel

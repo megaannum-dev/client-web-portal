@@ -15,7 +15,6 @@ import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Ba
 import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
-from app.core.database import Base, engine
 from app.core.errors import GENERIC_500
 from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
@@ -46,8 +45,7 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
             "Fail-closed: firebase_auth_disabled cannot be enabled when APP_ENV=production."
         )
     assert_upload_window_valid()
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database metadata ensured (create_all).")
+    logger.info("Database migrations are applied before application startup.")
     scheduler_task = start_scheduler()
     pta_scheduler_task = start_pta_scheduler()
     onboarding_scheduler_task = start_onboarding_scheduler()

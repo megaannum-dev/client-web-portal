@@ -1,5 +1,6 @@
 __pycache__
 *.pyc
 .env
+firebase-client-web-portal.json
 .venv
 *.md

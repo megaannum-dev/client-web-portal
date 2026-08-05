@@ -34,11 +34,13 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql+pymysql://${MARIADB_USER:-portal}:${MARIADB_PASSWORD:-portalsecret}@mariadb:3306/${MARIADB_DATABASE:-portal}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
       FIREBASE_AUTH_DISABLED: ${FIREBASE_AUTH_DISABLED:-false}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Super Admin}
       DEV_MODE: ${DEV_MODE:-false}
       PC_STORAGE_ROOT: /app/pc_storage
       # EoD PDF rendering — feature 015 (BE-9): admin-frontend's in-container
@@ -52,6 +54,7 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
+      - ./api-backend/firebase-client-web-portal.json:/secrets/firebase.json:ro
       - ./api-backend/pc_storage:/app/pc_storage
 
   admin-frontend:
@@ -80,6 +83,8 @@ services:
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
         NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
         NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     container_name: portal-client
     restart: unless-stopped

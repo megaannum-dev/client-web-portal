@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { useAllocation } from "@/hooks/api/useAllocation";
 import { StatStrip } from "@/components/pc/allocation-matrix/StatStrip";
 import { PeriodPicker } from "@/components/pc/allocation-matrix/PeriodPicker";
-import { ViewToggle, type Toggle } from "@/components/pc/allocation-matrix/ViewToggle";
 import { HowToRead } from "@/components/pc/allocation-matrix/HowToRead";
 import { SopInfo } from "@/components/pc/allocation-matrix/SopInfo";
 import { Matrix } from "@/components/pc/allocation-matrix/Matrix";
@@ -26,7 +25,7 @@ export default function AllocationMatrixPage() {
   const LATEST = data?.periods[0]?.label ?? "";
   const OPEN = data?.openPeriod ?? "";
   const period = periodLabel ?? LATEST;
-  const [view, setView] = useState<Toggle>("units");
+  const view = "units";
   const [open, setOpen] = useState<Coord | null>(null);
   const [confirmModal, setConfirmModal] = useState(false);
   const [justConfirmed, setJustConfirmed] = useState(false);

@@ -487,17 +487,6 @@ export default function RmDashboardPage() {
 }
 
 function Pagination({ from, to, total }: { from: number; to: number; total: number }) {
-  const Btn = ({ children, on, disabled }: { children: React.ReactNode; on?: boolean; disabled?: boolean }) => (
-    <span
-      className={clsx(
-        "inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-md border px-2 text-[13px] font-semibold",
-        on ? "border-primary bg-primary text-white" : "border-outline-variant bg-white",
-        !on && (disabled ? "text-outline-variant" : "text-secondary"),
-      )}
-    >
-      {children}
-    </span>
-  );
   return (
     <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-outline-variant px-[18px] py-3.5">
       <span className="text-[13px] text-secondary">
