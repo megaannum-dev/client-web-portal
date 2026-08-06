@@ -22,5 +22,5 @@ export function parseFeePercent(input: string): number {
  * Moved from lib/rm/subscriptions.ts:38-40, where it was module-private.
  */
 export function formatFeePercent(fraction: number): string {
-  return `${parseFloat((fraction * 100).toFixed(2))}%`;
+  return `${parseFloat((fraction * 100).toFixed(2))}`;
 }
