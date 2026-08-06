@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     firebase_project_id: str | None = None
     firebase_credentials_path: str | None = None
     firebase_service_account_json: str | None = None
+    # Public Web API key (NOT a secret -- same value the frontends embed). Required to ask
+    # Firebase to SEND the set-password email via Identity Toolkit; see identity/mailer.py.
+    firebase_web_api_key: str | None = None
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     firebase_auth_disabled: bool = False
     app_env: str = "development"

@@ -186,9 +186,10 @@ class StaffService:
 
         link_sent = False
         if notify:
-            link = identity.generate_set_password_link(email)
+            # No generate_set_password_link here: Firebase mints the code as it sends,
+            # and a pre-generated one would be invalidated by it.
             link_sent = send_set_password_email(
-                to=email, name=name, link=link, portal=Portal.ADMIN, settings=settings
+                to=email, portal=Portal.ADMIN, settings=settings
             )
         return user, link_sent, len(overrides), password
 
@@ -220,13 +221,8 @@ class StaffService:
         )
         self.repo.db.commit()
 
-        link = identity.generate_set_password_link(user.email)
         link_sent = send_set_password_email(
-            to=user.email,
-            name=profile.name or user.email,
-            link=link,
-            portal=Portal.ADMIN,
-            settings=settings,
+            to=user.email, portal=Portal.ADMIN, settings=settings
         )
         return LinkSentOut(link_sent=link_sent)
 

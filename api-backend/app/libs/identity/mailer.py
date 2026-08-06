@@ -1,76 +1,82 @@
 from __future__ import annotations
 
+import json
 import logging
-
-from firebase_admin import firestore
+import urllib.error
+import urllib.request
 
 from app.core.config import Settings
-from app.core.security import _init_firebase
 from app.models.users import Portal
 
 logger = logging.getLogger(__name__)
 
-_MAIL_COLLECTION = "mail"  # the Firebase "Trigger Email from Firestore" extension
+# Firebase sends the mail itself from here, using the project's own Auth email template
+# and sending infrastructure -- the same path as the Console's "Reset password" action.
+# Replaces the Firestore `mail` collection + "Trigger Email from Firestore" extension,
+# which is shut down 2027-03-31 and was never installed (docs piled up undelivered).
+_OOB_ENDPOINT = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode"
+_TIMEOUT_SECONDS = 10
 
+# Where Firebase's action page sends the user once the password is set. This is the only
+# genuinely per-portal behaviour left: the wording now lives in the project's single
+# Auth template (Firebase allows one per project), so it cannot vary by portal.
+# Both hosts must be listed under Auth > Settings > Authorized domains, or Firebase
+# rejects the request with UNAUTHORIZED_CONTINUE_URI.
 _PORTAL_SIGN_IN_URL: dict[Portal, str] = {
     Portal.ADMIN: "https://admin.megaannum.ai/login",
     Portal.CLIENT: "https://portal.megaannum.ai/login",
 }
 
-_PORTAL_RESEND_CONTACT: dict[Portal, str] = {
-    Portal.ADMIN: "your administrator",
-    Portal.CLIENT: "your relationship manager",
-}
 
+def send_set_password_email(*, to: str, portal: Portal, settings: Settings) -> bool:
+    """Asks Firebase to email `to` a link for setting their password.
 
-def send_set_password_email(
-    *, to: str, name: str, link: str, portal: Portal, settings: Settings
-) -> bool:
-    """Queues one Firestore `mail` doc for the Trigger Email extension.
+    Returns accepted-for-delivery, not delivered. Never raises: a failed send must not
+    roll back an account that Firebase and MariaDB have both already committed.
 
-    Returns queued, not delivered. Never raises: a failed send must not roll back
-    an account that Firebase and MariaDB have both already committed.
+    Firebase mints the one-time code as part of sending, so callers must NOT generate a
+    link beforehand -- each new code invalidates the previous one, which would leave the
+    pre-generated link dead. `portal` selects only the post-reset destination.
 
-    ONE template; `portal` selects the wording and the destination sign-in URL.
-    Under settings.firebase_auth_disabled the payload is logged at INFO and True
-    is returned -- the same dev-bypass shape every method in identity/service.py
-    uses.
+    Under settings.firebase_auth_disabled the payload is logged at INFO and True is
+    returned -- the same dev-bypass shape every method in identity/service.py uses.
     """
     if settings.firebase_auth_disabled:
-        logger.info(
-            "set-password email (dev bypass) to=%s portal=%s link=%s",
-            to,
-            portal.value,
-            link,
-        )
+        logger.info("set-password email (dev bypass) to=%s portal=%s", to, portal.value)
         return True
 
-    sign_in_url = _PORTAL_SIGN_IN_URL[portal]
-    resend_contact = _PORTAL_RESEND_CONTACT[portal]
-    subject = f"Set your password for the {portal.value} portal"
-    text = (
-        f"Hi {name},\n\n"
-        f"Your account ({to}) has been created for the {portal.value} portal.\n"
-        f"Set your password before signing in: {link}\n\n"
-        f"This link expires. If it has expired, request a fresh one from {resend_contact}.\n\n"
-        f"Sign in at: {sign_in_url}"
-    )
-    html = (
-        f"<p>Hi {name},</p>"
-        f"<p>Your account (<strong>{to}</strong>) has been created for the "
-        f"{portal.value} portal.</p>"
-        f'<p><a href="{link}">Set your password</a> before signing in.</p>'
-        f"<p>This link expires. If it has expired, request a fresh one from "
-        f"{resend_contact}.</p>"
-        f'<p>Sign in at: <a href="{sign_in_url}">{sign_in_url}</a></p>'
+    if not settings.firebase_web_api_key:
+        logger.error(
+            "FIREBASE_WEB_API_KEY is not set -- cannot send the set-password email to %s", to
+        )
+        return False
+
+    payload = json.dumps(
+        {
+            "requestType": "PASSWORD_RESET",
+            "email": to,
+            "continueUrl": _PORTAL_SIGN_IN_URL[portal],
+        }
+    ).encode()
+    request = urllib.request.Request(
+        f"{_OOB_ENDPOINT}?key={settings.firebase_web_api_key}",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
 
     try:
-        _init_firebase(settings)
-        firestore.client().collection(_MAIL_COLLECTION).add(
-            {"to": [to], "message": {"subject": subject, "html": html, "text": text}}
+        with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
+            # Note: with Email Enumeration Protection enabled (the default on recent
+            # projects) Firebase answers 200 even for an unknown address, so a 200 here
+            # means "accepted", never "the mailbox exists".
+            return 200 <= response.status < 300
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:200]
+        logger.error(
+            "set-password email rejected for %s: HTTP %s %s", to, exc.code, detail
         )
-        return True
+        return False
     except Exception:  # noqa: BLE001 -- never raises, by contract
-        logger.exception("set-password email could not be queued for %s", to)
+        logger.exception("set-password email could not be sent to %s", to)
         return False

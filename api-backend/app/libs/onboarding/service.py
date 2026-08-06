@@ -361,13 +361,8 @@ class OnboardingService:
 
         if is_initial:
             display = self.repo.display_fields(onboarding)
-            link = identity.generate_set_password_link(display.email)
             send_set_password_email(
-                to=display.email,
-                name=display.client_name,
-                link=link,
-                portal=Portal.CLIENT,
-                settings=settings,
+                to=display.email, portal=Portal.CLIENT, settings=settings
             )
         return self._to_dto(onboarding, with_documents=True)
 
