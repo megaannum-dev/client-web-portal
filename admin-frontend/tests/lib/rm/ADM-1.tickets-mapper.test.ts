@@ -17,7 +17,6 @@ function dto(overrides: Partial<RmTicketDTO> = {}): RmTicketDTO {
     currency: "USD",
     amount: 180000,
     multiplier: 2,
-    notional: 360000,
     subject: null,
     message: "Please allot a further USD 180,000.",
     status: "new",
@@ -50,7 +49,7 @@ describe("ADM-1 mapDtoToRequestTicket — kind -> type label", () => {
   ];
   CASES.forEach(([kind, expected]) => {
     it(`kind="${kind}" -> type="${expected}"`, () => {
-      const ticket = mapDtoToRequestTicket(dto({ kind, amount: null, multiplier: null, notional: null }));
+      const ticket = mapDtoToRequestTicket(dto({ kind, amount: null, multiplier: null }));
       expect(ticket.type).toBe(expected);
     });
   });
@@ -68,14 +67,13 @@ describe("ADM-1 mapDtoToRequestTicket — null rendering (global invariant §3.1
   });
 });
 
-describe("ADM-1 mapDtoToRequestTicket — money passthrough for an Other-kind ticket (amount/multiplier/notional all null)", () => {
-  it("renders the existing '—' placeholders for ccy/cash/mult/notional, not 'null' or 'NaN'", () => {
+describe("ADM-1 mapDtoToRequestTicket — money passthrough for an Other-kind ticket (amount/multiplier both null)", () => {
+  it("renders the existing '—' placeholders for ccy/cash/mult, not 'null' or 'NaN'", () => {
     const ticket = mapDtoToRequestTicket(dto({
-      kind: "other", amount: null, multiplier: null, notional: null, subject: "Update authorised signatory",
+      kind: "other", amount: null, multiplier: null, subject: "Update authorised signatory",
     }));
     expect(ticket.cash).not.toMatch(/null|NaN|undefined/i);
     expect(ticket.mult).not.toMatch(/null|NaN|undefined/i);
-    expect(ticket.notional).not.toMatch(/null|NaN|undefined/i);
   });
 });
 
