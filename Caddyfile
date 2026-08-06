@@ -1,3 +1,12 @@
+megaannum-am.com {
+	encode zstd gzip
+	reverse_proxy company-website:3000
+}
+
+www.megaannum-am.com {
+	redir https://megaannum-am.com{uri}
+}
+
 crm.megaannum-am.com {
 	encode zstd gzip
 	reverse_proxy admin-frontend:3000
