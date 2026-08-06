@@ -168,7 +168,6 @@ class RmTicketDTO(BaseModel):
     currency: str
     amount: float | None
     multiplier: float | None
-    notional: float | None  # amount * multiplier; None when either is None
     subject: str | None
     message: str
     status: TicketStatus
