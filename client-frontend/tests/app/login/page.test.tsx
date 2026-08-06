@@ -59,6 +59,19 @@ describe("login page FE-3", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders AuthProvider's backendSyncError after Firebase has been signed out", () => {
+    mockUseAuth.mockReturnValue(
+      baseAuth({
+        user: null,
+        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+      })
+    );
+    render(<LoginPage />);
+    expect(
+      screen.getByText("No account found for this login, or your account is disabled. Contact your RM.")
+    ).toBeInTheDocument();
+  });
+
   it("still maps a Firebase SDK error code via firebase-auth-errors, unaffected by backendSyncError", async () => {
     const signInWithEmailPassword = vi.fn().mockRejectedValue({ code: "auth/wrong-password" });
     mockUseAuth.mockReturnValue(baseAuth({ signInWithEmailPassword }));
