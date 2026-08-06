@@ -160,19 +160,22 @@ def count_queries(engine: Engine) -> _Iterator019[list[str]]:
 
 
 class FakeSetPasswordMailer:
-    """Test double for the not-yet-written `send_set_password_email` (BE-14's
-    seam). Call-tracked; `result` is the bool the real function returns for a
-    successful/failed send. When `order` is passed, "email_sent" is appended to
-    it -- paired with `_CommitFailSession` below to prove BE-17's "email strictly
-    after commit" ordering invariant without timestamps."""
+    """Test double for `send_set_password_email` (BE-14's seam). Call-tracked;
+    `result` is the bool the real function returns for a successful/failed send.
+    When `order` is passed, "email_sent" is appended to it -- paired with
+    `_CommitFailSession` below to prove BE-17's "email strictly after commit"
+    ordering invariant without timestamps.
+
+    Takes no `link`/`name`: Firebase mints the one-time code as it sends, and its
+    single project-wide template cannot be personalised."""
 
     def __init__(self, *, result: bool = True, order: list[str] | None = None) -> None:
         self.result = result
         self.calls: list[dict] = []
         self._order = order
 
-    def __call__(self, *, to: str, name: str | None, link: str, portal, settings) -> bool:
-        self.calls.append({"to": to, "name": name, "link": link, "portal": portal})
+    def __call__(self, *, to: str, portal, settings) -> bool:
+        self.calls.append({"to": to, "portal": portal})
         if self._order is not None:
             self._order.append("email_sent")
         return self.result
