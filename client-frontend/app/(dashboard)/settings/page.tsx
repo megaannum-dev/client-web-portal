@@ -8,7 +8,6 @@ import {
   Bell,
   SlidersHorizontal,
   Lock,
-  Shield,
   Pencil,
   KeyRound,
 } from "@/lib/icons";
@@ -34,12 +33,6 @@ const TABS: TabDef[] = [
   { id: "account",       labelKey: "settings.tabs.account",       icon: ShieldCheck      },
   { id: "notifications", labelKey: "settings.tabs.notifications", icon: Bell             },
   { id: "preferences",   labelKey: "settings.tabs.preferences",   icon: SlidersHorizontal },
-];
-
-const DUMMY_CARDS = [
-  { id: 1, brand: "Visa",       last4: "4242", expiry: "08/26", primary: true  },
-  { id: 2, brand: "Mastercard", last4: "8888", expiry: "03/27", primary: false },
-  { id: 3, brand: "Visa",       last4: "1234", expiry: "11/25", primary: false },
 ];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
@@ -84,7 +77,6 @@ function AccountAndSafetyPanel({
 }) {
   const { t } = useTranslation();
   const initialEmail = user?.email ?? "alex.thompson@example.com";
-  const [twoFa, setTwoFa] = useState(false);
 
   const [email, setEmail]             = useState(initialEmail);
   const [editingEmail, setEditingEmail] = useState(false);

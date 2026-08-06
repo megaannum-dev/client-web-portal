@@ -11,7 +11,7 @@ interface NavItemProps {
   isOpen: boolean;
 }
 
-export function NavItem({ href, icon: Icon, label, active = false, isOpen }: NavItemProps) {
+export function NavItem({ href, icon: Icon, label, active = false }: NavItemProps) {
   return (
     <Link
       href={href}

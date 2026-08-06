@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { PanelLeftClose, PanelLeftOpen } from "@/lib/icons";
+import { PanelLeftClose } from "@/lib/icons";
 import Image from "next/image";
 
 interface SidebarLogoProps {
