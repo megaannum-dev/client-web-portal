@@ -98,7 +98,7 @@ function LoginForm() {
         )}
 
         {/* Error */}
-        {(formError || (user && backendSyncError)) && (
+        {(formError || backendSyncError) && (
           <p className="rounded bg-error-container border border-error/20 px-4 py-3 text-body-sm text-error">
             {formError ?? backendSyncError}
           </p>
