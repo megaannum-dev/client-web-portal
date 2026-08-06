@@ -257,7 +257,7 @@ export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTick
               <Fact k="Subscribed model" v={ticket.model ?? "—"} />
               <Fact k="IB account" v={ticket.account} />
               <Fact k="Request type" v={ticket.type} />
-              <Fact k="Notional amount" v={`${ticket.ccy} ${ticket.notional}`} />
+              <Fact k="Amount" v={`${ticket.ccy} ${ticket.cash}`} />
               <Fact k="Model multiple" v={ticket.mult} />
             </div>
             <div className="mt-5 border-t border-outline-variant pt-[18px]">
@@ -334,7 +334,7 @@ function ActOnTradePanel({
       <div className="flex flex-col gap-4">
         <div className="rounded-md bg-surface-low px-[18px] py-4">
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Requested {ticket.type.toLowerCase()}</div>
-          <div className="text-[28px] font-bold tracking-[-0.02em] tabular-nums text-on-surface">{ticket.ccy} {ticket.notional}</div>
+          <div className="text-[28px] font-bold tracking-[-0.02em] tabular-nums text-on-surface">{ticket.ccy} {ticket.cash}</div>
           <div className="mt-1 text-[13px] text-secondary">{ticket.model} · {ticket.account}</div>
         </div>
 

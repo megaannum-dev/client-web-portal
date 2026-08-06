@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info, Lock } from "@/lib/icons";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
-import { parseFeePercent } from "@/lib/fee";
+import { formatFeePercent, parseFeePercent } from "@/lib/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 
@@ -125,8 +125,8 @@ export function OnboardingModal({
     setForm((f) => ({
       ...f,
       model: e.target.value,
-      mgmtFee: m ? `${m.mgmt}%` : f.mgmtFee,
-      incentiveFee: m ? `${m.incentive}%` : f.incentiveFee,
+      mgmtFee: m ? `${formatFeePercent(m.mgmt)}` : f.mgmtFee,
+      incentiveFee: m ? `${formatFeePercent(m.incentive)}` : f.incentiveFee,
     }));
   };
   const onDoc = (docType: string) => (e: ChangeEvent<HTMLInputElement>) => {
@@ -392,11 +392,11 @@ export function OnboardingModal({
             )}
           </ObField>
 
-          <ObField label="Management Fee" required>
-            <input className={inputCls} value={form.mgmtFee} onChange={set("mgmtFee")} placeholder="e.g. 1.0%" />
+          <ObField label="Management Fee (%)" required>
+            <input className={inputCls} value={form.mgmtFee} onChange={set("mgmtFee")} placeholder="e.g. 1.0" />
           </ObField>
-          <ObField label="Incentive Fee" required>
-            <input className={inputCls} value={form.incentiveFee} onChange={set("incentiveFee")} placeholder="e.g. 10%" />
+          <ObField label="Incentive Fee (%)" required>
+            <input className={inputCls} value={form.incentiveFee} onChange={set("incentiveFee")} placeholder="e.g. 10" />
           </ObField>
           <div className="col-span-2 mt-1 flex items-start gap-2.5 rounded-[10px] border border-outline-variant bg-surface-low p-3">
             <Info size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-secondary" />

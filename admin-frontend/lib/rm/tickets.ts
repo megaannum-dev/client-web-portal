@@ -19,7 +19,6 @@ export type RequestTicket = {
   ccy: string;
   cash: string;
   mult: string;
-  notional: string;
   date: string;
   status: string;
   tone: ChipTone;
@@ -43,7 +42,6 @@ export interface RmTicketDTO {
   currency: string;
   amount: number | null;
   multiplier: number | null;
-  notional: number | null;
   subject: string | null;
   message: string;
   status: TicketStatus;
@@ -110,7 +108,6 @@ export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
     ccy: dto.currency,
     cash: fmtAmount(dto.amount),
     mult: fmtMultiplier(dto.multiplier),
-    notional: fmtAmount(dto.notional),
     date: fmtDate(dto.created_at),
     status: STATUS_LABEL[dto.status],
     tone: STATUS_TONE[dto.status],

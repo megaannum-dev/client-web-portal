@@ -18,7 +18,7 @@ import type { RequestTicket } from "@/lib/rm/tickets";
 function ticket(overrides: Partial<RequestTicket> = {}): RequestTicket {
   return {
     ref: "REQ-1", client: "Ardent Capital", contact: "Marcus", email: "m@x.com",
-    account: "IB-1", type: "Allotment", ccy: "USD", cash: "1", mult: "1×", notional: "1",
+    account: "IB-1", type: "Allotment", ccy: "USD", cash: "1", mult: "1×",
     date: "Jun 01", status: "New", tone: "warm", message: "m",
     ...overrides,
   };

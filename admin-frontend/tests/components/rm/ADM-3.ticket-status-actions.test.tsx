@@ -43,7 +43,7 @@ function tradeTicket(overrides: Partial<RequestTicket> = {}): RequestTicket {
   return {
     ref: "REQ-1001", clientId: "c-1", client: "Ardent Capital", contact: "Marcus Lindqvist", email: "m@x.com",
     modelId: "m-1", model: "Global Balanced", account: "IB-4471", type: "Allotment", ccy: "USD", cash: "180,000",
-    mult: "2×", notional: "360,000", date: "Jun 06", status: "New", tone: "warm",
+    mult: "2×", date: "Jun 06", status: "New", tone: "warm",
     message: "Please allot USD 180,000.",
     ...overrides,
   };
@@ -52,7 +52,7 @@ function tradeTicket(overrides: Partial<RequestTicket> = {}): RequestTicket {
 function otherTicket(overrides: Partial<RequestTicket> = {}): RequestTicket {
   return {
     ref: "REQ-2041", clientId: "c-2", client: "Coalfield & Co.", contact: "Derek Mwangi", email: "derek@coalfield.com.au",
-    account: "IB-1190", type: "Other", ccy: "—", cash: "—", mult: "—", notional: "—", date: "Jun 03",
+    account: "IB-1190", type: "Other", ccy: "—", cash: "—", mult: "—", date: "Jun 03",
     status: "In Progress", tone: "review", subject: "Update authorised signatory",
     message: "We've appointed a new CFO.",
     ...overrides,

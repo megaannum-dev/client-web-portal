@@ -421,7 +421,6 @@ class ClientPortalService:
         model = self.db.get(Model, t.model_id) if t.model_id else None
         amount = float(t.amount) if t.amount is not None else None
         multiplier = float(t.multiplier) if t.multiplier is not None else None
-        notional = amount * multiplier if amount is not None and multiplier is not None else None
         return RmTicketDTO(
             ref=t.reference,
             client_id=t.user_id,
@@ -435,7 +434,6 @@ class ClientPortalService:
             currency=t.currency,
             amount=amount,
             multiplier=multiplier,
-            notional=notional,
             subject=t.subject,
             message=t.message,
             status=self._effective_ticket_status(t),
