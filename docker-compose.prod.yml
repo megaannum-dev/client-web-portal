@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     depends_on:
       - admin-frontend
+      - client-frontend
       - api-backend
     ports:
       - "80:80"

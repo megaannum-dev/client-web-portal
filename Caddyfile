@@ -3,6 +3,11 @@ crm.megaannum-am.com {
 	reverse_proxy admin-frontend:3000
 }
 
+clientportal.megaannum-am.com {
+	encode zstd gzip
+	reverse_proxy client-frontend:3000
+}
+
 api.megaannum-am.com {
 	encode zstd gzip
 	reverse_proxy api-backend:8000
