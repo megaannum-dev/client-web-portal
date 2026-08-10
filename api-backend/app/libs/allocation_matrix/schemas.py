@@ -67,6 +67,9 @@ class AllocationClientOut(BaseModel):
     id: str
     name: str
     code: str
+    # STALE (ib-account-relations rework): sourced from client_profiles.ib_account,
+    # which was dropped -- repoint to the new client_ib_accounts table
+    # (keyed on user_id, model_id) in the BE layer.
     ib_account: str | None
 
 

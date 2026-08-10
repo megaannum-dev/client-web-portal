@@ -279,7 +279,13 @@ class SubscriptionRepository:
         self.db = db
 
     def list_active_subscriptions(self) -> list[_SubscriptionCell]:
-        """Return all subscriptions joined to LIVE models + client profile ib_account."""
+        """Return all subscriptions joined to LIVE models + client profile ib_account.
+
+        BROKEN (ib-account-relations rework): ClientProfile.ib_account below
+        was dropped. Repoint available here -- join the new client_ib_accounts
+        table on (user_id, model_id), both already in scope in this query.
+        Left unfixed (BE-layer follow-up), not part of this DB-only change.
+        """
         rows = (
             self.db.query(
                 ClientSubscription.user_id,
@@ -305,7 +311,13 @@ class SubscriptionRepository:
         ]
 
     def roster(self) -> list[_RosterRow]:
-        """All client-portal users with their ib_account."""
+        """All client-portal users with their ib_account.
+
+        BROKEN (ib-account-relations rework): ClientProfile.ib_account below
+        was dropped, and unlike list_active_subscriptions above, this query
+        has no model_id in scope -- there is no longer one account per
+        client to select. Needs a BE-layer redesign, not a trivial repoint.
+        """
         rows = (
             self.db.query(
                 User.id,

@@ -28,6 +28,9 @@ class ClientListItemOut(BaseModel):
     country_of_residence: str | None
     authorized_person: str | None
     initiate_method: str | None
+    # STALE (ib-account-relations rework): client_profiles.ib_account was
+    # dropped -- this must be repointed to a per-model client_subscriptions
+    # .client_ib_account source in the BE layer.
     ib_account: str | None
     email: str | None  # users.email (client's user, not RM's)
     authorized_by_name: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by

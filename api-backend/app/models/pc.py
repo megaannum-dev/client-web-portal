@@ -96,6 +96,10 @@ class Model(Base):
         server_default="draft",
     )
     version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Master IB account this model trades through (ib-account-relations rework).
+    # Distinct from ClientIbAccount.ib_account, which is the per-client
+    # account for that client's subscription to this model.
+    master_ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
     underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
     risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
@@ -249,6 +253,48 @@ class ClientSubscription(Base):
         Index("ix_client_subscriptions_model_id", "model_id"),
         Index("ix_client_subscriptions_updated_at", "updated_at"),  # DB-6
     )
+
+
+# ---------------------------------------------------------------------------
+# DB-new — client_ib_accounts (ib-account-relations rework)
+# ---------------------------------------------------------------------------
+
+
+class ClientIbAccount(Base):
+    """A client's IB account for one specific model. Distinct from
+    Model.master_ib_account (the model's own trading account) and, unlike
+    client_subscriptions, this row is NOT FK'd to the subscription itself --
+    only to users/models -- so it deliberately survives a client
+    unsubscribing (client_subscriptions row deleted). It is only removed if
+    the user or model is actually deleted."""
+
+    __tablename__ = "client_ib_accounts"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("models.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    # Nullable for now during rollout/backfill; expected to become required
+    # once every (client, model) pair has an assigned account (a follow-up
+    # NOT NULL migration once the BE/FE layers can guarantee assignment).
+    ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (Index("ix_client_ib_accounts_model_id", "model_id"),)
 
 
 # ---------------------------------------------------------------------------
