@@ -149,6 +149,12 @@ class MatrixReadRepository:
         Returns raw Row objects with fields:
           row_kind, user_id, model_id, multiplier, model_size, ib_account,
           name, email, firebase_uid
+
+        BROKEN (ib-account-relations rework): cp.ib_account (client_profiles
+        .ib_account) below no longer exists after that migration -- this SQL
+        will error. Repoint the 'cell' branch to cs.client_ib_account
+        (client_subscriptions, already per model_id) and decide what the
+        'client' roster branch (no model_id) should read instead.
         """
         sql = text("""
             SELECT 'cell'   AS row_kind,
