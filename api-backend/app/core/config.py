@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     storage_root_kyc: str | None = None  # default: {storage_root}/kyc
     storage_root_contact_log: str | None = None  # default: {storage_root}/contact_log
     storage_root_reports: str | None = None  # default: {storage_root}/reports
-    storage_root_legal: str | None = None  # default: {storage_root}/legal
+    storage_root_legal: str | None = "./crm_filesystem/legal_docs"  # default: {storage_root}/legal
     storage_root_statements: str | None = None  # default: {storage_root}/statements
 
     # Post-trade allocation — orders with no model name are attributed to this model
