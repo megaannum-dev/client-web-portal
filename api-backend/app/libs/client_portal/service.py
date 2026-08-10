@@ -147,6 +147,7 @@ class ClientPortalService:
             ib_account=profile.ib_account,
             client_ref=OnboardingService._client_ref(user_id),
             assigned_rm=self._rm_contact(profile.assigned_rm_uid),
+            asst_rm=self._rm_contact(profile.asst_rm_uid),
         )
 
     def update_profile(self, user_id: uuid.UUID, patch: ClientProfilePatch) -> ClientProfileDTO:

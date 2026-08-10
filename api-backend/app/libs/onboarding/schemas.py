@@ -40,6 +40,7 @@ class StartOnboardingReq(BaseModel):
     # ADMIN-only override (BE-4 follow-up): non-ADMIN callers always land on
     # themselves regardless of what's sent here -- see OnboardingService.start.
     assigned_rm_uid: str | None = None
+    asst_rm_uid: str | None = None
     # 014 C-9: "Initial Cash Deposit" step-2 field -- request-only, consumed once
     # inside OnboardingService.start to resolve client_portfolios.cash_deposit/
     # amount_in_trade, then discarded. No column stores this raw figure anywhere.
@@ -101,6 +102,7 @@ class OnboardingDTO(BaseModel):
     client_name: str
     email: str
     assigned_rm: str  # resolved display name, not the raw uid
+    asst_rm: str | None  # resolved display name; None when no assistant RM is set
     client_ref: str  # e.g. "MEGA-0481" -- formatted from user_id, never stored
     primary_phone: str  # joined from ClientProfile
     address: str  # joined from ClientProfile

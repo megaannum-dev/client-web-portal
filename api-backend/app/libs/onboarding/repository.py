@@ -38,6 +38,7 @@ class OnboardingDisplayRow:
     client_name: str
     email: str
     assigned_rm: str
+    asst_rm: str | None  # None when no assistant RM is set -- unlike assigned_rm, never ""
     model_name: str
     primary_phone: str
     address: str
@@ -186,6 +187,11 @@ class OnboardingRepository:
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
         rm_name_expr = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        AsstRM = aliased(User)
+        AsstRMProfile = aliased(AdminProfile)
+        asst_rm_name_expr = func.coalesce(
+            AsstRMProfile.name, AsstRM.email, ClientProfile.asst_rm_uid
+        )
 
         profile = (
             self.db.query(ClientProfile).filter(ClientProfile.user_id == onboarding.user_id).one()
@@ -198,6 +204,14 @@ class OnboardingRepository:
             .select_from(ClientProfile)
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
+            .filter(ClientProfile.user_id == onboarding.user_id)
+            .scalar()
+        )
+        asst_rm_name = (
+            self.db.query(asst_rm_name_expr)
+            .select_from(ClientProfile)
+            .outerjoin(AsstRM, AsstRM.firebase_uid == ClientProfile.asst_rm_uid)
+            .outerjoin(AsstRMProfile, AsstRMProfile.user_id == AsstRM.id)
             .filter(ClientProfile.user_id == onboarding.user_id)
             .scalar()
         )
@@ -216,6 +230,7 @@ class OnboardingRepository:
             client_name=profile.name or "",
             email=user.email or "",
             assigned_rm=rm_name or "",
+            asst_rm=asst_rm_name or None,
             model_name=model.name,
             primary_phone=profile.primary_phone or "",
             address=profile.address or "",

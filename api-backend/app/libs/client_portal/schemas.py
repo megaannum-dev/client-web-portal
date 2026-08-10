@@ -39,6 +39,7 @@ class ClientProfileDTO(BaseModel):
     ib_account: str | None
     client_ref: str  # "MEGA-XXXX", formatted from user_id (existing helper)
     assigned_rm: RmContactDTO | None
+    asst_rm: RmContactDTO | None
 
 
 class ClientProfilePatch(BaseModel):  # every field optional; unset = unchanged
