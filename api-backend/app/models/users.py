@@ -155,6 +155,9 @@ class ClientProfile(Base):
     assigned_rm_uid: Mapped[str | None] = mapped_column(
         String(128), ForeignKey("users.firebase_uid"), nullable=True
     )
+    asst_rm_uid: Mapped[str | None] = mapped_column(
+        String(128), ForeignKey("users.firebase_uid"), nullable=True
+    )
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     country_of_residence: Mapped[str | None] = mapped_column(String(255), nullable=True)
     authorized_person: Mapped[str | None] = mapped_column(String(255), nullable=True)
