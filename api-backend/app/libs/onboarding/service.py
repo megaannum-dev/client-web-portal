@@ -70,7 +70,7 @@ from app.models.onboarding import (
     TicketStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
@@ -164,7 +164,6 @@ class OnboardingService:
             primary_phone=req.primary_phone,
             address=req.address,
             country_of_residence=req.country_of_residence,
-            ib_account=req.ibhk_account,
             occupation=req.occupation,
             date_of_birth=req.date_of_birth,
             anniversary=req.anniversary,
@@ -199,6 +198,11 @@ class OnboardingService:
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
+            )
+            self.db.add(
+                ClientIbAccount(
+                    user_id=staged_user.id, model_id=req.model_id, ib_account=req.ibhk_account
+                )
             )
             self.repo.set_initial_portfolio(
                 staged_user.id, amount_in_trade=amount_in_trade, cash_deposit=cash_deposit
@@ -848,10 +852,6 @@ class OnboardingService:
 
     # ---- Client: subscriptions / events --------------------------------------
     def client_subscriptions(self, user_id: uuid.UUID) -> list[SubscriptionDTO]:
-        profile = (
-            self.db.query(ClientProfile).filter(ClientProfile.user_id == user_id).one_or_none()
-        )
-        ib_account = profile.ib_account if profile else None
         return [
             SubscriptionDTO(
                 model_id=model.id,
@@ -859,7 +859,7 @@ class OnboardingService:
                 units=float(sub.multiplier),
                 ib_account=ib_account,
             )
-            for sub, model in self.repo.list_subscriptions_for_client(user_id)
+            for sub, model, ib_account in self.repo.list_subscriptions_for_client(user_id)
         ]
 
     def client_events(self, user_id: uuid.UUID) -> list[ClientEventDTO]:
@@ -955,7 +955,7 @@ class OnboardingService:
 
         visible_ids = {row.id for row in ClientRepository(self.db).list_visible(role, rm_uid)}
         by_client: dict[uuid.UUID, ClientSubscriptionsDTO] = {}
-        for profile, sub, model in self.repo.list_all_subscriptions():
+        for profile, sub, model, ib_account in self.repo.list_all_subscriptions():
             if str(profile.user_id) not in visible_ids:
                 continue
             amount = sub.multiplier * (model.model_size or Decimal("0"))
@@ -973,7 +973,7 @@ class OnboardingService:
                     if sub.incentive_fee_override is not None
                     else (model.incentive_fee or Decimal("0"))
                 ),
-                ib_account=profile.ib_account,
+                ib_account=ib_account,
                 amount=amount,
             )
             bucket = by_client.setdefault(

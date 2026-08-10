@@ -99,7 +99,7 @@ class ClientService:
             # visible set (per D-4) is unfiltered.
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
         dto = self._to_dto(row)
-        subs = self.repo.list_subscriptions(client_id, row.ib_account)
+        subs = self.repo.list_subscriptions(client_id)
         dto.subscriptions = [
             SubscriptionOut(model=s.model, status=s.status, account=s.account) for s in subs
         ]

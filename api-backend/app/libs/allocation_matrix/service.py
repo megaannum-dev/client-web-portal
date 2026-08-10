@@ -206,7 +206,7 @@ class AllocationService:
                 model_id=None,
                 multiplier=None,
                 model_size=None,
-                ib_account=r.ib_account,
+                ib_account=None,
                 name=r.name,
                 email=r.email,
                 firebase_uid=r.firebase_uid,
@@ -289,6 +289,7 @@ def _build_matrix(
         flat_cells[f"{uid}-{mid}"] = {
             "units": float(multiplier),
             "fund": float(fund),
+            "ib_account": cell.ib_account,
         }
 
     total_fund = sum(col_fund.values(), ZERO)
@@ -318,8 +319,7 @@ def _build_matrix(
             {
                 "id": uid,
                 "name": r.name or r.email or uid,
-                "code": r.ib_account or r.firebase_uid,
-                "ib_account": r.ib_account,
+                "code": r.firebase_uid,
             }
         )
 
