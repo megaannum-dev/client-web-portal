@@ -61,6 +61,7 @@ class ModelRepository:
         nav_perf: str | None = None,
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
+        master_ib_account: str,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),
@@ -77,6 +78,7 @@ class ModelRepository:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
+            master_ib_account=master_ib_account
         )
         if symbols:
             model.symbols = [

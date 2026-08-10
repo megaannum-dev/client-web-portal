@@ -143,6 +143,7 @@ class ModelService:
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
+        master_ib_account: str,
     ) -> Model:
         model = self.repo.create(
             name=name,
@@ -158,6 +159,7 @@ class ModelService:
             nav_perf=nav_perf,
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
+            master_ib_account=master_ib_account,
         )
         for s in model.symbols:
             self._log_symbol(
