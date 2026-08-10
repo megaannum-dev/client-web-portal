@@ -238,11 +238,6 @@ class SubscriptionDTO(BaseModel):
     model_id: uuid.UUID
     model_name: str
     units: float
-    # BROKEN (ib-account-relations rework): currently sourced from
-    # client_profiles.ib_account (dropped) in onboarding/service.py.
-    # Repoint to the new client_ib_accounts table -- (user_id, model_id) is
-    # already known here, so this is a straightforward extra join, not a
-    # redesign.
     ib_account: str | None
 
 
@@ -263,10 +258,7 @@ class ClientSubscriptionRowDTO(BaseModel):
     units: Decimal
     mgmt_fee: Decimal  # effective = override ?? Model default
     incentive_fee: Decimal  # effective = override ?? Model default
-    # BROKEN (ib-account-relations rework): same repoint as
-    # SubscriptionDTO.ib_account above -- (user_id, model_id) is already
-    # in scope, join to client_ib_accounts.
-    ib_account: str | None
+    ib_account: str | None  # client_ib_accounts, joined on (user_id, model_id)
     amount: Decimal  # = units * model.model_size -- mirrors AllotRdmptDTO.amount
 
 

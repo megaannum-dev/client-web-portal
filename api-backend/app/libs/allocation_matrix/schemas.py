@@ -59,6 +59,7 @@ class AllocationCellOut(BaseModel):
 
     units: float
     fund: float  # precomputed units × model_size (BE-5)
+    ib_account: str | None
 
 
 class AllocationClientOut(BaseModel):
@@ -67,10 +68,6 @@ class AllocationClientOut(BaseModel):
     id: str
     name: str
     code: str
-    # STALE (ib-account-relations rework): sourced from client_profiles.ib_account,
-    # which was dropped -- repoint to the new client_ib_accounts table
-    # (keyed on user_id, model_id) in the BE layer.
-    ib_account: str | None
 
 
 class AllocationModelOut(BaseModel):
@@ -110,7 +107,9 @@ class AllocationViewOut(BaseModel):
         models_out = [AllocationModelOut(**m) for m in d["models"]]
         clients_out = [AllocationClientOut(**c) for c in d["clients"]]
         cells_out = {
-            key: AllocationCellOut(units=cell["units"], fund=cell["fund"])
+            key: AllocationCellOut(
+                units=cell["units"], fund=cell["fund"], ib_account=cell.get("ib_account")
+            )
             for key, cell in d["cells"].items()
         }
         return cls(
