@@ -86,6 +86,7 @@ def onboard_client(
         email=body.email,
         name=body.name,
         assigned_rm_uid=body.assigned_rm_uid,
+        asst_rm_uid=body.asst_rm_uid,
         identity=identity,
         settings=settings,
         primary_phone=body.primary_phone,

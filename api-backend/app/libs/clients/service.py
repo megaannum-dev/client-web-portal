@@ -49,6 +49,7 @@ class ClientService:
         assigned_rm_uid: str | None,
         identity: FirebaseIdentityService,
         settings: Settings,
+        asst_rm_uid: str | None = None,
         **profile_fields: str | None,
     ) -> tuple[User, str]:
         """Onboards a new client: assert_is_rm runs BEFORE any Firebase call (no
@@ -58,6 +59,8 @@ class ClientService:
         adopted identity is NEVER deleted on rollback."""
         rm_uid = assigned_rm_uid or caller_uid
         self.assert_is_rm(rm_uid)
+        if asst_rm_uid is not None:
+            self.assert_is_rm(asst_rm_uid)
 
         uid, created = identity.ensure_identity(email)
         try:
@@ -67,6 +70,7 @@ class ClientService:
                 email=email,
                 name=name,
                 assigned_rm_uid=rm_uid,
+                asst_rm_uid=asst_rm_uid,
                 authorized_by=caller_uid,
                 **profile_fields,
             )

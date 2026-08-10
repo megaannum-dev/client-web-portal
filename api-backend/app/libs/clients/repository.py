@@ -79,10 +79,13 @@ class ClientRepository:
         """
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
+        AsstRM = aliased(User)
+        AsstRMProfile = aliased(AdminProfile)
         ClientUser = aliased(User)
         Approver = aliased(User)
         ApproverProfile = aliased(AdminProfile)
         rm_name = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        asst_rm_name = func.coalesce(AsstRMProfile.name, AsstRM.email, ClientProfile.asst_rm_uid)
         # 014 C-7: same uid -> display-name coalesce as onboarding/repository.py's
         # display_fields().approved_by -- one resolution, two call sites.
         authorized_by_name = func.coalesce(
@@ -95,6 +98,7 @@ class ClientRepository:
                 ClientProfile.name,
                 ClientProfile.primary_phone.label("phone"),
                 rm_name.label("assigned_rm"),
+                asst_rm_name.label("asst_rm"),
                 ClientProfile.address,
                 ClientProfile.country_of_residence,
                 ClientProfile.authorized_person,
@@ -120,6 +124,8 @@ class ClientRepository:
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
+            .outerjoin(AsstRM, AsstRM.firebase_uid == ClientProfile.asst_rm_uid)
+            .outerjoin(AsstRMProfile, AsstRMProfile.user_id == AsstRM.id)
             .outerjoin(ClientUser, ClientUser.id == ClientProfile.user_id)
             .outerjoin(Approver, Approver.firebase_uid == ClientUser.authorized_by)
             .outerjoin(ApproverProfile, ApproverProfile.user_id == Approver.id)
@@ -181,6 +187,7 @@ class ClientRepository:
         email: str | None,
         name: str | None,
         assigned_rm_uid: str,
+        asst_rm_uid: str | None = None,
         authorized_by: str,
         **profile_fields: str | None,  # primary_phone, address, country_of_residence,
         # authorized_person, initiate_method
@@ -201,7 +208,11 @@ class ClientRepository:
         self.db.flush()
         self.db.add(
             ClientProfile(
-                user_id=user.id, name=name, assigned_rm_uid=assigned_rm_uid, **profile_fields,
+                user_id=user.id,
+                name=name,
+                assigned_rm_uid=assigned_rm_uid,
+                asst_rm_uid=asst_rm_uid,
+                **profile_fields,
             )
         )
 
@@ -219,6 +230,7 @@ class ClientRepository:
             name=r.name,
             phone=r.phone,
             assigned_rm=r.assigned_rm,
+            asst_rm=r.asst_rm,
             address=r.address,
             country_of_residence=r.country_of_residence,
             authorized_person=r.authorized_person,
