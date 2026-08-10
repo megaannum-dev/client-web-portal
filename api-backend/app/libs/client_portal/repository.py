@@ -11,12 +11,12 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Row, exists, func
+from sqlalchemy import Row, and_, exists, func
 from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import ClientSubscription, Model, ModelMaterial, ModelStatus
+from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelMaterial, ModelStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     ClientPortfolioRunDelta,
@@ -57,10 +57,16 @@ class ClientPortalRepository:
             is not None
         )
 
-    def positions_for_client(self, user_id: uuid.UUID) -> list[tuple[ClientSubscription, Model]]:
+    def positions_for_client(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[ClientSubscription, Model, str | None]]:
         rows = (
-            self.db.query(ClientSubscription, Model)
+            self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+            )
             .filter(ClientSubscription.user_id == user_id)
             .order_by(Model.name)  # § 4.1: "name-sorted"
             .all()

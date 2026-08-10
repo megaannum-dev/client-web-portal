@@ -5,11 +5,11 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.models.onboarding import ClientOnboarding
-from app.models.pc import ClientSubscription, Model, ModelStatus
+from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
@@ -34,7 +34,6 @@ class ClientRow:
     country_of_residence: str | None
     authorized_person: str | None
     initiate_method: str | None
-    ib_account: str | None
     email: str | None
     authorized_by_name: str | None  # 014 C-7: resolved display name of users.authorized_by
     id_type: str | None  # 014 C-8: client_onboardings.id_type, joined
@@ -164,10 +163,14 @@ class ClientRepository:
     def get_portfolio(self, client_id: uuid.UUID) -> ClientPortfolio | None:
         return self.db.get(ClientPortfolio, client_id)
 
-    def list_subscriptions(self, client_id: uuid.UUID, ib_account: str | None) -> list[SubscriptionRow]:
+    def list_subscriptions(self, client_id: uuid.UUID) -> list[SubscriptionRow]:
         rows = (
-            self.db.query(Model.name, Model.status)
+            self.db.query(Model.name, Model.status, ClientIbAccount.ib_account)
             .join(ClientSubscription, ClientSubscription.model_id == Model.id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == client_id),
+            )
             .filter(
                 ClientSubscription.user_id == client_id,
                 Model.status != ModelStatus.DELETED,
@@ -175,7 +178,7 @@ class ClientRepository:
             .all()
         )
         return [
-            SubscriptionRow(model=r.name, status=r.status.value, account=ib_account)
+            SubscriptionRow(model=r.name, status=r.status.value, account=r.ib_account)
             for r in rows
         ]
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.storage import Bucket, client_folder
@@ -23,7 +23,7 @@ from app.models.onboarding import (
     OnboardingStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import ClientIbAccount, ClientSubscription, Model
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, ClientProfile, User
 
@@ -513,14 +513,23 @@ class OnboardingRepository:
             .one_or_none()
         )
 
-    def list_all_subscriptions(self) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
+    def list_all_subscriptions(
+        self,
+    ) -> list[tuple[ClientProfile, ClientSubscription, Model, str | None]]:
         """014 D (BE-9): every (client profile, subscription, model) row,
         joined -- unfiltered by RM-book visibility (the SERVICE layer applies
         that via ClientRepository.list_visible)."""
         rows = (
-            self.db.query(ClientProfile, ClientSubscription, Model)
+            self.db.query(ClientProfile, ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
             .join(Model, Model.id == ClientSubscription.model_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(
+                    ClientIbAccount.user_id == ClientProfile.user_id,
+                    ClientIbAccount.model_id == Model.id,
+                ),
+            )
             .all()
         )
         return rows  # type: ignore[return-value]
@@ -594,10 +603,14 @@ class OnboardingRepository:
 
     def list_subscriptions_for_client(
         self, user_id: uuid.UUID
-    ) -> list[tuple[ClientSubscription, Model]]:
+    ) -> list[tuple[ClientSubscription, Model, str | None]]:
         rows = (
-            self.db.query(ClientSubscription, Model)
+            self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+            )
             .filter(ClientSubscription.user_id == user_id)
             .all()
         )

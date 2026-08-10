@@ -150,23 +150,23 @@ class MatrixReadRepository:
           row_kind, user_id, model_id, multiplier, model_size, ib_account,
           name, email, firebase_uid
 
-        BROKEN (ib-account-relations rework): cp.ib_account (client_profiles
-        .ib_account) below no longer exists after that migration -- this SQL
-        will error. Repoint the 'cell' branch to cs.client_ib_account
-        (client_subscriptions, already per model_id) and decide what the
-        'client' roster branch (no model_id) should read instead.
+        ib_account is only well-defined at (user_id, model_id) grain now
+        (client_ib_accounts, composite PK) — the 'cell' branch LEFT JOINs it
+        on the full key; the 'client' roster branch has no model_id, so it
+        always reports NULL.
         """
         sql = text("""
             SELECT 'cell'   AS row_kind,
                    cs.user_id, cs.model_id, cs.multiplier, m.model_size,
-                   cp.ib_account, NULL AS name, NULL AS email, NULL AS firebase_uid
+                   cia.ib_account, NULL AS name, NULL AS email, NULL AS firebase_uid
               FROM client_subscriptions cs
               JOIN models          m  ON m.id = cs.model_id AND m.status = 'live'
-              JOIN client_profiles cp ON cp.user_id = cs.user_id
+              LEFT JOIN client_ib_accounts cia
+                     ON cia.user_id = cs.user_id AND cia.model_id = cs.model_id
             UNION ALL
             SELECT 'client' AS row_kind,
                    u.id     AS user_id, NULL AS model_id, NULL AS multiplier,
-                   NULL     AS model_size, cp.ib_account, cp.name, u.email,
+                   NULL     AS model_size, NULL AS ib_account, cp.name, u.email,
                    u.firebase_uid
               FROM users u
               JOIN client_profiles cp ON cp.user_id = u.id
