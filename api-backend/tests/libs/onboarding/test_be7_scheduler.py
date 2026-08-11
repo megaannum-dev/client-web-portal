@@ -30,6 +30,7 @@ from app.models.onboarding import ClientOnboarding, OnboardingStatus
 from app.models.pc import ClientSubscription
 from app.models.users import User
 from tests.libs.onboarding.conftest import make_client, make_model
+from tests.libs.onboarding.conftest import make_ib as _ib
 
 
 class _FakeAsyncioNamespace:
@@ -73,7 +74,7 @@ def _seed_active_cycle_with_due_doc(Session, *, expires_in_days: int):
         units=Decimal("5"),
         mgmt_fee=Decimal("0.02"),
         incentive_fee=Decimal("0.2"),
-        ibhk_account="IB1",
+        ib_account=_ib(),
         sw_account="SW1",
         id_type="Passport",
         id_number="P1",
@@ -252,7 +253,7 @@ def test_trigger_due_renewals_with_no_due_documents_is_a_pure_noop(db_session_fa
         units=Decimal("1"),
         mgmt_fee=Decimal("0.02"),
         incentive_fee=Decimal("0.2"),
-        ibhk_account="IB1",
+        ib_account=_ib(),
         sw_account="SW1",
         id_type="Passport",
         id_number="P1",

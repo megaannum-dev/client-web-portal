@@ -111,7 +111,7 @@ def client_portal_client(db_factory, fake_storage):
     seed_db = db_factory()
     seed_db.add(stub_user)
     seed_db.flush()
-    seed_db.add(ClientProfile(user_id=stub_user.id, name="Cathy Client", ib_account="IB-9"))
+    seed_db.add(ClientProfile(user_id=stub_user.id, name="Cathy Client"))
     seed_db.commit()
     seed_db.close()
 
