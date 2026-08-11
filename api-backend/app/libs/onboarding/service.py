@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.storage import Bucket, client_folder, get_storage
-from app.libs import ib_accounts
+from app.libs import client_ib
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -560,7 +560,7 @@ class OnboardingService:
                 # row yet keeps their permanent client_ib_accounts row, so
                 # ensure() finds it and leaves it untouched rather than
                 # colliding on the composite PK.
-                ib_accounts.ensure(
+                client_ib.ensure(
                     self.db,
                     user_id=req.client_id,
                     model_id=req.model_id,

@@ -82,7 +82,7 @@ class ClientIbAccountIn(BaseModel):
 
 class ClientIbAccountOut(BaseModel):
     """Echoes the stored value so the caller sees the canonical (stripped) form
-    that ib_accounts.reassign actually wrote, not what it sent."""
+    that client_ib.reassign actually wrote, not what it sent."""
 
     account: str
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import set_portal_claims
-from app.libs import ib_accounts
+from app.libs import client_ib
 from app.libs.clients.repository import ClientRepository, ClientRow
 from app.libs.clients.schemas import (
     ClientIbAccountOut,
@@ -145,14 +145,14 @@ class ClientService:
 
         Scoping reuses get_profile_for_update, so an RM cannot touch a client
         outside their own book (D-4) and gets the same 404-not-403 answer as
-        update_profile. The invariant itself lives in ib_accounts.reassign;
+        update_profile. The invariant itself lives in client_ib.reassign;
         this method only owns the txn boundary."""
         if self.repo.get_profile_for_update(role, rm_firebase_uid, client_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
         if self.repo.db.get(Model, model_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
 
-        row = ib_accounts.reassign(
+        row = client_ib.reassign(
             self.repo.db, user_id=client_id, model_id=model_id, account=account
         )
         stored = row.ib_account  # read before commit expires the instance

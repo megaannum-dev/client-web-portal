@@ -1,5 +1,9 @@
-# api-backend/app/libs/ib_accounts.py
+# api-backend/app/libs/client_ib.py
 """The one home of the client_ib_accounts invariant.
+
+Named for the CLIENT side deliberately: this module handles only a client's
+per-model account. A model's own account (models.master_ib_account) has no
+invariant to enforce and never passes through here.
 
 An IB account, once assigned, permanently belongs to that client for that
 model. It is never transferred to another client, never moved to another

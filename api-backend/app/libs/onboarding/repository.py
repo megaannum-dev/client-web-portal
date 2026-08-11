@@ -10,7 +10,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.storage import Bucket, client_folder
-from app.libs import ib_accounts
+from app.libs import client_ib
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
@@ -87,7 +87,7 @@ class OnboardingRepository:
 
         `ib_account` is NOT a client_onboardings column: client_ib_accounts is
         the single home of a client's per-model IB account, so the value is
-        handed to ib_accounts.ensure() (create-if-absent, never a transfer)
+        handed to client_ib.ensure() (create-if-absent, never a transfer)
         instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
@@ -101,7 +101,7 @@ class OnboardingRepository:
             id_number=id_number,
         )
         self.db.add(onboarding)
-        ib_accounts.ensure(
+        client_ib.ensure(
             self.db, user_id=user_id, model_id=model_id, account=ib_account
         )
         self.db.flush()

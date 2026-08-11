@@ -76,7 +76,7 @@ def update_client(
 
 
 @router.put(
-    "/clients/{client_id}/models/{model_id}/ib-account",
+    "/clients/{client_id}/models/{model_id}/client-ib",
     response_model=ClientIbAccountOut,
 )
 def set_client_ib_account(
