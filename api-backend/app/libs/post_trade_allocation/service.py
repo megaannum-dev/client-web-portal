@@ -133,7 +133,10 @@ class PostTradeAllocationService:
                         units_total=units_total,
                         cells=cells,
                         model=model,
-                        model_acct=model_acct[model_name],
+                        # models.master_ib_account is the source of truth for the
+                        # account a model trades through; the first-order accountId
+                        # is only a fallback while the column is still nullable.
+                        model_acct=model.master_ib_account or model_acct[model_name],
                         run_id=run.id,
                     )
                     self.repo.write_cells(cell_rows)
