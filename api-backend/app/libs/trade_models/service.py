@@ -35,6 +35,9 @@ _TRACKED_FIELDS = (
     "description", "underlyings", "risk",
     "liquidity", "reporting", "nav_perf",
     "mgmt_fee", "incentive_fee",
+    # The account a model actually trades through — at least as audit-worthy as
+    # its name or fee, and previously changeable with no trace.
+    "master_ib_account",
 )
 
 _LONG_TEXT_FIELDS = frozenset({"description", "underlyings", "risk"})
