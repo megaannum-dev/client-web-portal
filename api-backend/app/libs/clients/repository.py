@@ -30,6 +30,7 @@ class ClientRow:
     name: str | None
     phone: str | None
     assigned_rm: str | None
+    asst_rm: str | None
     address: str | None
     country_of_residence: str | None
     authorized_person: str | None
@@ -51,13 +52,10 @@ class ClientRow:
 
 @dataclass(frozen=True)
 class SubscriptionRow:
-    """One client_subscriptions row joined to its model — account is the
-    client's single ib_account (client_profiles.ib_account), repeated per row.
-
-    STALE (ib-account-relations rework): client_profiles.ib_account was
-    dropped. This should now read the new client_ib_accounts table
-    (joined on user_id, model_id) per row instead of repeating one
-    client-level value."""
+    """One client_subscriptions row joined to its model — `account` is the
+    client's IB account for THAT model, read from client_ib_accounts on
+    (user_id, model_id). Nullable: a subscription whose (client, model) pair
+    has no account row yet still lists, with account=None."""
 
     model: str
     status: str
@@ -102,11 +100,6 @@ class ClientRepository:
                 ClientProfile.country_of_residence,
                 ClientProfile.authorized_person,
                 ClientProfile.initiate_method,
-                # BROKEN (ib-account-relations rework): ClientProfile.ib_account
-                # was dropped -- repoint to a per-model client_subscriptions
-                # .client_ib_account source in the BE layer (this query has no
-                # model_id to join on today).
-                ClientProfile.ib_account,
                 ClientUser.email.label("email"),
                 authorized_by_name.label("authorized_by_name"),
                 ClientOnboarding.id_type,
@@ -238,7 +231,6 @@ class ClientRepository:
             country_of_residence=r.country_of_residence,
             authorized_person=r.authorized_person,
             initiate_method=r.initiate_method,
-            ib_account=r.ib_account,
             email=r.email,
             authorized_by_name=r.authorized_by_name,
             id_type=r.id_type,

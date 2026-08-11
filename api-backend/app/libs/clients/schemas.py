@@ -74,9 +74,9 @@ class ClientProfilePatch(BaseModel):
     """RM edit-profile body (proposal 019). Every field optional; unset =
     unchanged. Deliberately excludes name/primary_phone/email (identity/
     contact, tied to the Firebase account), date_of_birth (identity-sensitive),
-    assigned_rm_uid (a separate, more sensitive action), asst_rm_uid (a separate, more sensitive action), and id_type/id_number
-    (client_onboardings, not this table) -- mirrors client_portal/schemas.py's
-    ClientProfilePatch pattern."""
+    assigned_rm_uid and asst_rm_uid (both separate, more sensitive actions),
+    and id_type/id_number (client_onboardings, not this table) -- mirrors
+    client_portal/schemas.py's ClientProfilePatch pattern."""
 
     model_config = {"extra": "forbid"}  # 422 if any excluded/unknown field is sent
 
