@@ -10,7 +10,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.storage import Bucket, client_folder
-from app.libs import client_ib
+from app.libs import client_ib_accounts
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
@@ -48,7 +48,7 @@ class OnboardingDisplayRow:
     # The client's IB account for THIS cycle's model, read live from
     # client_ib_accounts (its one home) -- client_onboardings no longer keeps a
     # duplicate copy. None when the row exists but its account is still NULL.
-    ib_account: str | None
+    client_ib: str | None
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,7 @@ class OnboardingRepository:
         units: Decimal,
         mgmt_fee: Decimal,
         incentive_fee: Decimal,
-        ib_account: str,
+        client_ib: str,
         sw_account: str,
         id_type: str,
         id_number: str,
@@ -85,9 +85,9 @@ class OnboardingRepository:
         onboarding_documents row per REQUIRED_DOCS entry, all not_started. No
         commit here -- caller's txn boundary (OnboardingService.start).
 
-        `ib_account` is NOT a client_onboardings column: client_ib_accounts is
+        `client_ib` is NOT a client_onboardings column: client_ib_accounts is
         the single home of a client's per-model IB account, so the value is
-        handed to client_ib.ensure() (create-if-absent, never a transfer)
+        handed to client_ib_accounts.ensure() (create-if-absent, never a transfer)
         instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
@@ -101,8 +101,8 @@ class OnboardingRepository:
             id_number=id_number,
         )
         self.db.add(onboarding)
-        client_ib.ensure(
-            self.db, user_id=user_id, model_id=model_id, account=ib_account
+        client_ib_accounts.ensure(
+            self.db, user_id=user_id, model_id=model_id, account=client_ib
         )
         self.db.flush()
         for spec in REQUIRED_DOCS:
@@ -248,7 +248,7 @@ class OnboardingRepository:
             address=profile.address or "",
             country_of_residence=profile.country_of_residence or "",
             approved_by=approved_by,
-            ib_account=(
+            client_ib=(
                 self.db.query(ClientIbAccount.ib_account)
                 .filter_by(user_id=onboarding.user_id, model_id=onboarding.model_id)
                 .scalar()

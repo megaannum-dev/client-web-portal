@@ -30,7 +30,7 @@ class StartOnboardingReq(BaseModel):
     country_of_residence: str
     id_type: str
     id_number: str
-    ibhk_account: str
+    client_ib: str
     sw_account: str
     model_id: uuid.UUID
     units: Decimal  # -> onboarding.multiplier
@@ -109,10 +109,9 @@ class OnboardingDTO(BaseModel):
     country_of_residence: str  # joined from ClientProfile
     id_type: str  # -> client_onboardings.id_type
     id_number: str  # -> client_onboardings.id_number
-    # Field name kept for the FE contract; the VALUE now comes from
-    # client_ib_accounts.ib_account for (user_id, model_id), not from a
-    # client_onboardings column (dropped in migration 0034).
-    ibhk_account: str
+    # Sourced from client_ib_accounts.ib_account for (user_id, model_id), not
+    # from a client_onboardings column (dropped in migration 0034).
+    client_ib: str
     sw_account: str  # -> client_onboardings.sw_account
     status: OnboardingStatus
     kind: OnboardingKind
@@ -249,7 +248,7 @@ class SubscriptionDTO(BaseModel):
     model_id: uuid.UUID
     model_name: str
     units: float
-    ib_account: str | None
+    client_ib: str | None
 
 
 class ClientEventDTO(BaseModel):
@@ -269,7 +268,7 @@ class ClientSubscriptionRowDTO(BaseModel):
     units: Decimal
     mgmt_fee: Decimal  # effective = override ?? Model default
     incentive_fee: Decimal  # effective = override ?? Model default
-    ib_account: str | None  # client_ib_accounts, joined on (user_id, model_id)
+    client_ib: str | None  # client_ib_accounts.ib_account, on (user_id, model_id)
     amount: Decimal  # = units * model.model_size -- mirrors AllotRdmptDTO.amount
 
 

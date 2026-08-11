@@ -55,8 +55,8 @@ class PositionDTO(BaseModel):
     amount: float  # units * models.model_size
     model_limit: float | None  # models.model_limit -- a distinct cap, not model_size
     model_size: float | None  # models.model_size -- prices one unit
-    model_ib_account: str | None
-    client_ib_account: str | None
+    master_ib: str | None  # models.master_ib_account -- the MODEL's own account
+    client_ib: str | None  # client_ib_accounts.ib_account for (this client, this model)
     category: list[str] | None  # models.category (JSON) -- a real model attribute
     has_material: bool  # a model_materials row exists
 
@@ -162,7 +162,7 @@ class RmTicketDTO(BaseModel):
     client: str  # client_profiles.name
     contact: str | None  # client_profiles.authorized_person
     email: str | None  # users.email
-    account: str | None
+    client_ib: str | None  # client_ib_accounts.ib_account for (client, model_id)
     model: str | None
     model_id: uuid.UUID | None  # client_tickets.model_id -- real FK, None for kind="other"
     kind: TicketKind

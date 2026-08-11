@@ -1,4 +1,4 @@
-# api-backend/app/libs/client_ib.py
+# api-backend/app/libs/client_ib_accounts.py
 """The one home of the client_ib_accounts invariant.
 
 Named for the CLIENT side deliberately: this module handles only a client's

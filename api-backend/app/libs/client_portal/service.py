@@ -175,12 +175,12 @@ class ClientPortalService:
                 amount=float(sub.multiplier * (model.model_size or Decimal("0"))),
                 model_limit=float(model.model_limit) if model.model_limit is not None else None,
                 model_size=float(model.model_size) if model.model_size is not None else None,
-                model_ib_account=model.master_ib_account,
-                client_ib_account=ib_account,
+                master_ib=model.master_ib_account,
+                client_ib=client_ib,
                 category=model.category,
                 has_material=self.repo.has_material(model.id),
             )
-            for sub, model, ib_account in self.repo.positions_for_client(user_id)
+            for sub, model, client_ib in self.repo.positions_for_client(user_id)
         ]
         return PortfolioDTO(
             cash_deposit=float(cash_deposit),
@@ -421,7 +421,7 @@ class ClientPortalService:
         profile = self.db.query(ClientProfile).filter_by(user_id=t.user_id).one_or_none()
         user = self.db.get(User, t.user_id)
         model = self.db.get(Model, t.model_id) if t.model_id else None
-        account = (
+        client_ib = (
             self.db.query(ClientIbAccount.ib_account)
             .filter_by(user_id=t.user_id, model_id=t.model_id)
             .scalar()
@@ -436,7 +436,7 @@ class ClientPortalService:
             client=(profile.name if profile else None) or "",
             contact=profile.authorized_person if profile else None,
             email=user.email if user else None,
-            account=account,
+            client_ib=client_ib,
             model=model.name if model else None,
             model_id=t.model_id,
             kind=TicketKind(t.kind),

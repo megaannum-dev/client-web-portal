@@ -98,9 +98,10 @@ class ClientOnboarding(Base):
     incentive_fee: Mapped[Decimal | None] = mapped_column(
         Numeric(9, 6), nullable=True, comment=_FEE_COMMENT
     )
-    # NOTE: no ibhk_account column here -- dropped by migration 0034. The
-    # client's IB account lives once, in client_ib_accounts keyed by
-    # (user_id, model_id); this table used to keep a second, driftable copy.
+    # NOTE: no IB-account column here -- dropped by migration 0034. The client's
+    # IB account lives once, in client_ib_accounts keyed by (user_id, model_id);
+    # this table used to keep a second, driftable copy. Exposed on the wire as
+    # OnboardingDTO.client_ib.
     sw_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # --- widened 2026-07-20 (D-9): genuinely new columns, no prior home anywhere ---
     # e.g. "Hong Kong ID Card" | "Passport"

@@ -88,7 +88,7 @@ def set_client_ib_account(
     role: Annotated[AdminRole, Depends(_get_caller_role)],
 ) -> ClientIbAccountOut:
     return service.set_ib_account(
-        role, user.firebase_uid, client_id, model_id, body.account
+        role, user.firebase_uid, client_id, model_id, body.account_id
     )
 
 

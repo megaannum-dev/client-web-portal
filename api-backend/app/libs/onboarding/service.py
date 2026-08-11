@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.storage import Bucket, client_folder, get_storage
-from app.libs import client_ib
+from app.libs import client_ib_accounts
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -195,7 +195,7 @@ class OnboardingService:
                 units=req.units,
                 mgmt_fee=req.mgmt_fee,
                 incentive_fee=req.incentive_fee,
-                ib_account=req.ibhk_account,
+                client_ib=req.client_ib,
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
@@ -560,7 +560,7 @@ class OnboardingService:
                 # row yet keeps their permanent client_ib_accounts row, so
                 # ensure() finds it and leaves it untouched rather than
                 # colliding on the composite PK.
-                client_ib.ensure(
+                client_ib_accounts.ensure(
                     self.db,
                     user_id=req.client_id,
                     model_id=req.model_id,
@@ -873,9 +873,9 @@ class OnboardingService:
                 model_id=model.id,
                 model_name=model.name,
                 units=float(sub.multiplier),
-                ib_account=ib_account,
+                client_ib=client_ib,
             )
-            for sub, model, ib_account in self.repo.list_subscriptions_for_client(user_id)
+            for sub, model, client_ib in self.repo.list_subscriptions_for_client(user_id)
         ]
 
     def client_events(self, user_id: uuid.UUID) -> list[ClientEventDTO]:
@@ -971,7 +971,7 @@ class OnboardingService:
 
         visible_ids = {row.id for row in ClientRepository(self.db).list_visible(role, rm_uid)}
         by_client: dict[uuid.UUID, ClientSubscriptionsDTO] = {}
-        for profile, sub, model, ib_account in self.repo.list_all_subscriptions():
+        for profile, sub, model, client_ib in self.repo.list_all_subscriptions():
             if str(profile.user_id) not in visible_ids:
                 continue
             amount = sub.multiplier * (model.model_size or Decimal("0"))
@@ -989,7 +989,7 @@ class OnboardingService:
                     if sub.incentive_fee_override is not None
                     else (model.incentive_fee or Decimal("0"))
                 ),
-                ib_account=ib_account,
+                client_ib=client_ib,
                 amount=amount,
             )
             bucket = by_client.setdefault(
@@ -1081,7 +1081,7 @@ class OnboardingService:
             country_of_residence=display.country_of_residence,
             id_type=onboarding.id_type,
             id_number=onboarding.id_number,
-            ibhk_account=display.ib_account or "",
+            client_ib=display.client_ib or "",
             sw_account=onboarding.sw_account or "",
             status=onboarding.status.value,
             kind=onboarding.kind.value,

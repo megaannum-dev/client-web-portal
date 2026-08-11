@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import set_portal_claims
-from app.libs import client_ib
+from app.libs import client_ib_accounts
 from app.libs.clients.repository import ClientRepository, ClientRow
 from app.libs.clients.schemas import (
     ClientIbAccountOut,
@@ -104,7 +104,7 @@ class ClientService:
         dto = self._to_dto(row)
         subs = self.repo.list_subscriptions(client_id)
         dto.subscriptions = [
-            SubscriptionOut(model=s.model, status=s.status, account=s.account) for s in subs
+            SubscriptionOut(model=s.model, status=s.status, client_ib=s.client_ib) for s in subs
         ]
         portfolio = self.repo.get_portfolio(client_id)
         if portfolio is not None:
@@ -137,7 +137,7 @@ class ClientService:
         rm_firebase_uid: str,
         client_id: uuid.UUID,
         model_id: uuid.UUID,
-        account: str,
+        account_id: str,
     ) -> ClientIbAccountOut:
         """The only write to client_ib_accounts outside onboarding: an RM/admin
         correcting a wrong account, chiefly migration 0032's lossy backfill.
@@ -145,19 +145,19 @@ class ClientService:
 
         Scoping reuses get_profile_for_update, so an RM cannot touch a client
         outside their own book (D-4) and gets the same 404-not-403 answer as
-        update_profile. The invariant itself lives in client_ib.reassign;
+        update_profile. The invariant itself lives in client_ib_accounts.reassign;
         this method only owns the txn boundary."""
         if self.repo.get_profile_for_update(role, rm_firebase_uid, client_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
         if self.repo.db.get(Model, model_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
 
-        row = client_ib.reassign(
-            self.repo.db, user_id=client_id, model_id=model_id, account=account
+        row = client_ib_accounts.reassign(
+            self.repo.db, user_id=client_id, model_id=model_id, account=account_id
         )
         stored = row.ib_account  # read before commit expires the instance
         self.repo.db.commit()
-        return ClientIbAccountOut(account=stored)
+        return ClientIbAccountOut(account_id=stored)
 
     @staticmethod
     def _to_dto(r: ClientRow) -> ClientListItemOut:

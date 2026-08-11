@@ -12,7 +12,7 @@ class SubscriptionOut(BaseModel):
 
     model: str
     status: str
-    account: str | None
+    client_ib: str | None  # client_ib_accounts.ib_account for (this client, this model)
 
 
 class ClientListItemOut(BaseModel):
@@ -77,14 +77,14 @@ class ClientIbAccountIn(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    account: str
+    account_id: str  # the IB account identifier itself; the path already says which pair
 
 
 class ClientIbAccountOut(BaseModel):
     """Echoes the stored value so the caller sees the canonical (stripped) form
-    that client_ib.reassign actually wrote, not what it sent."""
+    that client_ib_accounts.reassign actually wrote, not what it sent."""
 
-    account: str
+    account_id: str
 
 
 class ClientProfilePatch(BaseModel):

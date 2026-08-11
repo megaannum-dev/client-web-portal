@@ -52,14 +52,14 @@ class ClientRow:
 
 @dataclass(frozen=True)
 class SubscriptionRow:
-    """One client_subscriptions row joined to its model — `account` is the
+    """One client_subscriptions row joined to its model — `client_ib` is the
     client's IB account for THAT model, read from client_ib_accounts on
     (user_id, model_id). Nullable: a subscription whose (client, model) pair
-    has no account row yet still lists, with account=None."""
+    has no account row yet still lists, with client_ib=None."""
 
     model: str
     status: str
-    account: str | None
+    client_ib: str | None
 
 
 class ClientRepository:
@@ -171,7 +171,7 @@ class ClientRepository:
             .all()
         )
         return [
-            SubscriptionRow(model=r.name, status=r.status.value, account=r.ib_account)
+            SubscriptionRow(model=r.name, status=r.status.value, client_ib=r.ib_account)
             for r in rows
         ]
 
