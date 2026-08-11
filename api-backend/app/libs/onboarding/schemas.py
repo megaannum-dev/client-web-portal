@@ -154,6 +154,10 @@ class SubmitAllotmentReq(BaseModel):
     mgmt_fee: Decimal | None = None
     incentive_fee: Decimal | None = None
     source_ticket_ref: str | None = None
+    # The client's IB account for this model, captured when the allotment is a
+    # NEW subscription. Optional because the FE doesn't send it yet; when
+    # absent, an existing client_ib_accounts row simply stays as it is.
+    client_ib: str | None = None
 
 
 class SubmitRedemptionReq(BaseModel):
@@ -204,6 +208,10 @@ class AllotRdmptDTO(BaseModel):
     # --- widened 2026-07-27 (proposal 017, BE-4): True when a
     # transaction_details row exists for this allotment/redemption.
     has_transaction_detail: bool = False
+    # The client's IB account for this row's model -- resolved at read time from
+    # client_ib_accounts via (user_id, model_id); no column of its own here.
+    # None when no account has been assigned for that pair yet.
+    client_ib: str | None = None
 
 
 class TransactionDetailRequest(BaseModel):

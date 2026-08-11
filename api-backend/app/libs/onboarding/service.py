@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.storage import Bucket, client_folder, get_storage
+from app.libs import ib_accounts
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -553,6 +554,18 @@ class OnboardingService:
                 mgmt_fee_override=mgmt_override,
                 incentive_fee_override=incentive_override,
             )
+            if existing is None and req.client_ib:
+                # New subscription to this model -- but NOT necessarily a first
+                # one: a client who fully redeemed has no client_subscriptions
+                # row yet keeps their permanent client_ib_accounts row, so
+                # ensure() finds it and leaves it untouched rather than
+                # colliding on the composite PK.
+                ib_accounts.ensure(
+                    self.db,
+                    user_id=req.client_id,
+                    model_id=req.model_id,
+                    account=req.client_ib,
+                )
             allotment = self.repo.create_allotment(
                 user_id=req.client_id,
                 model_id=req.model_id,
@@ -1096,6 +1109,13 @@ class OnboardingService:
         assigned_rm = (
             self.repo.display_fields(source_onboarding).assigned_rm if source_onboarding else ""
         )
+        # Read-time join, no column of its own: client_allotment_redemptions
+        # already stores (user_id, model_id), which IS client_ib_accounts' PK.
+        client_ib = (
+            self.db.query(ClientIbAccount.ib_account)
+            .filter_by(user_id=allotment.user_id, model_id=allotment.model_id)
+            .scalar()
+        )
         return AllotRdmptDTO(
             id=allotment.id,
             reference=allotment.reference,
@@ -1118,6 +1138,7 @@ class OnboardingService:
             decided_at=allotment.decided_at,
             reject_reason=allotment.reject_reason,
             has_transaction_detail=self.repo.get_transaction_detail(allotment.id) is not None,
+            client_ib=client_ib,
         )
 
     def _transaction_detail_to_dto(self, detail: TransactionDetail) -> TransactionDetailDTO:
