@@ -109,7 +109,7 @@ def test_start_rejects_unknown_model_id(svc, rm):
         country_of_residence="HK",
         id_type="Passport",
         id_number="P1",
-        ibhk_account="IB1",
+        client_ib="IB1",
         sw_account="SW1",
         model_id=uuid.uuid4(),
         units=Decimal("1"),

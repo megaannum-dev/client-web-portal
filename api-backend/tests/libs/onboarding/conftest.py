@@ -167,8 +167,9 @@ def make_ib(prefix: str = "IB") -> str:
     """A globally-unique client IB account string.
 
     client_ib_accounts is the single home of a client's per-model IB account
-    and account strings are globally unique, so `ib_accounts.ensure` raises 422
-    if two different (client, model) pairs are handed the same literal. Every
+    and account strings are globally unique, so `client_ib_accounts.ensure`
+    raises 422 if two different (client, model) pairs are handed the same
+    literal. Every
     fixture that needs an account therefore mints a fresh one instead of
     reusing "IB1"/"IB-0001"."""
     return f"{prefix}-{uuid.uuid4().hex[:10]}"
@@ -277,7 +278,7 @@ def make_start_req(model: Model, *, email: str | None = None, **overrides) -> St
         country_of_residence="Hong Kong",
         id_type="Passport",
         id_number="P1234567",
-        ibhk_account=make_ib(),
+        client_ib=make_ib(),
         sw_account="SW-0001",
         model_id=model.id,
         units=Decimal("5"),
