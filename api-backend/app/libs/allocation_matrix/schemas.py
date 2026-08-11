@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel
 
 from app.models.pc import PeriodStatus
-
 
 # ---------------------------------------------------------------------------
 # Allocation period schemas
@@ -59,7 +57,7 @@ class AllocationCellOut(BaseModel):
 
     units: float
     fund: float  # precomputed units × model_size (BE-5)
-    ib_account: str | None
+    client_ib: str | None  # client_ib_accounts.ib_account at (user_id, model_id) grain
 
 
 class AllocationClientOut(BaseModel):
@@ -67,7 +65,6 @@ class AllocationClientOut(BaseModel):
 
     id: str
     name: str
-    code: str
 
 
 class AllocationModelOut(BaseModel):
@@ -79,6 +76,7 @@ class AllocationModelOut(BaseModel):
     live: bool
     col_units: float
     col_fund: float
+    master_ib: str | None  # models.master_ib_account; always None on confirmed views
 
 
 class AllocationViewOut(BaseModel):
@@ -108,7 +106,7 @@ class AllocationViewOut(BaseModel):
         clients_out = [AllocationClientOut(**c) for c in d["clients"]]
         cells_out = {
             key: AllocationCellOut(
-                units=cell["units"], fund=cell["fund"], ib_account=cell.get("ib_account")
+                units=cell["units"], fund=cell["fund"], client_ib=cell.get("client_ib")
             )
             for key, cell in d["cells"].items()
         }

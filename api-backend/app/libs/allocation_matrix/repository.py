@@ -11,13 +11,13 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.libs.trade_models.repository import _SubscriptionCell, _WatermarkResult
 from app.models.pc import (
     AllocationModelSnapshot,
     AllocationPeriod,
     AllocationPeriodModel,
     PeriodStatus,
 )
-from app.libs.trade_models.repository import _SubscriptionCell, _WatermarkResult
 
 # Exported alias — allocation_matrix code uses AllocationCellRow throughout.
 AllocationCellRow = _SubscriptionCell
@@ -147,10 +147,11 @@ class MatrixReadRepository:
         """
         UNION ALL: subscription cells (LIVE models only) + client roster.
         Returns raw Row objects with fields:
-          row_kind, user_id, model_id, multiplier, model_size, ib_account,
-          name, email, firebase_uid
+          row_kind, user_id, model_id, multiplier, model_size, client_ib,
+          name, email
 
-        ib_account is only well-defined at (user_id, model_id) grain now
+        client_ib (the CLIENT's account for one MODEL, not the model's own
+        master account) is only well-defined at (user_id, model_id) grain
         (client_ib_accounts, composite PK) — the 'cell' branch LEFT JOINs it
         on the full key; the 'client' roster branch has no model_id, so it
         always reports NULL.
@@ -158,7 +159,7 @@ class MatrixReadRepository:
         sql = text("""
             SELECT 'cell'   AS row_kind,
                    cs.user_id, cs.model_id, cs.multiplier, m.model_size,
-                   cia.ib_account, NULL AS name, NULL AS email, NULL AS firebase_uid
+                   cia.ib_account AS client_ib, NULL AS name, NULL AS email
               FROM client_subscriptions cs
               JOIN models          m  ON m.id = cs.model_id AND m.status = 'live'
               LEFT JOIN client_ib_accounts cia
@@ -166,8 +167,7 @@ class MatrixReadRepository:
             UNION ALL
             SELECT 'client' AS row_kind,
                    u.id     AS user_id, NULL AS model_id, NULL AS multiplier,
-                   NULL     AS model_size, NULL AS ib_account, cp.name, u.email,
-                   u.firebase_uid
+                   NULL     AS model_size, NULL AS client_ib, cp.name, u.email
               FROM users u
               JOIN client_profiles cp ON cp.user_id = u.id
              WHERE u.portal = 'client'
@@ -178,16 +178,17 @@ class MatrixReadRepository:
         """
         LIVE models with pre-aggregated col_units / col_fund.
         Returns raw Row objects with fields:
-          id, name, model_size, col_units, col_fund
+          id, name, model_size, master_ib, col_units, col_fund
         """
         sql = text("""
             SELECT m.id, m.name, m.model_size,
+                   m.master_ib_account AS master_ib,
                    COALESCE(SUM(cs.multiplier), 0)                AS col_units,
                    COALESCE(SUM(cs.multiplier * m.model_size), 0) AS col_fund
               FROM models m
               LEFT JOIN client_subscriptions cs ON cs.model_id = m.id
              WHERE m.status = 'live'
-             GROUP BY m.id, m.name, m.model_size
+             GROUP BY m.id, m.name, m.model_size, m.master_ib_account
         """)
         return self.db.execute(sql).fetchall()
 
