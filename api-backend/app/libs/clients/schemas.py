@@ -70,6 +70,23 @@ class ClientOnboardOut(BaseModel):
     invite_link: str
 
 
+class ClientIbAccountIn(BaseModel):
+    """PUT body for the RM repair route. One field on purpose: the (client,
+    model) pair is in the path, and nothing else about a client_ib_accounts row
+    is writable."""
+
+    model_config = {"extra": "forbid"}
+
+    account: str
+
+
+class ClientIbAccountOut(BaseModel):
+    """Echoes the stored value so the caller sees the canonical (stripped) form
+    that ib_accounts.reassign actually wrote, not what it sent."""
+
+    account: str
+
+
 class ClientProfilePatch(BaseModel):
     """RM edit-profile body (proposal 019). Every field optional; unset =
     unchanged. Deliberately excludes name/primary_phone/email (identity/
