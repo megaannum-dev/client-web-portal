@@ -194,15 +194,10 @@ class OnboardingService:
                 units=req.units,
                 mgmt_fee=req.mgmt_fee,
                 incentive_fee=req.incentive_fee,
-                ibhk_account=req.ibhk_account,
+                ib_account=req.ibhk_account,
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
-            )
-            self.db.add(
-                ClientIbAccount(
-                    user_id=staged_user.id, model_id=req.model_id, ib_account=req.ibhk_account
-                )
             )
             self.repo.set_initial_portfolio(
                 staged_user.id, amount_in_trade=amount_in_trade, cash_deposit=cash_deposit
@@ -1065,7 +1060,7 @@ class OnboardingService:
             country_of_residence=display.country_of_residence,
             id_type=onboarding.id_type,
             id_number=onboarding.id_number,
-            ibhk_account=onboarding.ibhk_account or "",
+            ibhk_account=display.ib_account or "",
             sw_account=onboarding.sw_account or "",
             status=onboarding.status.value,
             kind=onboarding.kind.value,

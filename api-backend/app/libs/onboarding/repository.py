@@ -10,6 +10,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.storage import Bucket, client_folder
+from app.libs import ib_accounts
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
@@ -44,6 +45,10 @@ class OnboardingDisplayRow:
     address: str
     country_of_residence: str
     approved_by: str | None  # 014 C-7: resolved display name of users.authorized_by
+    # The client's IB account for THIS cycle's model, read live from
+    # client_ib_accounts (its one home) -- client_onboardings no longer keeps a
+    # duplicate copy. None when the row exists but its account is still NULL.
+    ib_account: str | None
 
 
 @dataclass(frozen=True)
@@ -71,14 +76,19 @@ class OnboardingRepository:
         units: Decimal,
         mgmt_fee: Decimal,
         incentive_fee: Decimal,
-        ibhk_account: str,
+        ib_account: str,
         sw_account: str,
         id_type: str,
         id_number: str,
     ) -> ClientOnboarding:
         """Inserts the one client_onboardings row (unique per user_id) plus one
         onboarding_documents row per REQUIRED_DOCS entry, all not_started. No
-        commit here -- caller's txn boundary (OnboardingService.start)."""
+        commit here -- caller's txn boundary (OnboardingService.start).
+
+        `ib_account` is NOT a client_onboardings column: client_ib_accounts is
+        the single home of a client's per-model IB account, so the value is
+        handed to ib_accounts.ensure() (create-if-absent, never a transfer)
+        instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -86,12 +96,14 @@ class OnboardingRepository:
             multiplier=units,
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
-            ibhk_account=ibhk_account,
             sw_account=sw_account,
             id_type=id_type,
             id_number=id_number,
         )
         self.db.add(onboarding)
+        ib_accounts.ensure(
+            self.db, user_id=user_id, model_id=model_id, account=ib_account
+        )
         self.db.flush()
         for spec in REQUIRED_DOCS:
             self.db.add(
@@ -236,6 +248,11 @@ class OnboardingRepository:
             address=profile.address or "",
             country_of_residence=profile.country_of_residence or "",
             approved_by=approved_by,
+            ib_account=(
+                self.db.query(ClientIbAccount.ib_account)
+                .filter_by(user_id=onboarding.user_id, model_id=onboarding.model_id)
+                .scalar()
+            ),
         )
 
     def _resolve_uid_to_display_name(self, firebase_uid: str | None) -> str | None:

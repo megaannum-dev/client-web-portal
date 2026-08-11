@@ -109,7 +109,10 @@ class OnboardingDTO(BaseModel):
     country_of_residence: str  # joined from ClientProfile
     id_type: str  # -> client_onboardings.id_type
     id_number: str  # -> client_onboardings.id_number
-    ibhk_account: str  # -> client_onboardings.ibhk_account
+    # Field name kept for the FE contract; the VALUE now comes from
+    # client_ib_accounts.ib_account for (user_id, model_id), not from a
+    # client_onboardings column (dropped in migration 0034).
+    ibhk_account: str
     sw_account: str  # -> client_onboardings.sw_account
     status: OnboardingStatus
     kind: OnboardingKind
