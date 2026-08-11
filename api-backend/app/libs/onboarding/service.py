@@ -517,6 +517,14 @@ class OnboardingService:
         client = self.db.get(User, req.client_id)
         if client is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown client")
+        # The FE sends `parseFloat(multiplier) || 0`, so an unparseable field
+        # arrives as 0 and a negative one would DECREMENT the subscription
+        # (:538 is a bare `+`) and reverse-shift the portfolio. Mirrors
+        # submit_redemption's own positivity guard.
+        if req.multiplier <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Allotment units must be positive"
+            )
 
         existing = self.db.get(ClientSubscription, (req.client_id, req.model_id))
         # ORDERING: read agg_before BEFORE the upsert -- same constraint as
