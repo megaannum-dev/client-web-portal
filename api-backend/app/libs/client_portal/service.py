@@ -238,7 +238,9 @@ class ClientPortalService:
     def recommended_models(
         self, user_id: uuid.UUID, include_subscribed: bool = False
     ) -> list[RecommendedModelDTO]:
-        subscribed_ids = {m.id for _, m in self.repo.positions_for_client(user_id)}
+        # 3-tuple: positions_for_client also yields the client's per-model IB
+        # account now. Only the model matters here.
+        subscribed_ids = {m.id for _, m, _ in self.repo.positions_for_client(user_id)}
         return [
             RecommendedModelDTO(
                 model_id=m.id,
