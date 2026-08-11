@@ -143,7 +143,7 @@ class ModelService:
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
-        master_ib_account: str,
+        master_ib_account: str | None = None,
     ) -> Model:
         model = self.repo.create(
             name=name,
