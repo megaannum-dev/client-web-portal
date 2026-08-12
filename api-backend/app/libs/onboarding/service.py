@@ -537,6 +537,11 @@ class OnboardingService:
             )
 
         existing = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        # Snapshot BEFORE upsert_subscription runs: it mutates this same
+        # identity-mapped row in place (get-then-set on the composite PK), so
+        # `existing.multiplier` would read back as the NEW value, not the
+        # pre-upsert one, if checked after line 559 below.
+        is_revived = existing is None or existing.multiplier == 0
         # ORDERING: read agg_before BEFORE the upsert -- same constraint as
         # _approve_initial (double-counts this client's own row otherwise).
         agg_before = self.repo.sum_subscription_multiplier(req.model_id)
@@ -563,12 +568,12 @@ class OnboardingService:
                 mgmt_fee_override=mgmt_override,
                 incentive_fee_override=incentive_override,
             )
-            if existing is None and req.client_ib:
+            if is_revived and req.client_ib:
                 # New subscription to this model -- but NOT necessarily a first
-                # one: a client who fully redeemed has no client_subscriptions
-                # row yet keeps their permanent client_ib_accounts row, so
-                # ensure() finds it and leaves it untouched rather than
-                # colliding on the composite PK.
+                # one: a client who fully redeemed keeps their client_subscriptions
+                # row at multiplier=0 (never deleted) and their permanent
+                # client_ib_accounts row, so ensure() finds it and leaves it
+                # untouched rather than colliding on the composite PK.
                 client_ib_accounts.ensure(
                     self.db,
                     user_id=req.client_id,
