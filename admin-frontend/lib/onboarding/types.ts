@@ -78,6 +78,9 @@ export interface SubmitAllotmentReq {
   mgmt_fee?: number | null;      // only populated for new-subscription mode
   incentive_fee?: number | null; // only populated for new-subscription mode
   source_ticket_ref?: string;    // originating ticket ref, when submitted via Act-on-request deep-link
+  // The client's IB account for this model, captured when the allotment is a
+  // NEW subscription. Optional because add-allotment/redemption never send it.
+  client_ib?: string | null;
 }
 
 export interface SubmitRedemptionReq {
