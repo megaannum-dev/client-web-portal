@@ -771,9 +771,12 @@ class OnboardingService:
     ) -> None:
         """Terminal step, called only from pc_decide_redemption above (this same
         unit) once a row reaches its final PC gate. (1) read agg_before, (2)
-        decrement client_subscriptions.multiplier (delete the row if it reaches
-        0), (3) agg_after = agg_before - row.multiplier, (4) paired portfolio
-        shift (D-1 redemption direction), (5) status=approved + decided_by/
+        decrement client_subscriptions.multiplier (floored at 0 -- never
+        deleted; there is no literal "unsubscription", the row is the
+        client_ib_accounts binding's permanent anchor and a later
+        re-subscription is always Add Allotment on this same row), (3)
+        agg_after = agg_before - row.multiplier, (4) paired portfolio shift
+        (D-1 redemption direction), (5) status=approved + decided_by/
         decided_at, (6) insert client_events. No commit here -- caller's txn
         boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
         its only caller, lives here."""
@@ -785,10 +788,7 @@ class OnboardingService:
         sub = self.db.get(ClientSubscription, (row.user_id, row.model_id))
         assert sub is not None
         remaining = sub.multiplier - row.multiplier
-        if remaining <= 0:
-            self.db.delete(sub)
-        else:
-            sub.multiplier = remaining
+        sub.multiplier = remaining if remaining > 0 else Decimal("0")
 
         agg_after = agg_before - row.multiplier
         amount = row.multiplier * (model.model_size or Decimal("0"))
