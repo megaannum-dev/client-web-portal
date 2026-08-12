@@ -69,6 +69,7 @@ export function SubscriptionFormModal({
   onSuccess,
   availableClients = [],
   availableModels = [],
+  subscribedModelIdsByClient = {},
 }: {
   mode?: SubscriptionModalMode;
   context?: SubscriptionModalContext;
@@ -77,6 +78,10 @@ export function SubscriptionFormModal({
   onSuccess?: () => void;
   availableClients?: { id: string; name: string }[];
   availableModels?: { id: string; name: string; mgmtFee: string; incentiveFee: string; size: number }[];
+  /** Model ids the client already holds (any multiplier > 0), keyed by
+   *  client id — used in new-subscription mode to hide models the selected
+   *  client can't be "newly" subscribed to (that's Add Allotment's job). */
+  subscribedModelIdsByClient?: Record<string, Set<string>>;
 }) {
   const isNew = mode === "new-subscription";
   const isAddAllot = mode === "add-allotment";
@@ -122,8 +127,17 @@ export function SubscriptionFormModal({
       ? "Allot additional units to an existing model subscription."
       : "Redeem units from an existing model subscription.";
 
+  // isNew-only: a client can't be "newly" subscribed to a model they already
+  // hold units of — that's Add Allotment's job (see also client_ib_accounts'
+  // one-account-per-model invariant, which this filter avoids ever tripping).
+  const modelsForSelectedClient = isNew
+    ? availableModels.filter((m) => !subscribedModelIdsByClient[clientId]?.has(m.id))
+    : availableModels;
+
   const onClientChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setClientId(e.target.value);
+    // The previously-picked model may no longer be valid for the new client.
+    if (isNew) { setModelId(""); setModel(""); }
   };
 
   const onModelChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -222,7 +236,7 @@ export function SubscriptionFormModal({
             ) : (
               <select value={modelId} onChange={onModelChange} className={clsx(fieldClass, "font-semibold")}>
                 <option value="" disabled>Select a model…</option>
-                {availableModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {modelsForSelectedClient.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             )}
           </Field>

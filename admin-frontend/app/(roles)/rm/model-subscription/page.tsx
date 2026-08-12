@@ -14,6 +14,8 @@ import {
 import type { SubClient } from "@/lib/rm/subscriptions";
 import { useSubscriptions } from "@/hooks/api/useSubscriptions";
 import { useModels } from "@/hooks/api/useModels";
+import { useClientBook } from "@/hooks/api/useClientBook";
+import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { formatFeePercent } from "@/lib/fee";
 import { DEFAULT_MGMT_FRACTION, DEFAULT_INCENTIVE_FRACTION } from "@/lib/pc/models";
@@ -61,6 +63,10 @@ function ModelSubscriptionContent() {
   const searchParams = useSearchParams();
   const { clients, ensureAllotmentsLoaded, refetch, invalidateClientAllotments } = useSubscriptions();
   const { data: models } = useModels();
+  // Full client roster (not just clients with an existing subscription) so a
+  // fully-redeemed or brand-new client can still be picked for New Subscription.
+  const { data: clientBook } = useClientBook();
+  const { data: board } = useOnboardingBoard();
   const [deepLink, setDeepLink] = useState<{ openClient: string; openModelKey: string } | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const deepLinkApplied = useRef(false);
@@ -78,12 +84,32 @@ function ModelSubscriptionContent() {
 
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
-  const availableClients = clients?.map((c) => ({ id: c.id, name: c.name })) ?? [];
-  const availableModels = (models ?? []).map((m) => ({
-    id: m.id, name: m.name, size: m.size,
-    mgmtFee: formatFeePercent(m.mgmt_fee ?? DEFAULT_MGMT_FRACTION),
-    incentiveFee: formatFeePercent(m.incentive_fee ?? DEFAULT_INCENTIVE_FRACTION),
-  }));
+
+  // A client who is still mid-onboarding (any board column except "active")
+  // shouldn't be offered here yet; a client absent from the board entirely is
+  // either legacy or already fully onboarded, so keep them — same fallback
+  // client-info/page.tsx uses for the same board-overlay gap.
+  const nonActiveUserIds = new Set(
+    (board ?? []).filter((col) => col.status !== "active").flatMap((col) => col.clients.map((c) => c.userId)),
+  );
+  const availableClients = (clientBook ?? [])
+    .filter((c) => !nonActiveUserIds.has(c.id))
+    .map((c) => ({ id: c.id, name: c.name ?? "—" }));
+
+  // Every model a client already holds (any multiplier > 0) — sourced from the
+  // subscriptions payload already loaded for the accordion, no extra fetch.
+  const subscribedModelIdsByClient: Record<string, Set<string>> = {};
+  (clients ?? []).forEach((c) => {
+    subscribedModelIdsByClient[c.id] = new Set(c.models.map((m) => m.modelId));
+  });
+
+  const availableModels = (models ?? [])
+    .filter((m) => m.status === "live")
+    .map((m) => ({
+      id: m.id, name: m.name, size: m.size,
+      mgmtFee: formatFeePercent(m.mgmt_fee ?? DEFAULT_MGMT_FRACTION),
+      incentiveFee: formatFeePercent(m.incentive_fee ?? DEFAULT_INCENTIVE_FRACTION),
+    }));
 
   return (
     <div className="mx-auto">
@@ -115,6 +141,7 @@ function ModelSubscriptionContent() {
           context={modal.context}
           availableClients={availableClients}
           availableModels={availableModels}
+          subscribedModelIdsByClient={subscribedModelIdsByClient}
           onClose={() => setModal(null)}
           onSuccess={() => {
             refetch();
