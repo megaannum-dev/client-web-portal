@@ -153,6 +153,29 @@ class OnboardingService:
         """Delegates client(user+profile) creation to the EXISTING ClientService.onboard
         path (proposal § Layer 2 §A) -- this method adds only the onboarding
         cycle + 7 doc rows on top, inside its own commit."""
+        # All of the checks below run BEFORE ClientService.onboard, which
+        # COMMITS the client user + profile and creates a Firebase identity --
+        # a raise after that point would orphan both (nothing rolls them
+        # back). Order matters: model lookup before the IB check, so an
+        # unknown model_id is reported as such rather than as a format error.
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        # 014 C-9: AUM-floor check -- validated up front so a 422 here leaves
+        # no client_onboardings/onboarding_documents/client_portfolios/users/
+        # client_profiles row behind (no rollback dance needed).
+        amount_in_trade = req.units * (model.model_size or Decimal("0"))
+        cash_deposit = req.initial_cash_deposit - amount_in_trade
+        if cash_deposit < 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Initial cash deposit must cover at least the subscribed amount in trade",
+            )
+        # Same reason: create_cycle -> client_ib_accounts.ensure would raise on
+        # a duplicate/malformed account only AFTER the client exists. This is
+        # the pre-flight; ensure() re-checks at the real write.
+        client_ib_accounts.check(self.db, req.client_ib)
+
         client_service = ClientService(self.db)
         staged_user, _invite_link = client_service.onboard(
             caller_uid=caller_uid,
@@ -175,19 +198,6 @@ class OnboardingService:
             gift_hospitality_preferences=req.gift_hospitality_preferences,
             relationship_notes=req.relationship_notes,
         )
-        model = self.db.get(Model, req.model_id)
-        if model is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
-        # 014 C-9: AUM-floor check -- validated exactly once, before create_cycle
-        # runs, so a 422 here leaves no client_onboardings/onboarding_documents/
-        # client_portfolios row behind (no rollback dance needed).
-        amount_in_trade = req.units * (model.model_size or Decimal("0"))
-        cash_deposit = req.initial_cash_deposit - amount_in_trade
-        if cash_deposit < 0:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "Initial cash deposit must cover at least the subscribed amount in trade",
-            )
         try:
             onboarding = self.repo.create_cycle(
                 user_id=staged_user.id,
