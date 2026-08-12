@@ -235,14 +235,13 @@ class OnboardingService:
     def doc_specs(self) -> list[DocSpecDTO]:
         return [DocSpecDTO(doc_type=d.key, label=d.label, required=d.required) for d in REQUIRED_DOCS]
 
-    def rm_options(self, *, caller_uid: str) -> list[RmOptionDTO]:
-        """ADMIN sees every RM (can assign anyone); any other caller sees only
-        themselves (the picker is enabled everywhere but pre-scoped, so there's
-        nothing else to pick)."""
-        options = [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
-        if self._is_admin(caller_uid):
-            return options
-        return [o for o in options if o.uid == caller_uid]
+    def rm_options(self) -> list[RmOptionDTO]:
+        """Every RM-role admin. Feeds both the "Assigned RM" override picker
+        (ADMIN-only -- _resolve_rm_override still pins any other caller to
+        themselves server-side regardless of what this list offers) and the
+        "Assistant RM" picker (any RM may name any other RM as assistant, no
+        override gate)."""
+        return [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
 
     def _client_folder(self, user_id: uuid.UUID, *, bucket: Bucket) -> str:
         """BE-8: the one per-client folder name, shared by the KYC and
