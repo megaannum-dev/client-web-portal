@@ -229,11 +229,12 @@ def test_forced_failure_after_subscription_upsert_rolls_back_everything(session,
 
 def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(session):
     """The invariant client_ib_accounts exists for: there is no real
-    unsubscription. A full redemption DELETES the client_subscriptions row but
-    the (user_id, model_id) IB-account row is permanent. Resubscribing with a
-    DIFFERENT account string must be rejected loudly -- with the field now
-    required on the form, a silent ignore would look like success while the
-    typed value is discarded. See client_ib_accounts.ensure."""
+    unsubscription. A full redemption floors the client_subscriptions row's
+    multiplier at 0 (never deletes it) and the (user_id, model_id) IB-account
+    row is permanent. Resubscribing with a DIFFERENT account string must be
+    rejected loudly -- with the field now required on the form, a silent
+    ignore would look like success while the typed value is discarded. See
+    client_ib_accounts.ensure."""
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1000000"))
     make_portfolio(session, client, cash_deposit=Decimal("10000000"), amount_in_trade=Decimal("0"))
@@ -249,8 +250,9 @@ def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(
         )
     )
 
-    # Full redemption of all 5 units -> _execute_redemption_approval deletes the
-    # subscription (remaining <= 0), same path test_be4_pc_decide.py drives.
+    # Full redemption of all 5 units -> _execute_redemption_approval floors the
+    # subscription's multiplier at 0 (never deletes it), same path
+    # test_be4_pc_decide.py drives.
     redemption = svc.repo.create_allotment(
         user_id=client.id,
         model_id=model.id,
@@ -265,7 +267,9 @@ def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(
     svc.pc_decide_redemption(
         redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
     )
-    assert session.get(ClientSubscription, (client.id, model.id)) is None
+    sub = session.get(ClientSubscription, (client.id, model.id))
+    assert sub is not None
+    assert sub.multiplier == Decimal("0")
 
     # Resubscribe with a DIFFERENT account string -- must raise, not silently
     # discard it.
@@ -321,7 +325,9 @@ def test_resubscribe_after_full_redemption_with_the_same_account_inherits_it(ses
     svc.pc_decide_redemption(
         redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
     )
-    assert session.get(ClientSubscription, (client.id, model.id)) is None
+    sub = session.get(ClientSubscription, (client.id, model.id))
+    assert sub is not None
+    assert sub.multiplier == Decimal("0")
 
     # Resubscribe with the SAME account (any case/whitespace) -- must not raise.
     svc.submit_allotment(
