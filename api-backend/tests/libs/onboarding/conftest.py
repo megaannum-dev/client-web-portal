@@ -163,16 +163,16 @@ def make_client(session, *, assigned_rm_uid: str | None = None, name: str = "Cat
     return user
 
 
-def make_ib(prefix: str = "IB") -> str:
-    """A globally-unique client IB account string.
+def make_ib(prefix: str = "U") -> str:
+    """A globally-unique, format-valid client IB account string (letter U +
+    7 alphanumerics -- see client_ib_accounts.check).
 
     client_ib_accounts is the single home of a client's per-model IB account
     and account strings are globally unique, so `client_ib_accounts.ensure`
-    raises 422 if two different (client, model) pairs are handed the same
-    literal. Every
-    fixture that needs an account therefore mints a fresh one instead of
-    reusing "IB1"/"IB-0001"."""
-    return f"{prefix}-{uuid.uuid4().hex[:10]}"
+    raises 409 if two different (client, model) pairs are handed the same
+    literal. Every fixture that needs an account therefore mints a fresh one
+    instead of reusing a hardcoded literal."""
+    return f"{prefix}{uuid.uuid4().hex[:7].upper()}"
 
 
 def make_model(
