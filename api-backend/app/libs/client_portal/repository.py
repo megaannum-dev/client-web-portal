@@ -66,6 +66,10 @@ class ClientPortalRepository:
     def positions_for_client(
         self, user_id: uuid.UUID
     ) -> list[tuple[ClientSubscription, Model, str | None]]:
+        # multiplier > 0: a fully-redeemed model's row persists at 0 (never
+        # deleted) so its permanent client_ib_accounts binding survives; it
+        # must not resurface here as a held position or stay excluded from
+        # "recommended" (this query's other consumer, recommended_models).
         rows = (
             self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
@@ -73,7 +77,7 @@ class ClientPortalRepository:
                 ClientIbAccount,
                 and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
             )
-            .filter(ClientSubscription.user_id == user_id)
+            .filter(ClientSubscription.user_id == user_id, ClientSubscription.multiplier > 0)
             .order_by(Model.name)  # § 4.1: "name-sorted"
             .all()
         )
