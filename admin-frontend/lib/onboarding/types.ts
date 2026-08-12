@@ -17,7 +17,7 @@ export interface StartOnboardingReq {
   client_name: string; email: string; primary_phone: string;
   address: string; country_of_residence: string;
   id_type: string; id_number: string;
-  ibhk_account: string; sw_account: string;
+  client_ib: string; sw_account: string;
   model_id: string; units: number;
   initial_cash_deposit: number;              // Decimal-as-number, see BE-8
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
@@ -52,7 +52,7 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   client_ref: string;                                          // display code e.g. "MEGA-0481" — server-formatted, not stored
   primary_phone: string; address: string; country_of_residence: string;   // joined from ClientProfile, not duplicated onto client_onboardings
   id_type: string; id_number: string;                          // genuinely new columns on client_onboardings (D-9)
-  ibhk_account: string; sw_account: string;                    // already existed on client_onboardings; this widening only adds them to the DTO
+  client_ib: string; sw_account: string;                       // already existed on client_onboardings; this widening only adds them to the DTO
   status: OnboardingStatus; kind: OnboardingKind;
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
