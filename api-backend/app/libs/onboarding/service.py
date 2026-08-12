@@ -670,6 +670,15 @@ class OnboardingService:
         multiplier = req.multiplier
         if sub is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No subscription to redeem from")
+        # A fully-redeemed subscription is never deleted (multiplier floored
+        # at 0, not dropped -- see _execute_redemption_approval), so `sub is
+        # None` alone no longer catches "nothing left to redeem." Distinct
+        # from that 404: the row exists, there's just nothing left on it.
+        if sub.multiplier <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "No units remaining to redeem from this subscription",
+            )
         if req.emergent:
             multiplier = sub.multiplier  # D-3: emergent redeems the FULL current holding
         if multiplier > sub.multiplier:
