@@ -23,6 +23,7 @@ export interface StartOnboardingReq {
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
   assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
+  asst_rm_uid?: string | null;                // any RM may set; no override gate server-side
   // Client Preference step (FE-17) — all optional, omitted entirely when blank.
   occupation?: string;
   date_of_birth?: string;                     // "YYYY-MM-DD"

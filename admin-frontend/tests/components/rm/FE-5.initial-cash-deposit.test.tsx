@@ -60,7 +60,7 @@ function goToTradeInfo() {
 }
 
 function fillTradeInfo({ modelId, units, deposit }: { modelId: string; units: string; deposit: string }) {
-  fireEvent.change(screen.getByPlaceholderText("e.g. IB-8801"), { target: { value: "IB-1" } });
+  fireEvent.change(screen.getByPlaceholderText("e.g. U1234567"), { target: { value: "U1234567" } });
   fireEvent.change(screen.getByPlaceholderText("e.g. SW-4420"), { target: { value: "SW-1" } });
   fireEvent.change(screen.getByDisplayValue("Select a model…"), { target: { value: modelId } });
   fireEvent.change(screen.getByPlaceholderText("e.g. 2"), { target: { value: units } });

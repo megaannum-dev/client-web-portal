@@ -121,7 +121,7 @@ describe("FE-1 OnboardingModal uses the passed startOnboarding reference", () =>
     // unconditionally true) — one more Next click skips through it.
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    fireEvent.change(screen.getByPlaceholderText("e.g. IB-8801"), { target: { value: "IB-1" } });
+    fireEvent.change(screen.getByPlaceholderText("e.g. U1234567"), { target: { value: "U1234567" } });
     fireEvent.change(screen.getByPlaceholderText("e.g. SW-4420"), { target: { value: "SW-1" } });
     fireEvent.change(screen.getByDisplayValue("Select a model…"), { target: { value: "m-1" } });
     fireEvent.change(screen.getByPlaceholderText("e.g. 2"), { target: { value: "2" } });
