@@ -44,7 +44,12 @@ class ClientPortalRepository:
         return self.db.get(ClientPortfolio, user_id)  # DB B-3: may be None
 
     def has_subscription(self, user_id: uuid.UUID, model_id: uuid.UUID) -> bool:
-        """True iff this client holds a client_subscriptions row for this model.
+        """True iff this client currently HOLDS units in this model. A full
+        redemption floors client_subscriptions.multiplier at 0 rather than
+        deleting the row (see onboarding/service.py
+        _execute_redemption_approval), so a plain existence check would keep
+        granting entitlement (e.g. marketing-material access) forever after a
+        client has fully redeemed -- multiplier > 0 is required.
         Cheaper single-row existence check for the hot path (BE-15) -- does not
         reuse positions_for_client's join."""
         return (
@@ -52,6 +57,7 @@ class ClientPortalRepository:
             .filter(
                 ClientSubscription.user_id == user_id,
                 ClientSubscription.model_id == model_id,
+                ClientSubscription.multiplier > 0,
             )
             .first()
             is not None
