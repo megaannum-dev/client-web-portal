@@ -535,7 +535,18 @@ class OnboardingRepository:
     ) -> list[tuple[ClientProfile, ClientSubscription, Model, str | None]]:
         """014 D (BE-9): every (client profile, subscription, model) row,
         joined -- unfiltered by RM-book visibility (the SERVICE layer applies
-        that via ClientRepository.list_visible)."""
+        that via ClientRepository.list_visible).
+
+        Deliberately NOT filtered on multiplier > 0 either: a fully-redeemed
+        model persists here at multiplier=0 (see client_ib_accounts.py's "no
+        real unsubscription" invariant), and the admin-frontend RM board uses
+        that to know which models a client already holds so New Subscription
+        can hide them (routing to Add Allotment instead). Filter 0-unit rows
+        at DISPLAY time on the frontend, never in this query -- see the
+        subscription-lifecycle plan notes on client_portal.repository's
+        has_subscription/positions_for_client, which is the correct
+        counterexample: those two ARE safe to filter here because nothing
+        downstream of them needs to see a 0-unit row."""
         rows = (
             self.db.query(ClientProfile, ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
@@ -621,6 +632,11 @@ class OnboardingRepository:
     def list_subscriptions_for_client(
         self, user_id: uuid.UUID
     ) -> list[tuple[ClientSubscription, Model, str | None]]:
+        # No multiplier > 0 filter, deliberately -- no current consumer needs
+        # 0-unit rows excluded, and this is the RM-book sibling of
+        # list_all_subscriptions above (same reasoning): if a future caller
+        # ever uses this list for "already held" detection, a query-level
+        # filter here would silently break it. Filter at display time instead.
         rows = (
             self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
