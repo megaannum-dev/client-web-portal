@@ -119,6 +119,11 @@ class OnboardingDTO(BaseModel):
     verified_count: int
     required_count: int
     reject_reason: str | None
+    # True while this cycle is waiting on re-provisioned documents (Compliance's
+    # ad-hoc request or the renewal scheduler), as opposed to having been
+    # rejected -- both land on status="pending_review". See
+    # ClientOnboarding.awaiting_reprovision for why this exists and when it goes.
+    awaiting_reprovision: bool
     submitted_at: datetime | None
     created_at: datetime
     approved_by: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by

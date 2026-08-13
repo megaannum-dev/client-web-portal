@@ -107,6 +107,18 @@ class ClientOnboarding(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # ponytail: this boolean is standing in for a missing FIFTH OnboardingStatus.
+    # `pending_review` currently means two different things -- "Compliance
+    # rejected this package" and "these documents must be re-provisioned" (by
+    # the renewal scheduler or by Compliance's ad-hoc request) -- and nothing on
+    # the wire tells them apart, so the admin-frontend labels a re-provision
+    # request "Rejected". True only between a reopen and the next
+    # approve/reject decision. TEMPORARY: collapse into OnboardingStatus as
+    # `awaiting_reprovision` next time the status machine is touched, and drop
+    # this column then.
+    awaiting_reprovision: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("0")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

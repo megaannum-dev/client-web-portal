@@ -387,6 +387,7 @@ class OnboardingService:
             onboarding.status = OnboardingStatus.ACTIVE
             onboarding.decided_at = datetime.utcnow()
             onboarding.reject_reason = None
+            onboarding.awaiting_reprovision = False  # the re-provision cycle is closed
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -471,6 +472,9 @@ class OnboardingService:
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.decided_at = datetime.utcnow()
         onboarding.reject_reason = req.reason
+        # A rejection and a re-provision request share pending_review; clearing
+        # the flag here is what keeps a REJECTED renewal from reading as one.
+        onboarding.awaiting_reprovision = False
         self.repo.reset_non_verified_for_reupload(onboarding_id)
         self.db.commit()
         return self._to_dto(onboarding, with_documents=True)
@@ -494,6 +498,11 @@ class OnboardingService:
         onboarding.kind = OnboardingKind.RENEWAL
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.reject_reason = reason
+        # Distinguishes this pending_review row from a Compliance REJECTION,
+        # which lands on the same status -- see the column's own ponytail note.
+        # Set here rather than in request_reprovision so the scheduler's
+        # periodic sweep is covered by the same line.
+        onboarding.awaiting_reprovision = True
         for doc in due_docs:
             self.repo.flag_pending_renewal(doc, note=note)
         labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
@@ -1150,6 +1159,7 @@ class OnboardingService:
             verified_count=verified,
             required_count=required,
             reject_reason=onboarding.reject_reason,
+            awaiting_reprovision=onboarding.awaiting_reprovision,
             submitted_at=onboarding.submitted_at,
             created_at=onboarding.created_at,
             approved_by=display.approved_by,
