@@ -5,11 +5,11 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.models.onboarding import ClientOnboarding
-from app.models.pc import ClientSubscription, Model, ModelStatus
+from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
@@ -30,11 +30,11 @@ class ClientRow:
     name: str | None
     phone: str | None
     assigned_rm: str | None
+    asst_rm: str | None
     address: str | None
     country_of_residence: str | None
     authorized_person: str | None
     initiate_method: str | None
-    ib_account: str | None
     email: str | None
     authorized_by_name: str | None  # 014 C-7: resolved display name of users.authorized_by
     id_type: str | None  # 014 C-8: client_onboardings.id_type, joined
@@ -52,17 +52,14 @@ class ClientRow:
 
 @dataclass(frozen=True)
 class SubscriptionRow:
-    """One client_subscriptions row joined to its model — account is the
-    client's single ib_account (client_profiles.ib_account), repeated per row.
-
-    STALE (ib-account-relations rework): client_profiles.ib_account was
-    dropped. This should now read the new client_ib_accounts table
-    (joined on user_id, model_id) per row instead of repeating one
-    client-level value."""
+    """One client_subscriptions row joined to its model — `client_ib` is the
+    client's IB account for THAT model, read from client_ib_accounts on
+    (user_id, model_id). Nullable: a subscription whose (client, model) pair
+    has no account row yet still lists, with client_ib=None."""
 
     model: str
     status: str
-    account: str | None
+    client_ib: str | None
 
 
 class ClientRepository:
@@ -79,10 +76,13 @@ class ClientRepository:
         """
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
+        AsstRM = aliased(User)
+        AsstRMProfile = aliased(AdminProfile)
         ClientUser = aliased(User)
         Approver = aliased(User)
         ApproverProfile = aliased(AdminProfile)
         rm_name = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        asst_rm_name = func.coalesce(AsstRMProfile.name, AsstRM.email, ClientProfile.asst_rm_uid)
         # 014 C-7: same uid -> display-name coalesce as onboarding/repository.py's
         # display_fields().approved_by -- one resolution, two call sites.
         authorized_by_name = func.coalesce(
@@ -95,15 +95,11 @@ class ClientRepository:
                 ClientProfile.name,
                 ClientProfile.primary_phone.label("phone"),
                 rm_name.label("assigned_rm"),
+                asst_rm_name.label("asst_rm"),
                 ClientProfile.address,
                 ClientProfile.country_of_residence,
                 ClientProfile.authorized_person,
                 ClientProfile.initiate_method,
-                # BROKEN (ib-account-relations rework): ClientProfile.ib_account
-                # was dropped -- repoint to a per-model client_subscriptions
-                # .client_ib_account source in the BE layer (this query has no
-                # model_id to join on today).
-                ClientProfile.ib_account,
                 ClientUser.email.label("email"),
                 authorized_by_name.label("authorized_by_name"),
                 ClientOnboarding.id_type,
@@ -120,6 +116,8 @@ class ClientRepository:
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
+            .outerjoin(AsstRM, AsstRM.firebase_uid == ClientProfile.asst_rm_uid)
+            .outerjoin(AsstRMProfile, AsstRMProfile.user_id == AsstRM.id)
             .outerjoin(ClientUser, ClientUser.id == ClientProfile.user_id)
             .outerjoin(Approver, Approver.firebase_uid == ClientUser.authorized_by)
             .outerjoin(ApproverProfile, ApproverProfile.user_id == Approver.id)
@@ -158,10 +156,14 @@ class ClientRepository:
     def get_portfolio(self, client_id: uuid.UUID) -> ClientPortfolio | None:
         return self.db.get(ClientPortfolio, client_id)
 
-    def list_subscriptions(self, client_id: uuid.UUID, ib_account: str | None) -> list[SubscriptionRow]:
+    def list_subscriptions(self, client_id: uuid.UUID) -> list[SubscriptionRow]:
         rows = (
-            self.db.query(Model.name, Model.status)
+            self.db.query(Model.name, Model.status, ClientIbAccount.ib_account)
             .join(ClientSubscription, ClientSubscription.model_id == Model.id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == client_id),
+            )
             .filter(
                 ClientSubscription.user_id == client_id,
                 Model.status != ModelStatus.DELETED,
@@ -169,7 +171,7 @@ class ClientRepository:
             .all()
         )
         return [
-            SubscriptionRow(model=r.name, status=r.status.value, account=ib_account)
+            SubscriptionRow(model=r.name, status=r.status.value, client_ib=r.ib_account)
             for r in rows
         ]
 
@@ -181,6 +183,7 @@ class ClientRepository:
         email: str | None,
         name: str | None,
         assigned_rm_uid: str,
+        asst_rm_uid: str | None = None,
         authorized_by: str,
         **profile_fields: str | None,  # primary_phone, address, country_of_residence,
         # authorized_person, initiate_method
@@ -201,7 +204,11 @@ class ClientRepository:
         self.db.flush()
         self.db.add(
             ClientProfile(
-                user_id=user.id, name=name, assigned_rm_uid=assigned_rm_uid, **profile_fields,
+                user_id=user.id,
+                name=name,
+                assigned_rm_uid=assigned_rm_uid,
+                asst_rm_uid=asst_rm_uid,
+                **profile_fields,
             )
         )
 
@@ -219,11 +226,11 @@ class ClientRepository:
             name=r.name,
             phone=r.phone,
             assigned_rm=r.assigned_rm,
+            asst_rm=r.asst_rm,
             address=r.address,
             country_of_residence=r.country_of_residence,
             authorized_person=r.authorized_person,
             initiate_method=r.initiate_method,
-            ib_account=r.ib_account,
             email=r.email,
             authorized_by_name=r.authorized_by_name,
             id_type=r.id_type,

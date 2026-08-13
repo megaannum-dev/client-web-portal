@@ -11,10 +11,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.models.pc import (
+    ClientIbAccount,
     ClientSubscription,
     Model,
     ModelChange,
@@ -61,6 +62,7 @@ class ModelRepository:
         nav_perf: str | None = None,
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
+        master_ib_account: str,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),
@@ -77,6 +79,7 @@ class ModelRepository:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
+            master_ib_account=master_ib_account
         )
         if symbols:
             model.symbols = [
@@ -245,9 +248,15 @@ class _SubscriptionCell:
 
 
 class _RosterRow:
-    """Lightweight result row from roster()."""
+    """Lightweight result row from roster().
 
-    __slots__ = ("user_id", "firebase_uid", "email", "name", "ib_account")
+    ib_account removed: it now lives at the per-(user, model) grain on
+    client_ib_accounts (see list_active_subscriptions), and this row is
+    one-per-client, not one-per-(client, model), so there is no single
+    correct account value to put here anymore.
+    """
+
+    __slots__ = ("user_id", "firebase_uid", "email", "name")
 
     def __init__(
         self,
@@ -255,13 +264,11 @@ class _RosterRow:
         firebase_uid: str,
         email: str | None,
         name: str | None,
-        ib_account: str | None,
     ) -> None:
         self.user_id = user_id
         self.firebase_uid = firebase_uid
         self.email = email
         self.name = name
-        self.ib_account = ib_account
 
 
 class _WatermarkResult:
@@ -279,12 +286,13 @@ class SubscriptionRepository:
         self.db = db
 
     def list_active_subscriptions(self) -> list[_SubscriptionCell]:
-        """Return all subscriptions joined to LIVE models + client profile ib_account.
+        """Return all subscriptions joined to LIVE models + per-(user, model) ib_account.
 
-        BROKEN (ib-account-relations rework): ClientProfile.ib_account below
-        was dropped. Repoint available here -- join the new client_ib_accounts
-        table on (user_id, model_id), both already in scope in this query.
-        Left unfixed (BE-layer follow-up), not part of this DB-only change.
+        ib_account now lives on client_ib_accounts, keyed on the composite
+        (user_id, model_id) -- both already in scope via ClientSubscription.
+        outerjoin because the column is a nullable rollout: not every
+        subscription has an assigned account yet, and those rows must still
+        appear (with ib_account=None) rather than being dropped.
         """
         rows = (
             self.db.query(
@@ -292,10 +300,16 @@ class SubscriptionRepository:
                 ClientSubscription.model_id,
                 ClientSubscription.multiplier,
                 Model.model_size,
-                ClientProfile.ib_account,
+                ClientIbAccount.ib_account,
             )
             .join(Model, Model.id == ClientSubscription.model_id)
-            .join(ClientProfile, ClientProfile.user_id == ClientSubscription.user_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(
+                    ClientIbAccount.user_id == ClientSubscription.user_id,
+                    ClientIbAccount.model_id == ClientSubscription.model_id,
+                ),
+            )
             .filter(Model.status == ModelStatus.LIVE)
             .all()
         )
@@ -311,12 +325,10 @@ class SubscriptionRepository:
         ]
 
     def roster(self) -> list[_RosterRow]:
-        """All client-portal users with their ib_account.
+        """All client-portal users (one row per client).
 
-        BROKEN (ib-account-relations rework): ClientProfile.ib_account below
-        was dropped, and unlike list_active_subscriptions above, this query
-        has no model_id in scope -- there is no longer one account per
-        client to select. Needs a BE-layer redesign, not a trivial repoint.
+        ib_account removed: it moved to the per-(user, model) grain on
+        client_ib_accounts, exposed elsewhere (see list_active_subscriptions).
         """
         rows = (
             self.db.query(
@@ -324,7 +336,6 @@ class SubscriptionRepository:
                 User.firebase_uid,
                 User.email,
                 ClientProfile.name,
-                ClientProfile.ib_account,
             )
             .join(ClientProfile, ClientProfile.user_id == User.id)
             .filter(User.portal == Portal.CLIENT)
@@ -336,7 +347,6 @@ class SubscriptionRepository:
                 firebase_uid=r[1],
                 email=r[2],
                 name=r[3],
-                ib_account=r[4],
             )
             for r in rows
         ]

@@ -11,6 +11,8 @@ from app.core.database import get_db
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
 from app.libs.clients.schemas import (
+    ClientIbAccountIn,
+    ClientIbAccountOut,
     ClientListItemOut,
     ClientListOut,
     ClientOnboardIn,
@@ -73,6 +75,23 @@ def update_client(
     return service.update_profile(role, user.firebase_uid, client_id, body)
 
 
+@router.put(
+    "/clients/{client_id}/models/{model_id}/client-ib",
+    response_model=ClientIbAccountOut,
+)
+def set_client_ib_account(
+    client_id: uuid.UUID,
+    model_id: uuid.UUID,
+    body: ClientIbAccountIn,
+    service: Annotated[ClientService, Depends(_get_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_caller_role)],
+) -> ClientIbAccountOut:
+    return service.set_ib_account(
+        role, user.firebase_uid, client_id, model_id, body.account_id
+    )
+
+
 @router.post("/clients", response_model=ClientOnboardOut, status_code=201)
 def onboard_client(
     body: ClientOnboardIn,
@@ -86,6 +105,7 @@ def onboard_client(
         email=body.email,
         name=body.name,
         assigned_rm_uid=body.assigned_rm_uid,
+        asst_rm_uid=body.asst_rm_uid,
         identity=identity,
         settings=settings,
         primary_phone=body.primary_phone,

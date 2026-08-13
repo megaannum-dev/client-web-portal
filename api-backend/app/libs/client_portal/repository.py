@@ -11,12 +11,12 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Row, exists, func
+from sqlalchemy import Row, and_, exists, func
 from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import ClientSubscription, Model, ModelMaterial, ModelStatus
+from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelMaterial, ModelStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     ClientPortfolioRunDelta,
@@ -44,7 +44,12 @@ class ClientPortalRepository:
         return self.db.get(ClientPortfolio, user_id)  # DB B-3: may be None
 
     def has_subscription(self, user_id: uuid.UUID, model_id: uuid.UUID) -> bool:
-        """True iff this client holds a client_subscriptions row for this model.
+        """True iff this client currently HOLDS units in this model. A full
+        redemption floors client_subscriptions.multiplier at 0 rather than
+        deleting the row (see onboarding/service.py
+        _execute_redemption_approval), so a plain existence check would keep
+        granting entitlement (e.g. marketing-material access) forever after a
+        client has fully redeemed -- multiplier > 0 is required.
         Cheaper single-row existence check for the hot path (BE-15) -- does not
         reuse positions_for_client's join."""
         return (
@@ -52,16 +57,27 @@ class ClientPortalRepository:
             .filter(
                 ClientSubscription.user_id == user_id,
                 ClientSubscription.model_id == model_id,
+                ClientSubscription.multiplier > 0,
             )
             .first()
             is not None
         )
 
-    def positions_for_client(self, user_id: uuid.UUID) -> list[tuple[ClientSubscription, Model]]:
+    def positions_for_client(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[ClientSubscription, Model, str | None]]:
+        # multiplier > 0: a fully-redeemed model's row persists at 0 (never
+        # deleted) so its permanent client_ib_accounts binding survives; it
+        # must not resurface here as a held position or stay excluded from
+        # "recommended" (this query's other consumer, recommended_models).
         rows = (
-            self.db.query(ClientSubscription, Model)
+            self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
-            .filter(ClientSubscription.user_id == user_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+            )
+            .filter(ClientSubscription.user_id == user_id, ClientSubscription.multiplier > 0)
             .order_by(Model.name)  # § 4.1: "name-sorted"
             .all()
         )

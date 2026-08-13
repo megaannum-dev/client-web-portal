@@ -294,7 +294,14 @@ class ClientIbAccount(Base):
         onupdate=func.now(),
     )
 
-    __table_args__ = (Index("ix_client_ib_accounts_model_id", "model_id"),)
+    __table_args__ = (
+        Index("ix_client_ib_accounts_model_id", "model_id"),
+        # Mirrors migration 0034 (9d1c4a7e6b52), applied in prod but missing
+        # from this ORM model until now -- every test DB is built from this
+        # metadata via create_all(), so without it no test can prove a
+        # duplicate ib_account is actually rejected at the DB level.
+        UniqueConstraint("ib_account", name="uq_client_ib_accounts_ib_account"),
+    )
 
 
 # ---------------------------------------------------------------------------

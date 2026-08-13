@@ -77,9 +77,9 @@ class PostTradeAllocationService:
                 by_model[s.model_id].append(s)
 
             # --- Step 1: pick up new orders ---------------------------------
-            demo_datetime = datetime(2026, 7, 13, tzinfo=timezone.utc);
-            # orders = self.repo.unallocated_orders(after=period.confirmed_at)
-            orders = self.repo.unallocated_orders(after=demo_datetime)
+            # demo_datetime = datetime(2026, 7, 13, tzinfo=timezone.utc);
+            orders = self.repo.unallocated_orders(after=period.confirmed_at)
+            # orders = self.repo.unallocated_orders(after=demo_datetime)
             if not orders:
                 newest_run = self.repo.create_run(
                     trade_date=datetime.now(timezone.utc).strftime("%Y%m%d"),
@@ -133,7 +133,10 @@ class PostTradeAllocationService:
                         units_total=units_total,
                         cells=cells,
                         model=model,
-                        model_acct=model_acct[model_name],
+                        # models.master_ib_account is the source of truth for the
+                        # account a model trades through; the first-order accountId
+                        # is only a fallback while the column is still nullable.
+                        model_acct=model.master_ib_account or model_acct[model_name],
                         run_id=run.id,
                     )
                     self.repo.write_cells(cell_rows)

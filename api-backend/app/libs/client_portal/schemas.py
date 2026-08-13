@@ -33,12 +33,9 @@ class ClientProfileDTO(BaseModel):
     date_of_birth: date | None  # client_profiles.date_of_birth (read-only -- D-11)
     address: str | None  # client_profiles.address
     country_of_residence: str | None
-    # STALE (ib-account-relations rework): client_profiles.ib_account was
-    # dropped -- a client now has one account per model (PositionDTO.ib_account
-    # below), not one account overall. Repoint or remove in the BE layer.
-    ib_account: str | None
     client_ref: str  # "MEGA-XXXX", formatted from user_id (existing helper)
     assigned_rm: RmContactDTO | None
+    asst_rm: RmContactDTO | None
 
 
 class ClientProfilePatch(BaseModel):  # every field optional; unset = unchanged
@@ -58,9 +55,8 @@ class PositionDTO(BaseModel):
     amount: float  # units * models.model_size
     model_limit: float | None  # models.model_limit -- a distinct cap, not model_size
     model_size: float | None  # models.model_size -- prices one unit
-    # STALE (ib-account-relations rework): source column dropped -- repoint
-    # to the new client_ib_accounts table (user_id, model_id) in the BE layer.
-    ib_account: str | None  # was client_profiles.ib_account (per-client, echoed per-row)
+    master_ib: str | None  # models.master_ib_account -- the MODEL's own account
+    client_ib: str | None  # client_ib_accounts.ib_account for (this client, this model)
     category: list[str] | None  # models.category (JSON) -- a real model attribute
     has_material: bool  # a model_materials row exists
 
@@ -166,10 +162,7 @@ class RmTicketDTO(BaseModel):
     client: str  # client_profiles.name
     contact: str | None  # client_profiles.authorized_person
     email: str | None  # users.email
-    # STALE (ib-account-relations rework): source column dropped -- a ticket
-    # concerns one model, so this should resolve to that (user_id, model_id)'s
-    # row in the new client_ib_accounts table in the BE layer.
-    account: str | None  # was client_profiles.ib_account
+    client_ib: str | None  # client_ib_accounts.ib_account for (client, model_id)
     model: str | None
     model_id: uuid.UUID | None  # client_tickets.model_id -- real FK, None for kind="other"
     kind: TicketKind

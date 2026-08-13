@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.storage import Bucket, client_folder, get_storage
+from app.libs import client_ib_accounts
 from app.libs.clients.service import ClientService
 from app.libs.identity.mailer import send_set_password_email
 from app.libs.identity.service import FirebaseIdentityService
@@ -70,7 +71,7 @@ from app.models.onboarding import (
     TicketStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
@@ -152,18 +153,41 @@ class OnboardingService:
         """Delegates client(user+profile) creation to the EXISTING ClientService.onboard
         path (proposal § Layer 2 §A) -- this method adds only the onboarding
         cycle + 7 doc rows on top, inside its own commit."""
+        # All of the checks below run BEFORE ClientService.onboard, which
+        # COMMITS the client user + profile and creates a Firebase identity --
+        # a raise after that point would orphan both (nothing rolls them
+        # back). Order matters: model lookup before the IB check, so an
+        # unknown model_id is reported as such rather than as a format error.
+        model = self.db.get(Model, req.model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
+        # 014 C-9: AUM-floor check -- validated up front so a 422 here leaves
+        # no client_onboardings/onboarding_documents/client_portfolios/users/
+        # client_profiles row behind (no rollback dance needed).
+        amount_in_trade = req.units * (model.model_size or Decimal("0"))
+        cash_deposit = req.initial_cash_deposit - amount_in_trade
+        if cash_deposit < 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Initial cash deposit must cover at least the subscribed amount in trade",
+            )
+        # Same reason: create_cycle -> client_ib_accounts.ensure would raise on
+        # a duplicate/malformed account only AFTER the client exists. This is
+        # the pre-flight; ensure() re-checks at the real write.
+        client_ib_accounts.check(self.db, req.client_ib)
+
         client_service = ClientService(self.db)
         staged_user, _invite_link = client_service.onboard(
             caller_uid=caller_uid,
             email=req.email,
             name=req.client_name,
             assigned_rm_uid=self._resolve_rm_override(req.assigned_rm_uid, caller_uid=caller_uid),
+            asst_rm_uid=req.asst_rm_uid,
             identity=identity,
             settings=settings,
             primary_phone=req.primary_phone,
             address=req.address,
             country_of_residence=req.country_of_residence,
-            ib_account=req.ibhk_account,
             occupation=req.occupation,
             date_of_birth=req.date_of_birth,
             anniversary=req.anniversary,
@@ -174,19 +198,6 @@ class OnboardingService:
             gift_hospitality_preferences=req.gift_hospitality_preferences,
             relationship_notes=req.relationship_notes,
         )
-        model = self.db.get(Model, req.model_id)
-        if model is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
-        # 014 C-9: AUM-floor check -- validated exactly once, before create_cycle
-        # runs, so a 422 here leaves no client_onboardings/onboarding_documents/
-        # client_portfolios row behind (no rollback dance needed).
-        amount_in_trade = req.units * (model.model_size or Decimal("0"))
-        cash_deposit = req.initial_cash_deposit - amount_in_trade
-        if cash_deposit < 0:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "Initial cash deposit must cover at least the subscribed amount in trade",
-            )
         try:
             onboarding = self.repo.create_cycle(
                 user_id=staged_user.id,
@@ -194,7 +205,7 @@ class OnboardingService:
                 units=req.units,
                 mgmt_fee=req.mgmt_fee,
                 incentive_fee=req.incentive_fee,
-                ibhk_account=req.ibhk_account,
+                client_ib=req.client_ib,
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
@@ -224,14 +235,13 @@ class OnboardingService:
     def doc_specs(self) -> list[DocSpecDTO]:
         return [DocSpecDTO(doc_type=d.key, label=d.label, required=d.required) for d in REQUIRED_DOCS]
 
-    def rm_options(self, *, caller_uid: str) -> list[RmOptionDTO]:
-        """ADMIN sees every RM (can assign anyone); any other caller sees only
-        themselves (the picker is enabled everywhere but pre-scoped, so there's
-        nothing else to pick)."""
-        options = [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
-        if self._is_admin(caller_uid):
-            return options
-        return [o for o in options if o.uid == caller_uid]
+    def rm_options(self) -> list[RmOptionDTO]:
+        """Every RM-role admin. Feeds both the "Assigned RM" override picker
+        (ADMIN-only -- _resolve_rm_override still pins any other caller to
+        themselves server-side regardless of what this list offers) and the
+        "Assistant RM" picker (any RM may name any other RM as assistant, no
+        override gate)."""
+        return [RmOptionDTO(uid=uid, name=name) for uid, name in self.repo.list_rm_options()]
 
     def _client_folder(self, user_id: uuid.UUID, *, bucket: Bucket) -> str:
         """BE-8: the one per-client folder name, shared by the KYC and
@@ -517,8 +527,21 @@ class OnboardingService:
         client = self.db.get(User, req.client_id)
         if client is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown client")
+        # The FE sends `parseFloat(multiplier) || 0`, so an unparseable field
+        # arrives as 0 and a negative one would DECREMENT the subscription
+        # (:538 is a bare `+`) and reverse-shift the portfolio. Mirrors
+        # submit_redemption's own positivity guard.
+        if req.multiplier <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Allotment units must be positive"
+            )
 
         existing = self.db.get(ClientSubscription, (req.client_id, req.model_id))
+        # Snapshot BEFORE upsert_subscription runs: it mutates this same
+        # identity-mapped row in place (get-then-set on the composite PK), so
+        # `existing.multiplier` would read back as the NEW value, not the
+        # pre-upsert one, if checked after line 559 below.
+        is_revived = existing is None or existing.multiplier == 0
         # ORDERING: read agg_before BEFORE the upsert -- same constraint as
         # _approve_initial (double-counts this client's own row otherwise).
         agg_before = self.repo.sum_subscription_multiplier(req.model_id)
@@ -545,6 +568,18 @@ class OnboardingService:
                 mgmt_fee_override=mgmt_override,
                 incentive_fee_override=incentive_override,
             )
+            if is_revived and req.client_ib:
+                # New subscription to this model -- but NOT necessarily a first
+                # one: a client who fully redeemed keeps their client_subscriptions
+                # row at multiplier=0 (never deleted) and their permanent
+                # client_ib_accounts row, so ensure() finds it and leaves it
+                # untouched rather than colliding on the composite PK.
+                client_ib_accounts.ensure(
+                    self.db,
+                    user_id=req.client_id,
+                    model_id=req.model_id,
+                    account=req.client_ib,
+                )
             allotment = self.repo.create_allotment(
                 user_id=req.client_id,
                 model_id=req.model_id,
@@ -635,6 +670,15 @@ class OnboardingService:
         multiplier = req.multiplier
         if sub is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No subscription to redeem from")
+        # A fully-redeemed subscription is never deleted (multiplier floored
+        # at 0, not dropped -- see _execute_redemption_approval), so `sub is
+        # None` alone no longer catches "nothing left to redeem." Distinct
+        # from that 404: the row exists, there's just nothing left on it.
+        if sub.multiplier <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "No units remaining to redeem from this subscription",
+            )
         if req.emergent:
             multiplier = sub.multiplier  # D-3: emergent redeems the FULL current holding
         if multiplier > sub.multiplier:
@@ -741,9 +785,12 @@ class OnboardingService:
     ) -> None:
         """Terminal step, called only from pc_decide_redemption above (this same
         unit) once a row reaches its final PC gate. (1) read agg_before, (2)
-        decrement client_subscriptions.multiplier (delete the row if it reaches
-        0), (3) agg_after = agg_before - row.multiplier, (4) paired portfolio
-        shift (D-1 redemption direction), (5) status=approved + decided_by/
+        decrement client_subscriptions.multiplier (floored at 0 -- never
+        deleted; there is no literal "unsubscription", the row is the
+        client_ib_accounts binding's permanent anchor and a later
+        re-subscription is always Add Allotment on this same row), (3)
+        agg_after = agg_before - row.multiplier, (4) paired portfolio shift
+        (D-1 redemption direction), (5) status=approved + decided_by/
         decided_at, (6) insert client_events. No commit here -- caller's txn
         boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
         its only caller, lives here."""
@@ -755,10 +802,7 @@ class OnboardingService:
         sub = self.db.get(ClientSubscription, (row.user_id, row.model_id))
         assert sub is not None
         remaining = sub.multiplier - row.multiplier
-        if remaining <= 0:
-            self.db.delete(sub)
-        else:
-            sub.multiplier = remaining
+        sub.multiplier = remaining if remaining > 0 else Decimal("0")
 
         agg_after = agg_before - row.multiplier
         amount = row.multiplier * (model.model_size or Decimal("0"))
@@ -847,18 +891,14 @@ class OnboardingService:
 
     # ---- Client: subscriptions / events --------------------------------------
     def client_subscriptions(self, user_id: uuid.UUID) -> list[SubscriptionDTO]:
-        profile = (
-            self.db.query(ClientProfile).filter(ClientProfile.user_id == user_id).one_or_none()
-        )
-        ib_account = profile.ib_account if profile else None
         return [
             SubscriptionDTO(
                 model_id=model.id,
                 model_name=model.name,
                 units=float(sub.multiplier),
-                ib_account=ib_account,
+                client_ib=client_ib,
             )
-            for sub, model in self.repo.list_subscriptions_for_client(user_id)
+            for sub, model, client_ib in self.repo.list_subscriptions_for_client(user_id)
         ]
 
     def client_events(self, user_id: uuid.UUID) -> list[ClientEventDTO]:
@@ -954,7 +994,7 @@ class OnboardingService:
 
         visible_ids = {row.id for row in ClientRepository(self.db).list_visible(role, rm_uid)}
         by_client: dict[uuid.UUID, ClientSubscriptionsDTO] = {}
-        for profile, sub, model in self.repo.list_all_subscriptions():
+        for profile, sub, model, client_ib in self.repo.list_all_subscriptions():
             if str(profile.user_id) not in visible_ids:
                 continue
             amount = sub.multiplier * (model.model_size or Decimal("0"))
@@ -972,7 +1012,7 @@ class OnboardingService:
                     if sub.incentive_fee_override is not None
                     else (model.incentive_fee or Decimal("0"))
                 ),
-                ib_account=profile.ib_account,
+                client_ib=client_ib,
                 amount=amount,
             )
             bucket = by_client.setdefault(
@@ -1057,13 +1097,14 @@ class OnboardingService:
             client_name=display.client_name,
             email=display.email,
             assigned_rm=display.assigned_rm,
+            asst_rm=display.asst_rm,
             client_ref=self._client_ref(onboarding.user_id),
             primary_phone=display.primary_phone,
             address=display.address,
             country_of_residence=display.country_of_residence,
             id_type=onboarding.id_type,
             id_number=onboarding.id_number,
-            ibhk_account=onboarding.ibhk_account or "",
+            client_ib=display.client_ib or "",
             sw_account=onboarding.sw_account or "",
             status=onboarding.status.value,
             kind=onboarding.kind.value,
@@ -1091,6 +1132,13 @@ class OnboardingService:
         assigned_rm = (
             self.repo.display_fields(source_onboarding).assigned_rm if source_onboarding else ""
         )
+        # Read-time join, no column of its own: client_allotment_redemptions
+        # already stores (user_id, model_id), which IS client_ib_accounts' PK.
+        client_ib = (
+            self.db.query(ClientIbAccount.ib_account)
+            .filter_by(user_id=allotment.user_id, model_id=allotment.model_id)
+            .scalar()
+        )
         return AllotRdmptDTO(
             id=allotment.id,
             reference=allotment.reference,
@@ -1113,6 +1161,7 @@ class OnboardingService:
             decided_at=allotment.decided_at,
             reject_reason=allotment.reject_reason,
             has_transaction_detail=self.repo.get_transaction_detail(allotment.id) is not None,
+            client_ib=client_ib,
         )
 
     def _transaction_detail_to_dto(self, detail: TransactionDetail) -> TransactionDetailDTO:

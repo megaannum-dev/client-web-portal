@@ -12,7 +12,7 @@ class SubscriptionOut(BaseModel):
 
     model: str
     status: str
-    account: str | None
+    client_ib: str | None  # client_ib_accounts.ib_account for (this client, this model)
 
 
 class ClientListItemOut(BaseModel):
@@ -28,17 +28,11 @@ class ClientListItemOut(BaseModel):
     country_of_residence: str | None
     authorized_person: str | None
     initiate_method: str | None
-    # STALE (ib-account-relations rework): client_profiles.ib_account was
-    # dropped -- this must be repointed to a per-model client_subscriptions
-    # .client_ib_account source in the BE layer.
-    ib_account: str | None
     email: str | None  # users.email (client's user, not RM's)
     authorized_by_name: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
     id_type: str | None  # NEW (014 C-8) — client_onboardings.id_type, joined
     id_number: str | None  # NEW (014 C-8) — client_onboardings.id_number, joined
-    # NEW — RM relationship-management fields (proposal 019, Edit profile). All
-    # read straight off client_profiles; see ClientProfilePatch below for the
-    # writable subset of these.
+
     occupation: str | None = None
     date_of_birth: date | None = None
     anniversary: date | None = None
@@ -49,9 +43,7 @@ class ClientListItemOut(BaseModel):
     gift_hospitality_preferences: str | None = None
     relationship_notes: str | None = None
     subscriptions: list[SubscriptionOut] = []  # only populated on the single-client route
-    # NEW — client_portfolios (proposal 011/014 C-9), only populated on the
-    # single-client route (same convention as `subscriptions` above). None if
-    # the client predates the cash-deposit intake flow (no portfolio row yet).
+
     cash_deposit: Decimal | None = None
     amount_in_trade: Decimal | None = None
 
@@ -78,13 +70,30 @@ class ClientOnboardOut(BaseModel):
     invite_link: str
 
 
+class ClientIbAccountIn(BaseModel):
+    """PUT body for the RM repair route. One field on purpose: the (client,
+    model) pair is in the path, and nothing else about a client_ib_accounts row
+    is writable."""
+
+    model_config = {"extra": "forbid"}
+
+    account_id: str  # the IB account identifier itself; the path already says which pair
+
+
+class ClientIbAccountOut(BaseModel):
+    """Echoes the stored value so the caller sees the canonical (stripped) form
+    that client_ib_accounts.reassign actually wrote, not what it sent."""
+
+    account_id: str
+
+
 class ClientProfilePatch(BaseModel):
     """RM edit-profile body (proposal 019). Every field optional; unset =
     unchanged. Deliberately excludes name/primary_phone/email (identity/
     contact, tied to the Firebase account), date_of_birth (identity-sensitive),
-    assigned_rm_uid (a separate, more sensitive action), asst_rm_uid (a separate, more sensitive action), and id_type/id_number
-    (client_onboardings, not this table) -- mirrors client_portal/schemas.py's
-    ClientProfilePatch pattern."""
+    assigned_rm_uid and asst_rm_uid (both separate, more sensitive actions),
+    and id_type/id_number (client_onboardings, not this table) -- mirrors
+    client_portal/schemas.py's ClientProfilePatch pattern."""
 
     model_config = {"extra": "forbid"}  # 422 if any excluded/unknown field is sent
 

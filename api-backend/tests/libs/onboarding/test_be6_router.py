@@ -111,7 +111,7 @@ def client_portal_client(db_factory, fake_storage):
     seed_db = db_factory()
     seed_db.add(stub_user)
     seed_db.flush()
-    seed_db.add(ClientProfile(user_id=stub_user.id, name="Cathy Client", ib_account="IB-9"))
+    seed_db.add(ClientProfile(user_id=stub_user.id, name="Cathy Client"))
     seed_db.commit()
     seed_db.close()
 
@@ -195,7 +195,7 @@ def _start_onboarding(http, model_id, *, email="cathy@example.com"):
         "country_of_residence": "HK",
         "id_type": "Passport",
         "id_number": "P1",
-        "ibhk_account": "IB1",
+        "client_ib": "IB1",
         "sw_account": "SW1",
         "model_id": str(model_id),
         "units": "5",
