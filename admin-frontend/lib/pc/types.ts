@@ -95,6 +95,7 @@ export interface Model {
   nav_perf: string | null;
   mgmt_fee: number | null;       // null → use DEFAULT_MGMT_FRACTION fallback
   incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_FRACTION fallback
+  master_ib_account: string | null;
 }
 
 /** Fee figures derived from a model (see `computeFees`). */
@@ -206,6 +207,7 @@ export interface ModelDTO {
   nav_perf?: string | null;
   mgmt_fee?: number | null;
   incentive_fee?: number | null;
+  master_ib_account?: string | null;
 }
 
 /** Backend payload for GET /api/pc/models. */
