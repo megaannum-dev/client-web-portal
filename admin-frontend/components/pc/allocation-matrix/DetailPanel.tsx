@@ -1,8 +1,7 @@
 "use client";
 
-import { Briefcase, Lock, X } from "@/lib/icons";
-import { Chip } from "@/components/ui/Chip";
-import { Eyebrow, Fact } from "@/components/pc/Shared";
+import { X } from "@/lib/icons";
+import { Fact } from "@/components/pc/Shared";
 import { type AllocationView } from "@/lib/pc/allocation";
 import { fmtMoney, fmtMoneyShort } from "@/lib/pc/format";
 
@@ -41,7 +40,7 @@ export function DetailPanel({
                 {c.name} <span className="font-semibold text-secondary">×</span> {m.name}
               </div>
               <div className="mt-1 text-[13px] text-secondary">
-                {c.code} · pre-trade allocation · {period}
+                pre-trade allocation · {period}
               </div>
             </div>
             <button
@@ -60,22 +59,8 @@ export function DetailPanel({
             <Fact label="Account fund" value={fmtMoney(fund)} />
             <Fact label="Model size" value={fmtMoneyShort(m.size)} sub="/ unit" />
             <Fact label="Min account fund" value={fmtMoney(m.size)} sub="= 1 unit" />
-          </div>
-
-          <Eyebrow className="mb-[9px] mt-5">Linked IB account</Eyebrow>
-          <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-low px-[15px] py-[13px]">
-            <span className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[10px] bg-primary-fixed text-primary">
-              <Briefcase size={18} strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-bold tabular-nums">{c.acct}</div>
-              <div className="mt-0.5 text-[12.5px] text-secondary">
-                {c.name} · all of this client’s allocations trade here
-              </div>
-            </div>
-            <Chip tone="neutral" dot={false}>
-              <Lock size={11} strokeWidth={2} className="mr-[3px]" />per client
-            </Chip>
+            <Fact label="Model IB account" value={m.masterIb ?? "—"} sub="master" />
+            <Fact label="Client IB account" value={cell.clientIb ?? "—"} sub="dedicated" />
           </div>
         </div>
       </div>

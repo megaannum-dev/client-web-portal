@@ -25,6 +25,12 @@ export type SubModel = {
   account: string;
   modelId: string;   // NEW
   modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
+  // NEW — raw multiplier. A full redemption floors client_subscriptions at
+  // 0 rather than deleting the row (permanent client_ib_accounts anchor) --
+  // the model stays fully visible in the accordion so the RM can re-add it
+  // via Add Allotment; `units` is used only to disable the (now pointless)
+  // "Add redemption" action on a 0-unit model, see SubscriptionAccordion.tsx.
+  units: number;
   rows: TxnRow[];
 };
 export type SubClient = {
@@ -131,7 +137,7 @@ export function mapSubscriptionsToSubClients(
       mandate: "Discretionary",
       aum: fmtMoneyShort(totalAum),
       models: c.subscriptions.map((sub): SubModel => {
-        const ibAccount = sub.ib_account ?? null;
+        const ibAccount = sub.client_ib ?? null;
         const modelTxns = (ledger ?? [])
           .filter((a) => a.model_id === sub.model_id)
           .map((a) => allotmentToTxnRow(a, ibAccount));
@@ -148,6 +154,7 @@ export function mapSubscriptionsToSubClients(
           incentiveFee: formatFeePercent(sub.incentive_fee),
           account: ibAccount ?? "—",
           modelId: sub.model_id,
+          units: Number(sub.units),
           // amount = units * model_size (ClientSubscriptionRowDTO's own contract) --
           // derive the real model size from that instead of a name-keyed mock lookup.
           modelSize: Number(sub.units) > 0 ? Number(sub.amount) / Number(sub.units) : 0,

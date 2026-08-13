@@ -27,7 +27,7 @@ function makeClient(rows: TxnRow[]): SubClient {
       {
         name: "Balanced", status: "Active", tone: "active",
         mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471",
-        modelId: "m-1", rows,
+        modelId: "m-1", units: 5, rows,
       },
     ],
   };
@@ -78,5 +78,35 @@ describe("FE-4 D-5 rejected-row muted+overline treatment", () => {
     render(<SubscriptionAccordion clients={[makeClient([row])]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />);
     const cell = screen.getByText("(80,000)").closest("td");
     expect(cell?.className ?? "").not.toMatch(/overline/);
+  });
+});
+
+describe("A fully-redeemed (units: 0) model stays visible, only its redemption action is disabled", () => {
+  it("a client with one active and one fully-redeemed model shows both, with the full count", () => {
+    const netRow: TxnRow = ["Net", "", "", "", "200,000", "2×", "200,000", "", "", ""];
+    const client: SubClient = {
+      id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$2.0M",
+      models: [
+        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-0001", modelId: "m-0", units: 0, rows: [netRow] },
+        { name: "Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "m-1", units: 5, rows: [netRow] },
+      ],
+    };
+    render(<SubscriptionAccordion clients={[client]} onOpenModal={() => {}} initialOpenClient="c-1" />);
+    expect(screen.getByText(/2 models/)).toBeInTheDocument();
+    expect(screen.getByText("Balanced")).toBeInTheDocument();
+    expect(screen.getByText("Redeemed Model")).toBeInTheDocument();
+  });
+
+  it("the fully-redeemed model's 'Add redemption' button is disabled, but 'Add allotment' (the re-subscribe path) is not", () => {
+    const netRow: TxnRow = ["Net", "", "", "", "0", "0×", "0", "", "", ""];
+    const client: SubClient = {
+      id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$0",
+      models: [
+        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-0001", modelId: "m-0", units: 0, rows: [netRow] },
+      ],
+    };
+    render(<SubscriptionAccordion clients={[client]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />);
+    expect(screen.getByRole("button", { name: /add redemption/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /add allotment/i })).toBeEnabled();
   });
 });

@@ -58,9 +58,11 @@ describe("FE-5 new-subscription dropdowns render from props, not the mock fixtur
     );
     fireEvent.change(screen.getByText("Select a client…").closest("select") as HTMLSelectElement, { target: { value: "c1" } });
     fireEvent.change(screen.getByText("Select a model…").closest("select") as HTMLSelectElement, { target: { value: "m1" } });
+    // IBHK Account ID only renders once a model is selected (new-subscription mode) and is required for submit.
+    fireEvent.change(screen.getByPlaceholderText("e.g. U1234567"), { target: { value: "U1234567" } });
     fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: "2026-08-01" } });
     fireEvent.click(screen.getByRole("button", { name: /submit allotment/i }));
-    expect(actions.submitAllotment).toHaveBeenCalledWith(expect.objectContaining({ client_id: "c1", model_id: "m1" }));
+    expect(actions.submitAllotment).toHaveBeenCalledWith(expect.objectContaining({ client_id: "c1", model_id: "m1", client_ib: "U1234567" }));
   });
 });
 

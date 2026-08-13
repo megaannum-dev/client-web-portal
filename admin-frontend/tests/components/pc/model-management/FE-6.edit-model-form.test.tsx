@@ -19,7 +19,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
     mgmt: 0.02, incentive: 0.2, status: "live", version: "v1",
     materials: [], changes: [], description: null, underlyings: null,
     risk: null, liquidity: null, reporting: null, nav_perf: null,
-    mgmt_fee: null, incentive_fee: null,
+    mgmt_fee: null, incentive_fee: null, master_ib_account: null,
     ...overrides,
   };
 }

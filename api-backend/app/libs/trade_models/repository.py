@@ -62,7 +62,7 @@ class ModelRepository:
         nav_perf: str | None = None,
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
-        master_ib_account: str,
+        master_ib_account: str | None = None,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),

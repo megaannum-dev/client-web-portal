@@ -9,6 +9,7 @@ import type { Model } from "@/lib/pc/types";
 import { updateModel as updateModelAction } from "@/app/(roles)/pc/model-management/actions";
 import { CategorySelect, CreateField, CreateTextArea } from "./CreateModelForm";
 import { parseFeePercent, formatFeePercent } from "@/lib/fee";
+import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pc/models/{id} with only the fields the user
@@ -44,6 +45,7 @@ export function EditModelForm({
   // to the same fraction it started from, not silently shrink it 100x.
   const [mgmtFee, setMgmtFee] = useState(model.mgmt_fee != null ? formatFeePercent(model.mgmt_fee).replace("%", "") : "");
   const [incentiveFee, setIncentiveFee] = useState(model.incentive_fee != null ? formatFeePercent(model.incentive_fee).replace("%", "") : "");
+  const [masterIbAccount, setMasterIbAccount] = useState(model.master_ib_account ?? "");
 
   const commitSym = () => {
     const s = draftSym.trim().toUpperCase();
@@ -94,6 +96,8 @@ export function EditModelForm({
     if (mgmtFeeNum !== (model.mgmt_fee ?? null)) patch.mgmt_fee = mgmtFeeNum;
     const incentiveFeeNum = incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee);
     if (incentiveFeeNum !== (model.incentive_fee ?? null)) patch.incentive_fee = incentiveFeeNum;
+    const masterIbAccountNext = masterIbAccount.trim() === "" ? null : normalizeIbAccount(masterIbAccount);
+    if (masterIbAccountNext !== (model.master_ib_account ?? null)) patch.master_ib_account = masterIbAccountNext;
 
     return patch;
   };
@@ -139,7 +143,17 @@ export function EditModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} />
         </div>
-        <CategorySelect value={category} onChange={setCategory} />
+        <div>
+          <CreateField
+            label="Master IB Account"
+            value={masterIbAccount}
+            onChange={setMasterIbAccount}
+            placeholder="e.g. U1234567"
+          />
+          {masterIbAccount.trim() !== "" && !isValidIbAccount(masterIbAccount) && (
+            <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
+          )}
+        </div>
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
@@ -161,7 +175,8 @@ export function EditModelForm({
           placeholder="e.g. 20.0"
           inputMode="decimal"
         />
-        <div style={{ gridColumn: "1 / -1" }}>
+        <CategorySelect value={category} onChange={setCategory} />
+        <div>
           {/* See CreateModelForm: a wrapping <label> would relay blank-area
               clicks to the first pill's X-button and drop the first symbol. */}
           <div className="flex flex-col gap-1.5">

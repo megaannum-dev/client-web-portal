@@ -81,6 +81,7 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     nav_perf: dto.nav_perf ?? null,
     mgmt_fee: dto.mgmt_fee ?? null,
     incentive_fee: dto.incentive_fee ?? null,
+    master_ib_account: dto.master_ib_account ?? null,
   };
 }
 

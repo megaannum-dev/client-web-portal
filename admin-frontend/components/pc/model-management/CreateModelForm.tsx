@@ -7,6 +7,7 @@ import { Modal, Ticks } from "@/components/pc/Shared";
 import { fmtMoney } from "@/lib/pc/format";
 import { parseFeePercent } from "@/lib/fee";
 import type { ModelStatus } from "@/lib/pc/types";
+import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
 /* ============================================================
    MODALS — create / edit model
@@ -224,6 +225,7 @@ export interface NewModelDraft {
   nav_perf?: string;
   mgmt_fee?: number | null;
   incentive_fee?: number | null;
+  master_ib_account?: string | null;
 }
 
 /* ---- New-model form (create live or draft) -----------------
@@ -250,6 +252,7 @@ export function CreateModelForm({
     nav_perf?: string;
     mgmt_fee?: number | null;
     incentive_fee?: number | null;
+    master_ib_account?: string | null;
   };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -268,6 +271,7 @@ export function CreateModelForm({
   const [navPerf, setNavPerf] = useState(initial?.nav_perf ?? "");
   const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? String(initial.mgmt_fee) : "");
   const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? String(initial.incentive_fee) : "");
+  const [masterIbAccount, setMasterIbAccount] = useState(initial?.master_ib_account ?? "");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const commitSym = () => {
@@ -300,6 +304,7 @@ export function CreateModelForm({
       nav_perf: navPerf.trim() || undefined,
       mgmt_fee: mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee),
       incentive_fee: incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee),
+      master_ib_account: masterIbAccount.trim() === "" ? null : normalizeIbAccount(masterIbAccount),
     });
   };
 
@@ -336,7 +341,17 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <CategorySelect value={category} onChange={setCategory} />
+        <div>
+          <CreateField
+            label="Master IB Account"
+            value={masterIbAccount}
+            onChange={setMasterIbAccount}
+            placeholder="e.g. U1234567"
+          />
+          {masterIbAccount.trim() !== "" && !isValidIbAccount(masterIbAccount) && (
+            <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
+          )}
+        </div>
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}
@@ -358,8 +373,9 @@ export function CreateModelForm({
           placeholder="e.g. 20.0"
           inputMode="decimal"
         />
+        <CategorySelect value={category} onChange={setCategory} />
 
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div>
           {/* NOTE: wrapping element is a <div>, not <label>. A <label> with
               no `htmlFor` delegates blank-area clicks to its first
               interactive descendant — here, the first pill's X-remove

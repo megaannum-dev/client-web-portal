@@ -57,7 +57,7 @@ describe("FE-4 netRow's 10th element is always '' (no chip on the Net row)", () 
     const { mapSubscriptionsToSubClients } = await import("@/lib/rm/subscriptions");
     const dto: ClientSubscriptionsDTO = {
       client_id: "c-1", client_name: "Ardent Capital",
-      subscriptions: [{ model_id: "m-1", model_name: "Balanced", units: 2, mgmt_fee: 0.015, incentive_fee: 0.2, ib_account: "IB-4471", amount: 200_000 }],
+      subscriptions: [{ model_id: "m-1", model_name: "Balanced", units: 2, mgmt_fee: 0.015, incentive_fee: 0.2, client_ib: "IB-4471", amount: 200_000 }],
     };
     const [client] = mapSubscriptionsToSubClients([dto], {});
     const netRow = client.models[0].rows[client.models[0].rows.length - 1];

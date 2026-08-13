@@ -41,7 +41,7 @@ function makeClient(row: TxnRow): SubClient {
   return {
     id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$2.0M",
     models: [
-      { name: "Model A", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "m-1", rows: [row] },
+      { name: "Model A", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "m-1", units: 5, rows: [row] },
     ],
   };
 }
