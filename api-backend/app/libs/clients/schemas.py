@@ -23,6 +23,7 @@ class ClientListItemOut(BaseModel):
     phone: str | None  # client_profiles.primary_phone
     # resolved: admin_profiles.name -> users.email -> uid -> None
     assigned_rm: str | None
+    asst_rm: str | None
     address: str | None
     country_of_residence: str | None
     authorized_person: str | None
@@ -68,6 +69,7 @@ class ClientOnboardIn(BaseModel):
     authorized_person: str | None = None
     initiate_method: str | None = None
     assigned_rm_uid: str | None = None
+    asst_rm_uid: str | None = None
 
 
 class ClientOnboardOut(BaseModel):
@@ -80,7 +82,7 @@ class ClientProfilePatch(BaseModel):
     """RM edit-profile body (proposal 019). Every field optional; unset =
     unchanged. Deliberately excludes name/primary_phone/email (identity/
     contact, tied to the Firebase account), date_of_birth (identity-sensitive),
-    assigned_rm_uid (a separate, more sensitive action), and id_type/id_number
+    assigned_rm_uid (a separate, more sensitive action), asst_rm_uid (a separate, more sensitive action), and id_type/id_number
     (client_onboardings, not this table) -- mirrors client_portal/schemas.py's
     ClientProfilePatch pattern."""
 
