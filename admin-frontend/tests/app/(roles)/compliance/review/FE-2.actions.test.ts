@@ -6,6 +6,7 @@ vi.mock("@/server/onboarding", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/server/onboarding")>()),
   fetchComplianceQueue: vi.fn(),
   submitVerdict: vi.fn(),
+  submitVerdicts: vi.fn(),
   approveOnboarding: vi.fn(),
   rejectOnboarding: vi.fn(),
   downloadDocument: vi.fn(),
@@ -13,7 +14,8 @@ vi.mock("@/server/onboarding", async (importOriginal) => ({
 
 import * as serverOnboarding from "@/server/onboarding";
 import {
-  fetchComplianceQueue, submitVerdict, approveOnboarding, rejectOnboarding, downloadDocument,
+  fetchComplianceQueue, submitVerdict, submitVerdicts, approveOnboarding, rejectOnboarding,
+  downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 
 describe("FE-2 Compliance action wrappers", () => {
@@ -33,6 +35,15 @@ describe("FE-2 Compliance action wrappers", () => {
     const body = { verdict: "valid" as const, note: null };
     const result = await submitVerdict("ob-1", "passport", body);
     expect(serverOnboarding.submitVerdict).toHaveBeenCalledWith("ob-1", "passport", body);
+    expect(result).toBe(ok);
+  });
+
+  it("submitVerdicts(id, body) forwards the whole batch unchanged", async () => {
+    const ok = { success: true, data: [{ doc_type: "passport", status: "verified" }] };
+    vi.mocked(serverOnboarding.submitVerdicts).mockResolvedValue(ok as never);
+    const body = { items: [{ doc_type: "passport", verdict: "valid" as const, note: null }] };
+    const result = await submitVerdicts("ob-1", body);
+    expect(serverOnboarding.submitVerdicts).toHaveBeenCalledWith("ob-1", body);
     expect(result).toBe(ok);
   });
 

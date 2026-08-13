@@ -18,6 +18,7 @@ import {
   submitAll,
   fetchComplianceQueue,
   submitVerdict,
+  submitVerdicts,
   approveOnboarding,
   rejectOnboarding,
   downloadDocument,
@@ -147,6 +148,21 @@ describe("FE-1 server/onboarding — Compliance", () => {
     expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICT("ob-1", "passport"))).toBe(true);
     expect(JSON.parse(calledInit()?.body as string)).toEqual({ verdict: "valid", note: null });
     expect(result).toEqual({ success: true, data: DOCUMENT });
+  });
+
+  it("submitVerdicts() POSTs {items} to the BATCH verdict route and returns DocumentDTO[]", async () => {
+    mockFetchOnce([DOCUMENT]);
+    const body = {
+      items: [
+        { doc_type: "passport", verdict: "valid" as const, note: null },
+        { doc_type: "ips", verdict: "issue" as const, note: "missing signature" },
+      ],
+    };
+    const result = await submitVerdicts("ob-1", body);
+    expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICTS("ob-1"))).toBe(true);
+    expect(calledInit()?.method).toBe("POST");
+    expect(JSON.parse(calledInit()?.body as string)).toEqual(body);
+    expect(result).toEqual({ success: true, data: [DOCUMENT] });
   });
 
   it("approveOnboarding() POSTs to the approve route", async () => {

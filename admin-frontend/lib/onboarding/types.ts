@@ -70,6 +70,11 @@ export interface BoardDTO {
 export interface VerdictReq { verdict: "valid" | "issue"; note?: string | null; }
 export interface RejectReq  { reason?: string | null; }
 
+// Batch verdict — supersedes the per-doc VerdictReq above. The panel buffers every
+// Valid/Issue toggle locally and POSTs the whole set once, at Approve/Reject.
+export interface VerdictItem { doc_type: string; verdict: "valid" | "issue"; note?: string | null; }
+export interface VerdictBatchReq { items: VerdictItem[]; }   // backend requires min_length=1
+
 export interface SubmitAllotmentReq {
   client_id: string;             // uuid.UUID as string
   model_id: string;              // uuid.UUID as string
@@ -179,6 +184,8 @@ export interface KycBoardClient {
 export interface KycBoardColumn { label: string; status: OnboardingStatus; clients: KycBoardClient[]; }
 
 export type ObStatus = "pending" | "approved" | "rejected";
+/** A document's review verdict as the Compliance panel renders it. `null` = not reviewed. */
+export type DocVerdict = "valid" | "issue" | null;
 export interface AdminOnboardingRow {
   id: string; client: string; email: string;
   phone: string; address: string; country: string;

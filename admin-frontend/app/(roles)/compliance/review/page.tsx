@@ -24,7 +24,9 @@ import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
+import { docStatusToVerdict } from "@/lib/onboarding/mappers";
 import { saveBase64File } from "@/lib/download";
+import type { AdminOnboardingRow, DocVerdict, VerdictItem } from "@/lib/onboarding/types";
 
 const COMPLIANCE_THRESHOLD = 300000;
 
@@ -46,7 +48,7 @@ function ComplianceReviewContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [tab, setTab] = useState<CoTab>(deepLink.tab);
-  const { data: onboardingData, submitVerdict, approve, reject, download } = useComplianceQueue();
+  const { data: onboardingData, submitVerdicts, approve, reject, download } = useComplianceQueue();
   const onboarding = onboardingData ?? [];
   const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
   // Compliance only ever acts on redemptions above the threshold -- rows at
@@ -56,6 +58,11 @@ function ComplianceReviewContent() {
   const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
   const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
   const [rejecting, setRejecting] = useState(false);
+  // Draft document verdicts, keyed by onboarding id then doc_type. Lives HERE, not
+  // in ObDetailPanel, because opening the Reject modal unmounts that panel -- panel-
+  // local state would be destroyed exactly when confirmReject needs to read it.
+  // Toggling writes only to this map; nothing is sent until Approve/Reject.
+  const [drafts, setDrafts] = useState<Record<string, Record<string, DocVerdict>>>({});
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
   const pendCr = redemptions.filter((r) => r.status === "awaiting_co").length;
@@ -63,24 +70,69 @@ function ComplianceReviewContent() {
   const openOb = onboarding.find((o) => o.id === openObId);
   const openCr = redemptions.find((r) => r.id === openCrId);
 
+  /** Seeded from the server's document statuses on first use, so a cycle that was
+   *  partially reviewed in an earlier session still opens with those verdicts shown. */
+  const verdictsFor = (o: AdminOnboardingRow): Record<string, DocVerdict> =>
+    drafts[o.id] ?? Object.fromEntries(o.documents.map((d) => [d.doc_type, docStatusToVerdict(d.status)]));
+
   const doVerdict = (docType: string, v: "valid" | "issue") => {
     if (!openOb) return;
-    void submitVerdict(openOb.id, docType, v).then((r) => {
-      if (!r.success) alert(`Could not submit verdict: ${r.error}`);
-    });
+    const current = verdictsFor(openOb);
+    setDrafts((prev) => ({
+      ...prev,
+      // Clicking the already-active button clears it back to "not reviewed" --
+      // possible only now that the verdict isn't a server round-trip.
+      [openOb.id]: { ...current, [docType]: current[docType] === v ? null : v },
+    }));
   };
+  // Dropped after a decision lands so the next open re-seeds from the server's
+  // now-authoritative document statuses.
+  const clearDraft = (id: string) =>
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+  /** POSTs every drafted verdict in one request. Returns success so the caller can
+   *  abort its own decision if the batch failed. */
+  const flushVerdicts = async (o: AdminOnboardingRow) => {
+    const items: VerdictItem[] = Object.entries(verdictsFor(o))
+      .filter(([, v]) => v !== null)
+      .map(([doc_type, verdict]) => ({ doc_type, verdict: verdict as "valid" | "issue" }));
+    // The backend requires items to be non-empty (min_length=1), so an untouched
+    // package skips the call rather than 422-ing.
+    if (items.length === 0) return true;
+    const r = await submitVerdicts(o.id, items);
+    if (!r.success) alert(`Could not save document verdicts: ${r.error}`);
+    return r.success;
+  };
+
   const doDownload = (docType: string) => {
     if (!openOb) return;
     void download(openOb.id, docType).then((r) =>
       r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`),
     );
   };
-  const approveOb = (id: string) =>
-    void approve(id).then((r) => { if (r.success) setOpenObId(null); else alert(`Could not approve: ${r.error}`); });
-  const confirmReject = (id: string, reason: string) =>
-    void reject(id, reason).then((r) => {
-      if (r.success) { setRejecting(false); setOpenObId(null); } else alert(`Could not reject: ${r.error}`);
-    });
+  const approveOb = async (id: string) => {
+    const o = onboarding.find((x) => x.id === id);
+    if (!o || !(await flushVerdicts(o))) return;
+    const r = await approve(id);
+    if (!r.success) return alert(`Could not approve: ${r.error}`);
+    clearDraft(id);
+    setOpenObId(null);
+  };
+  const confirmReject = async (id: string, reason: string) => {
+    const o = onboarding.find((x) => x.id === id);
+    // Verdicts go first on purpose: reject() resets every non-verified document for
+    // reupload, so posting first is what lets the docs marked Valid survive it.
+    if (!o || !(await flushVerdicts(o))) return;
+    const r = await reject(id, reason);
+    if (!r.success) return alert(`Could not reject: ${r.error}`);
+    clearDraft(id);
+    setRejecting(false);
+    setOpenObId(null);
+  };
   const decideCr = (id: string, verdict: "approve" | "reject") =>
     void decideRedemption(id, { verdict }).then((r) => {
       if (!r.success) alert(`Could not submit decision: ${r.error}`);
@@ -139,6 +191,7 @@ function ComplianceReviewContent() {
       {openOb && !rejecting && (
         <ObDetailPanel
           o={openOb}
+          draftVerdicts={verdictsFor(openOb)}
           onClose={() => setOpenObId(null)}
           onApprove={approveOb}
           onReject={() => setRejecting(true)}
@@ -147,7 +200,12 @@ function ComplianceReviewContent() {
         />
       )}
       {openOb && rejecting && (
-        <RejectModal o={openOb} onCancel={() => setRejecting(false)} onConfirm={confirmReject} />
+        <RejectModal
+          o={openOb}
+          draftVerdicts={verdictsFor(openOb)}
+          onCancel={() => setRejecting(false)}
+          onConfirm={confirmReject}
+        />
       )}
       {openCr && <CrDetailPanel r={openCr} onClose={() => setOpenCrId(null)} onDecision={decideCr} />}
     </div>

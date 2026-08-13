@@ -3,6 +3,7 @@
 import {
   fetchComplianceQueue as _fetchComplianceQueue,
   submitVerdict as _submitVerdict,
+  submitVerdicts as _submitVerdicts,
   approveOnboarding as _approveOnboarding,
   rejectOnboarding as _rejectOnboarding,
   downloadDocument as _downloadDocument,
@@ -10,7 +11,10 @@ import {
   fetchCoRedemptions as _fetchCoRedemptions,
   type APIResult,
 } from "@/server/onboarding";
-import type { AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq, VerdictReq } from "@/lib/onboarding/types";
+import type {
+  AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq,
+  VerdictBatchReq, VerdictReq,
+} from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -39,6 +43,20 @@ export async function submitVerdict(
     return response;
   } catch (error) {
     console.error("❌ Error submitting document verdict:", { error, onboardingId, docType, body });
+    return toErrorResult(error);
+  }
+}
+
+export async function submitVerdicts(
+  onboardingId: string, body: VerdictBatchReq,
+): Promise<APIResult<DocumentDTO[]>> {
+  try {
+    logger.json("🔄 Submitting document verdicts (batch):", { onboardingId, body });
+    const response = await _submitVerdicts(onboardingId, body);
+    logger.json("✅ Submit verdicts response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error submitting document verdicts:", { error, onboardingId, body });
     return toErrorResult(error);
   }
 }

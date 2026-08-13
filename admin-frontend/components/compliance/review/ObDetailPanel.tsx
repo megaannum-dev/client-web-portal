@@ -5,16 +5,15 @@ import { Check, X, Download, Minus, FileSearch, TriangleAlert } from "@/lib/icon
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { DetailShell, Fact, Notice, SectionLabel, ObStatusChip } from "@/components/compliance/Shared";
-import { docStatusToVerdict } from "@/lib/onboarding/mappers";
 import { useCanEdit } from "@/hooks/usePageAccess";
-import type { AdminOnboardingRow, DocumentDTO } from "@/lib/onboarding/types";
+import type { AdminOnboardingRow, DocumentDTO, DocVerdict } from "@/lib/onboarding/types";
 
 /* ---- one document row with valid/issue verdict toggle ------ */
 function DocRow({
   doc, verdict, onToggle, onDownload,
 }: {
   doc: DocumentDTO;
-  verdict: "valid" | "issue" | null;
+  verdict: DocVerdict;
   onToggle?: (v: "valid" | "issue") => void;
   onDownload: () => void;
 }) {
@@ -106,9 +105,12 @@ function ApproveButton({
 }
 
 export function ObDetailPanel({
-  o, onClose, onApprove, onReject, onVerdict, onDownload,
+  o, draftVerdicts, onClose, onApprove, onReject, onVerdict, onDownload,
 }: {
   o: AdminOnboardingRow;
+  /** Verdicts as toggled in this session, keyed by doc_type. Held by the page (not
+   *  here) because opening the Reject modal unmounts this panel — see page.tsx. */
+  draftVerdicts: Record<string, DocVerdict>;
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -116,7 +118,9 @@ export function ObDetailPanel({
   onDownload: (docType: string) => void;
 }) {
   const pending = o.status === "pending";
-  const verdicts = o.documents.map((d) => docStatusToVerdict(d.status));
+  // Reads the session draft rather than the server's document status: toggles no
+  // longer POST, so the server can't be the source of truth mid-review.
+  const verdicts = o.documents.map((d) => draftVerdicts[d.doc_type] ?? null);
   const reviewed = verdicts.filter((v) => v !== null).length;
   const issues = verdicts.filter((v) => v === "issue").length;
   const allReviewed = reviewed === verdicts.length;

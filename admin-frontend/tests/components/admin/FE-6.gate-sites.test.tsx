@@ -212,6 +212,7 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
     return render(
       <ObDetailPanel
         o={o as never}
+        draftVerdicts={{}}
         onClose={vi.fn()}
         onApprove={vi.fn()}
         onReject={vi.fn()}

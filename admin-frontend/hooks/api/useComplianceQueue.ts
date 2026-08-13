@@ -2,17 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  fetchComplianceQueue, submitVerdict, approveOnboarding, rejectOnboarding, downloadDocument,
+  fetchComplianceQueue, submitVerdicts, approveOnboarding, rejectOnboarding, downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 import { mapOnboardingToRow } from "@/lib/onboarding/mappers";
-import type { AdminOnboardingRow } from "@/lib/onboarding/types";
+import type { AdminOnboardingRow, VerdictItem } from "@/lib/onboarding/types";
 
 export interface UseComplianceQueueResult {
   data: AdminOnboardingRow[] | null;
   loading: boolean;
   error: string | null;
   refetch: () => void;
-  submitVerdict: (id: string, docType: string, verdict: "valid" | "issue", note?: string) => Promise<{ success: boolean; error?: string }>;
+  submitVerdicts: (id: string, items: VerdictItem[]) => Promise<{ success: boolean; error?: string }>;
   approve: (id: string) => Promise<{ success: boolean; error?: string }>;
   reject: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
   download: (id: string, docType: string) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
@@ -43,11 +43,13 @@ export function useComplianceQueue(): UseComplianceQueueResult {
 
   useEffect(() => { fetch_(); }, [fetch_]);
 
-  const doVerdict = useCallback(async (id: string, docType: string, verdict: "valid" | "issue", note?: string) => {
-    const result = await submitVerdict(id, docType, { verdict, note });
-    if (result.success) fetch_();
+  // Deliberately does NOT refetch (same as `download` below). It is only ever called
+  // immediately before approve/reject, which do — so one decision costs one refetch
+  // instead of two, and the panel doesn't flash mid-decision.
+  const doVerdicts = useCallback(async (id: string, items: VerdictItem[]) => {
+    const result = await submitVerdicts(id, { items });
     return { success: result.success, error: result.success ? undefined : result.error };
-  }, [fetch_]);
+  }, []);
 
   const approve = useCallback(async (id: string) => {
     const result = await approveOnboarding(id);
@@ -67,5 +69,8 @@ export function useComplianceQueue(): UseComplianceQueueResult {
     return { success: true, ...result.data };
   }, []);
 
-  return { data, loading, error, refetch: fetch_, submitVerdict: doVerdict, approve, reject, download };
+  return {
+    data, loading, error, refetch: fetch_,
+    submitVerdicts: doVerdicts, approve, reject, download,
+  };
 }

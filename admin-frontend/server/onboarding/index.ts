@@ -6,7 +6,8 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllotRdmptDTO, BoardDTO, ClientEventDTO, ContactLogEntryDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
-  RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
+  RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq,
+  VerdictBatchReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
 export type { APIResult };
@@ -130,10 +131,19 @@ export async function downloadAllDocuments(
 export async function fetchComplianceQueue(): Promise<APIResult<OnboardingDTO[]>> {
   return apiClient<OnboardingDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDINGS);
 }
+/** @deprecated One POST per Valid/Issue toggle. Use submitVerdicts — deleted once the batch flow is confirmed. */
 export async function submitVerdict(
   onboardingId: string, docType: string, body: VerdictReq,
 ): Promise<APIResult<DocumentDTO>> {
   return apiClient<DocumentDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICT(onboardingId, docType), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+/** Every document verdict for one cycle, applied atomically server-side (one commit). */
+export async function submitVerdicts(
+  onboardingId: string, body: VerdictBatchReq,
+): Promise<APIResult<DocumentDTO[]>> {
+  return apiClient<DocumentDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICTS(onboardingId), {
     method: "POST", body: JSON.stringify(body),
   });
 }

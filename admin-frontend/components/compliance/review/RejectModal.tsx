@@ -4,19 +4,22 @@ import { useState } from "react";
 import { X, Check, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { SectionLabel } from "@/components/compliance/Shared";
-import { docStatusToVerdict } from "@/lib/onboarding/mappers";
-import type { AdminOnboardingRow } from "@/lib/onboarding/types";
+import type { AdminOnboardingRow, DocVerdict } from "@/lib/onboarding/types";
 
 export function RejectModal({
-  o, onCancel, onConfirm,
+  o, draftVerdicts, onCancel, onConfirm,
 }: {
   o: AdminOnboardingRow;
+  /** The same session draft ObDetailPanel was showing. Read from the draft, not
+   *  from document status — toggles no longer POST, so the server doesn't know
+   *  about them yet at the moment this modal opens. */
+  draftVerdicts: Record<string, DocVerdict>;
   onCancel: () => void;
   onConfirm: (id: string, reason: string) => void;
 }) {
-  // Read-only: a doc is "flagged" iff Compliance already marked it Issue via
-  // ObDetailPanel's per-doc toggle (submitVerdict), before Reject was opened.
-  const flags = o.documents.map((d) => docStatusToVerdict(d.status) === "issue");
+  // Read-only: a doc is "flagged" iff Compliance marked it Issue in the panel
+  // before opening Reject. Confirming posts the whole draft, then rejects.
+  const flags = o.documents.map((d) => draftVerdicts[d.doc_type] === "issue");
   const [reason, setReason] = useState("");
   const count = flags.filter(Boolean).length;
 
