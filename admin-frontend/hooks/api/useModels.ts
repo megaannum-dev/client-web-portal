@@ -34,6 +34,7 @@ export interface UseModelsResult {
     nav_perf?: string;
     mgmt_fee?: number | null;
     incentive_fee?: number | null;
+    master_ib_account?: string | null;
   }) => Promise<{ success: boolean; error?: string; id?: string }>;
   updateModel: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   uploadMaterial: (id: string, file: File) => Promise<{ success: boolean; error?: string }>;
@@ -96,6 +97,7 @@ export function useModels(): UseModelsResult {
       nav_perf?: string;
       mgmt_fee?: number | null;
       incentive_fee?: number | null;
+      master_ib_account?: string | null;
     }) => {
       const created = await createModelAction({
         name: params.name,
@@ -111,6 +113,7 @@ export function useModels(): UseModelsResult {
         nav_perf: params.nav_perf,
         mgmt_fee: params.mgmt_fee,
         incentive_fee: params.incentive_fee,
+        master_ib_account: params.master_ib_account,
       });
       if (!created.success) return { success: false, error: created.error };
       const newId = created.data.id;
