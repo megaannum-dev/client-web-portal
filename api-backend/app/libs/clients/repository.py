@@ -53,7 +53,12 @@ class ClientRow:
 @dataclass(frozen=True)
 class SubscriptionRow:
     """One client_subscriptions row joined to its model — account is the
-    client's single ib_account (client_profiles.ib_account), repeated per row."""
+    client's single ib_account (client_profiles.ib_account), repeated per row.
+
+    STALE (ib-account-relations rework): client_profiles.ib_account was
+    dropped. This should now read the new client_ib_accounts table
+    (joined on user_id, model_id) per row instead of repeating one
+    client-level value."""
 
     model: str
     status: str
@@ -94,6 +99,10 @@ class ClientRepository:
                 ClientProfile.country_of_residence,
                 ClientProfile.authorized_person,
                 ClientProfile.initiate_method,
+                # BROKEN (ib-account-relations rework): ClientProfile.ib_account
+                # was dropped -- repoint to a per-model client_subscriptions
+                # .client_ib_account source in the BE layer (this query has no
+                # model_id to join on today).
                 ClientProfile.ib_account,
                 ClientUser.email.label("email"),
                 authorized_by_name.label("authorized_by_name"),
