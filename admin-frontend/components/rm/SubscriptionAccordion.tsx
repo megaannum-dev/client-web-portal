@@ -223,7 +223,15 @@ function ModelAccordionItem({
           {canEdit && (
             <div className="flex gap-2.5 border-t border-outline-variant px-4 py-3">
               <Button icon={Plus} onClick={() => onOpenModal({ mode: "add-allotment", context })}>Add allotment</Button>
-              <Button variant="secondary" icon={ArrowDownToLine} onClick={() => onOpenModal({ mode: "redemption", context })}>Add redemption</Button>
+              <Button
+                variant="secondary"
+                icon={ArrowDownToLine}
+                disabled={model.units <= 0}
+                title={model.units <= 0 ? "No units remaining to redeem" : undefined}
+                onClick={() => onOpenModal({ mode: "redemption", context })}
+              >
+                Add redemption
+              </Button>
             </div>
           )}
         </div>

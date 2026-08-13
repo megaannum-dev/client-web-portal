@@ -159,7 +159,7 @@ export interface ContactLogEntryDTO {
 export interface ClientSubscriptionRowDTO {
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;   // effective = override ?? Model default (013 C-5's read-side coalesce)
-  ib_account: string | null;
+  client_ib: string | null;   // client_ib_accounts.ib_account for this (client, model) pair
   amount: number;   // = units * model.model_size — mirrors AllotRdmptDTO.amount
 }
 export interface ClientSubscriptionsDTO {
