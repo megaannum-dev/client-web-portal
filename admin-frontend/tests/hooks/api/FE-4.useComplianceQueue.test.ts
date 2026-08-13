@@ -9,6 +9,7 @@ vi.mock("@/app/(roles)/compliance/review/actions", async (importOriginal) => ({
   submitVerdicts: vi.fn(),
   approveOnboarding: vi.fn(),
   rejectOnboarding: vi.fn(),
+  requestReprovision: vi.fn(),
   downloadDocument: vi.fn(),
 }));
 
@@ -34,17 +35,19 @@ describe("FE-4 useComplianceQueue", () => {
     expect(result.current.error).toBe("boom");
   });
 
-  it("approve()/reject() each trigger a refetch on success", async () => {
+  it("approve()/reject()/requestReprovision() each trigger a refetch on success", async () => {
     vi.mocked(actions.fetchComplianceQueue).mockResolvedValue({ success: true, data: [] } as never);
     vi.mocked(actions.approveOnboarding).mockResolvedValue({ success: true, data: {} } as never);
     vi.mocked(actions.rejectOnboarding).mockResolvedValue({ success: true, data: {} } as never);
+    vi.mocked(actions.requestReprovision).mockResolvedValue({ success: true, data: {} } as never);
     const { result } = renderHook(() => useComplianceQueue());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.approve("ob-1"); });
     await act(async () => { await result.current.reject("ob-1", "bad scan"); });
+    await act(async () => { await result.current.requestReprovision("ob-1", ["passport"], "stale"); });
 
-    expect(actions.fetchComplianceQueue).toHaveBeenCalledTimes(3); // 1 mount + 2 mutations
+    expect(actions.fetchComplianceQueue).toHaveBeenCalledTimes(4); // 1 mount + 3 mutations
   });
 
   // submitVerdicts is the one mutation that deliberately skips the refetch: it is only
@@ -64,6 +67,20 @@ describe("FE-4 useComplianceQueue", () => {
 
     expect(actions.submitVerdicts).toHaveBeenCalledWith("ob-1", { items });
     expect(actions.fetchComplianceQueue).toHaveBeenCalledTimes(1); // no extra refetch
+  });
+
+  it("a failed requestReprovision() surfaces the error and skips the refetch", async () => {
+    vi.mocked(actions.fetchComplianceQueue).mockResolvedValue({ success: true, data: [] } as never);
+    vi.mocked(actions.requestReprovision).mockResolvedValue(
+      { success: false, error: "Only an active client can be sent back for reprovision" } as never,
+    );
+    const { result } = renderHook(() => useComplianceQueue());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const out = await result.current.requestReprovision("ob-1", ["passport"]);
+    expect(out.success).toBe(false);
+    expect(out.error).toMatch(/active client/);
+    expect(actions.fetchComplianceQueue).toHaveBeenCalledTimes(1);
   });
 
   it("download() does NOT trigger a refetch (read-only) and returns the file payload on success", async () => {

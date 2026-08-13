@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import { mapOnboardingToRow, docStatusToVerdict } from "@/lib/onboarding/mappers";
 import type { DocStatus, OnboardingDTO, OnboardingStatus } from "@/lib/onboarding/types";
 
-function makeOnboarding(status: OnboardingStatus): OnboardingDTO {
+function makeOnboarding(
+  status: OnboardingStatus,
+  awaiting_reprovision = false,
+): OnboardingDTO {
   return {
     id: "ob-1", user_id: "u-1",
     client_name: "Jane Doe", email: "jane@example.com", assigned_rm: "Alice RM",
@@ -17,6 +20,7 @@ function makeOnboarding(status: OnboardingStatus): OnboardingDTO {
     mgmt_fee: 0.015, incentive_fee: 0.2,
     verified_count: 7, required_count: 7,
     reject_reason: status === "pending_review" ? "bad ID scan" : null,
+    awaiting_reprovision,
     submitted_at: "2026-07-19T00:00:00Z", created_at: "2026-07-18T00:00:00Z",
     documents: [],
   };
@@ -51,6 +55,14 @@ describe("FE-4 OB_STATUS_MAP (via mapOnboardingToRow)", () => {
   it("passes rejectReason through from reject_reason", () => {
     const row = mapOnboardingToRow(makeOnboarding("pending_review"));
     expect(row.rejectReason).toBe("bad ID scan");
+  });
+
+  // pending_review folds into ObStatus "rejected" for BOTH a real rejection and a
+  // re-provision request, so awaitingReprovision is what the UI reads to tell them
+  // apart. Losing it in the mapper silently mislabels a re-provision as a rejection.
+  it("passes awaitingReprovision through, splitting the 'rejected' bucket", () => {
+    expect(mapOnboardingToRow(makeOnboarding("pending_review", true)).awaitingReprovision).toBe(true);
+    expect(mapOnboardingToRow(makeOnboarding("pending_review", false)).awaitingReprovision).toBe(false);
   });
 });
 

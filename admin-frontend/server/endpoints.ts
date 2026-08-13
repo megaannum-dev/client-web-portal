@@ -67,6 +67,7 @@ export const ENDPOINTS = {
     ONBOARDING_VERDICTS:(id: string) => `${COMPLIANCE}/onboardings/${id}/documents/verdicts`,
     ONBOARDING_APPROVE: (id: string) => `${COMPLIANCE}/onboardings/${id}/approve`,
     ONBOARDING_REJECT:  (id: string) => `${COMPLIANCE}/onboardings/${id}/reject`,
+    ONBOARDING_REPROVISION: (id: string) => `${COMPLIANCE}/onboardings/${id}/reprovision`,
     // NOTE: the decide/read routes below live under /api/co, not /api/compliance
     // (the backend's frozen seam pins CO decide to /co/redemptions/{id}/decide —
     // see proposal 016 §F-2 "Path note"). Do not "fix" these back to COMPLIANCE.

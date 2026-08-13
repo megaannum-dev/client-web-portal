@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  fetchComplianceQueue, submitVerdicts, approveOnboarding, rejectOnboarding, downloadDocument,
+  fetchComplianceQueue, submitVerdicts, approveOnboarding, rejectOnboarding, requestReprovision,
+  downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 import { mapOnboardingToRow } from "@/lib/onboarding/mappers";
 import type { AdminOnboardingRow, VerdictItem } from "@/lib/onboarding/types";
@@ -15,6 +16,7 @@ export interface UseComplianceQueueResult {
   submitVerdicts: (id: string, items: VerdictItem[]) => Promise<{ success: boolean; error?: string }>;
   approve: (id: string) => Promise<{ success: boolean; error?: string }>;
   reject: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
+  requestReprovision: (id: string, docTypes: string[], reason?: string) => Promise<{ success: boolean; error?: string }>;
   download: (id: string, docType: string) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
 }
 
@@ -63,6 +65,12 @@ export function useComplianceQueue(): UseComplianceQueueResult {
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);
 
+  const doReprovision = useCallback(async (id: string, docTypes: string[], reason?: string) => {
+    const result = await requestReprovision(id, { doc_types: docTypes, reason });
+    if (result.success) fetch_();
+    return { success: result.success, error: result.success ? undefined : result.error };
+  }, [fetch_]);
+
   const download = useCallback(async (id: string, docType: string) => {
     const result = await downloadDocument(id, docType);
     if (!result.success) return { success: false, error: result.error };
@@ -71,6 +79,6 @@ export function useComplianceQueue(): UseComplianceQueueResult {
 
   return {
     data, loading, error, refetch: fetch_,
-    submitVerdicts: doVerdicts, approve, reject, download,
+    submitVerdicts: doVerdicts, approve, reject, requestReprovision: doReprovision, download,
   };
 }

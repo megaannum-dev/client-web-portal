@@ -62,6 +62,7 @@ export function mapOnboardingToRow(o: OnboardingDTO): AdminOnboardingRow {
     type: o.kind === "renewal" ? "Yearly Renewal" : "Initial Onboarding",
     documents: o.documents,
     rejectReason: o.reject_reason,
+    awaitingReprovision: o.awaiting_reprovision,
   };
 }
 

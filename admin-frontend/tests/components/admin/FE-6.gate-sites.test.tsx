@@ -44,7 +44,9 @@ const EXPECTED_MARKER_COUNTS: Record<string, number> = {
   "components/rm/ContactLog.tsx": 4,
   "components/compliance/review/CrDetailPanel.tsx": 4,
   "app/(roles)/mobo/trade-reconciliation/page.tsx": 4,
-  "components/compliance/review/ObDetailPanel.tsx": 3,
+  // 4th marker added with the ad-hoc reprovision work: "Require new documents"
+  // is a write action on an approved cycle, so it is gated like Approve/Reject.
+  "components/compliance/review/ObDetailPanel.tsx": 4,
   "app/(roles)/mobo/commission-tracking/page.tsx": 2,
   "components/rm/SubscriptionAccordion.tsx": 1,
   "components/rm/TransactionDetailModal.tsx": 1,
@@ -115,7 +117,7 @@ beforeEach(() => {
 });
 
 describe("FE-6 static source scan — the invariant gate over all 11 files", () => {
-  it("the marker count over the 11 files is exactly 32, matching the per-file table", () => {
+  it("the marker count over the 11 files is exactly 33, matching the per-file table", () => {
     let total = 0;
     for (const file of GATE_FILES) {
       const text = fs.readFileSync(path.join(ADMIN_FRONTEND_ROOT, file), "utf8");
@@ -123,7 +125,7 @@ describe("FE-6 static source scan — the invariant gate over all 11 files", () 
       expect(count, `${file} marker count`).toBe(EXPECTED_MARKER_COUNTS[file]);
       total += count;
     }
-    expect(total).toBe(32);
+    expect(total).toBe(33);   // was 32; +1 for ObDetailPanel's reprovision button
   });
 
   it("each of the 11 files references useCanEdit at least once", () => {
@@ -204,7 +206,7 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
     id: "o1", client: "Ardent Capital", email: "a@b.com", phone: "+1", address: "x", country: "US",
     idType: "Passport", idNumber: "123", ibhk: "IBHK-1", silverwate: "SW-1", rm: "Dana Okafor",
     clientRef: "MEGA-0001", submitted: "2026-07-01", status: "pending", type: "New account",
-    documents: [doc], rejectReason: null,
+    documents: [doc], rejectReason: null, awaitingReprovision: false,
   };
 
   async function renderPanel() {
@@ -216,6 +218,7 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
         onClose={vi.fn()}
         onApprove={vi.fn()}
         onReject={vi.fn()}
+        onRequireDocs={vi.fn()}
         onVerdict={vi.fn()}
         onDownload={vi.fn()}
       />,
@@ -234,6 +237,37 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
     await renderPanel();
     expect(screen.queryByText("Passport")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+  });
+
+  // "Require new documents" only exists on an APPROVED (backend: active) cycle —
+  // the reprovision route 409s on anything else — and is a write action, so VIEW
+  // must not see it.
+  it("EDIT + approved: 'Require new documents' renders; on a pending cycle it does not", async () => {
+    withGrant("compliance.review", "EDIT");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    const props = {
+      draftVerdicts: {}, onClose: vi.fn(), onApprove: vi.fn(), onReject: vi.fn(),
+      onRequireDocs: vi.fn(), onVerdict: vi.fn(), onDownload: vi.fn(),
+    };
+    const { unmount } = render(<ObDetailPanel o={{ ...o, status: "approved" } as never} {...props} />);
+    expect(screen.getByRole("button", { name: /require new documents/i })).toBeInTheDocument();
+    unmount();
+
+    render(<ObDetailPanel o={o as never} {...props} />);   // status: "pending"
+    expect(screen.queryByRole("button", { name: /require new documents/i })).not.toBeInTheDocument();
+  });
+
+  it("VIEW + approved: 'Require new documents' is absent", async () => {
+    withGrant("compliance.review", "VIEW");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={{ ...o, status: "approved" } as never}
+        draftVerdicts={{}} onClose={vi.fn()} onApprove={vi.fn()} onReject={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /require new documents/i })).not.toBeInTheDocument();
   });
 });
 

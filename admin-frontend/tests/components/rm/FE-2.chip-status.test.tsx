@@ -22,7 +22,8 @@ function makeDto(overrides: Partial<OnboardingDTO> = {}): OnboardingDTO {
     id_type: "passport", id_number: "P1", ibhk_account: "U-1", sw_account: "SW-1",
     status: "reviewing", kind: "initial", model_id: "m-1", model_name: "Balanced", units: 2,
     mgmt_fee: 0.01, incentive_fee: 0.1, verified_count: 0, required_count: 7,
-    reject_reason: null, submitted_at: null, created_at: "2026-07-18T00:00:00Z", documents: [],
+    reject_reason: null, awaiting_reprovision: false,
+    submitted_at: null, created_at: "2026-07-18T00:00:00Z", documents: [],
     ...overrides,
   };
 }

@@ -19,10 +19,20 @@ export const coLabelCls =
   "text-[11px] font-bold uppercase tracking-[0.05em] text-secondary";
 
 /* ---- status chips ----------------------------------------- */
-export function ObStatusChip({ status }: { status: ObStatus }) {
+/** `awaitingReprovision` splits the "rejected" bucket: OB_STATUS_MAP folds backend
+ *  `pending_review` into "rejected", but a cycle reopened for re-provisioned
+ *  documents was never rejected — it's waiting on the RM. See
+ *  AdminOnboardingRow.awaitingReprovision. */
+export function ObStatusChip({
+  status, awaitingReprovision = false,
+}: { status: ObStatus; awaitingReprovision?: boolean }) {
   if (status === "pending") return <Chip tone="pending">Pending review</Chip>;
   if (status === "approved") return <Chip tone="active">Approved</Chip>;
-  if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
+  if (status === "rejected") {
+    return awaitingReprovision
+      ? <Chip tone="review">Awaiting re-provision</Chip>
+      : <Chip tone="failed">Rejected</Chip>;
+  }
   return <Chip tone="neutral">{status}</Chip>;
 }
 export function ObTypeChip({ type }: { type: string }) {

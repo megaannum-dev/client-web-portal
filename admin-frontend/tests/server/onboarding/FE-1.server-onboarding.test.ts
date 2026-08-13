@@ -21,6 +21,7 @@ import {
   submitVerdicts,
   approveOnboarding,
   rejectOnboarding,
+  requestReprovision,
   downloadDocument,
   fetchAllotments,
   acknowledgeAllotment,
@@ -45,7 +46,7 @@ const ONBOARDING: OnboardingDTO = {
   model_id: "m-1", model_name: "Zero", units: 5,
   mgmt_fee: 0.015, incentive_fee: 0.2,
   verified_count: 3, required_count: 7,
-  reject_reason: null,
+  reject_reason: null, awaiting_reprovision: false,
   submitted_at: "2026-07-19T00:00:00Z", created_at: "2026-07-18T00:00:00Z",
   documents: [DOCUMENT],
 };
@@ -163,6 +164,26 @@ describe("FE-1 server/onboarding — Compliance", () => {
     expect(calledInit()?.method).toBe("POST");
     expect(JSON.parse(calledInit()?.body as string)).toEqual(body);
     expect(result).toEqual({ success: true, data: [DOCUMENT] });
+  });
+
+  it("requestReprovision() POSTs {doc_types, reason} to the reprovision route", async () => {
+    mockFetchOnce({ ...ONBOARDING, status: "pending_review", awaiting_reprovision: true });
+    const body = { doc_types: ["passport", "ips"], reason: "stale address proof" };
+    const result = await requestReprovision("ob-1", body);
+    expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_REPROVISION("ob-1"))).toBe(true);
+    expect(calledInit()?.method).toBe("POST");
+    expect(JSON.parse(calledInit()?.body as string)).toEqual(body);
+    expect(result.success).toBe(true);
+  });
+
+  it("surfaces the reprovision 409 (cycle not active) with the backend's own message", async () => {
+    mockFetchOnce({ detail: "Only an active client can be sent back for reprovision" }, 409);
+    const result = await requestReprovision("ob-1", { doc_types: ["passport"] });
+    expect(result).toEqual({
+      success: false,
+      error: "Only an active client can be sent back for reprovision",
+      code: "HTTP_409",
+    });
   });
 
   it("approveOnboarding() POSTs to the approve route", async () => {

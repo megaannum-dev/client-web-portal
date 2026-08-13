@@ -58,6 +58,11 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
   verified_count: number; required_count: number;
   reject_reason: string | null;
+  // True while the cycle is waiting on re-provisioned documents (Compliance's ad-hoc
+  // request, or the renewal scheduler) rather than having been rejected — both land on
+  // status="pending_review", so this is the only thing separating them on the wire.
+  // Temporary: the backend intends to collapse it into OnboardingStatus later.
+  awaiting_reprovision: boolean;
   submitted_at: string | null; created_at: string;
   documents: DocumentDTO[];   // present on detail/board rows; absent only if backend omits on a summary view
 }
@@ -74,6 +79,9 @@ export interface RejectReq  { reason?: string | null; }
 // Valid/Issue toggle locally and POSTs the whole set once, at Approve/Reject.
 export interface VerdictItem { doc_type: string; verdict: "valid" | "issue"; note?: string | null; }
 export interface VerdictBatchReq { items: VerdictItem[]; }   // backend requires min_length=1
+
+// Compliance's ad-hoc "require new documents" request on an ACTIVE client.
+export interface ReprovisionReq { doc_types: string[]; reason?: string | null; }
 
 export interface SubmitAllotmentReq {
   client_id: string;             // uuid.UUID as string
@@ -194,6 +202,10 @@ export interface AdminOnboardingRow {
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
   rejectReason: string | null;
+  // OB_STATUS_MAP collapses backend `pending_review` to status "rejected", which is
+  // wrong for a row that is merely awaiting re-provisioned documents. When this is
+  // true, read `status: "rejected"` as "awaiting re-provision" instead.
+  awaitingReprovision: boolean;
 }
 
 export interface RedemptionView {

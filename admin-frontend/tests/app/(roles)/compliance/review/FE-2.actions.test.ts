@@ -9,13 +9,14 @@ vi.mock("@/server/onboarding", async (importOriginal) => ({
   submitVerdicts: vi.fn(),
   approveOnboarding: vi.fn(),
   rejectOnboarding: vi.fn(),
+  requestReprovision: vi.fn(),
   downloadDocument: vi.fn(),
 }));
 
 import * as serverOnboarding from "@/server/onboarding";
 import {
   fetchComplianceQueue, submitVerdict, submitVerdicts, approveOnboarding, rejectOnboarding,
-  downloadDocument,
+  requestReprovision, downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 
 describe("FE-2 Compliance action wrappers", () => {
@@ -45,6 +46,21 @@ describe("FE-2 Compliance action wrappers", () => {
     const result = await submitVerdicts("ob-1", body);
     expect(serverOnboarding.submitVerdicts).toHaveBeenCalledWith("ob-1", body);
     expect(result).toBe(ok);
+  });
+
+  it("requestReprovision(id, body) forwards doc_types + reason unchanged", async () => {
+    const ok = { success: true, data: { status: "pending_review", awaiting_reprovision: true } };
+    vi.mocked(serverOnboarding.requestReprovision).mockResolvedValue(ok as never);
+    const body = { doc_types: ["passport", "ips"], reason: "stale" };
+    const result = await requestReprovision("ob-1", body);
+    expect(serverOnboarding.requestReprovision).toHaveBeenCalledWith("ob-1", body);
+    expect(result).toBe(ok);
+  });
+
+  it("requestReprovision() converts a thrown error into ACTION_ERROR instead of propagating", async () => {
+    vi.mocked(serverOnboarding.requestReprovision).mockRejectedValue(new Error("network down"));
+    const result = await requestReprovision("ob-1", { doc_types: ["passport"] });
+    expect(result).toEqual({ success: false, error: "network down", code: "ACTION_ERROR" });
   });
 
   it("approveOnboarding(id) converts a thrown error into ACTION_ERROR instead of propagating", async () => {

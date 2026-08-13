@@ -6,13 +6,14 @@ import {
   submitVerdicts as _submitVerdicts,
   approveOnboarding as _approveOnboarding,
   rejectOnboarding as _rejectOnboarding,
+  requestReprovision as _requestReprovision,
   downloadDocument as _downloadDocument,
   coDecideRedemption as _coDecideRedemption,
   fetchCoRedemptions as _fetchCoRedemptions,
   type APIResult,
 } from "@/server/onboarding";
 import type {
-  AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq,
+  AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq, ReprovisionReq,
   VerdictBatchReq, VerdictReq,
 } from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
@@ -57,6 +58,20 @@ export async function submitVerdicts(
     return response;
   } catch (error) {
     console.error("❌ Error submitting document verdicts:", { error, onboardingId, body });
+    return toErrorResult(error);
+  }
+}
+
+export async function requestReprovision(
+  onboardingId: string, body: ReprovisionReq,
+): Promise<APIResult<OnboardingDTO>> {
+  try {
+    logger.json("🔄 Requesting document re-provision:", { onboardingId, body });
+    const response = await _requestReprovision(onboardingId, body);
+    logger.json("✅ Request reprovision response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error requesting document re-provision:", { error, onboardingId, body });
     return toErrorResult(error);
   }
 }

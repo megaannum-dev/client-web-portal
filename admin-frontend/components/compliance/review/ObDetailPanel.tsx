@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, X, Download, Minus, FileSearch, TriangleAlert } from "@/lib/icons";
+import { Check, X, Download, Minus, FileSearch, TriangleAlert, RefreshCw } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { DetailShell, Fact, Notice, SectionLabel, ObStatusChip } from "@/components/compliance/Shared";
@@ -105,7 +105,7 @@ function ApproveButton({
 }
 
 export function ObDetailPanel({
-  o, draftVerdicts, onClose, onApprove, onReject, onVerdict, onDownload,
+  o, draftVerdicts, onClose, onApprove, onReject, onRequireDocs, onVerdict, onDownload,
 }: {
   o: AdminOnboardingRow;
   /** Verdicts as toggled in this session, keyed by doc_type. Held by the page (not
@@ -114,6 +114,7 @@ export function ObDetailPanel({
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onRequireDocs: (id: string) => void;
   onVerdict: (docType: string, v: "valid" | "issue") => void;
   onDownload: (docType: string) => void;
 }) {
@@ -132,14 +133,22 @@ export function ObDetailPanel({
       eyebrow="Onboarding review"
       title={o.client}
       meta={`${o.rm} · ${o.submitted} · ${o.type}`}
-      statusSlot={<ObStatusChip status={o.status} />}
+      statusSlot={<ObStatusChip status={o.status} awaitingReprovision={o.awaitingReprovision} />}
       onClose={onClose}
     >
+      {/* Both branches are backend `pending_review`; awaitingReprovision is what
+          separates "we rejected this" from "we asked for fresh documents". */}
       {o.status === "rejected" && (
         <div className="mb-4">
-          <Notice tone="bad" icon={X}>
-            <b>Rejected</b> — {o.rejectReason || "No reason provided."}
-          </Notice>
+          {o.awaitingReprovision ? (
+            <Notice tone="info" icon={RefreshCw}>
+              <b>Documents need re-provision</b> — {o.rejectReason || "Awaiting updated documents."}
+            </Notice>
+          ) : (
+            <Notice tone="bad" icon={X}>
+              <b>Rejected</b> — {o.rejectReason || "No reason provided."}
+            </Notice>
+          )}
         </div>
       )}
       <div className="grid grid-cols-2 gap-[11px]">
@@ -188,10 +197,24 @@ export function ObDetailPanel({
             {canEdit && <ApproveButton canApprove={canApprove} allReviewed={allReviewed} onApprove={() => onApprove(o.id)} />}
           </>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
-            {o.status === "approved" ? <Check size={15} strokeWidth={2} /> : <X size={15} strokeWidth={2} />}
-            {o.status === "approved" ? "Approved" : "Rejected"}
-          </span>
+          <>
+            <span className="inline-flex flex-1 items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
+              {o.status === "approved" ? <Check size={15} strokeWidth={2} />
+                : o.awaitingReprovision ? <RefreshCw size={15} strokeWidth={2} />
+                : <X size={15} strokeWidth={2} />}
+              {o.status === "approved" ? "Approved"
+                : o.awaitingReprovision ? "Awaiting re-provision"
+                : "Rejected"}
+            </span>
+            {/* View/Edit Gate Function */}
+            {/* Only an ACTIVE cycle can be reopened — the backend 409s otherwise, and
+                ObStatus "approved" maps 1:1 to backend `active` (see OB_STATUS_MAP). */}
+            {canEdit && o.status === "approved" && (
+              <Button variant="secondary" icon={RefreshCw} onClick={() => onRequireDocs(o.id)}>
+                Require new documents
+              </Button>
+            )}
+          </>
         )}
       </div>
     </DetailShell>

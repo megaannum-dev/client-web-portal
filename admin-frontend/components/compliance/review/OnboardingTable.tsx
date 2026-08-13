@@ -54,7 +54,9 @@ export function OnboardingTable({
                   <td className={`${tdBase} whitespace-nowrap text-secondary`}>{o.submitted}</td>
                   <td className={tdBase}><ObTypeChip type={o.type} /></td>
                   <td className={`${tdBase} text-center`}><DocProgress documents={o.documents} /></td>
-                  <td className={tdBase}><ObStatusChip status={o.status} /></td>
+                  <td className={tdBase}>
+                    <ObStatusChip status={o.status} awaitingReprovision={o.awaitingReprovision} />
+                  </td>
                   <td className={`${tdBase} text-right text-secondary`}>
                     <ChevronRight size={16} strokeWidth={2} className="inline" />
                   </td>

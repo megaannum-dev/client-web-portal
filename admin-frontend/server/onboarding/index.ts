@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllotRdmptDTO, BoardDTO, ClientEventDTO, ContactLogEntryDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
-  RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq,
+  RedemptionDecisionReq, RejectReq, ReprovisionReq, RmOptionDTO, StartOnboardingReq,
   VerdictBatchReq, VerdictReq,
 } from "@/lib/onboarding/types";
 
@@ -144,6 +144,14 @@ export async function submitVerdicts(
   onboardingId: string, body: VerdictBatchReq,
 ): Promise<APIResult<DocumentDTO[]>> {
   return apiClient<DocumentDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICTS(onboardingId), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+/** Compliance's ad-hoc "require new documents" on an ACTIVE client — 409s otherwise. */
+export async function requestReprovision(
+  onboardingId: string, body: ReprovisionReq,
+): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_REPROVISION(onboardingId), {
     method: "POST", body: JSON.stringify(body),
   });
 }

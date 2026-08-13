@@ -21,6 +21,7 @@ import { RedeemTable } from "@/components/compliance/review/RedeemTable";
 import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
 import { RejectModal } from "@/components/compliance/review/RejectModal";
+import { ReprovisionModal } from "@/components/compliance/review/ReprovisionModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
 import { useCoRedemptions } from "@/hooks/api/useCoRedemptions";
@@ -48,7 +49,8 @@ function ComplianceReviewContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [tab, setTab] = useState<CoTab>(deepLink.tab);
-  const { data: onboardingData, submitVerdicts, approve, reject, download } = useComplianceQueue();
+  const { data: onboardingData, submitVerdicts, approve, reject, requestReprovision, download } =
+    useComplianceQueue();
   const onboarding = onboardingData ?? [];
   const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
   // Compliance only ever acts on redemptions above the threshold -- rows at
@@ -58,6 +60,7 @@ function ComplianceReviewContent() {
   const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
   const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
   const [rejecting, setRejecting] = useState(false);
+  const [reprovisioning, setReprovisioning] = useState(false);
   // Draft document verdicts, keyed by onboarding id then doc_type. Lives HERE, not
   // in ObDetailPanel, because opening the Reject modal unmounts that panel -- panel-
   // local state would be destroyed exactly when confirmReject needs to read it.
@@ -133,6 +136,12 @@ function ComplianceReviewContent() {
     setRejecting(false);
     setOpenObId(null);
   };
+  const confirmReprovision = async (id: string, docTypes: string[], note: string) => {
+    const r = await requestReprovision(id, docTypes, note || undefined);
+    if (!r.success) return alert(`Could not request new documents: ${r.error}`);
+    clearDraft(id);           // the reopened cycle re-seeds from its new server state
+    setReprovisioning(false); // panel stays open, now showing "Awaiting re-provision"
+  };
   const decideCr = (id: string, verdict: "approve" | "reject") =>
     void decideRedemption(id, { verdict }).then((r) => {
       if (!r.success) alert(`Could not submit decision: ${r.error}`);
@@ -188,13 +197,14 @@ function ComplianceReviewContent() {
         </div>
       </div>
 
-      {openOb && !rejecting && (
+      {openOb && !rejecting && !reprovisioning && (
         <ObDetailPanel
           o={openOb}
           draftVerdicts={verdictsFor(openOb)}
           onClose={() => setOpenObId(null)}
           onApprove={approveOb}
           onReject={() => setRejecting(true)}
+          onRequireDocs={() => setReprovisioning(true)}
           onVerdict={doVerdict}
           onDownload={doDownload}
         />
@@ -205,6 +215,13 @@ function ComplianceReviewContent() {
           draftVerdicts={verdictsFor(openOb)}
           onCancel={() => setRejecting(false)}
           onConfirm={confirmReject}
+        />
+      )}
+      {openOb && reprovisioning && (
+        <ReprovisionModal
+          o={openOb}
+          onCancel={() => setReprovisioning(false)}
+          onConfirm={confirmReprovision}
         />
       )}
       {openCr && <CrDetailPanel r={openCr} onClose={() => setOpenCrId(null)} onDecision={decideCr} />}
