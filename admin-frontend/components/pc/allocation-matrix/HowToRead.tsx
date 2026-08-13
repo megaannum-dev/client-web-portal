@@ -1,4 +1,4 @@
-import { Info, Rows3, Columns3, Grid3x3 } from "@/lib/icons";
+import { Rows3, Columns3, Grid3x3 } from "@/lib/icons";
 
 type Toggle = "units" | "pct";
 
@@ -6,7 +6,9 @@ type Toggle = "units" | "pct";
 export const LABEL = "text-[11px] font-bold uppercase tracking-[0.05em] text-secondary";
 
 /* ============================================================
-   "HOW TO READ THIS" legend strip
+   "HOW TO READ THIS" — ambient footnote below the matrix, not a
+   boxed section. Low visual weight on purpose: it's a reminder for
+   returning users, not a first-read explainer.
    ============================================================ */
 export function HowToRead({ view }: { view: Toggle }) {
   const rows: [typeof Rows3, string, string][] = [
@@ -15,15 +17,12 @@ export function HowToRead({ view }: { view: Toggle }) {
     [Grid3x3, "Each cell", (view === "pct" ? "the client’s share of that model" : "units the client holds of that model") + ", plus that client’s dedicated IB account for this model"],
   ];
   return (
-    <div className="mb-3.5 flex flex-wrap gap-x-6 gap-y-2.5 rounded-md border border-outline-variant bg-surface-low px-4 py-3">
-      <div className={`flex items-center gap-[7px] ${LABEL}`}>
-        <Info size={14} strokeWidth={2} />How to read this
-      </div>
+    <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-1.5 px-1 text-[12px] text-outline">
       {rows.map(([Icon, label, text]) => (
-        <div key={label} className="flex items-center gap-[7px] text-[12.5px] text-secondary">
-          <Icon size={14} strokeWidth={2} className="text-primary" />
-          <span><b className="text-on-surface">{label}:</b> {text}</span>
-        </div>
+        <span key={label} className="inline-flex items-center gap-1">
+          <Icon size={13} strokeWidth={2} className="text-primary" />
+          <b className="font-semibold text-secondary">{label}:</b> {text}
+        </span>
       ))}
     </div>
   );

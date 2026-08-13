@@ -92,8 +92,8 @@ export default function AllocationMatrixPage() {
             <div className="flex-1"><div className="text-[13.5px] font-bold text-on-surface">{period} allocation is confirmed</div><div className="mt-0.5 text-[12.5px]" style={{ color: "#9a5b00" }}>The matrix is frozen so trading can open.</div></div>
           </div>
         )}
-        <HowToRead view={view} />
         <Matrix data={data} view={view} onOpen={(cid, mid) => setOpen({ cid, mid })} />
+        <HowToRead view={view} />
       </div>
       {open && <DetailPanel data={data} period={period} cid={open.cid} mid={open.mid} onClose={() => setOpen(null)} />}
       {canEdit && confirmModal && <ConfirmModal data={data} period={OPEN} onClose={() => setConfirmModal(false)} onConfirm={handleConfirm} />}
