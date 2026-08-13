@@ -25,12 +25,14 @@ from app.libs.onboarding.schemas import (
     OnboardingDTO,
     RedemptionDecisionReq,
     RejectReq,
+    ReprovisionReq,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
     SubmitRedemptionReq,
     TransactionDetailDTO,
     TransactionDetailRequest,
+    VerdictBatchReq,
     VerdictReq,
 )
 from app.libs.onboarding.service import OnboardingService, fix_mojibake_filename
@@ -341,6 +343,8 @@ def download_document(
 
 
 @router.post(
+    # ponytail: superseded by the batch route below; kept live only so the
+    # existing admin-frontend keeps working until it moves to /documents/verdicts.
     "/compliance/onboardings/{onboarding_id}/documents/{doc_type}/verdict",
     response_model=DocumentDTO,
 )
@@ -352,6 +356,19 @@ def submit_verdict(
     user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
 ) -> DocumentDTO:
     return svc.verdict(onboarding_id, doc_type, req, reviewer_uid=user.firebase_uid)
+
+
+@router.post(
+    "/compliance/onboardings/{onboarding_id}/documents/verdicts",
+    response_model=list[DocumentDTO],
+)
+def submit_verdicts(
+    onboarding_id: uuid.UUID,
+    req: VerdictBatchReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> list[DocumentDTO]:
+    return svc.verdict_batch(onboarding_id, req, reviewer_uid=user.firebase_uid)
 
 
 @router.post("/compliance/onboardings/{onboarding_id}/approve", response_model=OnboardingDTO)
@@ -375,6 +392,23 @@ def reject_onboarding(
     _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
 ) -> OnboardingDTO:
     return svc.reject(onboarding_id, req)
+
+
+@router.post(
+    "/compliance/onboardings/{onboarding_id}/reprovision",
+    response_model=OnboardingDTO,
+)
+def request_reprovision(
+    onboarding_id: uuid.UUID,
+    req: ReprovisionReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> OnboardingDTO:
+    """Ad-hoc counterpart to the scheduler's periodic renewal sweep: sends an
+    ACTIVE client back to pending_review instantly, for any set of KYC
+    documents Compliance wants a fresh copy of -- see
+    OnboardingService.request_reprovision."""
+    return svc.request_reprovision(onboarding_id, req, requested_by=user.firebase_uid)
 
 
 # ---- PC ------------------------------------------------------------------

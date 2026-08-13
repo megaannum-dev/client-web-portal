@@ -6,7 +6,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
@@ -135,6 +135,28 @@ class BoardDTO(BaseModel):
 class VerdictReq(BaseModel):
     verdict: Literal["valid", "issue"]
     note: str | None = None
+
+
+class VerdictItem(BaseModel):
+    doc_type: str
+    verdict: Literal["valid", "issue"]
+    note: str | None = None
+
+
+class VerdictBatchReq(BaseModel):
+    """POST .../documents/verdicts body -- every document's verdict for one
+    cycle, applied atomically (service.OnboardingService.verdict_batch)."""
+
+    items: list[VerdictItem] = Field(min_length=1)
+
+
+class ReprovisionReq(BaseModel):
+    """POST .../reprovision body -- Compliance's ad-hoc "send this doc back
+    for renewal" action on an active client (service.OnboardingService
+    .request_reprovision), independent of the scheduler's periodic sweep."""
+
+    doc_types: list[str] = Field(min_length=1)
+    reason: str | None = None
 
 
 class RejectReq(BaseModel):

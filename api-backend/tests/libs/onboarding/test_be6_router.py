@@ -490,13 +490,15 @@ def test_client_subscriptions_route_takes_no_user_id_query_param(client_portal_c
     assert resp.json() == []
 
 
-# --- Invariant: exactly 19 onboarding routes registered -----------------------------
-# (was 16 per 013; 014 BE-2/BE-3/BE-7 add +3 matching this filter's segments --
+# --- Invariant: exactly 21 onboarding routes registered -----------------------------
+# (was 16 per 013; 014 BE-2/BE-3/BE-7 add +3 matching this filter's segments; the
+# ad-hoc reprovision + batch-verdict rework adds +2 more (POST .../documents/verdicts,
+# POST .../reprovision) alongside the still-live per-doc verdict route --
 # BE-7's /rm/clients/{client_id}/events and BE-9's /rm/subscriptions* routes don't
 # match any of this filter's five segments, so they aren't counted here.)
 
 
-def test_exactly_nineteen_onboarding_routes_are_registered():
+def test_exactly_twentyone_onboarding_routes_are_registered():
     paths = app.openapi()["paths"]
     onboarding_paths = {
         p: methods
@@ -513,7 +515,7 @@ def test_exactly_nineteen_onboarding_routes_are_registered():
         )
     }
     total_routes = sum(len(methods) for methods in onboarding_paths.values())
-    assert total_routes == 19
+    assert total_routes == 21
 
 
 if __name__ == "__main__":

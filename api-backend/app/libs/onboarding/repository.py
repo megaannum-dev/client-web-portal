@@ -315,15 +315,22 @@ class OnboardingRepository:
         doc.reviewed_at = None
         doc.issue_note = None
 
-    def flag_pending_renewal(self, doc: OnboardingDocument) -> None:
+    def flag_pending_renewal(self, doc: OnboardingDocument, *, note: str | None = None) -> None:
         """Renewal-scheduler soft-flag: the document is still the one
         compliance verified, just nearing expires_at -- unlike
         reset_for_reupload, this leaves reviewed_by/at (and the rest of the
         prior verification) untouched since nothing has actually changed
         about the document yet. upload_document() carries it PENDING ->
         UPLOADED directly once the client re-uploads (pending is in
-        _CAN_REUPLOAD_STATUSES)."""
+        _CAN_REUPLOAD_STATUSES).
+
+        `note` is the ad-hoc reprovision path's addition (service
+        .request_reprovision): stamped onto issue_note so the RM/client sees
+        WHY compliance is asking again. The scheduler's own periodic call
+        passes nothing, leaving issue_note untouched -- unchanged behaviour."""
         doc.status = DocStatus.PENDING
+        if note is not None:
+            doc.issue_note = note
 
     def bump_all_to_in_review(self, onboarding_id: uuid.UUID) -> None:
         for doc in self.documents_for(onboarding_id):

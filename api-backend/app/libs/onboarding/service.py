@@ -31,6 +31,7 @@ from app.libs.onboarding.schemas import (
     OnboardingDTO,
     RedemptionDecisionReq,
     RejectReq,
+    ReprovisionReq,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
@@ -38,6 +39,8 @@ from app.libs.onboarding.schemas import (
     SubscriptionDTO,
     TransactionDetailDTO,
     TransactionDetailRequest,
+    VerdictBatchReq,
+    VerdictItem,
     VerdictReq,
 )
 from app.libs.users.repository import AdminProfileRepository
@@ -306,17 +309,47 @@ class OnboardingService:
         return self._to_dto(onboarding, with_documents=True)
 
     # ---- Compliance: verdict / approve / reject ----------------------------
-    def verdict(
-        self, onboarding_id: uuid.UUID, doc_type: str, req: VerdictReq, *, reviewer_uid: str
-    ) -> DocumentDTO:
+    def verdict_batch(
+        self, onboarding_id: uuid.UUID, req: VerdictBatchReq, *, reviewer_uid: str
+    ) -> list[DocumentDTO]:
+        """Every document verdict for one cycle, applied atomically -- the
+        batch rework `verdict()` used to lack: one 409/404/422 check pass
+        BEFORE any write, then one commit for the whole set (mirrors
+        approve()'s try/commit/except-rollback shape) so a bad item never
+        leaves the package half-reviewed."""
         onboarding = self._require_onboarding(onboarding_id)
         if onboarding.status != "reviewing":
             raise HTTPException(status.HTTP_409_CONFLICT, "Cycle is not under review")
-        doc = self._require_document(onboarding_id, doc_type)
-        new_status = DocStatus.VERIFIED if req.verdict == "valid" else DocStatus.REJECTED
-        self.repo.set_verdict(doc, status=new_status, reviewed_by=reviewer_uid, note=req.note)
-        self.db.commit()
-        return self._doc_to_dto(doc)
+
+        doc_types = [item.doc_type for item in req.items]
+        if len(set(doc_types)) != len(doc_types):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Duplicate doc_type in batch")
+        # 404s before any write:
+        docs = [self._require_document(onboarding_id, dt) for dt in doc_types]
+
+        try:
+            for doc, item in zip(docs, req.items):
+                new_status = DocStatus.VERIFIED if item.verdict == "valid" else DocStatus.REJECTED
+                self.repo.set_verdict(
+                    doc, status=new_status, reviewed_by=reviewer_uid, note=item.note
+                )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return [self._doc_to_dto(doc) for doc in docs]
+
+    def verdict(
+        self, onboarding_id: uuid.UUID, doc_type: str, req: VerdictReq, *, reviewer_uid: str
+    ) -> DocumentDTO:
+        # ponytail: legacy single-doc path, kept only for the still-live
+        # per-doc route + run_full_approved_cycle's 7x-call test fixture;
+        # delete alongside that route once the admin-frontend batches its
+        # verdict submit (see docs/proposals -- FE reprovision/batch-verdict).
+        item = VerdictItem(doc_type=doc_type, verdict=req.verdict, note=req.note)
+        return self.verdict_batch(
+            onboarding_id, VerdictBatchReq(items=[item]), reviewer_uid=reviewer_uid
+        )[0]
 
     def approve(
         self,
@@ -444,8 +477,17 @@ class OnboardingService:
 
     # ---- Scheduler hook (BE-7 calls this) ----------------------------------
     def reopen_for_renewal(
-        self, user_id: uuid.UUID, *, due_docs: list[OnboardingDocument], reason: str
+        self,
+        user_id: uuid.UUID,
+        *,
+        due_docs: list[OnboardingDocument],
+        reason: str,
+        note: str | None = None,
     ) -> None:
+        """`note` (new, optional): per-doc issue_note stamped via
+        flag_pending_renewal -- used by request_reprovision below so the RM/
+        client sees WHY compliance is asking again. The scheduler's own
+        periodic call never passes it, so its behaviour is unchanged."""
         onboarding = self.repo.get_by_user_id(user_id)
         if onboarding is None or onboarding.status != "active":
             return  # duplicate guard -- a row already off "active" has a renewal in flight
@@ -453,7 +495,7 @@ class OnboardingService:
         onboarding.status = OnboardingStatus.PENDING_REVIEW
         onboarding.reject_reason = reason
         for doc in due_docs:
-            self.repo.flag_pending_renewal(doc)
+            self.repo.flag_pending_renewal(doc, note=note)
         labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
         self.repo.create_event(
             user_id=onboarding.user_id,
@@ -462,6 +504,40 @@ class OnboardingService:
             body=f"Your {labels} is due for renewal. Please upload an updated document.",
         )
         self.db.commit()
+
+    # ---- Compliance: ad-hoc reprovision request -----------------------------
+    def request_reprovision(
+        self, onboarding_id: uuid.UUID, req: ReprovisionReq, *, requested_by: str
+    ) -> OnboardingDTO:
+        """Compliance's on-demand counterpart to the scheduler's
+        reopen_for_renewal above: reopens an ACTIVE client for renewal
+        instantly, for any set of documents -- not just ones the review clock
+        already flagged. Delegates the actual reopen to reopen_for_renewal so
+        both paths share one kind/status flip + per-doc PENDING flag +
+        "KYC renewal required" client_events row, instead of a second copy of
+        that logic.
+
+        ponytail: `requested_by` isn't stamped onto a column of its own --
+        it rides along in the client_events body text below. Upgrade to a real
+        admin_audit_events row (app/models/access.py) if a queryable "who
+        requested this" trail is ever needed."""
+        onboarding = self._require_onboarding(onboarding_id)
+        if onboarding.status != OnboardingStatus.ACTIVE:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Only an active client can be sent back for reprovision",
+            )
+        doc_types = list(dict.fromkeys(req.doc_types))  # de-dup, preserve order
+        # 404s before any write:
+        docs = [self._require_document(onboarding_id, dt) for dt in doc_types]
+
+        requester = self.repo._resolve_uid_to_display_name(requested_by) or requested_by
+        labels = ", ".join(get_doc_spec(d.doc_type).label for d in docs)
+        reason = f"Compliance ({requester}) requested re-provision of: {labels}"
+        if req.reason:
+            reason += f" -- {req.reason}"
+        self.reopen_for_renewal(onboarding.user_id, due_docs=docs, reason=reason, note=req.reason)
+        return self._to_dto(onboarding, with_documents=True)
 
     # ---- Board / list reads -------------------------------------------------
     def board(self) -> BoardDTO:
