@@ -28,7 +28,7 @@ class StartOnboardingReq(BaseModel):
     country_of_residence: str
     id_type: str
     id_number: str
-    ibhk_account: str
+    client_ib: str
     sw_account: str
     model_id: uuid.UUID
     units: Decimal  # -> onboarding.multiplier
@@ -38,6 +38,7 @@ class StartOnboardingReq(BaseModel):
     # ADMIN-only override (BE-4 follow-up): non-ADMIN callers always land on
     # themselves regardless of what's sent here -- see OnboardingService.start.
     assigned_rm_uid: str | None = None
+    asst_rm_uid: str | None = None
     # 014 C-9: "Initial Cash Deposit" step-2 field -- request-only, consumed once
     # inside OnboardingService.start to resolve client_portfolios.cash_deposit/
     # amount_in_trade, then discarded. No column stores this raw figure anywhere.
@@ -98,13 +99,16 @@ class OnboardingDTO(BaseModel):
     client_name: str
     email: str
     assigned_rm: str  # resolved display name, not the raw uid
+    asst_rm: str | None  # resolved display name; None when no assistant RM is set
     client_ref: str  # e.g. "MEGA-0481" -- formatted from user_id, never stored
     primary_phone: str  # joined from ClientProfile
     address: str  # joined from ClientProfile
     country_of_residence: str  # joined from ClientProfile
     id_type: str  # -> client_onboardings.id_type
     id_number: str  # -> client_onboardings.id_number
-    ibhk_account: str  # -> client_onboardings.ibhk_account
+    # Sourced from client_ib_accounts.ib_account for (user_id, model_id), not
+    # from a client_onboardings column (dropped in migration 0034).
+    client_ib: str
     sw_account: str  # -> client_onboardings.sw_account
     status: OnboardingStatus
     kind: OnboardingKind
@@ -170,6 +174,10 @@ class SubmitAllotmentReq(BaseModel):
     mgmt_fee: Decimal | None = None
     incentive_fee: Decimal | None = None
     source_ticket_ref: str | None = None
+    # The client's IB account for this model, captured when the allotment is a
+    # NEW subscription. Optional because the FE doesn't send it yet; when
+    # absent, an existing client_ib_accounts row simply stays as it is.
+    client_ib: str | None = None
 
 
 class SubmitRedemptionReq(BaseModel):
@@ -220,6 +228,10 @@ class AllotRdmptDTO(BaseModel):
     # --- widened 2026-07-27 (proposal 017, BE-4): True when a
     # transaction_details row exists for this allotment/redemption.
     has_transaction_detail: bool = False
+    # The client's IB account for this row's model -- resolved at read time from
+    # client_ib_accounts via (user_id, model_id); no column of its own here.
+    # None when no account has been assigned for that pair yet.
+    client_ib: str | None = None
 
 
 class TransactionDetailRequest(BaseModel):
@@ -257,7 +269,7 @@ class SubscriptionDTO(BaseModel):
     model_id: uuid.UUID
     model_name: str
     units: float
-    ib_account: str | None
+    client_ib: str | None
 
 
 class ClientEventDTO(BaseModel):
@@ -277,7 +289,7 @@ class ClientSubscriptionRowDTO(BaseModel):
     units: Decimal
     mgmt_fee: Decimal  # effective = override ?? Model default
     incentive_fee: Decimal  # effective = override ?? Model default
-    ib_account: str | None
+    client_ib: str | None  # client_ib_accounts.ib_account, on (user_id, model_id)
     amount: Decimal  # = units * model.model_size -- mirrors AllotRdmptDTO.amount
 
 

@@ -35,6 +35,9 @@ _TRACKED_FIELDS = (
     "description", "underlyings", "risk",
     "liquidity", "reporting", "nav_perf",
     "mgmt_fee", "incentive_fee",
+    # The account a model actually trades through — at least as audit-worthy as
+    # its name or fee, and previously changeable with no trace.
+    "master_ib_account",
 )
 
 _LONG_TEXT_FIELDS = frozenset({"description", "underlyings", "risk"})
@@ -143,6 +146,7 @@ class ModelService:
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
+        master_ib_account: str | None = None,
     ) -> Model:
         model = self.repo.create(
             name=name,
@@ -158,6 +162,7 @@ class ModelService:
             nav_perf=nav_perf,
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
+            master_ib_account=master_ib_account,
         )
         for s in model.symbols:
             self._log_symbol(

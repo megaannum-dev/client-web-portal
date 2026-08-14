@@ -31,7 +31,7 @@ import { SubscriptionFormModal } from "@/components/rm/SubscriptionFormModal";
 function makeSub(overrides: Partial<ClientSubscriptionsDTO["subscriptions"][number]> = {}): ClientSubscriptionsDTO["subscriptions"][number] {
   return {
     model_id: "m-1", model_name: "Balanced", units: 2,
-    mgmt_fee: 0.015, incentive_fee: 0.2, ib_account: "IB-4471", amount: 200_000,
+    mgmt_fee: 0.015, incentive_fee: 0.2, client_ib: "IB-4471", amount: 200_000,
     ...overrides,
   };
 }
@@ -85,7 +85,7 @@ describe("FE-6 allotmentToTxnRow", () => {
     expect(row[8]).not.toBe("—");   // Expected Redemption populated
   });
 
-  it("falls back to '—' for the IB account column when ib_account is null", () => {
+  it("falls back to '—' for the IB account column when the client_ib account is null", () => {
     const row = allotmentToTxnRow(makeAllot(), null);
     expect(row[2]).toBe("—");
   });
@@ -141,6 +141,13 @@ describe("FE-6 mapSubscriptionsToSubClients", () => {
     const [client] = mapSubscriptionsToSubClients([dto], {});
     expect(client.models[0].mgmtFee).toBe("1.5%");
     expect(client.models[0].incentiveFee).toBe("20%");
+  });
+
+  it("a fully-redeemed (units: 0) subscription row still appears in the mapped models array -- the RM must still see it to re-add it via Add Allotment", () => {
+    const dto = makeClientDto({ subscriptions: [makeSub({ units: 0, amount: 0 })] });
+    const [client] = mapSubscriptionsToSubClients([dto], {});
+    expect(client.models).toHaveLength(1);
+    expect(client.models[0].units).toBe(0);
   });
 });
 

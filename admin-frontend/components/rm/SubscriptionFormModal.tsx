@@ -17,10 +17,12 @@ import {
   Info,
   Shield,
   Check,
+  Link2,
 } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { parseFeePercent } from "@/lib/fee";
+import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 import { submitAllotment, submitRedemption } from "@/app/(roles)/rm/model-subscription/actions";
 
 export type SubscriptionModalMode = "new-subscription" | "add-allotment" | "redemption";
@@ -67,6 +69,7 @@ export function SubscriptionFormModal({
   onSuccess,
   availableClients = [],
   availableModels = [],
+  subscribedModelIdsByClient = {},
 }: {
   mode?: SubscriptionModalMode;
   context?: SubscriptionModalContext;
@@ -75,6 +78,10 @@ export function SubscriptionFormModal({
   onSuccess?: () => void;
   availableClients?: { id: string; name: string }[];
   availableModels?: { id: string; name: string; mgmtFee: string; incentiveFee: string; size: number }[];
+  /** Model ids the client already holds (any multiplier > 0), keyed by
+   *  client id — used in new-subscription mode to hide models the selected
+   *  client can't be "newly" subscribed to (that's Add Allotment's job). */
+  subscribedModelIdsByClient?: Record<string, Set<string>>;
 }) {
   const isNew = mode === "new-subscription";
   const isAddAllot = mode === "add-allotment";
@@ -90,6 +97,9 @@ export function SubscriptionFormModal({
   const [mgmtFee, setMgmtFee] = useState(context.mgmtFee ?? "");
   const [incentiveFee, setIncentiveFee] = useState(context.incentiveFee ?? "");
   const [dateVal, setDateVal] = useState("");
+  const [ibAccountId, setIbAccountId] = useState("");
+  // Display name for the "Bound to {client}…" helper line under IBHK Account ID.
+  const clientLabel = client || availableClients.find((c) => c.id === clientId)?.name || "";
   const [emergent, setEmergent] = useState(initialEmergent);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -106,7 +116,7 @@ export function SubscriptionFormModal({
   // real <form>, this modal has no submit event for the browser's native
   // `required` to hook into — nothing stopped an empty date from reaching the
   // backend as null. Emergent redemption is exempt: its date is fixed to T+1.
-  const canSubmit = emergent || dateVal !== "";
+  const canSubmit = (emergent || dateVal !== "") && (!isNew || isValidIbAccount(ibAccountId));
   const accentText = isRedemption ? "text-[#994700]" : "text-[#2f7a47]";
   const accentBg = isRedemption ? "bg-[#fff3e8]" : "bg-[#e3f1e7]";
   const HeaderIcon = isRedemption ? ArrowUpFromLine : ArrowDownToLine;
@@ -117,8 +127,17 @@ export function SubscriptionFormModal({
       ? "Allot additional units to an existing model subscription."
       : "Redeem units from an existing model subscription.";
 
+  // isNew-only: a client can't be "newly" subscribed to a model they already
+  // hold units of — that's Add Allotment's job (see also client_ib_accounts'
+  // one-account-per-model invariant, which this filter avoids ever tripping).
+  const modelsForSelectedClient = isNew
+    ? availableModels.filter((m) => !subscribedModelIdsByClient[clientId]?.has(m.id))
+    : availableModels;
+
   const onClientChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setClientId(e.target.value);
+    // The previously-picked model may no longer be valid for the new client.
+    if (isNew) { setModelId(""); setModel(""); }
   };
 
   const onModelChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -156,6 +175,7 @@ export function SubscriptionFormModal({
           mgmt_fee: isNew ? (mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee)) : null,
           incentive_fee: isNew ? (incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee)) : null,
           source_ticket_ref: context.sourceTicketRef,
+          ...(isNew ? { client_ib: normalizeIbAccount(ibAccountId) } : {}),
         });
     setSubmitting(false);
     if (!result.success) {
@@ -197,27 +217,54 @@ export function SubscriptionFormModal({
         </>
       }
     >
+      {/* Client + Model + bound IBHK account — grouped so the binding relationship reads as one unit */}
+      <div className="mb-4 rounded-[12px] border border-outline-variant bg-surface-low p-4">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+          <Field label="Client" required={isNew}>
+            {locked ? (
+              <div className={fieldDisabledClass}>{client}</div>
+            ) : (
+              <select value={clientId} onChange={onClientChange} className={clsx(fieldClass, "font-semibold")}>
+                <option value="" disabled>Select a client…</option>
+                {availableClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Model" required={isNew}>
+            {locked ? (
+              <div className={fieldDisabledClass}>{model}</div>
+            ) : (
+              <select value={modelId} onChange={onModelChange} className={clsx(fieldClass, "font-semibold")}>
+                <option value="" disabled>Select a model…</option>
+                {modelsForSelectedClient.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            )}
+          </Field>
+        </div>
+        {/* New model selected on a new subscription — its IBHK account binds to Client × Model above */}
+        {isNew && !!modelId && (
+          <div className="mt-3.5 border-t border-dashed border-outline pt-3.5">
+            <Field label="IBHK Account ID" required>
+              <input
+                value={ibAccountId}
+                onChange={(e) => setIbAccountId(e.target.value.toUpperCase())}
+                placeholder="e.g. U1234567"
+                className={fieldClass}
+              />
+              {ibAccountId.trim() !== "" && !isValidIbAccount(ibAccountId) && (
+                <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
+              )}
+            </Field>
+            <div className="mt-2.5 flex items-start gap-2">
+              <Link2 size={13} strokeWidth={2} className="mt-px shrink-0 text-[#3f6196]" />
+              <span className="text-[12.5px] font-semibold leading-relaxed text-[#3f6196]">
+                Bound to {clientLabel || "this client"} for the {model} model only.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-x-5 gap-y-4">
-        <Field label="Client" required={isNew}>
-          {locked ? (
-            <div className={fieldDisabledClass}>{client}</div>
-          ) : (
-            <select value={clientId} onChange={onClientChange} className={clsx(fieldClass, "font-semibold")}>
-              <option value="" disabled>Select a client…</option>
-              {availableClients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-        </Field>
-        <Field label="Model" required={isNew}>
-          {locked ? (
-            <div className={fieldDisabledClass}>{model}</div>
-          ) : (
-            <select value={modelId} onChange={onModelChange} className={clsx(fieldClass, "font-semibold")}>
-              <option value="" disabled>Select a model…</option>
-              {availableModels.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          )}
-        </Field>
         <Field label="Multiplier" required>
           {emergent ? (
             <div className={fieldDisabledClass}>Full (all units)</div>

@@ -52,6 +52,7 @@ export function ModelDetailPanel({
               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-secondary">
                 {m.category.length > 0 ? <Ticks symbols={m.category} /> : <span>—</span>}
                 <span>· {fmtMoney(m.size)}</span>
+                <span>· Master IB: {m.master_ib_account ?? "—"}</span>
               </div>
             </div>
             <div className="flex flex-none items-center gap-2.5">

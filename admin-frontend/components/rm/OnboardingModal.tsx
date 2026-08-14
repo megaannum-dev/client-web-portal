@@ -19,12 +19,14 @@ import { Fragment, useEffect, useState, type ChangeEvent, type ReactNode } from 
 import clsx from "clsx";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
-import { UserRoundPlus, Check, File, Upload, Info, Lock } from "@/lib/icons";
+import { UserRoundPlus, Check, File, Upload, Info, Lock, TriangleAlert } from "@/lib/icons";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFeePercent, parseFeePercent } from "@/lib/fee";
 import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
 const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents"];
@@ -42,6 +44,7 @@ interface ObForm {
   idType: string;
   idNumber: string;
   assignedRm: string;
+  assistantRm: string;
   birthday: string;
   occupation: string;
   ibhkId: string;
@@ -81,13 +84,16 @@ export function OnboardingModal({
 } & Pick<UseOnboardingBoardResult, "startOnboarding" | "uploadDocument" | "fetchRmOptions" | "fetchDocSpecs">) {
   const { data: models, error: modelsError } = useModels();
   const liveModels = (models ?? []).filter((m) => m.status === "live");
+  const { portalUser } = useAuth();
+  const isAdmin = portalUser?.role === "ADMIN";
   const [rmOptions, setRmOptions] = useState<RmOptionDTO[]>([]);
   const [docSpecs, setDocSpecs] = useState<DocSpecDTO[]>([]);
   const [page, setPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
-    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "", birthday: "", occupation: "",
+    idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "", assistantRm: "", birthday: "", occupation: "",
     ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
     anniversary: "", spouseName: "", childrenNames: "", personalInterests: "", commPrefs: "", giftPrefs: "", otherPrefNotes: "",
   });
@@ -97,19 +103,19 @@ export function OnboardingModal({
   const [docs, setDocs] = useState<Record<string, File>>({});
   const canEdit = useCanEdit("rm.onboarding-renewal");
 
-  // Server pre-scopes this list to what the caller may assign: every RM for
-  // ADMIN, just the caller's own row for anyone else -- so the same always-
-  // enabled select naturally has "only yourself" to pick when you're an RM.
-  // Always preselect the first option: an unmatched value="" on a controlled
-  // <select> renders the first <option> as selected in the DOM regardless,
-  // so leaving form state empty just desyncs it from what's visibly shown.
+  // Endpoint now returns every RM (Assistant RM needs the full roster) --
+  // default Assigned RM to the CALLER, not the alphabetically-first option,
+  // and lock the select for non-ADMIN callers so the UI doesn't imply an
+  // authority _resolve_rm_override doesn't grant server-side (it pins any
+  // non-ADMIN caller to themselves regardless of what's submitted).
   useEffect(() => {
     fetchRmOptions().then((r) => {
       if (!r.success || !r.data || r.data.length === 0) return;
       setRmOptions(r.data);
-      setForm((f) => (f.assignedRm ? f : { ...f, assignedRm: r.data![0].uid }));
+      const self = portalUser?.firebase_uid;
+      setForm((f) => (f.assignedRm ? f : { ...f, assignedRm: self ?? r.data![0].uid }));
     });
-  }, [fetchRmOptions]);
+  }, [fetchRmOptions, portalUser?.firebase_uid]);
 
   // Same 7-doc catalog the KYC panel renders (compliance_doc_config.py) —
   // fetched here instead of hardcoded so the two surfaces can never diverge.
@@ -146,7 +152,7 @@ export function OnboardingModal({
   const depositFloor = Number(form.modelUnit || 0) * (selectedModel?.size ?? 0);
   const depositMeetsFloor = form.initialCashDeposit.trim() !== "" && Number(form.initialCashDeposit) >= depositFloor;
   const page2Valid = !!(
-    form.ibhkId.trim() && form.swId.trim() && form.model &&
+    isValidIbAccount(form.ibhkId) && form.swId.trim() && form.model &&
     /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim() &&
     depositMeetsFloor
   );
@@ -156,19 +162,21 @@ export function OnboardingModal({
   async function handleSubmit() {
     const model = liveModels.find((m) => m.id === form.model);
     if (!model) return;
+    setSubmitError(null);
     setSubmitting(true);
     try {
       const result = await startOnboarding({
         client_name: form.clientName, email: form.email, primary_phone: form.phone,
         address: form.address, country_of_residence: form.country,
         id_type: form.idType, id_number: form.idNumber,
-        ibhk_account: form.ibhkId, sw_account: form.swId,
+        client_ib: normalizeIbAccount(form.ibhkId), sw_account: form.swId,
         model_id: model.id,
         units: Number(form.modelUnit),
         initial_cash_deposit: Number(form.initialCashDeposit),
         mgmt_fee: parseFeePercent(form.mgmtFee),
         incentive_fee: parseFeePercent(form.incentiveFee),
         ...(form.assignedRm ? { assigned_rm_uid: form.assignedRm } : {}),
+        ...(form.assistantRm ? { asst_rm_uid: form.assistantRm } : {}),
         ...(form.occupation ? { occupation: form.occupation } : {}),
         ...(form.birthday ? { date_of_birth: form.birthday } : {}),
         ...(form.anniversary ? { anniversary: form.anniversary } : {}),
@@ -180,7 +188,8 @@ export function OnboardingModal({
         ...(form.otherPrefNotes ? { relationship_notes: form.otherPrefNotes } : {}),
       });
       if (!result.success) {
-        alert(`Could not start onboarding: ${result.error}`);
+        setSubmitError(result.error ?? "Could not start onboarding.");
+        setPage(3); // the field most likely to have caused a 409/422 lives here
         return;
       }
       // Client record exists now — push every doc staged in step 3 for real.
@@ -192,7 +201,8 @@ export function OnboardingModal({
       if (failures.length) alert(`Client created, but these documents failed to upload — add them from the KYC panel: ${failures.join(", ")}`);
       onClose();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Invalid fee value");
+      setSubmitError(err instanceof Error ? err.message : "Invalid fee value");
+      setPage(3);
     } finally {
       setSubmitting(false);
     }
@@ -263,11 +273,12 @@ export function OnboardingModal({
           <ObField label="Occupation">
             <input className={inputCls} value={form.occupation} onChange={set("occupation")} placeholder="e.g. Managing Partner" />
           </ObField>
-          <div className="col-span-2">
-            <ObField label="Address" required>
-              <input className={inputCls} value={form.address} onChange={set("address")} placeholder="Registered address" />
-            </ObField>
-          </div>
+          <ObField label="Address" required>
+            <input className={inputCls} value={form.address} onChange={set("address")} placeholder="Registered address" />
+          </ObField>
+          <ObField label="Country of Residence" required>
+            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
+          </ObField>
           <ObField label="ID Type" required>
             <select className={selectCls} value={form.idType} onChange={set("idType")}>
               {OB_ID_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -276,12 +287,20 @@ export function OnboardingModal({
           <ObField label="ID Number" required>
             <input className={inputCls} value={form.idNumber} onChange={set("idNumber")} placeholder="e.g. A1234567" />
           </ObField>
-          <ObField label="Country of Residence" required>
-            <input className={inputCls} value={form.country} onChange={set("country")} placeholder="e.g. Hong Kong SAR" />
-          </ObField>
           <ObField label="Assigned RM">
-            <select className={selectCls} value={form.assignedRm} onChange={set("assignedRm")}>
+            <select
+              className={clsx(selectCls, !isAdmin && "cursor-not-allowed opacity-60")}
+              value={form.assignedRm}
+              onChange={set("assignedRm")}
+              disabled={!isAdmin}
+            >
               {rmOptions.map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
+            </select>
+          </ObField>
+          <ObField label="Assistant RM">
+            <select className={selectCls} value={form.assistantRm} onChange={set("assistantRm")}>
+              <option value="">None</option>
+              {rmOptions.filter((rm) => rm.uid !== form.assignedRm).map((rm) => <option key={rm.uid} value={rm.uid}>{rm.name}</option>)}
             </select>
           </ObField>
         </div>
@@ -351,7 +370,15 @@ export function OnboardingModal({
       {page === 3 && (
         <div className="grid grid-cols-2 gap-4">
           <ObField label="IBHK Account ID" required>
-            <input className={inputCls} value={form.ibhkId} onChange={set("ibhkId")} placeholder="e.g. IB-8801" />
+            <input
+              className={inputCls}
+              value={form.ibhkId}
+              onChange={(e) => setForm((f) => ({ ...f, ibhkId: e.target.value.toUpperCase() }))}
+              placeholder="e.g. U1234567"
+            />
+            {form.ibhkId.trim() !== "" && !isValidIbAccount(form.ibhkId) && (
+              <span className="text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</span>
+            )}
           </ObField>
           <ObField label="Silverwater Account ID" required>
             <input className={inputCls} value={form.swId} onChange={set("swId")} placeholder="e.g. SW-4420" />
@@ -402,6 +429,12 @@ export function OnboardingModal({
             <Info size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-secondary" />
             <span className="text-[12.5px] leading-relaxed text-secondary">Fees default to the selected model&rsquo;s schedule and can be overwritten.</span>
           </div>
+          {submitError && (
+            <div className="col-span-2 flex items-start gap-2.5 rounded-md bg-[#fce4e0] p-3">
+              <TriangleAlert size={16} strokeWidth={2} className="mt-px shrink-0 text-[#b71c1c]" />
+              <div className="text-[12.5px] leading-[1.55] text-[#7f1313]">{submitError}</div>
+            </div>
+          )}
         </div>
       )}
 

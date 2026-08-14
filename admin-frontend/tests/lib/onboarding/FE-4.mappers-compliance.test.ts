@@ -14,7 +14,7 @@ function makeOnboarding(
     client_ref: "MEGA-0481",
     primary_phone: "+852 1234 5678", address: "1 Main St", country_of_residence: "HK",
     id_type: "passport", id_number: "P123456",
-    ibhk_account: "U-1000001", sw_account: "SW-2000001",
+    client_ib: "U-1000001", sw_account: "SW-2000001",
     status, kind: "renewal",
     model_id: "m-1", model_name: "Zero", units: 5,
     mgmt_fee: 0.015, incentive_fee: 0.2,

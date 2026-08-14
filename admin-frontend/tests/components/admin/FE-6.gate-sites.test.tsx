@@ -275,7 +275,7 @@ describe("FE-6 components/rm/SubscriptionAccordion.tsx + TransactionDetailModal.
   const client = {
     id: "ardent", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$1M",
     models: [
-      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-1", modelId: "m1", rows: [] },
+      { name: "Global Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-1", modelId: "m1", units: 5, rows: [] },
     ],
   };
 

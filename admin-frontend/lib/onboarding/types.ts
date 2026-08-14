@@ -17,12 +17,13 @@ export interface StartOnboardingReq {
   client_name: string; email: string; primary_phone: string;
   address: string; country_of_residence: string;
   id_type: string; id_number: string;
-  ibhk_account: string; sw_account: string;
+  client_ib: string; sw_account: string;
   model_id: string; units: number;
   initial_cash_deposit: number;              // Decimal-as-number, see BE-8
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
   kind?: OnboardingKind;                      // defaults "initial" server-side
   assigned_rm_uid?: string | null;            // ADMIN-only override; ignored server-side for any other caller
+  asst_rm_uid?: string | null;                // any RM may set; no override gate server-side
   // Client Preference step (FE-17) — all optional, omitted entirely when blank.
   occupation?: string;
   date_of_birth?: string;                     // "YYYY-MM-DD"
@@ -52,7 +53,7 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   client_ref: string;                                          // display code e.g. "MEGA-0481" — server-formatted, not stored
   primary_phone: string; address: string; country_of_residence: string;   // joined from ClientProfile, not duplicated onto client_onboardings
   id_type: string; id_number: string;                          // genuinely new columns on client_onboardings (D-9)
-  ibhk_account: string; sw_account: string;                    // already existed on client_onboardings; this widening only adds them to the DTO
+  client_ib: string; sw_account: string;                       // already existed on client_onboardings; this widening only adds them to the DTO
   status: OnboardingStatus; kind: OnboardingKind;
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
@@ -91,6 +92,9 @@ export interface SubmitAllotmentReq {
   mgmt_fee?: number | null;      // only populated for new-subscription mode
   incentive_fee?: number | null; // only populated for new-subscription mode
   source_ticket_ref?: string;    // originating ticket ref, when submitted via Act-on-request deep-link
+  // The client's IB account for this model, captured when the allotment is a
+  // NEW subscription. Optional because add-allotment/redemption never send it.
+  client_ib?: string | null;
 }
 
 export interface SubmitRedemptionReq {
@@ -168,7 +172,7 @@ export interface ContactLogEntryDTO {
 export interface ClientSubscriptionRowDTO {
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;   // effective = override ?? Model default (013 C-5's read-side coalesce)
-  ib_account: string | null;
+  client_ib: string | null;   // client_ib_accounts.ib_account for this (client, model) pair
   amount: number;   // = units * model.model_size — mirrors AllotRdmptDTO.amount
 }
 export interface ClientSubscriptionsDTO {

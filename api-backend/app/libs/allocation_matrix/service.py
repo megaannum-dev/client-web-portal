@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-import uuid as _uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Protocol
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ModelLookup(Protocol):
-    def bulk_get(self, model_ids: list[_uuid.UUID]) -> dict[_uuid.UUID, object]:
+    def bulk_get(self, model_ids: list[uuid.UUID]) -> dict[uuid.UUID, object]:
         ...
 
 
@@ -132,7 +131,7 @@ class AllocationService:
 
     def derive_confirmed_matrix(self, period_id: uuid.UUID) -> dict:
         """Rebuild AllocationViewOut from frozen snapshots."""
-        period = self.get_period(period_id)
+        self.get_period(period_id)  # raises 404 if the period does not exist
         snapshots = self.alloc_repo.read_snapshots(period_id)
 
         # Model name/size frozen at confirm time (DB B-4) — read from
@@ -164,14 +163,14 @@ class AllocationService:
         # Construct synthetic row objects compatible with _build_matrix.
         class _Row:
             __slots__ = ("row_kind", "user_id", "model_id", "multiplier",
-                         "model_size", "ib_account", "name", "email", "firebase_uid")
+                         "model_size", "client_ib", "name", "email")
 
             def __init__(self, **kwargs: Any) -> None:
                 for k, v in kwargs.items():
                     setattr(self, k, v)
 
         class _ModelAggRow:
-            __slots__ = ("id", "name", "model_size", "col_units", "col_fund")
+            __slots__ = ("id", "name", "model_size", "master_ib", "col_units", "col_fund")
 
             def __init__(self, **kwargs: Any) -> None:
                 for k, v in kwargs.items():
@@ -189,10 +188,11 @@ class AllocationService:
                     if snap.model_id in model_by_id
                     else ZERO
                 ),
-                ib_account=snap.ib_account,
+                # AllocationModelSnapshot.ib_account is the frozen CLIENT account
+                # for this (client, model) pair — the DB field keeps the old name.
+                client_ib=snap.ib_account,
                 name=None,
                 email=None,
-                firebase_uid=None,
             )
             for snap in snapshots
         ]
@@ -206,10 +206,9 @@ class AllocationService:
                 model_id=None,
                 multiplier=None,
                 model_size=None,
-                ib_account=r.ib_account,
+                client_ib=None,
                 name=r.name,
                 email=r.email,
-                firebase_uid=r.firebase_uid,
             )
             for r in roster
         ]
@@ -220,6 +219,11 @@ class AllocationService:
                 id=info["id"],
                 name=info["name"],
                 model_size=info["model_size"],
+                # ponytail: confirmed views emit master_ib=None — allocation_period_models
+                # freezes only name/size, and reading it live from `models` would break the
+                # snapshot guarantee. Upgrade path: add a master_ib snapshot column in a
+                # future migration if confirmed views ever need it.
+                master_ib=None,
                 col_units=float(model_col_units.get(mid, ZERO)),
                 col_fund=float(model_col_fund.get(mid, ZERO)),
             )
@@ -257,8 +261,6 @@ def _build_matrix(
       - `cells` is a flat `"{clientId}-{modelId}"` map of {units, fund}
       - column-level aggregates ride on each `models[]` entry
     """
-    from decimal import Decimal
-
     ZERO = Decimal("0")
 
     # Split UNION ALL rows by row_kind.
@@ -289,6 +291,7 @@ def _build_matrix(
         flat_cells[f"{uid}-{mid}"] = {
             "units": float(multiplier),
             "fund": float(fund),
+            "client_ib": cell.client_ib,
         }
 
     total_fund = sum(col_fund.values(), ZERO)
@@ -303,6 +306,7 @@ def _build_matrix(
                 "id": str(mr.id),
                 "name": mr.name,
                 "model_size": ms_val,
+                "master_ib": mr.master_ib,
                 "live": True,  # only LIVE models reach this list
                 "col_units": float(col_units.get(mid, ZERO)),
                 "col_fund": float(col_fund.get(mid, ZERO)),
@@ -318,8 +322,6 @@ def _build_matrix(
             {
                 "id": uid,
                 "name": r.name or r.email or uid,
-                "code": r.ib_account or r.firebase_uid,
-                "ib_account": r.ib_account,
             }
         )
 

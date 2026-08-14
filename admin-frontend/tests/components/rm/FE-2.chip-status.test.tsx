@@ -19,7 +19,7 @@ function makeDto(overrides: Partial<OnboardingDTO> = {}): OnboardingDTO {
   return {
     id: "ob-1", user_id: "u-1", client_name: "Jane Doe", email: "j@x.com", assigned_rm: "Alice",
     client_ref: "MEGA-0001", primary_phone: "+1", address: "addr", country_of_residence: "US",
-    id_type: "passport", id_number: "P1", ibhk_account: "U-1", sw_account: "SW-1",
+    id_type: "passport", id_number: "P1", client_ib: "U-1", sw_account: "SW-1",
     status: "reviewing", kind: "initial", model_id: "m-1", model_name: "Balanced", units: 2,
     mgmt_fee: 0.01, incentive_fee: 0.1, verified_count: 0, required_count: 7,
     reject_reason: null, awaiting_reprovision: false,

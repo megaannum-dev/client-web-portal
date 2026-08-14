@@ -47,7 +47,7 @@ from app.models.onboarding import (
     OnboardingDocument,
 )
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import Model, ModelStatus
+from app.models.pc import ClientIbAccount, Model, ModelStatus
 from app.models.users import AdminRole, ClientProfile, User
 
 _PERIOD_RE = re.compile(r"^(\d{4}-\d{2})[_-]")
@@ -144,9 +144,9 @@ class ClientPortalService:
             date_of_birth=profile.date_of_birth,
             address=profile.address,
             country_of_residence=profile.country_of_residence,
-            ib_account=profile.ib_account,
             client_ref=OnboardingService._client_ref(user_id),
             assigned_rm=self._rm_contact(profile.assigned_rm_uid),
+            asst_rm=self._rm_contact(profile.asst_rm_uid),
         )
 
     def update_profile(self, user_id: uuid.UUID, patch: ClientProfilePatch) -> ClientProfileDTO:
@@ -159,8 +159,7 @@ class ClientPortalService:
     # ---------- Portfolio (BE-3) ----------
     def portfolio(self, user_id: uuid.UUID) -> PortfolioDTO:
         row = self.repo.get_portfolio(user_id)
-        profile = self._require_profile(user_id)
-        ib_account = profile.ib_account
+        self._require_profile(user_id)
 
         cash_deposit = row.cash_deposit if row else Decimal("0")
         amount_in_trade = row.amount_in_trade if row else Decimal("0")
@@ -176,11 +175,12 @@ class ClientPortalService:
                 amount=float(sub.multiplier * (model.model_size or Decimal("0"))),
                 model_limit=float(model.model_limit) if model.model_limit is not None else None,
                 model_size=float(model.model_size) if model.model_size is not None else None,
-                ib_account=ib_account,
+                master_ib=model.master_ib_account,
+                client_ib=client_ib,
                 category=model.category,
                 has_material=self.repo.has_material(model.id),
             )
-            for sub, model in self.repo.positions_for_client(user_id)
+            for sub, model, client_ib in self.repo.positions_for_client(user_id)
         ]
         return PortfolioDTO(
             cash_deposit=float(cash_deposit),
@@ -238,7 +238,9 @@ class ClientPortalService:
     def recommended_models(
         self, user_id: uuid.UUID, include_subscribed: bool = False
     ) -> list[RecommendedModelDTO]:
-        subscribed_ids = {m.id for _, m in self.repo.positions_for_client(user_id)}
+        # 3-tuple: positions_for_client also yields the client's per-model IB
+        # account now. Only the model matters here.
+        subscribed_ids = {m.id for _, m, _ in self.repo.positions_for_client(user_id)}
         return [
             RecommendedModelDTO(
                 model_id=m.id,
@@ -419,6 +421,13 @@ class ClientPortalService:
         profile = self.db.query(ClientProfile).filter_by(user_id=t.user_id).one_or_none()
         user = self.db.get(User, t.user_id)
         model = self.db.get(Model, t.model_id) if t.model_id else None
+        client_ib = (
+            self.db.query(ClientIbAccount.ib_account)
+            .filter_by(user_id=t.user_id, model_id=t.model_id)
+            .scalar()
+            if t.model_id is not None
+            else None
+        )
         amount = float(t.amount) if t.amount is not None else None
         multiplier = float(t.multiplier) if t.multiplier is not None else None
         return RmTicketDTO(
@@ -427,7 +436,7 @@ class ClientPortalService:
             client=(profile.name if profile else None) or "",
             contact=profile.authorized_person if profile else None,
             email=user.email if user else None,
-            account=profile.ib_account if profile else None,
+            client_ib=client_ib,
             model=model.name if model else None,
             model_id=t.model_id,
             kind=TicketKind(t.kind),

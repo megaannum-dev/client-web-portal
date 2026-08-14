@@ -155,11 +155,13 @@ class ClientProfile(Base):
     assigned_rm_uid: Mapped[str | None] = mapped_column(
         String(128), ForeignKey("users.firebase_uid"), nullable=True
     )
+    asst_rm_uid: Mapped[str | None] = mapped_column(
+        String(128), ForeignKey("users.firebase_uid"), nullable=True
+    )
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     country_of_residence: Mapped[str | None] = mapped_column(String(255), nullable=True)
     authorized_person: Mapped[str | None] = mapped_column(String(255), nullable=True)
     initiate_method: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     occupation: Mapped[str | None] = mapped_column(String(255), nullable=True)  # proposal 018, B-2
     # Read-only on the wire (D-11) -- present on ClientProfileDTO, deliberately
     # absent from ClientProfilePatch; a client cannot self-edit a fact

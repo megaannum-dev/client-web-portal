@@ -97,7 +97,7 @@ def _start_and_upload_one_doc(http, model_id) -> str:
     body = {
         "client_name": "Cathy Client", "email": "cathy@example.com", "primary_phone": "1",
         "address": "A", "country_of_residence": "HK", "id_type": "Passport", "id_number": "P1",
-        "ibhk_account": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
+        "client_ib": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
         "mgmt_fee": "0.02", "incentive_fee": "0.2", "initial_cash_deposit": "5000000",
     }
     onboarding_id = http.post("/api/rm/onboardings", json=body).json()["id"]
@@ -146,7 +146,7 @@ def test_rm_download_route_404_when_no_file_uploaded(admin_client):
     body = {
         "client_name": "Cathy Client", "email": "no-doc@example.com", "primary_phone": "1",
         "address": "A", "country_of_residence": "HK", "id_type": "Passport", "id_number": "P1",
-        "ibhk_account": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
+        "client_ib": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
         "mgmt_fee": "0.02", "incentive_fee": "0.2", "initial_cash_deposit": "5000000",
     }
     onboarding_id = http.post("/api/rm/onboardings", json=body).json()["id"]

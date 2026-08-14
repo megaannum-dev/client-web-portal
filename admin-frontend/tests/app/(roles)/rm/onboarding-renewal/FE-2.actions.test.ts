@@ -28,7 +28,7 @@ describe("FE-2 RM action wrappers", () => {
     const body = {
       client_name: "Jane", email: "jane@x.com", primary_phone: "1", address: "a",
       country_of_residence: "HK", id_type: "passport", id_number: "P1",
-      ibhk_account: "U-1", sw_account: "SW-1", model_id: "m-1", units: 5,
+      client_ib: "U-1", sw_account: "SW-1", model_id: "m-1", units: 5,
       mgmt_fee: 0.015, incentive_fee: 0.2,
     };
     const ok = { success: true, data: { id: "ob-1" } };

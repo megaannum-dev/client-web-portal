@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Briefcase } from "@/lib/icons";
 import { type AllocationView } from "@/lib/pc/allocation";
 import { fmtMoneyShort } from "@/lib/pc/format";
 import { type Toggle } from "./ViewToggle";
@@ -40,7 +41,10 @@ export function Matrix({
                   <div className="text-[13.5px] font-bold normal-case tracking-[-0.01em] text-on-surface">
                     {m.name}
                   </div>
-                  <div className="mt-1 text-[11px] font-semibold normal-case tracking-[0.02em] text-secondary">
+                  <div className="mt-[3px] flex items-center gap-[5px] text-[11px] font-semibold normal-case tracking-[0.02em] text-secondary">
+                    <Briefcase size={10} strokeWidth={2} />{m.masterIb ?? "—"} master
+                  </div>
+                  <div className="mt-0.5 text-[11px] font-semibold normal-case tracking-[0.02em] text-secondary">
                     {fmtMoneyShort(m.size)} / unit
                   </div>
                 </th>
@@ -52,7 +56,6 @@ export function Matrix({
               <tr key={c.id}>
                 <td className="sticky left-0 z-[1] whitespace-nowrap border-t border-outline-variant bg-surface-lowest px-4 py-[13px]">
                   <div className="text-[14px] font-bold text-on-surface">{c.name}</div>
-                  <div className="mt-0.5 text-[12px] tabular-nums text-secondary">{c.code}</div>
                 </td>
                 {cols.map((m) => (
                   <MatrixCell
@@ -124,6 +127,9 @@ export function MatrixCell({
       </div>
       <div className="mt-[3px] text-[12.5px] font-semibold tabular-nums text-secondary">
         {fmtMoneyShort(data.cellFund(cid, mid))}
+      </div>
+      <div className="mt-0.5 text-[10.5px] font-semibold tabular-nums text-outline">
+        {cell.clientIb ?? "—"}
       </div>
     </td>
   );

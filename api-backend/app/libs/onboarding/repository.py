@@ -6,10 +6,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
 from app.core.storage import Bucket, client_folder
+from app.libs import client_ib_accounts
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
@@ -23,7 +24,7 @@ from app.models.onboarding import (
     OnboardingStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientSubscription, Model
+from app.models.pc import ClientIbAccount, ClientSubscription, Model
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, ClientProfile, User
 
@@ -38,11 +39,16 @@ class OnboardingDisplayRow:
     client_name: str
     email: str
     assigned_rm: str
+    asst_rm: str | None  # None when no assistant RM is set -- unlike assigned_rm, never ""
     model_name: str
     primary_phone: str
     address: str
     country_of_residence: str
     approved_by: str | None  # 014 C-7: resolved display name of users.authorized_by
+    # The client's IB account for THIS cycle's model, read live from
+    # client_ib_accounts (its one home) -- client_onboardings no longer keeps a
+    # duplicate copy. None when the row exists but its account is still NULL.
+    client_ib: str | None
 
 
 @dataclass(frozen=True)
@@ -70,14 +76,19 @@ class OnboardingRepository:
         units: Decimal,
         mgmt_fee: Decimal,
         incentive_fee: Decimal,
-        ibhk_account: str,
+        client_ib: str,
         sw_account: str,
         id_type: str,
         id_number: str,
     ) -> ClientOnboarding:
         """Inserts the one client_onboardings row (unique per user_id) plus one
         onboarding_documents row per REQUIRED_DOCS entry, all not_started. No
-        commit here -- caller's txn boundary (OnboardingService.start)."""
+        commit here -- caller's txn boundary (OnboardingService.start).
+
+        `client_ib` is NOT a client_onboardings column: client_ib_accounts is
+        the single home of a client's per-model IB account, so the value is
+        handed to client_ib_accounts.ensure() (create-if-absent, never a transfer)
+        instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -85,12 +96,14 @@ class OnboardingRepository:
             multiplier=units,
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
-            ibhk_account=ibhk_account,
             sw_account=sw_account,
             id_type=id_type,
             id_number=id_number,
         )
         self.db.add(onboarding)
+        client_ib_accounts.ensure(
+            self.db, user_id=user_id, model_id=model_id, account=client_ib
+        )
         self.db.flush()
         for spec in REQUIRED_DOCS:
             self.db.add(
@@ -186,6 +199,11 @@ class OnboardingRepository:
         RM = aliased(User)
         RMProfile = aliased(AdminProfile)
         rm_name_expr = func.coalesce(RMProfile.name, RM.email, ClientProfile.assigned_rm_uid)
+        AsstRM = aliased(User)
+        AsstRMProfile = aliased(AdminProfile)
+        asst_rm_name_expr = func.coalesce(
+            AsstRMProfile.name, AsstRM.email, ClientProfile.asst_rm_uid
+        )
 
         profile = (
             self.db.query(ClientProfile).filter(ClientProfile.user_id == onboarding.user_id).one()
@@ -198,6 +216,14 @@ class OnboardingRepository:
             .select_from(ClientProfile)
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
+            .filter(ClientProfile.user_id == onboarding.user_id)
+            .scalar()
+        )
+        asst_rm_name = (
+            self.db.query(asst_rm_name_expr)
+            .select_from(ClientProfile)
+            .outerjoin(AsstRM, AsstRM.firebase_uid == ClientProfile.asst_rm_uid)
+            .outerjoin(AsstRMProfile, AsstRMProfile.user_id == AsstRM.id)
             .filter(ClientProfile.user_id == onboarding.user_id)
             .scalar()
         )
@@ -216,11 +242,17 @@ class OnboardingRepository:
             client_name=profile.name or "",
             email=user.email or "",
             assigned_rm=rm_name or "",
+            asst_rm=asst_rm_name or None,
             model_name=model.name,
             primary_phone=profile.primary_phone or "",
             address=profile.address or "",
             country_of_residence=profile.country_of_residence or "",
             approved_by=approved_by,
+            client_ib=(
+                self.db.query(ClientIbAccount.ib_account)
+                .filter_by(user_id=onboarding.user_id, model_id=onboarding.model_id)
+                .scalar()
+            ),
         )
 
     def _resolve_uid_to_display_name(self, firebase_uid: str | None) -> str | None:
@@ -475,14 +507,34 @@ class OnboardingRepository:
             .one_or_none()
         )
 
-    def list_all_subscriptions(self) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
+    def list_all_subscriptions(
+        self,
+    ) -> list[tuple[ClientProfile, ClientSubscription, Model, str | None]]:
         """014 D (BE-9): every (client profile, subscription, model) row,
         joined -- unfiltered by RM-book visibility (the SERVICE layer applies
-        that via ClientRepository.list_visible)."""
+        that via ClientRepository.list_visible).
+
+        Deliberately NOT filtered on multiplier > 0 either: a fully-redeemed
+        model persists here at multiplier=0 (see client_ib_accounts.py's "no
+        real unsubscription" invariant), and the admin-frontend RM board uses
+        that to know which models a client already holds so New Subscription
+        can hide them (routing to Add Allotment instead). Filter 0-unit rows
+        at DISPLAY time on the frontend, never in this query -- see the
+        subscription-lifecycle plan notes on client_portal.repository's
+        has_subscription/positions_for_client, which is the correct
+        counterexample: those two ARE safe to filter here because nothing
+        downstream of them needs to see a 0-unit row."""
         rows = (
-            self.db.query(ClientProfile, ClientSubscription, Model)
+            self.db.query(ClientProfile, ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
             .join(Model, Model.id == ClientSubscription.model_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(
+                    ClientIbAccount.user_id == ClientProfile.user_id,
+                    ClientIbAccount.model_id == Model.id,
+                ),
+            )
             .all()
         )
         return rows  # type: ignore[return-value]
@@ -556,10 +608,19 @@ class OnboardingRepository:
 
     def list_subscriptions_for_client(
         self, user_id: uuid.UUID
-    ) -> list[tuple[ClientSubscription, Model]]:
+    ) -> list[tuple[ClientSubscription, Model, str | None]]:
+        # No multiplier > 0 filter, deliberately -- no current consumer needs
+        # 0-unit rows excluded, and this is the RM-book sibling of
+        # list_all_subscriptions above (same reasoning): if a future caller
+        # ever uses this list for "already held" detection, a query-level
+        # filter here would silently break it. Filter at display time instead.
         rows = (
-            self.db.query(ClientSubscription, Model)
+            self.db.query(ClientSubscription, Model, ClientIbAccount.ib_account)
             .join(Model, Model.id == ClientSubscription.model_id)
+            .outerjoin(
+                ClientIbAccount,
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+            )
             .filter(ClientSubscription.user_id == user_id)
             .all()
         )

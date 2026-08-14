@@ -95,6 +95,7 @@ export interface Model {
   nav_perf: string | null;
   mgmt_fee: number | null;       // null → use DEFAULT_MGMT_FRACTION fallback
   incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_FRACTION fallback
+  master_ib_account: string | null;
 }
 
 /** Fee figures derived from a model (see `computeFees`). */
@@ -109,32 +110,33 @@ export interface FeeBreakdown {
 
 /**
  * A model as it appears in the allocation matrix. `size` here is the
- * PER-UNIT model size (account fund = units × size). Models do NOT
- * carry an IB account — the IB account is a property of the client
- * (see `AllocationClient.acct`), and every allocation a client holds
- * trades through that single account.
+ * PER-UNIT model size (account fund = units × size). `masterIb` is the
+ * model's own master IB account (shared across every client holding it) —
+ * distinct from a client's dedicated per-(client, model) account, which
+ * lives on `AllocationCell.clientIb`.
  */
 export interface AllocationModel {
   id: string;
   name: string;
   size: number;
   live: boolean;
+  masterIb: string | null;
 }
 
-/**
- * A client (row) in the allocation matrix. `acct` is the client's one
- * IB account — ALL of this client's model allocations trade through it.
- */
+/** A client (row) in the allocation matrix. */
 export interface AllocationClient {
   id: string;
   name: string;
-  code: string;
-  acct: string;
 }
 
-/** One cell of the allocation matrix: the unit multiplier (input). */
+/**
+ * One cell of the allocation matrix. `clientIb` is this client's IB
+ * account dedicated to this specific model (per-(client, model) grain) —
+ * not a client-wide account.
+ */
 export interface AllocationCell {
   units: number;
+  clientIb: string | null;
 }
 
 /** Sparse allocation grid keyed `"${clientId}-${modelId}"`. */
@@ -206,6 +208,7 @@ export interface ModelDTO {
   nav_perf?: string | null;
   mgmt_fee?: number | null;
   incentive_fee?: number | null;
+  master_ib_account?: string | null;
 }
 
 /** Backend payload for GET /api/pc/models. */
@@ -218,6 +221,8 @@ export interface AllocationCellDTO {
   units: number;
   /** Precomputed: units × model_size (BE-5). */
   fund: number;
+  /** client_ib_accounts.ib_account for this (client, model) pair. */
+  client_ib: string | null;
 }
 
 /** One model column in the allocation matrix payload. */
@@ -230,14 +235,14 @@ export interface AllocationModelDTO {
   col_units: number;
   /** Sum of fund across all clients (precomputed, BE-5). */
   col_fund: number;
+  /** models.master_ib_account — always null on confirmed (snapshot) views. */
+  master_ib: string | null;
 }
 
 /** One client row in the allocation matrix payload. */
 export interface AllocationClientDTO {
   id: string;
   name: string;
-  code: string;
-  ib_account: string;
 }
 
 /** Backend payload for a single period. */

@@ -74,6 +74,10 @@ class ModelCreate(BaseModel):
     mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolIn] | None = None
+    # Optional, matching the nullable column and ModelUpdate: making it required
+    # was an unversioned break -- a draft model is created before its master IB
+    # account is known, and existing clients never sent the field.
+    master_ib_account: str | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
 
@@ -93,6 +97,7 @@ class ModelUpdate(BaseModel):
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     status: str | None = None  # "live" | "deleted" — triggers state machine
     symbols: list[SymbolIn] | None = None
+    master_ib_account: str | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
 
@@ -116,6 +121,7 @@ class ModelOut(BaseModel):
     mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolOut] = []
+    master_ib_account: str | None = None
 
     model_config = {"from_attributes": True}
 

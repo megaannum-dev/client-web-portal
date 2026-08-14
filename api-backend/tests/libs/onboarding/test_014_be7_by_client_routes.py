@@ -86,7 +86,7 @@ def _start_onboarding(http, model_id) -> dict:
     body = {
         "client_name": "Cathy Client", "email": "cathy@example.com", "primary_phone": "1",
         "address": "A", "country_of_residence": "HK", "id_type": "Passport", "id_number": "P1",
-        "ibhk_account": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
+        "client_ib": "IB1", "sw_account": "SW1", "model_id": str(model_id), "units": "5",
         "mgmt_fee": "0.02", "incentive_fee": "0.2", "initial_cash_deposit": "5000000",
     }
     return http.post("/api/rm/onboardings", json=body).json()

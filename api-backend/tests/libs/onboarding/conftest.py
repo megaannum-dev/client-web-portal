@@ -45,6 +45,7 @@ __all__ = [
     "make_admin",
     "make_allotment",
     "make_client",
+    "make_ib",
     "make_model",
     "make_portfolio",
     "make_start_req",
@@ -163,6 +164,18 @@ def make_client(session, *, assigned_rm_uid: str | None = None, name: str = "Cat
     return user
 
 
+def make_ib(prefix: str = "U") -> str:
+    """A globally-unique, format-valid client IB account string (letter U +
+    7 alphanumerics -- see client_ib_accounts.check).
+
+    client_ib_accounts is the single home of a client's per-model IB account
+    and account strings are globally unique, so `client_ib_accounts.ensure`
+    raises 409 if two different (client, model) pairs are handed the same
+    literal. Every fixture that needs an account therefore mints a fresh one
+    instead of reusing a hardcoded literal."""
+    return f"{prefix}{uuid.uuid4().hex[:7].upper()}"
+
+
 def make_model(
     session,
     *,
@@ -266,7 +279,7 @@ def make_start_req(model: Model, *, email: str | None = None, **overrides) -> St
         country_of_residence="Hong Kong",
         id_type="Passport",
         id_number="P1234567",
-        ibhk_account="IB-0001",
+        client_ib=make_ib(),
         sw_account="SW-0001",
         model_id=model.id,
         units=Decimal("5"),

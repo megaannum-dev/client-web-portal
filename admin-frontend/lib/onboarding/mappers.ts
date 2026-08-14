@@ -24,7 +24,7 @@ export function mapRow(o: OnboardingDTO): KycBoardClient {
     // widened 2026-07-20 (D-9) — read straight off the widened OnboardingDTO, no "—" fallback:
     phone: o.primary_phone, address: o.address, country: o.country_of_residence,
     idType: o.id_type, idNumber: o.id_number,
-    ibhkAccount: o.ibhk_account, swAccount: o.sw_account,
+    ibhkAccount: o.client_ib, swAccount: o.sw_account,
     status: o.status,
     verifiedCount: o.verified_count, requiredCount: o.required_count,
     documents: o.documents,
@@ -56,7 +56,7 @@ export function mapOnboardingToRow(o: OnboardingDTO): AdminOnboardingRow {
     // widened 2026-07-20 (D-9) — read straight off the widened OnboardingDTO, no "—" fallback:
     phone: o.primary_phone, address: o.address, country: o.country_of_residence,
     idType: o.id_type, idNumber: o.id_number,
-    ibhk: o.ibhk_account, silverwate: o.sw_account,
+    ibhk: o.client_ib, silverwate: o.sw_account,
     rm: o.assigned_rm, clientRef: o.client_ref, submitted: o.submitted_at ?? o.created_at,
     status: OB_STATUS_MAP[o.status] ?? "pending",
     type: o.kind === "renewal" ? "Yearly Renewal" : "Initial Onboarding",

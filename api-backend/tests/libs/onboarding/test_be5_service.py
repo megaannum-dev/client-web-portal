@@ -30,6 +30,7 @@ from tests.libs.onboarding.conftest import (
     FakeIdentityService,
     make_admin,
     make_client,
+    make_ib,
     make_model,
     make_start_req,
     run_full_approved_cycle,
@@ -109,7 +110,7 @@ def test_start_rejects_unknown_model_id(svc, rm):
         country_of_residence="HK",
         id_type="Passport",
         id_number="P1",
-        ibhk_account="IB1",
+        client_ib="IB1",
         sw_account="SW1",
         model_id=uuid.uuid4(),
         units=Decimal("1"),
@@ -125,6 +126,57 @@ def test_start_rejects_unknown_model_id(svc, rm):
             settings=_dev_settings(),
         )
     assert exc.value.status_code == 422
+
+
+def test_start_with_a_duplicate_ib_account_leaves_no_orphaned_client(session, svc, model, rm):
+    """The IB pre-flight (client_ib_accounts.check) must run BEFORE
+    ClientService.onboard commits the client user + profile -- otherwise a
+    409 here would leave a real client record behind with no onboarding
+    cycle to show for it. Seed one client already holding an account, then
+    start a SECOND onboarding reusing that same account."""
+    from app.libs.onboarding.schemas import StartOnboardingReq
+
+    existing_client = make_client(session)
+    account = make_ib()
+    from app.libs import client_ib_accounts
+
+    client_ib_accounts.ensure(session, user_id=existing_client.id, model_id=model.id, account=account)
+    session.commit()
+
+    users_before = session.query(User).count()
+
+    req = StartOnboardingReq(
+        client_name="Second Client",
+        email="second-client@example.com",
+        primary_phone="1",
+        address="A",
+        country_of_residence="HK",
+        id_type="Passport",
+        id_number="P2",
+        client_ib=account,
+        sw_account="SW2",
+        model_id=model.id,
+        units=Decimal("1"),
+        mgmt_fee=model.mgmt_fee,
+        incentive_fee=model.incentive_fee,
+        initial_cash_deposit=Decimal("1000000"),
+    )
+    with pytest.raises(HTTPException) as exc:
+        svc.start(
+            req,
+            caller_uid=rm.firebase_uid,
+            identity=FakeIdentityService(),
+            settings=_dev_settings(),
+        )
+    assert exc.value.status_code == 409
+
+    # No second users/client_profiles row and no Firebase identity call --
+    # the pre-flight fired before ClientService.onboard ran at all.
+    assert session.query(User).count() == users_before
+    assert (
+        session.query(ClientOnboarding).filter_by(user_id=existing_client.id).one_or_none()
+        is None
+    )
 
 
 def test_upload_document_marks_status_uploaded_and_computes_can_reupload(svc, model, rm):
