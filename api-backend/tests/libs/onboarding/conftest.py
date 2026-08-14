@@ -30,7 +30,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
-from app.libs.onboarding.schemas import StartOnboardingReq, VerdictReq
+from app.libs.onboarding.schemas import StartOnboardingReq, VerdictBatchReq, VerdictItem
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus, ClientAllotmentRedemption
 from app.models.pc import ClientSubscription, Model
@@ -52,6 +52,7 @@ __all__ = [
     "make_subscription",
     "run_to_reviewing",
     "run_full_approved_cycle",
+    "send_back_for_resubmission",
 ]
 
 
@@ -321,7 +322,7 @@ def run_full_approved_cycle(
     svc: OnboardingService, model: Model, *, rm_uid: str, compliance_uid: str, **req_overrides
 ):
     """Full happy path through to an active cycle: start -> upload x7 -> submit
-    -> verdict(valid) x7 -> approve. Returns the approved OnboardingDTO.
+    -> one verdict_batch(valid x7) -> approve. Returns the approved OnboardingDTO.
 
     Pre-019 signature: `svc.approve(id, compliance_uid=...)`. BE-20 (proposal 019)
     adds required `identity`/`settings` kwargs to `approve` -- this helper is left
@@ -330,11 +331,40 @@ def run_full_approved_cycle(
     BE-20 lands, which is expected and is why BE-20's own test file below defines
     its own local cycle-building helper instead of reusing this one."""
     submitted = run_to_reviewing(svc, model, rm_uid=rm_uid, **req_overrides)
-    for spec in REQUIRED_DOCS:
-        svc.verdict(
-            submitted.id, spec.key, VerdictReq(verdict="valid"), reviewer_uid=compliance_uid
-        )
+    svc.verdict_batch(
+        submitted.id,
+        VerdictBatchReq(
+            items=[VerdictItem(doc_type=spec.key, verdict="valid") for spec in REQUIRED_DOCS]
+        ),
+        reviewer_uid=compliance_uid,
+    )
     return svc.approve(submitted.id, compliance_uid=compliance_uid)
+
+
+def send_back_for_resubmission(
+    svc: OnboardingService, onboarding_id, *, compliance_uid: str, valid: tuple[str, ...] = (), note=None
+):
+    """Compliance-side "send this reviewing package back" path, replacing the
+    deleted `svc.reject()`: request_resubmit acts on the documents verdict_batch
+    flagged, so every doc needs a verdict first. `valid` names the doc_types that
+    pass; all other REQUIRED_DOCS are flagged `issue`."""
+    from app.libs.onboarding.schemas import ResubmitReq
+
+    svc.verdict_batch(
+        onboarding_id,
+        VerdictBatchReq(
+            items=[
+                VerdictItem(
+                    doc_type=spec.key, verdict="valid" if spec.key in valid else "issue"
+                )
+                for spec in REQUIRED_DOCS
+            ]
+        ),
+        reviewer_uid=compliance_uid,
+    )
+    return svc.request_resubmit(
+        onboarding_id, ResubmitReq(note=note), requested_by=compliance_uid
+    )
 
 
 # ============================================================================

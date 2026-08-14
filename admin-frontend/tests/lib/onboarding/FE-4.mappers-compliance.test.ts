@@ -16,8 +16,10 @@ function makeOnboarding(status: OnboardingStatus): OnboardingDTO {
     model_id: "m-1", model_name: "Zero", units: 5,
     mgmt_fee: 0.015, incentive_fee: 0.2,
     verified_count: 7, required_count: 7,
-    reject_reason: status === "pending_review" ? "bad ID scan" : null,
-    submitted_at: "2026-07-19T00:00:00Z", created_at: "2026-07-18T00:00:00Z",
+    compl_note: status === "pending_review" ? "bad ID scan" : null,
+    submitted_at: "2026-07-19T00:00:00Z",
+    decided_at: status === "pending_review" ? "2026-07-20T00:00:00Z" : null,
+    created_at: "2026-07-18T00:00:00Z",
     documents: [],
   };
 }
@@ -25,7 +27,7 @@ function makeOnboarding(status: OnboardingStatus): OnboardingDTO {
 describe("FE-4 OB_STATUS_MAP (via mapOnboardingToRow)", () => {
   it.each([
     ["reviewing", "pending"],
-    ["pending_review", "rejected"],
+    ["pending_review", "awaiting_docs"],
     ["active", "approved"],
   ] as const)("maps OnboardingStatus %s to ObStatus %s per §4.2", (dbStatus, obStatus) => {
     const row = mapOnboardingToRow(makeOnboarding(dbStatus));
@@ -48,21 +50,32 @@ describe("FE-4 OB_STATUS_MAP (via mapOnboardingToRow)", () => {
     expect(row.type).toBe("Yearly Renewal");
   });
 
-  it("passes rejectReason through from reject_reason", () => {
+  it("passes complNote/decidedAt through from compl_note/decided_at", () => {
     const row = mapOnboardingToRow(makeOnboarding("pending_review"));
-    expect(row.rejectReason).toBe("bad ID scan");
+    expect(row.complNote).toBe("bad ID scan");
+    expect(row.decidedAt).toBe("2026-07-20T00:00:00Z");
   });
 });
 
 describe("FE-4 docStatusToVerdict", () => {
   it.each([
     ["verified", "valid"],
-    ["rejected", "issue"],
+    ["pending", "issue"],
     ["not_started", null],
     ["uploaded", null],
     ["in_review", null],
     ["expired", null],
   ] as [DocStatus, "valid" | "issue" | null][])("maps DocStatus %s to verdict %s", (status, expected) => {
     expect(docStatusToVerdict(status)).toBe(expected);
+  });
+
+  // Load-bearing, pinned separately from the table above: `pending` is the
+  // backend's "needs (re)upload" status, i.e. exactly the documents Compliance
+  // flagged. If this ever regresses to null, a partially-reviewed cycle reopens
+  // showing every flagged document as unreviewed, so `allReviewed` stays false
+  // and the send-back ("Raise Issue") button never appears — the reviewer is
+  // stuck with no way forward and no error to explain why.
+  it("maps 'pending' to 'issue' so a reopened cycle keeps its flagged documents reviewed", () => {
+    expect(docStatusToVerdict("pending")).toBe("issue");
   });
 });

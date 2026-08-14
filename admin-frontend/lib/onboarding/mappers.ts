@@ -45,7 +45,7 @@ export function mapBoardToColumns(dto: BoardDTO): KycBoardColumn[] {
 /** §4.2's frozen status projection: DB OnboardingStatus → Compliance's own ObStatus. */
 const OB_STATUS_MAP: Partial<Record<OnboardingDTO["status"], ObStatus>> = {
   reviewing: "pending",
-  pending_review: "rejected",
+  pending_review: "awaiting_docs",
   active: "approved",
   // "initial" never appears in GET /api/compliance/onboardings (RM hasn't submitted yet).
 };
@@ -61,14 +61,20 @@ export function mapOnboardingToRow(o: OnboardingDTO): AdminOnboardingRow {
     status: OB_STATUS_MAP[o.status] ?? "pending",
     type: o.kind === "renewal" ? "Yearly Renewal" : "Initial Onboarding",
     documents: o.documents,
-    rejectReason: o.reject_reason,
+    complNote: o.compl_note,
+    decidedAt: o.decided_at,
   };
 }
 
-/** DocStatus → the DocVerdict tri-state the existing DocRow/RejectModal render. */
+/**
+ * DocStatus → the DocVerdict tri-state the existing DocRow renders. `pending`
+ * is the backend's "needs (re)upload" status, i.e. a document Compliance flagged.
+ */
 export function docStatusToVerdict(status: DocStatus): "valid" | "issue" | null {
   if (status === "verified") return "valid";
-  if (status === "rejected") return "issue";
+  // Load-bearing: without this a partially-reviewed cycle reopens with every
+  // flagged document showing as unreviewed, and the send-back button never appears.
+  if (status === "pending") return "issue";
   return null;
 }
 

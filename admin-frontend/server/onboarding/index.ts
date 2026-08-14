@@ -6,7 +6,8 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllotRdmptDTO, BoardDTO, ClientEventDTO, ContactLogEntryDTO, DocSpecDTO, DocumentDTO, OnboardingDTO,
-  RedemptionDecisionReq, RejectReq, RmOptionDTO, StartOnboardingReq, VerdictReq,
+  RedemptionDecisionReq, ReprovisionReq, ResubmitReq, RmOptionDTO, StartOnboardingReq,
+  VerdictBatchReq,
 } from "@/lib/onboarding/types";
 
 export type { APIResult };
@@ -130,20 +131,32 @@ export async function downloadAllDocuments(
 export async function fetchComplianceQueue(): Promise<APIResult<OnboardingDTO[]>> {
   return apiClient<OnboardingDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDINGS);
 }
-export async function submitVerdict(
-  onboardingId: string, docType: string, body: VerdictReq,
-): Promise<APIResult<DocumentDTO>> {
-  return apiClient<DocumentDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICT(onboardingId, docType), {
+/** Every document verdict for one cycle, applied atomically server-side (one commit). */
+export async function submitVerdicts(
+  onboardingId: string, body: VerdictBatchReq,
+): Promise<APIResult<DocumentDTO[]>> {
+  return apiClient<DocumentDTO[]>(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICTS(onboardingId), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+/** Compliance's ad-hoc "require new documents" on an ACTIVE client — 409s otherwise. */
+export async function requestReprovision(
+  onboardingId: string, body: ReprovisionReq,
+): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_REPROVISION(onboardingId), {
+    method: "POST", body: JSON.stringify(body),
+  });
+}
+/** Compliance sending a package under review back to the RM/client — 409s unless the cycle is under review and every document has a verdict. */
+export async function requestResubmit(
+  onboardingId: string, body: ResubmitReq,
+): Promise<APIResult<OnboardingDTO>> {
+  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_RESUBMIT(onboardingId), {
     method: "POST", body: JSON.stringify(body),
   });
 }
 export async function approveOnboarding(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
   return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_APPROVE(onboardingId), { method: "POST" });
-}
-export async function rejectOnboarding(onboardingId: string, body: RejectReq): Promise<APIResult<OnboardingDTO>> {
-  return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_REJECT(onboardingId), {
-    method: "POST", body: JSON.stringify(body),
-  });
 }
 /** Base64 proxy — mirrors server/pc/index.ts's downloadMaterial (cookie token can't ride a plain <a href>). */
 export async function downloadDocument(

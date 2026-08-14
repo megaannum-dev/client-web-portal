@@ -5,13 +5,12 @@ import { getApiBase, parseApiError } from "@/lib/auth-api";
 // this module does not redefine it, it imports the shape as documented by the seam (§7.1).
 export interface DocumentDTO {
   doc_type: string;
-  status: "not_started" | "uploaded" | "in_review" | "verified" | "pending" | "rejected" | "expired";
+  status: "not_started" | "uploaded" | "in_review" | "verified" | "pending" | "expired";
   filename: string | null;
   uploaded_by: string | null;
   uploaded_at: string | null;
   reviewed_at: string | null;
   expires_at: string | null;
-  issue_note: string | null;
   version_no: number;
 }
 

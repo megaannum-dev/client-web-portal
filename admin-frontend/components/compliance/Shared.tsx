@@ -20,9 +20,9 @@ export const coLabelCls =
 
 /* ---- status chips ----------------------------------------- */
 export function ObStatusChip({ status }: { status: ObStatus }) {
-  if (status === "pending") return <Chip tone="pending">Pending review</Chip>;
-  if (status === "approved") return <Chip tone="active">Approved</Chip>;
-  if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
+  if (status === "pending")       return <Chip tone="pending">Require Review</Chip>;
+  if (status === "approved")      return <Chip tone="active">Approved</Chip>;
+  if (status === "awaiting_docs") return <Chip tone="neutral">Awaiting Resubmit</Chip>;
   return <Chip tone="neutral">{status}</Chip>;
 }
 export function ObTypeChip({ type }: { type: string }) {

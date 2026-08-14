@@ -14,7 +14,8 @@ import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { useClient, useOnboardingByClient, useClientEvents, useContactLogs } from "@/hooks/api/useClient";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
-import type { DocStatus, DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
+import type { DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
+import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
 import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
 import type { ClientDoc, HistoryEntry } from "@/lib/rm/types";
@@ -25,31 +26,12 @@ import ClientDetailSkeleton from "./Skeleton";
 
 const DOC_ICON: Record<string, LucideIcon> = { check: Check, clock: Clock, x: X, search: Search, warning: TriangleAlert };
 
-// DocStatus -> chip tone/label. Mirrors OnboardingBoard.tsx's own
-// DOC_STATUS_TONE/DOC_STATUS_LABEL lookup values 1:1 (same visual mapping),
-// re-declared here rather than imported since that file doesn't export them
-// and is out of scope for FE-4 (owned by FE-1/2/3, edited concurrently).
-// ponytail: dedupe by exporting OnboardingBoard.tsx's lookup once that file
-// is next touched for an unrelated reason.
-const DOC_STATUS_TONE: Record<DocStatus, ChipTone> = {
-  not_started: "neutral", uploaded: "pending", in_review: "review",
-  verified: "active", pending: "pending", rejected: "failed", expired: "overdue",
-};
-const DOC_STATUS_LABEL: Record<DocStatus, string> = {
-  not_started: "Not started", uploaded: "Uploaded", in_review: "In review",
-  verified: "Verified", pending: "Pending", rejected: "Rejected", expired: "Expired",
-};
 // Matches OnboardingBoard.tsx's own DOC_ICON glyph choice per tone exactly
 // (Check/Clock/Clock/X/TriangleAlert/Clock) -- these two lookups must stay
 // in visual lockstep even though they're declared in different files.
 const DOC_ICON_KEY: Partial<Record<ChipTone, string>> = {
   active: "check", pending: "clock", review: "clock", overdue: "warning", failed: "x", neutral: "clock",
 };
-
-// Mirrors OnboardingBoard.tsx's AUDIT_VISIBLE_STATUSES: a not_started/
-// rejected/expired doc's stale uploaded_by/approved_at would otherwise read
-// as if a renewal reset never happened.
-const AUDIT_VISIBLE_STATUSES = new Set<DocStatus>(["uploaded", "in_review", "verified", "pending"]);
 
 /** `DocumentDTO` -> the page's existing `ClientDoc` shape (FE-4). */
 function docFromDto(doc: DocumentDTO): ClientDoc & { uploadedBy: string | null; uploadedAt: string | null; approvedAt: string | null } {

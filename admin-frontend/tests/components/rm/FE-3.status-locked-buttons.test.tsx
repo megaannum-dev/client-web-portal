@@ -18,7 +18,8 @@ function makeDoc(overrides: Partial<DocumentDTO> = {}): DocumentDTO {
   return {
     doc_type: "passport", label: "Passport / ID", status: "verified",
     filename: "passport.pdf", required: true, periodic_review: false,
-    issue_note: null, reviewed_at: null, expires_at: null, can_reupload: false,
+    reviewed_at: null, expires_at: null, can_reupload: false,
+    uploaded_by: null, uploaded_at: null, approved_at: null,
     ...overrides,
   };
 }

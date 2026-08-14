@@ -44,7 +44,13 @@ const EXPECTED_MARKER_COUNTS: Record<string, number> = {
   "components/rm/ContactLog.tsx": 4,
   "components/compliance/review/CrDetailPanel.tsx": 4,
   "app/(roles)/mobo/trade-reconciliation/page.tsx": 4,
-  "components/compliance/review/ObDetailPanel.tsx": 3,
+  // 5 markers: the document list, Submit Issues, Raise Issue, ApproveButton and
+  // Request reprovision. The last two grew out of the ad-hoc reprovision work —
+  // both are write actions (one on a cycle under review, one on an approved
+  // cycle), so both are gated like Approve. "Send reminder" carries NO marker on
+  // purpose: it is unconditionally disabled (no reminder endpoint exists), so
+  // there is nothing for a VIEW grant to hide.
+  "components/compliance/review/ObDetailPanel.tsx": 5,
   "app/(roles)/mobo/commission-tracking/page.tsx": 2,
   "components/rm/SubscriptionAccordion.tsx": 1,
   "components/rm/TransactionDetailModal.tsx": 1,
@@ -115,7 +121,7 @@ beforeEach(() => {
 });
 
 describe("FE-6 static source scan — the invariant gate over all 11 files", () => {
-  it("the marker count over the 11 files is exactly 32, matching the per-file table", () => {
+  it("the marker count over the 11 files is exactly 34, matching the per-file table", () => {
     let total = 0;
     for (const file of GATE_FILES) {
       const text = fs.readFileSync(path.join(ADMIN_FRONTEND_ROOT, file), "utf8");
@@ -123,7 +129,7 @@ describe("FE-6 static source scan — the invariant gate over all 11 files", () 
       expect(count, `${file} marker count`).toBe(EXPECTED_MARKER_COUNTS[file]);
       total += count;
     }
-    expect(total).toBe(32);
+    expect(total).toBe(34);   // was 33; +1 for ObDetailPanel's Raise Issue/Submit Issues pair
   });
 
   it("each of the 11 files references useCanEdit at least once", () => {
@@ -196,15 +202,15 @@ describe("FE-6 components/compliance/review/CrDetailPanel.tsx — gated by compl
 
 describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compliance.review", () => {
   const doc = {
-    doc_type: "passport", label: "Passport", status: "pending_review", filename: "p.pdf",
-    required: true, periodic_review: false, issue_note: null, reviewed_at: null,
+    doc_type: "passport", label: "Passport", status: "in_review", filename: "p.pdf",
+    required: true, periodic_review: false, reviewed_at: null,
     expires_at: null, can_reupload: false, uploaded_by: null, uploaded_at: null, approved_at: null,
   };
   const o = {
     id: "o1", client: "Ardent Capital", email: "a@b.com", phone: "+1", address: "x", country: "US",
     idType: "Passport", idNumber: "123", ibhk: "IBHK-1", silverwate: "SW-1", rm: "Dana Okafor",
     clientRef: "MEGA-0001", submitted: "2026-07-01", status: "pending", type: "New account",
-    documents: [doc], rejectReason: null,
+    documents: [doc], complNote: null, decidedAt: null,
   };
 
   async function renderPanel() {
@@ -212,27 +218,136 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
     return render(
       <ObDetailPanel
         o={o as never}
+        draftVerdicts={{}}
         onClose={vi.fn()}
         onApprove={vi.fn()}
-        onReject={vi.fn()}
+        onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()}
         onVerdict={vi.fn()}
         onDownload={vi.fn()}
       />,
     );
   }
 
-  it("EDIT: the document row and Approve render", async () => {
+  it("EDIT: the document row renders with its Valid/Issue toggles, and Approve renders", async () => {
     withGrant("compliance.review", "EDIT");
     await renderPanel();
     expect(screen.getByText("Passport")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^valid$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^issue$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /approve/i })).toBeInTheDocument();
   });
 
-  it("VIEW: the document row (per the marker's literal placement above <DocRow>) and Approve are both absent", async () => {
+  // The marker gates the TOGGLE, not the row. A VIEW grant is read access: it must
+  // still show the package, or "view" shows nothing at all. Previously the gate sat
+  // inside the .map so a VIEW user got an empty document list — the bug this pins
+  // against. DocRow's read-only path (chips / "Not reviewed") is the same one a
+  // decided cycle already renders.
+  it("VIEW: the document row still renders read-only — Valid/Issue toggles and Approve are absent", async () => {
     withGrant("compliance.review", "VIEW");
     await renderPanel();
-    expect(screen.queryByText("Passport")).not.toBeInTheDocument();
+    expect(screen.getByText("Passport")).toBeInTheDocument();
+    expect(screen.getByText("Not reviewed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^valid$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^issue$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+  });
+
+  it("VIEW: the document is still downloadable — reading a KYC file is view access", async () => {
+    withGrant("compliance.review", "VIEW");
+    const onDownload = vi.fn();
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={o as never}
+        draftVerdicts={{}}
+        onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={onDownload}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("Download Passport"));
+    expect(onDownload).toHaveBeenCalledWith("passport");
+  });
+
+  // Markers 2 and 3: the Raise Issue → Submit Issues pair. Raise Issue is gated on
+  // allReviewed && hasIssue (not just hasIssue) on purpose — request_resubmit 409s
+  // while any document still lacks a verdict, so the looser gate would surface a
+  // backend 409 as an alert().
+  it("EDIT: 'Raise Issue' renders when every document is reviewed and one is flagged, and reveals 'Submit Issues'", async () => {
+    withGrant("compliance.review", "EDIT");
+    const onSubmitIssues = vi.fn();
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={o as never}
+        draftVerdicts={{ passport: "issue" }}
+        onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={onSubmitIssues}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /raise issue/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit issues/i }));
+    expect(onSubmitIssues).toHaveBeenCalledWith("o1", "");
+  });
+
+  it("EDIT: 'Raise Issue' stays hidden while a document is still unreviewed", async () => {
+    withGrant("compliance.review", "EDIT");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    const twoDocs = { ...o, documents: [doc, { ...doc, doc_type: "ips", label: "IPS" }] };
+    render(
+      <ObDetailPanel
+        o={twoDocs as never}
+        draftVerdicts={{ passport: "issue" }}   // "ips" left unreviewed
+        onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /raise issue/i })).not.toBeInTheDocument();
+  });
+
+  it("VIEW: 'Raise Issue' is absent even with every document reviewed and one flagged", async () => {
+    withGrant("compliance.review", "VIEW");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={o as never}
+        draftVerdicts={{ passport: "issue" }}
+        onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /raise issue/i })).not.toBeInTheDocument();
+  });
+
+  // "Request reprovision" only exists on an APPROVED (backend: active) cycle —
+  // the reprovision route 409s on anything else — and is a write action, so VIEW
+  // must not see it.
+  it("EDIT + approved: 'Request reprovision' renders; on a pending cycle it does not", async () => {
+    withGrant("compliance.review", "EDIT");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    const props = {
+      draftVerdicts: {}, onClose: vi.fn(), onApprove: vi.fn(), onSubmitIssues: vi.fn(),
+      onRequireDocs: vi.fn(), onVerdict: vi.fn(), onDownload: vi.fn(),
+    };
+    const { unmount } = render(<ObDetailPanel o={{ ...o, status: "approved" } as never} {...props} />);
+    expect(screen.getByRole("button", { name: /request reprovision/i })).toBeInTheDocument();
+    unmount();
+
+    render(<ObDetailPanel o={o as never} {...props} />);   // status: "pending"
+    expect(screen.queryByRole("button", { name: /request reprovision/i })).not.toBeInTheDocument();
+  });
+
+  it("VIEW + approved: 'Request reprovision' is absent", async () => {
+    withGrant("compliance.review", "VIEW");
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={{ ...o, status: "approved" } as never}
+        draftVerdicts={{}} onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /request reprovision/i })).not.toBeInTheDocument();
   });
 });
 

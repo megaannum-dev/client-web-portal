@@ -24,14 +24,15 @@ from app.libs.onboarding.schemas import (
     DocumentDTO,
     OnboardingDTO,
     RedemptionDecisionReq,
-    RejectReq,
+    ReprovisionReq,
+    ResubmitReq,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
     SubmitRedemptionReq,
     TransactionDetailDTO,
     TransactionDetailRequest,
-    VerdictReq,
+    VerdictBatchReq,
 )
 from app.libs.onboarding.service import OnboardingService, fix_mojibake_filename
 from app.libs.users.repository import AdminProfileRepository
@@ -341,17 +342,16 @@ def download_document(
 
 
 @router.post(
-    "/compliance/onboardings/{onboarding_id}/documents/{doc_type}/verdict",
-    response_model=DocumentDTO,
+    "/compliance/onboardings/{onboarding_id}/documents/verdicts",
+    response_model=list[DocumentDTO],
 )
-def submit_verdict(
+def submit_verdicts(
     onboarding_id: uuid.UUID,
-    doc_type: str,
-    req: VerdictReq,
+    req: VerdictBatchReq,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
-) -> DocumentDTO:
-    return svc.verdict(onboarding_id, doc_type, req, reviewer_uid=user.firebase_uid)
+) -> list[DocumentDTO]:
+    return svc.verdict_batch(onboarding_id, req, reviewer_uid=user.firebase_uid)
 
 
 @router.post("/compliance/onboardings/{onboarding_id}/approve", response_model=OnboardingDTO)
@@ -367,14 +367,37 @@ def approve_onboarding(
     )
 
 
-@router.post("/compliance/onboardings/{onboarding_id}/reject", response_model=OnboardingDTO)
-def reject_onboarding(
+@router.post(
+    "/compliance/onboardings/{onboarding_id}/request-resubmit",
+    response_model=OnboardingDTO,
+)
+def request_resubmit(
     onboarding_id: uuid.UUID,
-    req: RejectReq,
+    req: ResubmitReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
 ) -> OnboardingDTO:
-    return svc.reject(onboarding_id, req)
+    """Replaces the old /reject: a reviewed package with document issues goes
+    back to the RM/client for a corrected submission -- see
+    OnboardingService.request_resubmit."""
+    return svc.request_resubmit(onboarding_id, req, requested_by=user.firebase_uid)
+
+
+@router.post(
+    "/compliance/onboardings/{onboarding_id}/request-reprovision",
+    response_model=OnboardingDTO,
+)
+def request_reprovision(
+    onboarding_id: uuid.UUID,
+    req: ReprovisionReq,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+) -> OnboardingDTO:
+    """Ad-hoc counterpart to the scheduler's periodic renewal sweep: sends an
+    ACTIVE client back to pending_review instantly, for any set of KYC
+    documents Compliance wants a fresh copy of -- see
+    OnboardingService.request_reprovision."""
+    return svc.request_reprovision(onboarding_id, req, requested_by=user.firebase_uid)
 
 
 # ---- PC ------------------------------------------------------------------

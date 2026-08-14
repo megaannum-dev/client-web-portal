@@ -30,7 +30,7 @@ export default function ComplianceOverviewPage() {
   const goReview = (params: string) => router.push(`/compliance/review?${params}`);
 
   const obPending = onboarding.filter((o) => o.status === "pending");
-  const obFlagged = obPending.filter((o) => o.documents.some((d) => d.status === "rejected")).length;
+  const obFlagged = obPending.filter((o) => o.documents.some((d) => d.status === "pending")).length;
   const crPending = redemptions.filter((r) => r.status === "awaiting_co");
   const crHigh = crPending.filter((r) => redemptionAmountRisk(r.amount).tone === "failed").length;
   const renewals = onboarding.map(renewalDueForRow).filter((r): r is NonNullable<typeof r> => r !== null);

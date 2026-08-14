@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Check, X, TriangleAlert, Shield, Banknote } from "@/lib/icons";
+import { Clock, Check, X, TriangleAlert, RefreshCw, Shield, Banknote } from "@/lib/icons";
 import { StatCard } from "@/components/compliance/Shared";
 import { coMoneyShort } from "@/lib/compliance/mock";
 import type { AdminOnboardingRow, RedemptionView } from "@/lib/onboarding/types";
@@ -9,13 +9,13 @@ import type { AdminOnboardingRow, RedemptionView } from "@/lib/onboarding/types"
 export function ObStatStrip({ rows }: { rows: AdminOnboardingRow[] }) {
   const pending = rows.filter((o) => o.status === "pending").length;
   const approved = rows.filter((o) => o.status === "approved").length;
-  const rejected = rows.filter((o) => o.status === "rejected").length;
-  const flagged = rows.filter((o) => o.status === "pending" && o.documents.some((d) => d.status === "rejected")).length;
+  const awaiting = rows.filter((o) => o.status === "awaiting_docs").length;
+  const flagged = rows.filter((o) => o.status === "pending" && o.documents.some((d) => d.status === "pending")).length;
   return (
     <div className="mb-[22px] grid grid-cols-4 gap-3.5">
       <StatCard icon={Clock} k="Pending review" v={pending} />
       <StatCard icon={Check} k="Approved" v={approved} />
-      <StatCard icon={X} k="Rejected" v={rejected} />
+      <StatCard icon={RefreshCw} k="Awaiting reprovision" v={awaiting} vColor={awaiting ? "#994700" : undefined} />
       <StatCard icon={TriangleAlert} k="Doc issues" v={flagged} vColor={flagged ? "#c2410c" : undefined} />
     </div>
   );

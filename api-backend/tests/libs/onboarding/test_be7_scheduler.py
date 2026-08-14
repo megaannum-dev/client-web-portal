@@ -179,7 +179,7 @@ def test_trigger_due_renewals_skips_a_cycle_not_currently_active(db_session_fact
     db = db_session_factory()
     onboarding = db.get(ClientOnboarding, onboarding_id)
     onboarding.status = "pending_review"  # already mid-renewal from a prior tick
-    onboarding.reject_reason = "existing renewal in flight"
+    onboarding.compl_note = "existing renewal in flight"
     db.commit()
     db.close()
 
@@ -188,7 +188,7 @@ def test_trigger_due_renewals_skips_a_cycle_not_currently_active(db_session_fact
     db = db_session_factory()
     try:
         onboarding = db.get(ClientOnboarding, onboarding_id)
-        assert onboarding.reject_reason == "existing renewal in flight"  # untouched
+        assert onboarding.compl_note == "existing renewal in flight"  # untouched
     finally:
         db.close()
 
@@ -201,7 +201,7 @@ def test_trigger_due_renewals_called_twice_is_idempotent(db_session_factory):
     asyncio.run(sched._trigger_due_renewals())
     db = db_session_factory()
     onboarding = db.get(ClientOnboarding, onboarding_id)
-    first_reject_reason = onboarding.reject_reason
+    first_compl_note = onboarding.compl_note
     db.close()
 
     asyncio.run(sched._trigger_due_renewals())  # second call: cycle is no longer "active"
@@ -209,7 +209,7 @@ def test_trigger_due_renewals_called_twice_is_idempotent(db_session_factory):
     db = db_session_factory()
     try:
         onboarding = db.get(ClientOnboarding, onboarding_id)
-        assert onboarding.reject_reason == first_reject_reason  # not re-stamped a second time
+        assert onboarding.compl_note == first_compl_note  # not re-stamped a second time
         assert onboarding.status == "pending_review"  # still exactly one transition, not two
     finally:
         db.close()

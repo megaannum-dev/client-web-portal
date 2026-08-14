@@ -2,15 +2,19 @@
 
 import {
   fetchComplianceQueue as _fetchComplianceQueue,
-  submitVerdict as _submitVerdict,
+  submitVerdicts as _submitVerdicts,
   approveOnboarding as _approveOnboarding,
-  rejectOnboarding as _rejectOnboarding,
+  requestReprovision as _requestReprovision,
+  requestResubmit as _requestResubmit,
   downloadDocument as _downloadDocument,
   coDecideRedemption as _coDecideRedemption,
   fetchCoRedemptions as _fetchCoRedemptions,
   type APIResult,
 } from "@/server/onboarding";
-import type { AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, RejectReq, VerdictReq } from "@/lib/onboarding/types";
+import type {
+  AllotRdmptDTO, DocumentDTO, OnboardingDTO, RedemptionDecisionReq, ReprovisionReq, ResubmitReq,
+  VerdictBatchReq,
+} from "@/lib/onboarding/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -29,16 +33,44 @@ export async function fetchComplianceQueue(): Promise<APIResult<OnboardingDTO[]>
   }
 }
 
-export async function submitVerdict(
-  onboardingId: string, docType: string, body: VerdictReq,
-): Promise<APIResult<DocumentDTO>> {
+export async function submitVerdicts(
+  onboardingId: string, body: VerdictBatchReq,
+): Promise<APIResult<DocumentDTO[]>> {
   try {
-    logger.json("🔄 Submitting document verdict:", { onboardingId, docType, body });
-    const response = await _submitVerdict(onboardingId, docType, body);
-    logger.json("✅ Submit verdict response:", response);
+    logger.json("🔄 Submitting document verdicts (batch):", { onboardingId, body });
+    const response = await _submitVerdicts(onboardingId, body);
+    logger.json("✅ Submit verdicts response:", response);
     return response;
   } catch (error) {
-    console.error("❌ Error submitting document verdict:", { error, onboardingId, docType, body });
+    console.error("❌ Error submitting document verdicts:", { error, onboardingId, body });
+    return toErrorResult(error);
+  }
+}
+
+export async function requestReprovision(
+  onboardingId: string, body: ReprovisionReq,
+): Promise<APIResult<OnboardingDTO>> {
+  try {
+    logger.json("🔄 Requesting document re-provision:", { onboardingId, body });
+    const response = await _requestReprovision(onboardingId, body);
+    logger.json("✅ Request reprovision response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error requesting document re-provision:", { error, onboardingId, body });
+    return toErrorResult(error);
+  }
+}
+
+export async function requestResubmit(
+  onboardingId: string, body: ResubmitReq,
+): Promise<APIResult<OnboardingDTO>> {
+  try {
+    logger.json("🔄 Requesting resubmit:", { onboardingId, body });
+    const response = await _requestResubmit(onboardingId, body);
+    logger.json("✅ Request resubmit response:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error requesting resubmit:", { error, onboardingId, body });
     return toErrorResult(error);
   }
 }
@@ -51,18 +83,6 @@ export async function approveOnboarding(onboardingId: string): Promise<APIResult
     return response;
   } catch (error) {
     console.error("❌ Error approving onboarding:", { error, onboardingId });
-    return toErrorResult(error);
-  }
-}
-
-export async function rejectOnboarding(onboardingId: string, body: RejectReq): Promise<APIResult<OnboardingDTO>> {
-  try {
-    logger.json("🔄 Rejecting onboarding:", { onboardingId, body });
-    const response = await _rejectOnboarding(onboardingId, body);
-    logger.json("✅ Reject onboarding response:", response);
-    return response;
-  } catch (error) {
-    console.error("❌ Error rejecting onboarding:", { error, onboardingId, body });
     return toErrorResult(error);
   }
 }

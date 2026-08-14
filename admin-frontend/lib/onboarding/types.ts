@@ -3,7 +3,7 @@
 
 export type OnboardingStatus = "initial" | "reviewing" | "pending_review" | "active";
 export type OnboardingKind   = "initial" | "renewal";
-export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "pending" | "rejected" | "expired";
+export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verified" | "pending" | "expired";
 export type AllotRdmpStatus =
   | "pending"        // existing
   | "acknowledged"   // existing
@@ -42,7 +42,7 @@ export interface DocSpecDTO { doc_type: string; label: string; required: boolean
 export interface DocumentDTO {
   doc_type: string; label: string; status: DocStatus;
   filename: string | null; required: boolean; periodic_review: boolean;
-  issue_note: string | null; reviewed_at: string | null; expires_at: string | null;
+  reviewed_at: string | null; expires_at: string | null;
   can_reupload: boolean;
   uploaded_by: string | null; uploaded_at: string | null; approved_at: string | null;
 }
@@ -58,8 +58,8 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
   verified_count: number; required_count: number;
-  reject_reason: string | null;
-  submitted_at: string | null; created_at: string;
+  compl_note: string | null;
+  submitted_at: string | null; decided_at: string | null; created_at: string;
   documents: DocumentDTO[];   // present on detail/board rows; absent only if backend omits on a summary view
 }
 
@@ -68,8 +68,15 @@ export interface BoardDTO {
   pending_review: OnboardingDTO[]; active: OnboardingDTO[];
 }
 
-export interface VerdictReq { verdict: "valid" | "issue"; note?: string | null; }
-export interface RejectReq  { reason?: string | null; }
+// Batch verdict — the panel buffers every Valid/Issue toggle locally and POSTs
+// the whole set once, at Approve/Send-back.
+export interface VerdictItem { doc_type: string; verdict: "valid" | "issue"; }
+export interface VerdictBatchReq { items: VerdictItem[]; }   // backend requires min_length=1
+
+// Compliance's ad-hoc "require new documents" request on an ACTIVE client.
+export interface ReprovisionReq { doc_types: string[]; note?: string | null; }
+// No doc_types: the documents to resubmit are whichever the batch-verdict call marked `issue`.
+export interface ResubmitReq { note?: string | null; }
 
 export interface SubmitAllotmentReq {
   client_id: string;             // uuid.UUID as string
@@ -182,7 +189,9 @@ export interface KycBoardClient {
 }
 export interface KycBoardColumn { label: string; status: OnboardingStatus; clients: KycBoardClient[]; }
 
-export type ObStatus = "pending" | "approved" | "rejected";
+export type ObStatus = "pending" | "approved" | "awaiting_docs";
+/** A document's review verdict as the Compliance panel renders it. `null` = not reviewed. */
+export type DocVerdict = "valid" | "issue" | null;
 export interface AdminOnboardingRow {
   id: string; client: string; email: string;
   phone: string; address: string; country: string;
@@ -190,7 +199,8 @@ export interface AdminOnboardingRow {
   ibhk: string; silverwate: string;
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
-  rejectReason: string | null;
+  complNote: string | null;
+  decidedAt: string | null;
 }
 
 export interface RedemptionView {

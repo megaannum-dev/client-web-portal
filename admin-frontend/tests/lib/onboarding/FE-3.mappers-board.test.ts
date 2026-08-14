@@ -16,8 +16,8 @@ function makeOnboarding(overrides: Partial<OnboardingDTO> = {}): OnboardingDTO {
     model_id: "m-1", model_name: "Zero", units: 5,
     mgmt_fee: 0.015, incentive_fee: 0.2,
     verified_count: 3, required_count: 7,
-    reject_reason: null,
-    submitted_at: null, created_at: "2026-07-18T00:00:00Z",
+    compl_note: null,
+    submitted_at: null, decided_at: null, created_at: "2026-07-18T00:00:00Z",
     documents: [],
     ...overrides,
   };
