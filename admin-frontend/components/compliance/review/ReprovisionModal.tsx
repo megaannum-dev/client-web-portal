@@ -2,15 +2,21 @@
 
 /* Compliance's ad-hoc "require new documents" request on an ACTIVE client —
    ported from the design prototype's ReprovisionModal (ComplianceReview.jsx).
-   Structurally the sibling RejectModal, with two differences: the document rows
-   are real checkboxes rather than a read-only flag display, and confirming sends
-   the picked doc_types to POST .../reprovision instead of rejecting. */
+   Pick the doc_types to re-request, optionally attach a note, POST .../reprovision. */
 
 import { useState } from "react";
 import { X, Check, FileText, RefreshCw } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { SectionLabel } from "@/components/compliance/Shared";
 import type { AdminOnboardingRow } from "@/lib/onboarding/types";
+
+/* Note templates, nothing more — clicking one just fills the textarea. */
+const REPRO_REASONS = [
+  "Insufficient information at onboarding",
+  "Document expired or superseded",
+  "Periodic renewal",
+  "Ad-hoc compliance check",
+];
 
 export function ReprovisionModal({
   o, onCancel, onConfirm,
@@ -19,7 +25,7 @@ export function ReprovisionModal({
   onCancel: () => void;
   onConfirm: (id: string, docTypes: string[], note: string) => void;
 }) {
-  // Nothing pre-selected — unlike RejectModal, this is a fresh choice, not a
+  // Nothing pre-selected: on an already-active client this is a fresh choice, not a
   // reflection of verdicts already given.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
@@ -81,6 +87,31 @@ export function ReprovisionModal({
                   <span className="text-[13px] font-semibold" style={{ color: on ? "var(--primary)" : "var(--on-surface)" }}>
                     {d.label}
                   </span>
+                </button>
+              );
+            })}
+          </div>
+          <SectionLabel>Reason</SectionLabel>
+          <div className="mb-[18px] flex flex-wrap gap-1.5">
+            {REPRO_REASONS.map((r) => {
+              // Derived, not stored: the highlight simply stops matching once the
+              // officer edits the text — the honest signal that it's no longer that
+              // canned reason. Nothing beyond the note is sent.
+              const on = note === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setNote(r)}
+                  className="cursor-pointer"
+                  style={{
+                    padding: "6px 12px", borderRadius: 9999, fontSize: 12.5, fontWeight: 600,
+                    border: `1px solid ${on ? "var(--primary)" : "var(--outline-variant)"}`,
+                    background: on ? "var(--primary-fixed)" : "#fff",
+                    color: on ? "var(--primary)" : "var(--secondary)",
+                  }}
+                >
+                  {r}
                 </button>
               );
             })}

@@ -17,11 +17,10 @@ import {
   uploadDocument,
   submitAll,
   fetchComplianceQueue,
-  submitVerdict,
   submitVerdicts,
   approveOnboarding,
-  rejectOnboarding,
   requestReprovision,
+  requestResubmit,
   downloadDocument,
   fetchAllotments,
   acknowledgeAllotment,
@@ -32,7 +31,8 @@ import type { BoardDTO, OnboardingDTO, AllotRdmptDTO, DocumentDTO } from "@/lib/
 const DOCUMENT: DocumentDTO = {
   doc_type: "passport", label: "Passport", status: "uploaded",
   filename: "passport.pdf", required: true, periodic_review: false,
-  issue_note: null, reviewed_at: null, expires_at: null, can_reupload: true,
+  reviewed_at: null, expires_at: null, can_reupload: true,
+  uploaded_by: "u-1", uploaded_at: "2026-07-18T00:00:00Z", approved_at: null,
 };
 
 const ONBOARDING: OnboardingDTO = {
@@ -46,8 +46,8 @@ const ONBOARDING: OnboardingDTO = {
   model_id: "m-1", model_name: "Zero", units: 5,
   mgmt_fee: 0.015, incentive_fee: 0.2,
   verified_count: 3, required_count: 7,
-  reject_reason: null, awaiting_reprovision: false,
-  submitted_at: "2026-07-19T00:00:00Z", created_at: "2026-07-18T00:00:00Z",
+  compl_note: null,
+  submitted_at: "2026-07-19T00:00:00Z", decided_at: null, created_at: "2026-07-18T00:00:00Z",
   documents: [DOCUMENT],
 };
 
@@ -60,6 +60,9 @@ const ALLOTMENT: AllotRdmptDTO = {
   agg_before: 20, agg_after: 25,
   expected_cash_in: "2026-08-01T00:00:00Z",
   rm: "Alice RM", created_at: "2026-07-18T00:00:00Z", acknowledged_at: null,
+  emergent: false, expected_cash_out: null,
+  decided_by: null, decided_at: null, reject_reason: null,
+  has_transaction_detail: false,
 };
 
 function mockFetchOnce(body: unknown, status = 200, headers: Record<string, string> = {}) {
@@ -143,20 +146,12 @@ describe("FE-1 server/onboarding — Compliance", () => {
     expect(result).toEqual({ success: true, data: [ONBOARDING] });
   });
 
-  it("submitVerdict() POSTs {verdict, note} to the per-doc verdict route", async () => {
-    mockFetchOnce(DOCUMENT);
-    const result = await submitVerdict("ob-1", "passport", { verdict: "valid", note: null });
-    expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_VERDICT("ob-1", "passport"))).toBe(true);
-    expect(JSON.parse(calledInit()?.body as string)).toEqual({ verdict: "valid", note: null });
-    expect(result).toEqual({ success: true, data: DOCUMENT });
-  });
-
   it("submitVerdicts() POSTs {items} to the BATCH verdict route and returns DocumentDTO[]", async () => {
     mockFetchOnce([DOCUMENT]);
     const body = {
       items: [
-        { doc_type: "passport", verdict: "valid" as const, note: null },
-        { doc_type: "ips", verdict: "issue" as const, note: "missing signature" },
+        { doc_type: "passport", verdict: "valid" as const },
+        { doc_type: "ips", verdict: "issue" as const },
       ],
     };
     const result = await submitVerdicts("ob-1", body);
@@ -166,9 +161,9 @@ describe("FE-1 server/onboarding — Compliance", () => {
     expect(result).toEqual({ success: true, data: [DOCUMENT] });
   });
 
-  it("requestReprovision() POSTs {doc_types, reason} to the reprovision route", async () => {
-    mockFetchOnce({ ...ONBOARDING, status: "pending_review", awaiting_reprovision: true });
-    const body = { doc_types: ["passport", "ips"], reason: "stale address proof" };
+  it("requestReprovision() POSTs {doc_types, note} to the request-reprovision route", async () => {
+    mockFetchOnce({ ...ONBOARDING, status: "pending_review" });
+    const body = { doc_types: ["passport", "ips"], note: "stale address proof" };
     const result = await requestReprovision("ob-1", body);
     expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_REPROVISION("ob-1"))).toBe(true);
     expect(calledInit()?.method).toBe("POST");
@@ -194,12 +189,25 @@ describe("FE-1 server/onboarding — Compliance", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejectOnboarding() POSTs {reason} to the reject route", async () => {
+  // No doc_types: which documents to resubmit is whatever the preceding batch-verdict
+  // call marked `issue`, so the body carries the note and nothing else.
+  it("requestResubmit() POSTs {note} to the request-resubmit route", async () => {
     mockFetchOnce({ ...ONBOARDING, status: "pending_review" });
-    const result = await rejectOnboarding("ob-1", { reason: "bad ID scan" });
-    expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_REJECT("ob-1"))).toBe(true);
-    expect(JSON.parse(calledInit()?.body as string)).toEqual({ reason: "bad ID scan" });
+    const result = await requestResubmit("ob-1", { note: "bad ID scan" });
+    expect(calledUrl().endsWith(ENDPOINTS.COMPLIANCE.ONBOARDING_RESUBMIT("ob-1"))).toBe(true);
+    expect(calledInit()?.method).toBe("POST");
+    expect(JSON.parse(calledInit()?.body as string)).toEqual({ note: "bad ID scan" });
     expect(result.success).toBe(true);
+  });
+
+  it("surfaces the resubmit 409 (a document still lacks a verdict) with the backend's own message", async () => {
+    mockFetchOnce({ detail: "Every document must have a verdict before sending back" }, 409);
+    const result = await requestResubmit("ob-1", { note: null });
+    expect(result).toEqual({
+      success: false,
+      error: "Every document must have a verdict before sending back",
+      code: "HTTP_409",
+    });
   });
 
   it("surfaces a 401 on approve as UNAUTHORIZED", async () => {

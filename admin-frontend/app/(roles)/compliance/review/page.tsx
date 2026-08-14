@@ -1,7 +1,8 @@
 "use client";
 
 // Compliance Review — two work types split by tabs:
-//   · Onboarding — review client packages + required docs, approve/reject.
+//   · Onboarding — review client packages + required docs, approve or send back
+//     for resubmission (nothing is ever declined outright).
 //   · Redemptions — Compliance's gate on large ( > US$300K ) redemptions;
 //     Compliance decides FIRST (awaiting_co), PC gives the final sign-off
 //     second (awaiting_pc -> approved) -- see proposal 016 D-2.
@@ -20,7 +21,6 @@ import { OnboardingTable } from "@/components/compliance/review/OnboardingTable"
 import { RedeemTable } from "@/components/compliance/review/RedeemTable";
 import { ObDetailPanel } from "@/components/compliance/review/ObDetailPanel";
 import { CrDetailPanel } from "@/components/compliance/review/CrDetailPanel";
-import { RejectModal } from "@/components/compliance/review/RejectModal";
 import { ReprovisionModal } from "@/components/compliance/review/ReprovisionModal";
 import { EmptyState } from "@/components/compliance/review/EmptyState";
 import { useComplianceQueue } from "@/hooks/api/useComplianceQueue";
@@ -49,7 +49,7 @@ function ComplianceReviewContent() {
   const searchParams = useSearchParams();
   const [deepLink] = useState(() => resolveDeepLink(searchParams));
   const [tab, setTab] = useState<CoTab>(deepLink.tab);
-  const { data: onboardingData, submitVerdicts, approve, reject, requestReprovision, download } =
+  const { data: onboardingData, submitVerdicts, approve, requestResubmit, requestReprovision, download } =
     useComplianceQueue();
   const onboarding = onboardingData ?? [];
   const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
@@ -59,12 +59,11 @@ function ComplianceReviewContent() {
   const redemptions = (redemptionsData ?? []).filter((r) => r.amount > COMPLIANCE_THRESHOLD);
   const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
   const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
-  const [rejecting, setRejecting] = useState(false);
   const [reprovisioning, setReprovisioning] = useState(false);
   // Draft document verdicts, keyed by onboarding id then doc_type. Lives HERE, not
-  // in ObDetailPanel, because opening the Reject modal unmounts that panel -- panel-
-  // local state would be destroyed exactly when confirmReject needs to read it.
-  // Toggling writes only to this map; nothing is sent until Approve/Reject.
+  // in ObDetailPanel, because the key is the onboarding id -- toggles survive
+  // closing and reopening a row.
+  // Toggling writes only to this map; nothing is sent until Approve/Submit Issues.
   const [drafts, setDrafts] = useState<Record<string, Record<string, DocVerdict>>>({});
 
   const pendOb = onboarding.filter((o) => o.status === "pending").length;
@@ -125,22 +124,22 @@ function ComplianceReviewContent() {
     clearDraft(id);
     setOpenObId(null);
   };
-  const confirmReject = async (id: string, reason: string) => {
+  const confirmResubmit = async (id: string, note: string) => {
     const o = onboarding.find((x) => x.id === id);
-    // Verdicts go first on purpose: reject() resets every non-verified document for
-    // reupload, so posting first is what lets the docs marked Valid survive it.
+    // Verdicts MUST land first: request_resubmit derives the documents to resubmit
+    // from whichever are already flagged server-side, so posting after would find
+    // nothing flagged and 409.
     if (!o || !(await flushVerdicts(o))) return;
-    const r = await reject(id, reason);
-    if (!r.success) return alert(`Could not reject: ${r.error}`);
+    const r = await requestResubmit(id, note || undefined);
+    if (!r.success) return alert(`Could not request a resubmission: ${r.error}`);
     clearDraft(id);
-    setRejecting(false);
     setOpenObId(null);
   };
   const confirmReprovision = async (id: string, docTypes: string[], note: string) => {
     const r = await requestReprovision(id, docTypes, note || undefined);
     if (!r.success) return alert(`Could not request new documents: ${r.error}`);
     clearDraft(id);           // the reopened cycle re-seeds from its new server state
-    setReprovisioning(false); // panel stays open, now showing "Awaiting re-provision"
+    setReprovisioning(false); // panel stays open, now showing "Awaiting Resubmit"
   };
   const decideCr = (id: string, verdict: "approve" | "reject") =>
     void decideRedemption(id, { verdict }).then((r) => {
@@ -176,7 +175,7 @@ function ComplianceReviewContent() {
               <OnboardingTable rows={onboarding} onRowClick={setOpenObId} openId={openObId} />
               <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
                 <span className="flex items-center gap-1.5"><Eye size={13} strokeWidth={2} />Click any row → client detail + document checklist</span>
-                <span className="flex items-center gap-1.5"><Check size={13} strokeWidth={2} />Approve clean packages · reject and flag invalid documents</span>
+                <span className="flex items-center gap-1.5"><Check size={13} strokeWidth={2} />Approve clean packages · request reprovision of the documents that fall short</span>
               </div>
             </>
           ) : (
@@ -197,24 +196,16 @@ function ComplianceReviewContent() {
         </div>
       </div>
 
-      {openOb && !rejecting && !reprovisioning && (
+      {openOb && !reprovisioning && (
         <ObDetailPanel
           o={openOb}
           draftVerdicts={verdictsFor(openOb)}
           onClose={() => setOpenObId(null)}
           onApprove={approveOb}
-          onReject={() => setRejecting(true)}
+          onSubmitIssues={confirmResubmit}
           onRequireDocs={() => setReprovisioning(true)}
           onVerdict={doVerdict}
           onDownload={doDownload}
-        />
-      )}
-      {openOb && rejecting && (
-        <RejectModal
-          o={openOb}
-          draftVerdicts={verdictsFor(openOb)}
-          onCancel={() => setRejecting(false)}
-          onConfirm={confirmReject}
         />
       )}
       {openOb && reprovisioning && (

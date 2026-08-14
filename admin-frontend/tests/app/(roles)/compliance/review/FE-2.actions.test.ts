@@ -5,18 +5,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/onboarding", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/server/onboarding")>()),
   fetchComplianceQueue: vi.fn(),
-  submitVerdict: vi.fn(),
   submitVerdicts: vi.fn(),
   approveOnboarding: vi.fn(),
-  rejectOnboarding: vi.fn(),
   requestReprovision: vi.fn(),
+  requestResubmit: vi.fn(),
   downloadDocument: vi.fn(),
 }));
 
 import * as serverOnboarding from "@/server/onboarding";
 import {
-  fetchComplianceQueue, submitVerdict, submitVerdicts, approveOnboarding, rejectOnboarding,
-  requestReprovision, downloadDocument,
+  fetchComplianceQueue, submitVerdicts, approveOnboarding,
+  requestReprovision, requestResubmit, downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 
 describe("FE-2 Compliance action wrappers", () => {
@@ -30,28 +29,19 @@ describe("FE-2 Compliance action wrappers", () => {
     expect(result).toBe(ok);
   });
 
-  it("submitVerdict(id, docType, body) forwards all three args unchanged", async () => {
-    const ok = { success: true, data: { doc_type: "passport", status: "verified" } };
-    vi.mocked(serverOnboarding.submitVerdict).mockResolvedValue(ok as never);
-    const body = { verdict: "valid" as const, note: null };
-    const result = await submitVerdict("ob-1", "passport", body);
-    expect(serverOnboarding.submitVerdict).toHaveBeenCalledWith("ob-1", "passport", body);
-    expect(result).toBe(ok);
-  });
-
   it("submitVerdicts(id, body) forwards the whole batch unchanged", async () => {
     const ok = { success: true, data: [{ doc_type: "passport", status: "verified" }] };
     vi.mocked(serverOnboarding.submitVerdicts).mockResolvedValue(ok as never);
-    const body = { items: [{ doc_type: "passport", verdict: "valid" as const, note: null }] };
+    const body = { items: [{ doc_type: "passport", verdict: "valid" as const }] };
     const result = await submitVerdicts("ob-1", body);
     expect(serverOnboarding.submitVerdicts).toHaveBeenCalledWith("ob-1", body);
     expect(result).toBe(ok);
   });
 
-  it("requestReprovision(id, body) forwards doc_types + reason unchanged", async () => {
-    const ok = { success: true, data: { status: "pending_review", awaiting_reprovision: true } };
+  it("requestReprovision(id, body) forwards doc_types + note unchanged", async () => {
+    const ok = { success: true, data: { status: "pending_review" } };
     vi.mocked(serverOnboarding.requestReprovision).mockResolvedValue(ok as never);
-    const body = { doc_types: ["passport", "ips"], reason: "stale" };
+    const body = { doc_types: ["passport", "ips"], note: "stale" };
     const result = await requestReprovision("ob-1", body);
     expect(serverOnboarding.requestReprovision).toHaveBeenCalledWith("ob-1", body);
     expect(result).toBe(ok);
@@ -69,12 +59,18 @@ describe("FE-2 Compliance action wrappers", () => {
     expect(result).toEqual({ success: false, error: "not all docs verified", code: "ACTION_ERROR" });
   });
 
-  it("rejectOnboarding(id, body) forwards body unchanged", async () => {
+  it("requestResubmit(id, body) forwards the note-only body unchanged", async () => {
     const ok = { success: true, data: { status: "pending_review" } };
-    vi.mocked(serverOnboarding.rejectOnboarding).mockResolvedValue(ok as never);
-    const result = await rejectOnboarding("ob-1", { reason: "bad scan" });
-    expect(serverOnboarding.rejectOnboarding).toHaveBeenCalledWith("ob-1", { reason: "bad scan" });
+    vi.mocked(serverOnboarding.requestResubmit).mockResolvedValue(ok as never);
+    const result = await requestResubmit("ob-1", { note: "bad scan" });
+    expect(serverOnboarding.requestResubmit).toHaveBeenCalledWith("ob-1", { note: "bad scan" });
     expect(result).toBe(ok);
+  });
+
+  it("requestResubmit() converts a thrown error into ACTION_ERROR instead of propagating", async () => {
+    vi.mocked(serverOnboarding.requestResubmit).mockRejectedValue(new Error("network down"));
+    const result = await requestResubmit("ob-1", { note: null });
+    expect(result).toEqual({ success: false, error: "network down", code: "ACTION_ERROR" });
   });
 
   it("downloadDocument(id, docType) passes a failure result through untouched", async () => {
