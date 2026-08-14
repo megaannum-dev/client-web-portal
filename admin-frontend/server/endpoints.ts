@@ -60,14 +60,10 @@ export const ENDPOINTS = {
   COMPLIANCE: {
     ONBOARDINGS:        `${COMPLIANCE}/onboardings`,
     ONBOARDING_DOWNLOAD:(id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/download`,
-    // SUPERSEDED by ONBOARDING_VERDICTS below — the per-doc route fired one POST
-    // per Valid/Issue toggle. Kept only until the batch flow is confirmed working;
-    // slated for deletion together with the backend route.
-    ONBOARDING_VERDICT: (id: string, docType: string) => `${COMPLIANCE}/onboardings/${id}/documents/${encodeURIComponent(docType)}/verdict`,
     ONBOARDING_VERDICTS:(id: string) => `${COMPLIANCE}/onboardings/${id}/documents/verdicts`,
     ONBOARDING_APPROVE: (id: string) => `${COMPLIANCE}/onboardings/${id}/approve`,
-    ONBOARDING_REJECT:  (id: string) => `${COMPLIANCE}/onboardings/${id}/reject`,
-    ONBOARDING_REPROVISION: (id: string) => `${COMPLIANCE}/onboardings/${id}/reprovision`,
+    ONBOARDING_REPROVISION: (id: string) => `${COMPLIANCE}/onboardings/${id}/request-reprovision`,
+    ONBOARDING_RESUBMIT:    (id: string) => `${COMPLIANCE}/onboardings/${id}/request-resubmit`,
     // NOTE: the decide/read routes below live under /api/co, not /api/compliance
     // (the backend's frozen seam pins CO decide to /co/redemptions/{id}/decide —
     // see proposal 016 §F-2 "Path note"). Do not "fix" these back to COMPLIANCE.

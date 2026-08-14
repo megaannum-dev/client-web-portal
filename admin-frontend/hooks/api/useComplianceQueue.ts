@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  fetchComplianceQueue, submitVerdicts, approveOnboarding, rejectOnboarding, requestReprovision,
+  fetchComplianceQueue, submitVerdicts, approveOnboarding, requestReprovision, requestResubmit,
   downloadDocument,
 } from "@/app/(roles)/compliance/review/actions";
 import { mapOnboardingToRow } from "@/lib/onboarding/mappers";
@@ -15,8 +15,8 @@ export interface UseComplianceQueueResult {
   refetch: () => void;
   submitVerdicts: (id: string, items: VerdictItem[]) => Promise<{ success: boolean; error?: string }>;
   approve: (id: string) => Promise<{ success: boolean; error?: string }>;
-  reject: (id: string, reason: string) => Promise<{ success: boolean; error?: string }>;
-  requestReprovision: (id: string, docTypes: string[], reason?: string) => Promise<{ success: boolean; error?: string }>;
+  requestResubmit: (id: string, note?: string) => Promise<{ success: boolean; error?: string }>;
+  requestReprovision: (id: string, docTypes: string[], note?: string) => Promise<{ success: boolean; error?: string }>;
   download: (id: string, docType: string) => Promise<{ success: boolean; error?: string; filename?: string; contentType?: string; base64?: string }>;
 }
 
@@ -46,7 +46,7 @@ export function useComplianceQueue(): UseComplianceQueueResult {
   useEffect(() => { fetch_(); }, [fetch_]);
 
   // Deliberately does NOT refetch (same as `download` below). It is only ever called
-  // immediately before approve/reject, which do — so one decision costs one refetch
+  // immediately before approve/requestResubmit, which do — so one decision costs one refetch
   // instead of two, and the panel doesn't flash mid-decision.
   const doVerdicts = useCallback(async (id: string, items: VerdictItem[]) => {
     const result = await submitVerdicts(id, { items });
@@ -59,14 +59,14 @@ export function useComplianceQueue(): UseComplianceQueueResult {
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);
 
-  const reject = useCallback(async (id: string, reason: string) => {
-    const result = await rejectOnboarding(id, { reason });
+  const doResubmit = useCallback(async (id: string, note?: string) => {
+    const result = await requestResubmit(id, { note });
     if (result.success) fetch_();
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);
 
-  const doReprovision = useCallback(async (id: string, docTypes: string[], reason?: string) => {
-    const result = await requestReprovision(id, { doc_types: docTypes, reason });
+  const doReprovision = useCallback(async (id: string, docTypes: string[], note?: string) => {
+    const result = await requestReprovision(id, { doc_types: docTypes, note });
     if (result.success) fetch_();
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);
@@ -79,6 +79,6 @@ export function useComplianceQueue(): UseComplianceQueueResult {
 
   return {
     data, loading, error, refetch: fetch_,
-    submitVerdicts: doVerdicts, approve, reject, requestReprovision: doReprovision, download,
+    submitVerdicts: doVerdicts, approve, requestResubmit: doResubmit, requestReprovision: doReprovision, download,
   };
 }
