@@ -1251,6 +1251,7 @@ class OnboardingService:
             required_count=required,
             compl_note=onboarding.compl_note,
             submitted_at=onboarding.submitted_at,
+            decided_at=onboarding.decided_at,
             created_at=onboarding.created_at,
             approved_by=display.approved_by,
             documents=[self._doc_to_dto(d) for d in self.repo.documents_for(onboarding.id)]

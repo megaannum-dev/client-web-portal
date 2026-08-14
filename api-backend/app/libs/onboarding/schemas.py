@@ -121,6 +121,7 @@ class OnboardingDTO(BaseModel):
     required_count: int
     compl_note: str | None
     submitted_at: datetime | None
+    decided_at: datetime | None
     created_at: datetime
     approved_by: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
     documents: list[DocumentDTO] = []  # present on detail, omitted (empty) on board list
