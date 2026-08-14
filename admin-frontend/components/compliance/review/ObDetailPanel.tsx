@@ -188,17 +188,22 @@ export function ObDetailPanel({
         )}
         <div className="border-t border-outline-variant">
           {o.documents.map((d, i) => (
-            /* View/Edit Gate Function */
-            canEdit && (
-              <DocRow
-                key={d.doc_type}
-                doc={d}
-                verdict={verdicts[i]}
-                requested={requested[i]}
-                onToggle={pending ? (v) => onVerdict(d.doc_type, v) : undefined}
-                onDownload={() => onDownload(d.doc_type)}
-              />
-            )
+            <DocRow
+              key={d.doc_type}
+              doc={d}
+              verdict={verdicts[i]}
+              requested={requested[i]}
+              /* View/Edit Gate Function */
+              /* Gates the TOGGLE, not the row: a VIEW grant must still see the
+                 package. DocRow renders read-only when onToggle is undefined
+                 (Valid/Issue/Awaiting chips, or "Not reviewed"), which is the
+                 same path a decided cycle already takes. onDownload stays
+                 ungated on purpose — reading a document IS view access, and the
+                 backend gates the download route on Action.ONBOARDING_REVIEW
+                 independently of this page grant. */
+              onToggle={pending && canEdit ? (v) => onVerdict(d.doc_type, v) : undefined}
+              onDownload={() => onDownload(d.doc_type)}
+            />
           ))}
         </div>
         {issuingNow && (

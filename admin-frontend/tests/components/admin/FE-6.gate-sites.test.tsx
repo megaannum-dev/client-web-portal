@@ -229,18 +229,44 @@ describe("FE-6 components/compliance/review/ObDetailPanel.tsx — gated by compl
     );
   }
 
-  it("EDIT: the document row and Approve render", async () => {
+  it("EDIT: the document row renders with its Valid/Issue toggles, and Approve renders", async () => {
     withGrant("compliance.review", "EDIT");
     await renderPanel();
     expect(screen.getByText("Passport")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^valid$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^issue$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /approve/i })).toBeInTheDocument();
   });
 
-  it("VIEW: the document row (per the marker's literal placement above <DocRow>) and Approve are both absent", async () => {
+  // The marker gates the TOGGLE, not the row. A VIEW grant is read access: it must
+  // still show the package, or "view" shows nothing at all. Previously the gate sat
+  // inside the .map so a VIEW user got an empty document list — the bug this pins
+  // against. DocRow's read-only path (chips / "Not reviewed") is the same one a
+  // decided cycle already renders.
+  it("VIEW: the document row still renders read-only — Valid/Issue toggles and Approve are absent", async () => {
     withGrant("compliance.review", "VIEW");
     await renderPanel();
-    expect(screen.queryByText("Passport")).not.toBeInTheDocument();
+    expect(screen.getByText("Passport")).toBeInTheDocument();
+    expect(screen.getByText("Not reviewed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^valid$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^issue$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
+  });
+
+  it("VIEW: the document is still downloadable — reading a KYC file is view access", async () => {
+    withGrant("compliance.review", "VIEW");
+    const onDownload = vi.fn();
+    const { ObDetailPanel } = await import("@/components/compliance/review/ObDetailPanel");
+    render(
+      <ObDetailPanel
+        o={o as never}
+        draftVerdicts={{}}
+        onClose={vi.fn()} onApprove={vi.fn()} onSubmitIssues={vi.fn()}
+        onRequireDocs={vi.fn()} onVerdict={vi.fn()} onDownload={onDownload}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("Download Passport"));
+    expect(onDownload).toHaveBeenCalledWith("passport");
   });
 
   // Markers 2 and 3: the Raise Issue → Submit Issues pair. Raise Issue is gated on
