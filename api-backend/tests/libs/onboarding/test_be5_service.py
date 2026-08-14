@@ -21,7 +21,7 @@ from fastapi import HTTPException
 
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
 from app.libs.onboarding.repository import OnboardingRepository
-from app.libs.onboarding.schemas import RejectReq, VerdictReq
+from app.libs.onboarding.schemas import ResubmitReq, VerdictBatchReq, VerdictItem
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import ClientOnboarding
 from app.models.pc import ClientSubscription
@@ -359,7 +359,7 @@ def test_reopen_for_renewal_transitions_kind_and_status_and_resets_due_docs(
     assert onboarding.kind == "renewal"
     assert onboarding.status == "pending_review"
     assert due_doc.status == "pending"
-    assert onboarding.reject_reason == "periodic review due"
+    assert onboarding.compl_note == "periodic review due"
 
 
 def test_reopen_for_renewal_is_a_noop_for_a_cycle_not_currently_active(session, svc, model, rm):
@@ -391,7 +391,7 @@ def test_reopen_for_renewal_second_call_is_a_noop_duplicate_guard(
     )
 
     session.refresh(onboarding)
-    assert onboarding.reject_reason == "first reopen"  # second call never applied
+    assert onboarding.compl_note == "first reopen"  # second call never applied
 
 
 def test_renewal_full_cycle_leaves_allotments_row_count_unchanged_and_user_status_untouched(
@@ -414,15 +414,16 @@ def test_renewal_full_cycle_leaves_allotments_row_count_unchanged_and_user_statu
     )
     resubmitted = svc.submit(onboarding.id)
     assert resubmitted.status == "reviewing"
-    for spec in REQUIRED_DOCS:
-        d = svc.repo.get_document(onboarding.id, spec.key)
-        if d.status != "verified":
-            svc.verdict(
-                onboarding.id,
-                spec.key,
-                VerdictReq(verdict="valid"),
-                reviewer_uid=compliance.firebase_uid,
-            )
+    unverified = [
+        spec.key
+        for spec in REQUIRED_DOCS
+        if svc.repo.get_document(onboarding.id, spec.key).status != "verified"
+    ]
+    svc.verdict_batch(
+        onboarding.id,
+        VerdictBatchReq(items=[VerdictItem(doc_type=k, verdict="valid") for k in unverified]),
+        reviewer_uid=compliance.firebase_uid,
+    )
 
     before_user = session.get(User, approved.user_id)
     before_authorized_by = before_user.authorized_by
@@ -463,8 +464,10 @@ def test_submit_before_all_required_docs_uploaded_raises_409(svc, model, rm):
 def test_upload_document_on_a_verified_doc_raises_409(svc, model, rm, compliance):
     submitted = run_to_reviewing(svc, model, rm_uid=rm.firebase_uid)
     doc_type = REQUIRED_DOCS[0].key
-    svc.verdict(
-        submitted.id, doc_type, VerdictReq(verdict="valid"), reviewer_uid=compliance.firebase_uid
+    svc.verdict_batch(
+        submitted.id,
+        VerdictBatchReq(items=[VerdictItem(doc_type=doc_type, verdict="valid")]),
+        reviewer_uid=compliance.firebase_uid,
     )
     with pytest.raises(HTTPException) as exc:
         svc.upload_document(
@@ -495,13 +498,13 @@ def test_upload_document_while_in_review_but_not_yet_verdicted_raises_409(svc, m
 
 def test_approve_with_at_least_one_unverified_required_doc_raises_409(svc, model, rm, compliance):
     submitted = run_to_reviewing(svc, model, rm_uid=rm.firebase_uid)
-    for spec in REQUIRED_DOCS[:-1]:  # leave the last one unverified
-        svc.verdict(
-            submitted.id,
-            spec.key,
-            VerdictReq(verdict="valid"),
-            reviewer_uid=compliance.firebase_uid,
-        )
+    svc.verdict_batch(  # leave the last one unverified
+        submitted.id,
+        VerdictBatchReq(
+            items=[VerdictItem(doc_type=spec.key, verdict="valid") for spec in REQUIRED_DOCS[:-1]]
+        ),
+        reviewer_uid=compliance.firebase_uid,
+    )
     with pytest.raises(HTTPException) as exc:
         svc.approve(submitted.id, compliance_uid=compliance.firebase_uid)
     assert exc.value.status_code == 409
@@ -519,7 +522,7 @@ def test_approve_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
     assert exc.value.status_code == 409
 
 
-def test_reject_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
+def test_request_resubmit_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
     dto = svc.start(
         make_start_req(model),
         caller_uid=rm.firebase_uid,
@@ -527,11 +530,11 @@ def test_reject_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
         settings=_dev_settings(),
     )
     with pytest.raises(HTTPException) as exc:
-        svc.reject(dto.id, RejectReq(reason="too early"))
+        svc.request_resubmit(dto.id, ResubmitReq(note="too early"), requested_by="comp-uid")
     assert exc.value.status_code == 409
 
 
-def test_verdict_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
+def test_verdict_batch_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
     dto = svc.start(
         make_start_req(model),
         caller_uid=rm.firebase_uid,
@@ -539,8 +542,10 @@ def test_verdict_when_cycle_is_not_reviewing_raises_409(svc, model, rm):
         settings=_dev_settings(),
     )
     with pytest.raises(HTTPException) as exc:
-        svc.verdict(
-            dto.id, REQUIRED_DOCS[0].key, VerdictReq(verdict="valid"), reviewer_uid="comp-uid"
+        svc.verdict_batch(
+            dto.id,
+            VerdictBatchReq(items=[VerdictItem(doc_type=REQUIRED_DOCS[0].key, verdict="valid")]),
+            reviewer_uid="comp-uid",
         )
     assert exc.value.status_code == 409
 
@@ -643,13 +648,13 @@ def test_failed_approve_leaves_all_downstream_tables_unchanged(
     monkeypatch, session, svc, model, rm, compliance
 ):
     submitted = run_to_reviewing(svc, model, rm_uid=rm.firebase_uid)
-    for spec in REQUIRED_DOCS:
-        svc.verdict(
-            submitted.id,
-            spec.key,
-            VerdictReq(verdict="valid"),
-            reviewer_uid=compliance.firebase_uid,
-        )
+    svc.verdict_batch(
+        submitted.id,
+        VerdictBatchReq(
+            items=[VerdictItem(doc_type=spec.key, verdict="valid") for spec in REQUIRED_DOCS]
+        ),
+        reviewer_uid=compliance.firebase_uid,
+    )
 
     def _boom(*args, **kwargs):
         raise RuntimeError("simulated failure mid-approve")

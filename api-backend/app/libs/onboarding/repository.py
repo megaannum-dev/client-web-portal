@@ -288,65 +288,35 @@ class OnboardingRepository:
         doc.content_type = content_type
         doc.status = DocStatus.UPLOADED
         doc.version_no = (doc.version_no or 0) + 1
-        doc.issue_note = None
         doc.uploaded_by = uploaded_by
         doc.uploaded_at = datetime.utcnow()
 
-    def set_verdict(
-        self, doc: OnboardingDocument, *, status: DocStatus, reviewed_by: str, note: str | None
-    ) -> None:
+    def set_verdict(self, doc: OnboardingDocument, *, status: DocStatus, reviewed_by: str) -> None:
         doc.status = status
         doc.reviewed_by = reviewed_by
         doc.reviewed_at = datetime.utcnow()
-        doc.issue_note = note
         if status == DocStatus.VERIFIED:
             spec = get_doc_spec(doc.doc_type)
             if spec.periodic_review:
                 assert spec.review_interval_days is not None  # DocSpec invariant, not runtime input
                 doc.expires_at = doc.reviewed_at + timedelta(days=spec.review_interval_days)
-        # REJECTED (or any other non-VERIFIED verdict): expires_at is left untouched —
-        # a rejection is not a review clock (Backend C-6).
+        # Any other (non-VERIFIED) verdict: expires_at is left untouched —
+        # a document sent back is not a review clock (Backend C-6).
 
-    def reset_for_reupload(self, doc: OnboardingDocument) -> None:
-        """Renewal-scheduler path (BE-7): clears a periodic-review doc back to
-        not_started without touching storage_key (RM re-uploads over it)."""
-        doc.status = DocStatus.NOT_STARTED
-        doc.reviewed_by = None
-        doc.reviewed_at = None
-        doc.issue_note = None
-
-    def flag_pending_renewal(self, doc: OnboardingDocument, *, note: str | None = None) -> None:
-        """Renewal-scheduler soft-flag: the document is still the one
-        compliance verified, just nearing expires_at -- unlike
-        reset_for_reupload, this leaves reviewed_by/at (and the rest of the
+    def flag_pending_upload(self, doc: OnboardingDocument) -> None:
+        """The one way any caller -- the renewal scheduler, or Compliance's
+        resubmit/reprovision requests -- marks a document as needing
+        (re)upload. Deliberately leaves reviewed_by/at (and the rest of the
         prior verification) untouched since nothing has actually changed
         about the document yet. upload_document() carries it PENDING ->
         UPLOADED directly once the client re-uploads (pending is in
-        _CAN_REUPLOAD_STATUSES).
-
-        `note` is the ad-hoc reprovision path's addition (service
-        .request_reprovision): stamped onto issue_note so the RM/client sees
-        WHY compliance is asking again. The scheduler's own periodic call
-        passes nothing, leaving issue_note untouched -- unchanged behaviour."""
+        _CAN_REUPLOAD_STATUSES)."""
         doc.status = DocStatus.PENDING
-        if note is not None:
-            doc.issue_note = note
 
     def bump_all_to_in_review(self, onboarding_id: uuid.UUID) -> None:
         for doc in self.documents_for(onboarding_id):
             if doc.status != DocStatus.VERIFIED:
                 doc.status = DocStatus.IN_REVIEW
-
-    def reset_non_verified_for_reupload(self, onboarding_id: uuid.UUID) -> None:
-        """Cycle-level reject() companion (pre-existing 013 gap, fixed alongside
-        014 BE-1): submit() bumps every non-VERIFIED doc to IN_REVIEW, which is
-        not itself a reuploadable status -- without this, a bare reject() (no
-        per-doc verdict) leaves those docs permanently stuck and unreuploadable.
-        VERIFIED docs are left untouched -- rejecting the cycle for other
-        reasons shouldn't force re-review of a doc compliance already verified."""
-        for doc in self.documents_for(onboarding_id):
-            if doc.status != DocStatus.VERIFIED:
-                self.reset_for_reupload(doc)
 
     def counts(self, onboarding_id: uuid.UUID) -> tuple[int, int]:
         """(verified_count, required_count) computed from real rows, never a

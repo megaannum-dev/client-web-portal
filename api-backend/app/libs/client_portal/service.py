@@ -549,8 +549,11 @@ class ClientPortalService:
         required = [d for d in documents if d.required]
         if required and all(d.status == "verified" for d in required):
             return "verified"
+        # `pending` is now how a flagged-or-renewal-due document reads (there is
+        # no `rejected` any more), and such a document IS waiting on the client
+        # -- so it must fall through to "due" rather than report "processing".
         if any(d.status in ("uploaded", "in_review") for d in required) and not any(
-            d.status in ("rejected", "expired") for d in required
+            d.status in ("pending", "expired") for d in required
         ):
             return "processing"
         return "due"

@@ -297,15 +297,15 @@ def test_compliance_get_queue_returns_200(admin_client):
     assert any(o["id"] == started["id"] for o in resp.json())
 
 
-def test_compliance_submit_verdict_returns_200(admin_client):
+def test_compliance_submit_verdicts_returns_200(admin_client):
     http, *_ = admin_client
     started = _submitted_cycle(admin_client)
     resp = http.post(
-        f"/api/compliance/onboardings/{started['id']}/documents/identity_proof/verdict",
-        json={"verdict": "valid"},
+        f"/api/compliance/onboardings/{started['id']}/documents/verdicts",
+        json={"items": [{"doc_type": "identity_proof", "verdict": "valid"}]},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["status"] == "verified"
+    assert resp.json()[0]["status"] == "verified"
 
 
 def test_compliance_download_document_returns_200_with_bytes(admin_client):
@@ -329,21 +329,27 @@ def test_compliance_download_document_unuploaded_doc_returns_404(admin_client):
     assert resp.status_code == 404
 
 
+_DOC_TYPES = (
+    "identity_proof",
+    "pms_service_agreement",
+    "investment_policy_statement",
+    "fact_finder_questionnaire",
+    "derivatives_knowledge_form",
+    "fee_schedule",
+    "risk_disclosure",
+)
+
+
+def _verdict_all(http, onboarding_id, verdict):
+    resp = http.post(
+        f"/api/compliance/onboardings/{onboarding_id}/documents/verdicts",
+        json={"items": [{"doc_type": dt, "verdict": verdict} for dt in _DOC_TYPES]},
+    )
+    assert resp.status_code == 200, resp.text
+
+
 def _verdict_all_valid(http, onboarding_id):
-    for doc_type in (
-        "identity_proof",
-        "pms_service_agreement",
-        "investment_policy_statement",
-        "fact_finder_questionnaire",
-        "derivatives_knowledge_form",
-        "fee_schedule",
-        "risk_disclosure",
-    ):
-        resp = http.post(
-            f"/api/compliance/onboardings/{onboarding_id}/documents/{doc_type}/verdict",
-            json={"verdict": "valid"},
-        )
-        assert resp.status_code == 200, resp.text
+    _verdict_all(http, onboarding_id, "valid")
 
 
 def test_compliance_approve_returns_200_and_activates(admin_client):
@@ -355,16 +361,18 @@ def test_compliance_approve_returns_200_and_activates(admin_client):
     assert resp.json()["status"] == "active"
 
 
-def test_compliance_reject_returns_200_and_marks_pending_review(admin_client):
+def test_compliance_request_resubmit_returns_200_and_marks_pending_review(admin_client):
     http, *_ = admin_client
     started = _submitted_cycle(admin_client)
+    _verdict_all(http, started["id"], "issue")  # request-resubmit acts on the flagged docs
     resp = http.post(
-        f"/api/compliance/onboardings/{started['id']}/reject", json={"reason": "missing docs"}
+        f"/api/compliance/onboardings/{started['id']}/request-resubmit",
+        json={"note": "missing docs"},
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "pending_review"
-    assert body["reject_reason"] == "missing docs"
+    assert "missing docs" in body["compl_note"]
 
 
 def test_pc_get_allotments_returns_200(admin_client):
@@ -490,15 +498,17 @@ def test_client_subscriptions_route_takes_no_user_id_query_param(client_portal_c
     assert resp.json() == []
 
 
-# --- Invariant: exactly 21 onboarding routes registered -----------------------------
+# --- Invariant: exactly 20 onboarding routes registered -----------------------------
 # (was 16 per 013; 014 BE-2/BE-3/BE-7 add +3 matching this filter's segments; the
-# ad-hoc reprovision + batch-verdict rework adds +2 more (POST .../documents/verdicts,
-# POST .../reprovision) alongside the still-live per-doc verdict route --
-# BE-7's /rm/clients/{client_id}/events and BE-9's /rm/subscriptions* routes don't
-# match any of this filter's five segments, so they aren't counted here.)
+# batch-verdict + ad-hoc reprovision rework added POST .../documents/verdicts and
+# POST .../request-reprovision, and the compliance-gate simplification then dropped
+# the per-doc .../verdict and .../reject routes and added .../request-resubmit:
+# 21 - 2 + 1 = 20. BE-7's /rm/clients/{client_id}/events and BE-9's
+# /rm/subscriptions* routes don't match any of this filter's five segments, so
+# they aren't counted here.)
 
 
-def test_exactly_twentyone_onboarding_routes_are_registered():
+def test_exactly_twenty_onboarding_routes_are_registered():
     paths = app.openapi()["paths"]
     onboarding_paths = {
         p: methods
@@ -515,7 +525,7 @@ def test_exactly_twentyone_onboarding_routes_are_registered():
         )
     }
     total_routes = sum(len(methods) for methods in onboarding_paths.values())
-    assert total_routes == 21
+    assert total_routes == 20
 
 
 if __name__ == "__main__":

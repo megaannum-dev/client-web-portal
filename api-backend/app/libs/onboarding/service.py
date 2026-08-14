@@ -30,8 +30,8 @@ from app.libs.onboarding.schemas import (
     DocumentDTO,
     OnboardingDTO,
     RedemptionDecisionReq,
-    RejectReq,
     ReprovisionReq,
+    ResubmitReq,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
@@ -40,8 +40,6 @@ from app.libs.onboarding.schemas import (
     TransactionDetailDTO,
     TransactionDetailRequest,
     VerdictBatchReq,
-    VerdictItem,
-    VerdictReq,
 )
 from app.libs.users.repository import AdminProfileRepository
 
@@ -75,7 +73,7 @@ from app.models.onboarding import (
 from app.models.pc import ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 
-_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "rejected", "expired", "pending"}
+_CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "expired", "pending"}
 _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
 
 # Widened 2026-07-20 (D-9/C-7): settlement lag used to compute
@@ -308,7 +306,7 @@ class OnboardingService:
         self.db.commit()
         return self._to_dto(onboarding, with_documents=True)
 
-    # ---- Compliance: verdict / approve / reject ----------------------------
+    # ---- Compliance: verdict / approve -------------------------------------
     def verdict_batch(
         self, onboarding_id: uuid.UUID, req: VerdictBatchReq, *, reviewer_uid: str
     ) -> list[DocumentDTO]:
@@ -329,27 +327,16 @@ class OnboardingService:
 
         try:
             for doc, item in zip(docs, req.items):
-                new_status = DocStatus.VERIFIED if item.verdict == "valid" else DocStatus.REJECTED
-                self.repo.set_verdict(
-                    doc, status=new_status, reviewed_by=reviewer_uid, note=item.note
-                )
+                # verdict="issue" lands the doc on PENDING, which already means
+                # "needs (re)upload" and is already in _CAN_REUPLOAD_STATUSES --
+                # so there is no separate reset step to run afterwards.
+                new_status = DocStatus.VERIFIED if item.verdict == "valid" else DocStatus.PENDING
+                self.repo.set_verdict(doc, status=new_status, reviewed_by=reviewer_uid)
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
         return [self._doc_to_dto(doc) for doc in docs]
-
-    def verdict(
-        self, onboarding_id: uuid.UUID, doc_type: str, req: VerdictReq, *, reviewer_uid: str
-    ) -> DocumentDTO:
-        # ponytail: legacy single-doc path, kept only for the still-live
-        # per-doc route + run_full_approved_cycle's 7x-call test fixture;
-        # delete alongside that route once the admin-frontend batches its
-        # verdict submit (see docs/proposals -- FE reprovision/batch-verdict).
-        item = VerdictItem(doc_type=doc_type, verdict=req.verdict, note=req.note)
-        return self.verdict_batch(
-            onboarding_id, VerdictBatchReq(items=[item]), reviewer_uid=reviewer_uid
-        )[0]
 
     def approve(
         self,
@@ -386,8 +373,7 @@ class OnboardingService:
                 self._approve_renewal(onboarding)
             onboarding.status = OnboardingStatus.ACTIVE
             onboarding.decided_at = datetime.utcnow()
-            onboarding.reject_reason = None
-            onboarding.awaiting_reprovision = False  # the re-provision cycle is closed
+            onboarding.compl_note = None
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -464,21 +450,6 @@ class OnboardingService:
             body="Your periodic KYC review is complete.",
         )
 
-    def reject(self, onboarding_id: uuid.UUID, req: RejectReq) -> OnboardingDTO:
-        onboarding = self._require_onboarding(onboarding_id)
-        if onboarding.status != "reviewing":
-            raise HTTPException(status.HTTP_409_CONFLICT, "Cycle is not under review")
-
-        onboarding.status = OnboardingStatus.PENDING_REVIEW
-        onboarding.decided_at = datetime.utcnow()
-        onboarding.reject_reason = req.reason
-        # A rejection and a re-provision request share pending_review; clearing
-        # the flag here is what keeps a REJECTED renewal from reading as one.
-        onboarding.awaiting_reprovision = False
-        self.repo.reset_non_verified_for_reupload(onboarding_id)
-        self.db.commit()
-        return self._to_dto(onboarding, with_documents=True)
-
     # ---- Scheduler hook (BE-7 calls this) ----------------------------------
     def reopen_for_renewal(
         self,
@@ -486,25 +457,20 @@ class OnboardingService:
         *,
         due_docs: list[OnboardingDocument],
         reason: str,
-        note: str | None = None,
     ) -> None:
-        """`note` (new, optional): per-doc issue_note stamped via
-        flag_pending_renewal -- used by request_reprovision below so the RM/
-        client sees WHY compliance is asking again. The scheduler's own
-        periodic call never passes it, so its behaviour is unchanged."""
+        """The scheduler's periodic sweep (BE-7 calls this), keyed by user_id and
+        carrying its own duplicate guard. Kept deliberately separate from
+        Compliance's request_resubmit / request_reprovision below even though the
+        three overlap: this one is a review-clock event, not a decision, and its
+        caller has no onboarding_id in hand. See _reopen_for_docs' docstring."""
         onboarding = self.repo.get_by_user_id(user_id)
         if onboarding is None or onboarding.status != "active":
             return  # duplicate guard -- a row already off "active" has a renewal in flight
         onboarding.kind = OnboardingKind.RENEWAL
         onboarding.status = OnboardingStatus.PENDING_REVIEW
-        onboarding.reject_reason = reason
-        # Distinguishes this pending_review row from a Compliance REJECTION,
-        # which lands on the same status -- see the column's own ponytail note.
-        # Set here rather than in request_reprovision so the scheduler's
-        # periodic sweep is covered by the same line.
-        onboarding.awaiting_reprovision = True
+        onboarding.compl_note = reason
         for doc in due_docs:
-            self.repo.flag_pending_renewal(doc, note=note)
+            self.repo.flag_pending_upload(doc)
         labels = ", ".join(sorted({get_doc_spec(doc.doc_type).label for doc in due_docs}))
         self.repo.create_event(
             user_id=onboarding.user_id,
@@ -514,17 +480,94 @@ class OnboardingService:
         )
         self.db.commit()
 
-    # ---- Compliance: ad-hoc reprovision request -----------------------------
+    # ---- Compliance: send documents back for (re)upload ---------------------
+    # Two business contexts, one idea: a package under review with document
+    # issues (request_resubmit, cycle `reviewing`) and an active client asked to
+    # re-provision ad hoc (request_reprovision, cycle `active`). Neither is a
+    # rejection -- nobody is declined from onboarding; the package comes back.
+    def _reopen_for_docs(
+        self,
+        onboarding: ClientOnboarding,
+        docs: list[OnboardingDocument],
+        *,
+        note: str | None,
+        event_title: str,
+        event_body: str,
+    ) -> None:
+        """Shared tail of request_resubmit / request_reprovision: flag these
+        documents for re-upload and push the cycle back to pending_review.
+
+        Deliberately NOT shared with reopen_for_renewal above -- that one is the
+        scheduler's hook: keyed by user_id, carrying its own duplicate guard and
+        its own kind flip, called from a different business context. Keeping them
+        separate is the point, not an oversight."""
+        onboarding.status = OnboardingStatus.PENDING_REVIEW
+        onboarding.decided_at = datetime.utcnow()
+        onboarding.compl_note = note
+        for doc in docs:
+            self.repo.flag_pending_upload(doc)
+        self.repo.create_event(
+            user_id=onboarding.user_id,
+            category="Account Notification",
+            title=event_title,
+            body=event_body,
+        )
+        self.db.commit()
+
+    def request_resubmit(
+        self, onboarding_id: uuid.UUID, req: ResubmitReq, *, requested_by: str
+    ) -> OnboardingDTO:
+        """Replaces the old `reject()`: a package under review whose documents
+        have issues goes back to the RM/client for a corrected submission, it
+        does not leave the CRM. The documents to resubmit are exactly the ones
+        verdict_batch just marked `issue` (i.e. now on PENDING), so -- unlike
+        request_reprovision -- there is no explicit doc_types list to supply."""
+        onboarding = self._require_onboarding(onboarding_id)
+        if onboarding.status != OnboardingStatus.REVIEWING:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Cycle is not under review")
+        docs = self.repo.documents_for(onboarding_id)
+        # Mirrors approve()'s all-verified precondition. Without it, a still
+        # IN_REVIEW doc would land in pending_review while IN_REVIEW is NOT in
+        # _CAN_REUPLOAD_STATUSES -- permanently stuck. That is the exact bug the
+        # deleted reset_non_verified_for_reupload was papering over; this
+        # precondition fixes it at the root instead.
+        if any(d.status == DocStatus.IN_REVIEW for d in docs):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Every document must have a verdict before requesting a resubmission",
+            )
+        flagged = [d for d in docs if d.status == DocStatus.PENDING]
+        if not flagged:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "No document has been flagged for resubmission"
+            )
+
+        requester = self.repo._resolve_uid_to_display_name(requested_by) or requested_by
+        labels = ", ".join(get_doc_spec(d.doc_type).label for d in flagged)
+        note = f"Compliance ({requester}) requested a resubmission of: {labels}"
+        if req.note:
+            note += f" -- {req.note}"
+        self._reopen_for_docs(
+            onboarding,
+            flagged,
+            note=note,
+            event_title="Documents need resubmission",
+            event_body=(
+                f"Your {labels} could not be verified. "
+                "Please upload a corrected document."
+            ),
+        )
+        return self._to_dto(onboarding, with_documents=True)
+
     def request_reprovision(
         self, onboarding_id: uuid.UUID, req: ReprovisionReq, *, requested_by: str
     ) -> OnboardingDTO:
         """Compliance's on-demand counterpart to the scheduler's
         reopen_for_renewal above: reopens an ACTIVE client for renewal
         instantly, for any set of documents -- not just ones the review clock
-        already flagged. Delegates the actual reopen to reopen_for_renewal so
-        both paths share one kind/status flip + per-doc PENDING flag +
-        "KYC renewal required" client_events row, instead of a second copy of
-        that logic.
+        already flagged. It KEEPS an explicit `doc_types` selection because an
+        active client's documents are all `verified`: there is no verdict pass
+        to derive the set from, unlike request_resubmit above.
 
         ponytail: `requested_by` isn't stamped onto a column of its own --
         it rides along in the client_events body text below. Upgrade to a real
@@ -542,10 +585,17 @@ class OnboardingService:
 
         requester = self.repo._resolve_uid_to_display_name(requested_by) or requested_by
         labels = ", ".join(get_doc_spec(d.doc_type).label for d in docs)
-        reason = f"Compliance ({requester}) requested re-provision of: {labels}"
-        if req.reason:
-            reason += f" -- {req.reason}"
-        self.reopen_for_renewal(onboarding.user_id, due_docs=docs, reason=reason, note=req.reason)
+        note = f"Compliance ({requester}) requested re-provision of: {labels}"
+        if req.note:
+            note += f" -- {req.note}"
+        onboarding.kind = OnboardingKind.RENEWAL
+        self._reopen_for_docs(
+            onboarding,
+            docs,
+            note=note,
+            event_title="KYC renewal required",
+            event_body=f"Your {labels} is due for renewal. Please upload an updated document.",
+        )
         return self._to_dto(onboarding, with_documents=True)
 
     # ---- Board / list reads -------------------------------------------------
@@ -1108,7 +1158,6 @@ class OnboardingService:
             filename=doc.filename,
             required=spec.required,
             periodic_review=spec.periodic_review,
-            issue_note=doc.issue_note,
             reviewed_at=doc.reviewed_at,
             expires_at=doc.expires_at,
             can_reupload=doc.status in _CAN_REUPLOAD_STATUSES,
@@ -1158,8 +1207,7 @@ class OnboardingService:
             incentive_fee=float(incentive_fee),
             verified_count=verified,
             required_count=required,
-            reject_reason=onboarding.reject_reason,
-            awaiting_reprovision=onboarding.awaiting_reprovision,
+            compl_note=onboarding.compl_note,
             submitted_at=onboarding.submitted_at,
             created_at=onboarding.created_at,
             approved_by=display.approved_by,

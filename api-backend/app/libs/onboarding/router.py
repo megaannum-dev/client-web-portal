@@ -24,8 +24,8 @@ from app.libs.onboarding.schemas import (
     DocumentDTO,
     OnboardingDTO,
     RedemptionDecisionReq,
-    RejectReq,
     ReprovisionReq,
+    ResubmitReq,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
@@ -33,7 +33,6 @@ from app.libs.onboarding.schemas import (
     TransactionDetailDTO,
     TransactionDetailRequest,
     VerdictBatchReq,
-    VerdictReq,
 )
 from app.libs.onboarding.service import OnboardingService, fix_mojibake_filename
 from app.libs.users.repository import AdminProfileRepository
@@ -343,22 +342,6 @@ def download_document(
 
 
 @router.post(
-    # ponytail: superseded by the batch route below; kept live only so the
-    # existing admin-frontend keeps working until it moves to /documents/verdicts.
-    "/compliance/onboardings/{onboarding_id}/documents/{doc_type}/verdict",
-    response_model=DocumentDTO,
-)
-def submit_verdict(
-    onboarding_id: uuid.UUID,
-    doc_type: str,
-    req: VerdictReq,
-    svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
-) -> DocumentDTO:
-    return svc.verdict(onboarding_id, doc_type, req, reviewer_uid=user.firebase_uid)
-
-
-@router.post(
     "/compliance/onboardings/{onboarding_id}/documents/verdicts",
     response_model=list[DocumentDTO],
 )
@@ -384,18 +367,24 @@ def approve_onboarding(
     )
 
 
-@router.post("/compliance/onboardings/{onboarding_id}/reject", response_model=OnboardingDTO)
-def reject_onboarding(
+@router.post(
+    "/compliance/onboardings/{onboarding_id}/request-resubmit",
+    response_model=OnboardingDTO,
+)
+def request_resubmit(
     onboarding_id: uuid.UUID,
-    req: RejectReq,
+    req: ResubmitReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
 ) -> OnboardingDTO:
-    return svc.reject(onboarding_id, req)
+    """Replaces the old /reject: a reviewed package with document issues goes
+    back to the RM/client for a corrected submission -- see
+    OnboardingService.request_resubmit."""
+    return svc.request_resubmit(onboarding_id, req, requested_by=user.firebase_uid)
 
 
 @router.post(
-    "/compliance/onboardings/{onboarding_id}/reprovision",
+    "/compliance/onboardings/{onboarding_id}/request-reprovision",
     response_model=OnboardingDTO,
 )
 def request_reprovision(

@@ -10,9 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
-DocStatus = Literal[
-    "not_started", "uploaded", "in_review", "verified", "pending", "rejected", "expired"
-]
+DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "pending", "expired"]
 AllotRdmpStatus = Literal[
     "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
 ]
@@ -81,10 +79,9 @@ class DocumentDTO(BaseModel):
     filename: str | None
     required: bool
     periodic_review: bool
-    issue_note: str | None
     reviewed_at: datetime | None
     expires_at: datetime | None
-    can_reupload: bool  # server-computed: status in {not_started, uploaded, rejected, expired}
+    can_reupload: bool  # server-computed: status in {not_started, uploaded, pending, expired}
     uploaded_by: str | None
     uploaded_at: datetime | None
     approved_at: datetime | None
@@ -118,12 +115,7 @@ class OnboardingDTO(BaseModel):
     incentive_fee: float
     verified_count: int
     required_count: int
-    reject_reason: str | None
-    # True while this cycle is waiting on re-provisioned documents (Compliance's
-    # ad-hoc request or the renewal scheduler), as opposed to having been
-    # rejected -- both land on status="pending_review". See
-    # ClientOnboarding.awaiting_reprovision for why this exists and when it goes.
-    awaiting_reprovision: bool
+    compl_note: str | None
     submitted_at: datetime | None
     created_at: datetime
     approved_by: str | None  # NEW (014 C-7) — resolved display name of users.authorized_by
@@ -137,15 +129,9 @@ class BoardDTO(BaseModel):
     active: list[OnboardingDTO]
 
 
-class VerdictReq(BaseModel):
-    verdict: Literal["valid", "issue"]
-    note: str | None = None
-
-
 class VerdictItem(BaseModel):
     doc_type: str
     verdict: Literal["valid", "issue"]
-    note: str | None = None
 
 
 class VerdictBatchReq(BaseModel):
@@ -156,16 +142,24 @@ class VerdictBatchReq(BaseModel):
 
 
 class ReprovisionReq(BaseModel):
-    """POST .../reprovision body -- Compliance's ad-hoc "send this doc back
-    for renewal" action on an active client (service.OnboardingService
-    .request_reprovision), independent of the scheduler's periodic sweep."""
+    """POST .../reprovision body -- Compliance's ad-hoc "these documents must be
+    re-provisioned" action on an ALREADY-ACTIVE client (service
+    .OnboardingService.request_reprovision), independent of the renewal
+    scheduler's periodic sweep. Compliance names the documents explicitly:
+    an active client's documents are all `verified`, so there is no verdict
+    pass to derive them from."""
 
     doc_types: list[str] = Field(min_length=1)
-    reason: str | None = None
+    note: str | None = None
 
 
-class RejectReq(BaseModel):
-    reason: str | None = None
+class ResubmitReq(BaseModel):
+    """POST .../request-resubmit body -- Compliance sending a package under
+    review back to the RM/client. No doc_types: the documents to resubmit are
+    exactly the ones verdict_batch already marked `issue`, so Compliance does
+    not pick them a second time."""
+
+    note: str | None = None
 
 
 class SubmitAllotmentReq(BaseModel):
