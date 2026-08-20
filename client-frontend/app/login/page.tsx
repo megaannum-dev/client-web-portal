@@ -23,7 +23,7 @@ function LoginForm() {
     backendSyncError,
     firebaseReady,
     signInWithEmailPassword,
-    signInWithGoogle,
+    // signInWithGoogle,
   } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -58,14 +58,14 @@ function LoginForm() {
     }
   };
 
-  const onGoogleLogin = async () => {
-    setFormError(null);
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      setFormError(formatFirebaseAuthError(err));
-    }
-  };
+  // const onGoogleLogin = async () => {
+  //   setFormError(null);
+  //   try {
+  //     await signInWithGoogle();
+  //   } catch (err) {
+  //     setFormError(formatFirebaseAuthError(err));
+  //   }
+  // };
 
   return (
     <div className="flex flex-col items-center w-full max-w-[480px]">
