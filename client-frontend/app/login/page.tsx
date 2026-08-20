@@ -198,14 +198,14 @@ function LoginForm() {
         </form>
 
         {/* Divider */}
-        <div className="relative flex items-center gap-4">
+        {/* <div className="relative flex items-center gap-4">
           <div className="flex-1 h-px bg-[#e0e0e0]" />
           <span className="text-label-md text-secondary-fixed-dim tracking-[0.05em] uppercase">{t("auth.login.or")}</span>
           <div className="flex-1 h-px bg-[#e0e0e0]" />
-        </div>
+        </div> */}
 
         {/* Google Login */}
-        <button
+        {/* <button
           type="button"
           onClick={onGoogleLogin}
           disabled={!firebaseReady || busy}
@@ -218,7 +218,7 @@ function LoginForm() {
             <path d="M10 3.96c1.47 0 2.79.5 3.82 1.5L16.69 2.4A9.96 9.96 0 0 0 10 0 10 10 0 0 0 1.07 5.49l3.34 2.6C5.2 5.72 7.4 3.96 10 3.96Z" fill="#EA4335"/>
           </svg>
           {t("auth.login.continue_with_google")}
-        </button>
+        </button> */}
 
         {/* Footer */}
         <div className="pt-3 flex flex-col items-center gap-3">
