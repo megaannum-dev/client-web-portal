@@ -18,8 +18,14 @@ class DocSpec:
 # labels from the server, never a local copy.
 REQUIRED_DOCS: tuple[DocSpec, ...] = (
     DocSpec(
-        key="pms_service_agreement",
-        label="Discretionary PMS Service Agreement",
+        key="personnal_details",
+        label="Account Openning Document - Personnal Details",
+        required=True,
+        periodic_review=False,
+    ),
+    DocSpec(
+        key="data_privacy",
+        label="T&C - Data Privacy",
         required=True,
         periodic_review=False,
     ),
@@ -38,14 +44,20 @@ REQUIRED_DOCS: tuple[DocSpec, ...] = (
     ),
     DocSpec(key="derivatives_knowledge_form", label="Financial Health Check - Derivatives Knowledge Form", required=True, periodic_review=False),
     DocSpec(
+        key="risk_disclosure", label="Risk Disclosure Statement", required=True, periodic_review=False
+    ),
+    DocSpec(
         key="fee_schedule",
         label="Fee Schedule",
         required=True,
         periodic_review=False,
     ),
     DocSpec(
-        key="risk_disclosure", label="Risk Disclosure Statement", required=True, periodic_review=False
-    ),
+        key="PIAD_form",
+        label="Professional Investor Assessment and Declaration Form",
+        required=True,
+        periodic_review=False,
+    )
     DocSpec(
         key="identity_proof",
         label="Other - ID / Passport / Proof of Address",
