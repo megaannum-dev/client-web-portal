@@ -21,3 +21,15 @@ api.megaannum-am.com {
 	encode zstd gzip
 	reverse_proxy api-backend:8000
 }
+
+cms.megaannum-am.com {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy cms-backend:8001
+    }
+
+    handle {
+        reverse_proxy cms-frontend:3030
+    }
+}
