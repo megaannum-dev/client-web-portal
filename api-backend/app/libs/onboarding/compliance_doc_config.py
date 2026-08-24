@@ -57,7 +57,7 @@ REQUIRED_DOCS: tuple[DocSpec, ...] = (
         label="Professional Investor Assessment and Declaration Form",
         required=True,
         periodic_review=False,
-    )
+    ),
     DocSpec(
         key="identity_proof",
         label="Other - ID / Passport / Proof of Address",
