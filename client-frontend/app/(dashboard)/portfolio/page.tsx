@@ -157,7 +157,6 @@ function TicketStatusBadge({ status }: { status: TicketStatus }) {
 const TYPE_I18N_KEY: Record<TicketKind, string> = {
   allotment:  "request_type.allotment",
   redemption: "request_type.redemption",
-  other:      "request_type.others",
 };
 
 function TypeBadge({ type }: { type: TicketKind }) {
@@ -165,7 +164,6 @@ function TypeBadge({ type }: { type: TicketKind }) {
   const cls: Record<TicketKind, string> = {
     allotment:  "text-primary",
     redemption: "text-warning",
-    other:      "text-secondary",
   };
   return <span className={`text-body-sm font-bold ${cls[type]}`}>{t(TYPE_I18N_KEY[type])}</span>;
 }

@@ -397,117 +397,13 @@ function RedemptionForm({ onClose, onConfirm }: {
   );
 }
 
-// ── Others Form (inside RaiseTicketModal) ─────────────────────────────────────
-
-const OTHER_TICKET_CATEGORIES = ["Questionnaire", "Others"] as const;
-
-function OthersForm({ onClose, onConfirm }: {
-  onClose: () => void;
-  onConfirm: (req: ClientRequestDTO) => void;
-}) {
-  const { t } = useTranslation();
-  const { getIdToken } = useAuth();
-  const [subject,     setSubject]     = useState("");
-  const [category,    setCategory]    = useState<string>(OTHER_TICKET_CATEGORIES[0]);
-  const [description, setDescription] = useState("");
-  const [errors,      setErrors]      = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting,  setSubmitting]  = useState(false);
-
-  function validate() {
-    const e: Record<string, string> = {};
-    if (!subject.trim())     e.subject     = t("ticket.errors.enter_subject");
-    if (!description.trim()) e.description = t("ticket.errors.describe_request");
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
-  async function handleSubmit() {
-    if (!validate()) return;
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      const token = await getIdToken();
-      const req: RaiseTicketReq = {
-        kind: "other",
-        subject: subject.trim(),
-        category,
-        message: description.trim(),
-      };
-      const dto = await submitTicket(token, req);
-      onConfirm(dto);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to submit request");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="px-6 py-5 flex flex-col gap-5">
-
-      {/* Category */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="others-category" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.category")}</label>
-        <div className="relative">
-          <select id="others-category" value={category} onChange={(e) => setCategory(e.target.value)}
-            className={fieldCls()}>
-            {OTHER_TICKET_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-secondary">▾</span>
-        </div>
-      </div>
-
-      {/* Subject */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="others-subject" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.subject")}</label>
-        <input id="others-subject" type="text" placeholder={t("ticket.subject_placeholder")} value={subject}
-          onChange={(e) => { setSubject(e.target.value); setErrors((p) => ({ ...p, subject: "" })); }}
-          className={fieldCls(errors.subject)}
-          aria-invalid={!!errors.subject}
-          aria-describedby={errors.subject ? "others-subject-error" : undefined} />
-        {errors.subject && <p id="others-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
-      </div>
-
-      {/* Description */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="others-description" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.description")}</label>
-        <textarea id="others-description" rows={4} placeholder={t("ticket.description_placeholder")} value={description}
-          onChange={(e) => { setDescription(e.target.value); setErrors((p) => ({ ...p, description: "" })); }}
-          className={clsx("resize-none", fieldCls(errors.description))}
-          aria-invalid={!!errors.description}
-          aria-describedby={errors.description ? "others-description-error" : undefined} />
-        {errors.description && <p id="others-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
-      </div>
-
-      {/* Footer */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
-        <div className="flex items-center justify-end gap-3">
-          <button type="button" onClick={onClose}
-            className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
-            {t("common.cancel")}
-          </button>
-          <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
-            {t("ticket.submit_ticket")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Raise Ticket Modal ────────────────────────────────────────────────────────
 
-type TicketType = "Allotment" | "Redemption" | "Others";
+type TicketType = "Allotment" | "Redemption";
 
 const TICKET_TYPES: { type: TicketType; labelKey: string; descKey: string; color: string }[] = [
   { type: "Allotment",  labelKey: "ticket.types.allotment_label",  descKey: "ticket.types.allotment_desc",  color: "text-primary"  },
   { type: "Redemption", labelKey: "ticket.types.redemption_label", descKey: "ticket.types.redemption_desc", color: "text-warning"  },
-  { type: "Others",     labelKey: "ticket.types.others_label",     descKey: "ticket.types.others_desc",     color: "text-secondary" },
 ];
 
 export function RaiseTicketModal({ onClose, onConfirm }: {
@@ -523,11 +419,10 @@ export function RaiseTicketModal({ onClose, onConfirm }: {
     setStep(2);
   }
 
-  const stepTitle = step === 1
+  const stepTitle = step === 1 || !ticketType
     ? t("ticket.raise_ticket")
-    : ticketType === "Allotment"  ? t("ticket.allotment_ticket")
-    : ticketType === "Redemption" ? t("ticket.redemption_ticket")
-    : t("ticket.others_ticket");
+    : ticketType === "Allotment" ? t("ticket.allotment_ticket")
+    : t("ticket.redemption_ticket");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -576,7 +471,6 @@ export function RaiseTicketModal({ onClose, onConfirm }: {
         {/* Step 2 — form */}
         {step === 2 && ticketType === "Allotment"  && <AllotmentForm  onClose={onClose} onConfirm={onConfirm} />}
         {step === 2 && ticketType === "Redemption" && <RedemptionForm onClose={onClose} onConfirm={onConfirm} />}
-        {step === 2 && ticketType === "Others"     && <OthersForm     onClose={onClose} onConfirm={onConfirm} />}
       </div>
     </div>
   );
