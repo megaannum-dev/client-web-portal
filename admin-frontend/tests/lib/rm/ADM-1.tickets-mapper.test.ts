@@ -17,7 +17,7 @@ function dto(overrides: Partial<RmTicketDTO> = {}): RmTicketDTO {
     currency: "USD",
     amount: 180000,
     multiplier: 2,
-    subject: null,
+    subject: "Request for additional allotment",
     message: "Please allot a further USD 180,000.",
     status: "new",
     created_at: "2026-06-06T00:00:00Z",
@@ -45,7 +45,6 @@ describe("ADM-1 mapDtoToRequestTicket — kind -> type label", () => {
   const CASES: Array<[TicketKind, string]> = [
     ["allotment", "Allotment"],
     ["redemption", "Redemption"],
-    ["other", "Other"],
   ];
   CASES.forEach(([kind, expected]) => {
     it(`kind="${kind}" -> type="${expected}"`, () => {
@@ -67,10 +66,10 @@ describe("ADM-1 mapDtoToRequestTicket — null rendering (global invariant §3.1
   });
 });
 
-describe("ADM-1 mapDtoToRequestTicket — money passthrough for an Other-kind ticket (amount/multiplier both null)", () => {
+describe("ADM-1 mapDtoToRequestTicket — money passthrough for a redemption-kind ticket (amount/multiplier both null)", () => {
   it("renders the existing '—' placeholders for ccy/cash/mult, not 'null' or 'NaN'", () => {
     const ticket = mapDtoToRequestTicket(dto({
-      kind: "other", amount: null, multiplier: null, subject: "Update authorised signatory",
+      kind: "redemption", amount: null, multiplier: null,
     }));
     expect(ticket.cash).not.toMatch(/null|NaN|undefined/i);
     expect(ticket.mult).not.toMatch(/null|NaN|undefined/i);
@@ -83,5 +82,17 @@ describe("ADM-1 mapDtoToRequestTicket — ref/client passthrough", () => {
     expect(ticket.ref).toBe("REQ-9999");
     expect(ticket.client).toBe("Vela Holdings");
     expect(ticket.message).toBe("hello");
+  });
+});
+
+describe("ADM-1 mapDtoToRequestTicket — subject passthrough (regression: subject was dropped along with the removed 'Other' ticket kind, but it is required on Allotment/Redemption forms)", () => {
+  it("passes dto.subject through to RequestTicket.subject verbatim", () => {
+    const ticket = mapDtoToRequestTicket(dto({ subject: "Redeem for tax payment" }));
+    expect(ticket.subject).toBe("Redeem for tax payment");
+  });
+
+  it("a null dto.subject becomes undefined, not null or the string 'null'", () => {
+    const ticket = mapDtoToRequestTicket(dto({ subject: null }));
+    expect(ticket.subject).toBeUndefined();
   });
 });

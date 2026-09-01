@@ -41,8 +41,8 @@ describe("ADM-5 Requests Tickets rail card — derived from useRmTickets(), not 
         ticket({ ref: "REQ-1", type: "Allotment", status: "New" }),
         ticket({ ref: "REQ-2", type: "Allotment", status: "Resolved" }), // terminal, excluded
         ticket({ ref: "REQ-3", type: "Redemption", status: "In Progress" }),
-        ticket({ ref: "REQ-4", type: "Other", status: "Declined" }), // terminal, excluded
-        ticket({ ref: "REQ-5", type: "Other", status: "Resolved" }), // terminal, excluded
+        ticket({ ref: "REQ-4", type: "Redemption", status: "Declined" }), // terminal, excluded
+        ticket({ ref: "REQ-5", type: "Redemption", status: "Resolved" }), // terminal, excluded
       ],
       loading: false, error: null, refetch: vi.fn(),
     } as never);
@@ -57,7 +57,7 @@ describe("ADM-5 Requests Tickets rail card — derived from useRmTickets(), not 
     vi.mocked(useRmTickets).mockReturnValue({ data: [], loading: false, error: null, refetch: vi.fn() } as never);
     expect(() => render(<RmDashboardPage />)).not.toThrow();
     const card = screen.getByText("Requests Tickets").closest("section")!;
-    // SummaryCard always mounts both the header total and the 3 per-type rows (never
+    // SummaryCard always mounts both the header total and the 2 per-type rows (never
     // conditionally removed), so an all-zero state renders multiple "0" text nodes —
     // assert at least one exists rather than a single unique match.
     expect(within(card).getAllByText("0").length).toBeGreaterThan(0);

@@ -1,8 +1,6 @@
 // ADM-1 — pure DTO->view mapping, no fetch logic, mirroring lib/rm/clients.ts's /
 // lib/pc/models.ts's mapper convention.
-// ADM-5: RequestTicket now lives here (its canonical home) rather than in
-// lib/mock/rm-data.ts, which no longer has any mock ticket data to anchor it to.
-// rm-data.ts re-exports it so existing `from "@/lib/mock/rm-data"` imports keep working.
+// ADM-5: RequestTicket lives here as its canonical home.
 import type { ChipTone } from "@/components/ui/Chip";
 
 /** Client-raised inbox ticket (RM acts on the client's behalf). */
@@ -15,7 +13,7 @@ export type RequestTicket = {
   model?: string;
   modelId?: string;
   account: string;
-  type: "Allotment" | "Redemption" | "Other";
+  type: "Allotment" | "Redemption";
   ccy: string;
   cash: string;
   mult: string;
@@ -26,7 +24,7 @@ export type RequestTicket = {
   message: string;
 };
 
-export type TicketKind = "allotment" | "redemption" | "other";
+export type TicketKind = "allotment" | "redemption";
 export type TicketStatus = "new" | "in_progress" | "resolved" | "declined";
 
 export interface RmTicketDTO {
@@ -51,8 +49,8 @@ export interface RmTicketDTO {
   response_note: string | null;
 }
 
-const KIND_LABEL: Record<TicketKind, "Allotment" | "Redemption" | "Other"> = {
-  allotment: "Allotment", redemption: "Redemption", other: "Other",
+const KIND_LABEL: Record<TicketKind, "Allotment" | "Redemption"> = {
+  allotment: "Allotment", redemption: "Redemption",
 };
 const STATUS_LABEL: Record<TicketStatus, string> = {
   new: "New", in_progress: "In Progress", resolved: "Resolved", declined: "Declined",
@@ -111,7 +109,6 @@ export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
     date: fmtDate(dto.created_at),
     status: STATUS_LABEL[dto.status],
     tone: STATUS_TONE[dto.status],
-    // subject is optional on RequestTicket, same reasoning as model — no fallback.
     subject: dto.subject ?? undefined,
     message: dto.message,
   };

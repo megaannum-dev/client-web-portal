@@ -125,7 +125,6 @@ export default function RmDashboardPage() {
   const ticketCounts: CountItem[] = [
     { id: "allotment", c: "Allotment", n: openTickets.filter((t) => t.type === "Allotment").length, t: "primary" },
     { id: "redemption", c: "Redemption", n: openTickets.filter((t) => t.type === "Redemption").length, t: "primary" },
-    { id: "others", c: "Others", n: openTickets.filter((t) => t.type === "Other").length, t: "muted" },
   ];
   const ticketsTotal = ticketCounts.reduce((sum, i) => sum + i.n, 0);
 

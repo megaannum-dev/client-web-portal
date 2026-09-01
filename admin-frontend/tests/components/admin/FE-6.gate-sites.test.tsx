@@ -40,7 +40,7 @@ const GATE_FILES = [
 ];
 const EXPECTED_MARKER_COUNTS: Record<string, number> = {
   "components/rm/OnboardingModal.tsx": 7,
-  "components/rm/RequestTickets.tsx": 4,
+  "components/rm/RequestTickets.tsx": 2,
   "components/rm/ContactLog.tsx": 4,
   "components/compliance/review/CrDetailPanel.tsx": 4,
   "app/(roles)/mobo/trade-reconciliation/page.tsx": 4,
@@ -121,7 +121,7 @@ beforeEach(() => {
 });
 
 describe("FE-6 static source scan — the invariant gate over all 11 files", () => {
-  it("the marker count over the 11 files is exactly 34, matching the per-file table", () => {
+  it("the marker count over the 11 files is exactly 32, matching the per-file table", () => {
     let total = 0;
     for (const file of GATE_FILES) {
       const text = fs.readFileSync(path.join(ADMIN_FRONTEND_ROOT, file), "utf8");
@@ -129,7 +129,7 @@ describe("FE-6 static source scan — the invariant gate over all 11 files", () 
       expect(count, `${file} marker count`).toBe(EXPECTED_MARKER_COUNTS[file]);
       total += count;
     }
-    expect(total).toBe(34);   // was 33; +1 for ObDetailPanel's Raise Issue/Submit Issues pair
+    expect(total).toBe(32);   // was 34; -2 for RequestTickets.tsx's deleted "Other" TicketActions panel
   });
 
   it("each of the 11 files references useCanEdit at least once", () => {
@@ -418,28 +418,46 @@ describe("FE-6 components/rm/SubscriptionAccordion.tsx + TransactionDetailModal.
 describe("FE-6 components/rm/RequestTickets.tsx (RequestTicketDetail) — gated by rm.request-tickets", () => {
   const ticket = {
     ref: "REQ-1", clientId: "c1", client: "Ardent Capital", contact: "Dana Okafor",
-    email: "dana@example.com", account: "IB-1", type: "Other" as const, ccy: "USD", cash: "0",
+    email: "dana@example.com", account: "IB-1", type: "Allotment" as const, ccy: "USD", cash: "0",
     mult: "0", notional: "0", date: "2026-07-01", status: "Open", tone: "warm" as const,
-    subject: "Question", message: "Hello",
+    message: "Hello",
   };
 
-  async function renderDetail() {
+  async function renderDetail(overrides: Partial<typeof ticket & { subject?: string; model?: string }> = {}) {
     const { RequestTicketDetail } = await import("@/components/rm/RequestTickets");
-    return render(<RequestTicketDetail ticket={ticket as never} onRefetch={vi.fn()} />);
+    return render(<RequestTicketDetail ticket={{ ...ticket, ...overrides } as never} onRefetch={vi.fn()} />);
   }
 
-  it("EDIT: Resolve and Decline render for an open 'Other' ticket", async () => {
+  it("EDIT: Act on request and Decline request render for an open Allotment ticket", async () => {
     withGrant("rm.request-tickets", "EDIT");
     await renderDetail();
-    expect(screen.getByRole("button", { name: /resolve/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /act on request/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /decline request/i })).toBeInTheDocument();
   });
 
-  it("VIEW: Resolve and Decline are absent", async () => {
+  it("VIEW: Act on request and Decline request are absent", async () => {
     withGrant("rm.request-tickets", "VIEW");
     await renderDetail();
-    expect(screen.queryByRole("button", { name: /resolve/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /decline/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /act on request/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /decline request/i })).not.toBeInTheDocument();
+  });
+
+  // Regression coverage for the client-entered subject being visible to the RM
+  // (subject was wrongly deleted along with the removed "Other" ticket kind, but
+  // Allotment/Redemption forms always collected it).
+  it("shows the client's subject in the 'Subject' section when present", async () => {
+    withGrant("rm.request-tickets", "VIEW");
+    await renderDetail({ subject: "Please redeem for tax payment", model: "Global Balanced" });
+    expect(screen.getByText("Subject")).toBeInTheDocument();
+    expect(screen.getByText("Please redeem for tax payment")).toBeInTheDocument();
+  });
+
+  it("falls back to the subscribed model when subject is absent", async () => {
+    withGrant("rm.request-tickets", "VIEW");
+    await renderDetail({ subject: undefined, model: "Global Balanced" });
+    // "Global Balanced" appears twice: the "Subscribed model" fact and the
+    // Subject section's fallback — both must render it.
+    expect(screen.getAllByText("Global Balanced")).toHaveLength(2);
   });
 });
 
