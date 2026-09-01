@@ -17,7 +17,7 @@ from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, Use
 # role with CLIENT_VIEW (today: only RM) is scoped to their own book. Written as
 # an explicit allowlist, not "every role except RM" — so COMPLIANCE (or any future
 # role) is never swept into full visibility by accident if it later gains CLIENT_VIEW.
-FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}
+FULL_VISIBILITY_ROLES = {AdminRole.ADMIN, AdminRole.COMPLIANCE}
 
 
 @dataclass(frozen=True)
