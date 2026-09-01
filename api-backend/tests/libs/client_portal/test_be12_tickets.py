@@ -14,8 +14,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 from app.libs.client_portal.schemas import (
     RaiseTicketReq,
@@ -29,7 +27,13 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.users import AdminRole
-from tests.libs.client_portal.conftest import make_admin, make_client, make_model, set_assigned_rm
+from tests.libs.client_portal.conftest import (
+    make_admin,
+    make_client,
+    make_model,
+    make_ticket,
+    set_assigned_rm,
+)
 
 # --- Positive: a valid ticket persists, snapshots assigned_rm_uid, and is RM-scoped --
 
@@ -105,18 +109,6 @@ def test_allotment_ticket_without_model_id_raises_validation_error():
         RaiseTicketReq(kind=TicketKind.ALLOTMENT, model_id=None, message="x")
 
 
-def test_other_ticket_without_subject_raises_validation_error():
-    with pytest.raises(ValidationError):
-        RaiseTicketReq(kind=TicketKind.OTHER, subject=None, message="x")
-
-
-def test_other_ticket_with_model_id_present_raises_validation_error():
-    with pytest.raises(ValidationError):
-        RaiseTicketReq(
-            kind=TicketKind.OTHER, subject="A question", model_id=uuid.uuid4(), message="x"
-        )
-
-
 # --- Negative: a status change on a terminal ticket 409s -------------------------
 
 
@@ -181,6 +173,29 @@ def test_ticket_status_has_exactly_the_five_frozen_members():
         "closed",
         "declined",
     }
+
+
+# --- Regression: a ticket's client-entered subject survives to both DTOs -------
+
+
+def test_ticket_subject_reaches_rm_dto_and_client_request_dto_unreplaced(session):
+    client_user = make_client(session, name="Cathy Client")
+    model = make_model(session, name="Alpha Model")
+    ticket = make_ticket(session, client_user, model_id=model.id)
+    # Set the column directly rather than through a make_ticket kwarg: this file
+    # is tracked by git while conftest.py is matched by api-backend/.gitignore's
+    # /tests/ rule, so a fixture-signature change would not survive a clone and
+    # this test would fail there with an unexpected-keyword TypeError.
+    ticket.subject = "My custom subject"
+    session.flush()
+
+    svc = ClientPortalService(session)
+    rm_dto = svc._ticket_to_rm_dto(ticket)
+    request_dto = svc._ticket_to_request_dto(ticket)
+
+    assert rm_dto.subject == "My custom subject"
+    assert request_dto.subject == "My custom subject"
+    assert request_dto.subject != model.name
 
 
 if __name__ == "__main__":

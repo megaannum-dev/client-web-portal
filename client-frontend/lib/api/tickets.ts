@@ -1,13 +1,12 @@
 import { getApiBase, parseApiError } from "@/lib/auth-api";
 
-export type TicketKind = "allotment" | "redemption" | "other";
+export type TicketKind = "allotment" | "redemption";
 export type TicketStatus = "new" | "in_progress" | "resolved" | "declined";
 
 export interface RaiseTicketReq {
   kind: TicketKind;
   model_id?: string;
   subject?: string;
-  category?: string;
   amount?: number;
   multiplier?: number;
   currency?: string;

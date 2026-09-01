@@ -136,8 +136,7 @@
   },
   "request_type": {
     "allotment": "申購",
-    "redemption": "贖回",
-    "others": "其他"
+    "redemption": "贖回"
   },
   "portfolio": {
     "title": "投資組合詳情",
@@ -342,15 +341,12 @@
     "raise_ticket": "提出申請",
     "allotment_ticket": "申購申請",
     "redemption_ticket": "贖回申請",
-    "others_ticket": "其他申請",
     "select_type_prompt": "請選擇您要提出的申請類型：",
     "types": {
       "allotment_label": "申購",
       "allotment_desc": "向可申購的投資模型申請配置。",
       "redemption_label": "贖回",
-      "redemption_desc": "贖回現有模型部位的部分或全部。",
-      "others_label": "其他",
-      "others_desc": "一般詢問、問卷或其他申請。"
+      "redemption_desc": "贖回現有模型部位的部分或全部。"
     },
     "select_model": "選擇模型",
     "select_model_placeholder": "— 選擇模型 —",
@@ -371,17 +367,14 @@
     "redemption_amount": "贖回金額（$）",
     "returning_to": "返還至",
     "redemption_processing_note": "贖回作業通常需要 2–3 個工作天。",
-    "category": "類別",
     "subject": "主旨",
     "subject_placeholder": "簡述您的申請",
     "description": "說明",
     "description_placeholder": "請提供有關您申請的詳細資訊⋯",
     "confirm_rm_allotment": "我確認已就此申請諮詢我的客戶經理。",
     "confirm_rm_redemption": "我確認已就此贖回申請諮詢我的客戶經理。",
-    "confirm_others": "我確認以上資訊正確無誤，並希望向我的客戶經理提交此申請。",
     "submit_allotment": "提交申購",
     "submit_redemption": "提交贖回",
-    "submit_ticket": "提交申請",
     "risk_high": "高風險",
     "risk_medium": "中風險",
     "risk_low": "低風險",

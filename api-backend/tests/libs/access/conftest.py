@@ -260,7 +260,7 @@ def make_ticket(
     rm_uid: str | None,
     *,
     status: TicketStatus = TicketStatus.NEW,
-    kind: TicketKind = TicketKind.OTHER,
+    kind: TicketKind = TicketKind.ALLOTMENT,
     reference: str | None = None,
 ) -> ClientTicket:
     ticket = ClientTicket(

@@ -320,12 +320,11 @@ class ClientPortalService:
 
     # ---------- Tickets (BE-12) ----------
     def create_ticket(self, user_id: uuid.UUID, req: RaiseTicketReq) -> ClientRequestDTO:
-        if req.kind != TicketKind.OTHER:
-            model = self.db.get(Model, req.model_id)
-            if model is None or model.status != ModelStatus.LIVE:
-                raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown or non-live model"
-                )
+        model = self.db.get(Model, req.model_id)
+        if model is None or model.status != ModelStatus.LIVE:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown or non-live model"
+            )
         profile = self._require_profile(user_id)
         ticket = self.repo.create_ticket(
             user_id=user_id,
@@ -333,7 +332,6 @@ class ClientPortalService:
             kind=req.kind.value,
             model_id=req.model_id,
             subject=req.subject,
-            category=req.category,
             amount=req.amount,
             multiplier=req.multiplier,
             currency=req.currency,

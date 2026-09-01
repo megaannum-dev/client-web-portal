@@ -388,7 +388,6 @@ class ClientContactLog(Base):
 class TicketKind(str, enum.Enum):
     ALLOTMENT = "allotment"
     REDEMPTION = "redemption"
-    OTHER = "other"
 
 
 class TicketStatus(str, enum.Enum):
@@ -438,6 +437,7 @@ class ClientTicket(Base):
     model_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(native_uuid=False), ForeignKey("models.id"), nullable=True
     )
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Points at the trade record this ticket produced, once acted on. Nullable
     # (most tickets never reach that stage) and unique (one ticket -> at most
     # one allotment/redemption row).
@@ -447,8 +447,6 @@ class ClientTicket(Base):
         nullable=True,
         unique=True,
     )
-    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     multiplier: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, server_default="USD")

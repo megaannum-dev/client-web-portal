@@ -327,7 +327,7 @@ def mk_ticket(
         user_id=client_user.id,
         assigned_rm_uid=rm_uid,
         reference=ref,
-        kind=TicketKind.OTHER,
+        kind=TicketKind.ALLOTMENT,
         status=status,
         message=f"seed ticket {ref}",
     )

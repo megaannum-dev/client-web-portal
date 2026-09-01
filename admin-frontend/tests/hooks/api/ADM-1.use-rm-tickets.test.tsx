@@ -23,7 +23,7 @@ function dto(overrides: Partial<RmTicketDTO> = {}): RmTicketDTO {
   return {
     ref: "REQ-1001", client_id: "c1", client: "Ardent Capital", contact: "Marcus Lindqvist",
     email: "m@x.com", account: "IB-4471", model: "Global Balanced", kind: "allotment",
-    currency: "USD", amount: 180000, multiplier: 2, subject: null,
+    currency: "USD", amount: 180000, multiplier: 2, subject: "Subject line",
     message: "msg", status: "new", created_at: "2026-06-06T00:00:00Z",
     responded_by: null, responded_at: null, response_note: null,
     ...overrides,

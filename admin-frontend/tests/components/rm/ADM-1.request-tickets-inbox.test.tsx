@@ -24,14 +24,17 @@ function ticket(overrides: Partial<RequestTicket> = {}): RequestTicket {
   };
 }
 
-// 5 tickets: 2 Allotment, 1 Redemption, 2 Other; statuses New/In Progress/Resolved/Declined
+// 5 tickets: 3 Allotment, 2 Redemption; statuses New/In Progress/Resolved/Declined
 // (Resolved, Declined are the 2 terminal statuses per isTerminalStatus()).
+// Distinct subject values so the inbox's dedicated Subject column can be
+// asserted per-row without ambiguity; REQ-5 has no subject to exercise the
+// column's "—" fallback.
 const MIXED: RequestTicket[] = [
-  ticket({ ref: "REQ-1", type: "Allotment", status: "New", tone: "warm" }),
-  ticket({ ref: "REQ-2", type: "Redemption", status: "In Progress", tone: "review" }),
-  ticket({ ref: "REQ-3", type: "Other", status: "Resolved", tone: "neutral", subject: "Q", model: undefined }),
-  ticket({ ref: "REQ-4", type: "Other", status: "Resolved", tone: "neutral", subject: "R", model: undefined }),
-  ticket({ ref: "REQ-5", type: "Allotment", status: "Declined", tone: "overdue" }),
+  ticket({ ref: "REQ-1", type: "Allotment", status: "New", tone: "warm", subject: "Increase allotment for Q3" }),
+  ticket({ ref: "REQ-2", type: "Redemption", status: "In Progress", tone: "review", subject: "Redeem for tax payment" }),
+  ticket({ ref: "REQ-3", type: "Redemption", status: "Resolved", tone: "neutral", subject: "Partial redemption request" }),
+  ticket({ ref: "REQ-4", type: "Allotment", status: "Resolved", tone: "neutral", subject: "Top up existing position" }),
+  ticket({ ref: "REQ-5", type: "Allotment", status: "Declined", tone: "overdue", subject: undefined }),
 ];
 
 function statValue(subText: string): string {
@@ -49,6 +52,26 @@ describe("ADM-1 RequestTicketsInbox — renders from useRmTickets(), no TICKET_Q
     MIXED.forEach((t) => expect(screen.getByText(t.ref)).toBeInTheDocument());
   });
 
+  it("renders a dedicated Subject column showing each ticket's subject, alongside Model — not double-duty with it", () => {
+    vi.mocked(useRmTickets).mockReturnValue({ data: MIXED, loading: false, error: null, refetch: vi.fn() } as never);
+    render(<RequestTicketsInbox />);
+    expect(screen.getByRole("columnheader", { name: "Subject" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Model" })).toBeInTheDocument();
+    MIXED.filter((t) => t.subject).forEach((t) => {
+      expect(screen.getByText(t.subject!)).toBeInTheDocument();
+    });
+  });
+
+  it("a ticket with no subject renders the column's '—' fallback", () => {
+    vi.mocked(useRmTickets).mockReturnValue({ data: MIXED, loading: false, error: null, refetch: vi.fn() } as never);
+    render(<RequestTicketsInbox />);
+    const row = screen.getByText("REQ-5").closest("tr")!;
+    const cells = row.querySelectorAll("td");
+    // Ref, Client, Request(type), Model, Subject, Amount, Received, Status, chevron
+    expect(cells).toHaveLength(9);
+    expect(cells[4].textContent).toBe("—");
+  });
+
   it("status-strip counts (New/In Progress/Resolved) sum to data.length", () => {
     vi.mocked(useRmTickets).mockReturnValue({ data: MIXED, loading: false, error: null, refetch: vi.fn() } as never);
     render(<RequestTicketsInbox />);
@@ -57,13 +80,12 @@ describe("ADM-1 RequestTicketsInbox — renders from useRmTickets(), no TICKET_Q
     expect(statValue("resolved tickets")).toBe("3"); // 2x Resolved + Declined
   });
 
-  it("filter-pill counts (All/Allotment/Redemption/Other) match the fetched data exactly", () => {
+  it("filter-pill counts (All/Allotment/Redemption) match the fetched data exactly", () => {
     vi.mocked(useRmTickets).mockReturnValue({ data: MIXED, loading: false, error: null, refetch: vi.fn() } as never);
     render(<RequestTicketsInbox />);
     expect(screen.getByRole("button", { name: "All5" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Allotment2" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Redemption1" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Other2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Allotment3" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Redemption2" })).toBeInTheDocument();
   });
 
   it("a failed fetch renders the existing empty/error treatment, not a thrown error", () => {

@@ -119,7 +119,6 @@ class KycPanelDTO(BaseModel):
 class TicketKind(str, enum.Enum):
     ALLOTMENT = "allotment"
     REDEMPTION = "redemption"
-    OTHER = "other"
 
 
 class TicketStatus(str, enum.Enum):
@@ -133,7 +132,6 @@ class RaiseTicketReq(BaseModel):
     kind: TicketKind
     model_id: uuid.UUID | None = None
     subject: str | None = None
-    category: str | None = None
     amount: Decimal | None = None
     multiplier: Decimal | None = None
     currency: str = "USD"
@@ -141,13 +139,8 @@ class RaiseTicketReq(BaseModel):
 
     @model_validator(mode="after")
     def _check_kind_fields(self) -> "RaiseTicketReq":
-        if self.kind == TicketKind.OTHER:
-            if not self.subject:
-                raise ValueError("subject is required when kind is 'other'")
-            if self.model_id is not None:
-                raise ValueError("model_id must be absent when kind is 'other'")
-        elif self.model_id is None:
-            raise ValueError("model_id is required unless kind is 'other'")
+        if self.model_id is None:
+            raise ValueError("model_id is required")
         return self
 
 
@@ -164,7 +157,7 @@ class RmTicketDTO(BaseModel):
     email: str | None  # users.email
     client_ib: str | None  # client_ib_accounts.ib_account for (client, model_id)
     model: str | None
-    model_id: uuid.UUID | None  # client_tickets.model_id -- real FK, None for kind="other"
+    model_id: uuid.UUID | None  # client_tickets.model_id -- real FK
     kind: TicketKind
     currency: str
     amount: float | None

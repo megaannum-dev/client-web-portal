@@ -3,11 +3,9 @@
 /* ============================================================
    RM · Request Tickets
    Inbox of tickets raised BY CLIENTS. The RM receives each ticket
-   and acts on the client's behalf:
-     • Allotment / Redemption → "Act on request" opens Model
-       Subscription pre-filled to execute it (or decline w/ reason).
-     • Other                  → compose a reply; client is notified
-       by email either way.
+   and acts on the client's behalf: Allotment / Redemption →
+   "Act on request" opens Model Subscription pre-filled to execute
+   it (or decline w/ reason).
    Ported from the design handoff (Requests.jsx) into this repo's
    Tailwind + TypeScript conventions.
    ============================================================ */
@@ -20,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Inbox, Loader2, CheckCheck, ChevronRight, ChevronDown,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeft, ArrowRight,
-  Mail, Printer, Info, X, Copy, Check,
+  Mail, Printer, Info, X,
 } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -41,10 +39,7 @@ async function setTicketStatus(...args: Parameters<typeof import("@/app/(roles)/
 const TYPE_META: Record<RequestTicket["type"], { icon: LucideIcon; bg: string; fg: string }> = {
   Allotment:  { icon: ArrowDownToLine, bg: "#e3f1e7", fg: "#2f7a47" },
   Redemption: { icon: ArrowUpFromLine, bg: "#fff3e8", fg: "#994700" },
-  Other:      { icon: Mail,            bg: "#eef2f7", fg: "#585f6c" },
 };
-
-const isTrade = (type: RequestTicket["type"]) => type === "Allotment" || type === "Redemption";
 
 function TypeCell({ type }: { type: RequestTicket["type"] }) {
   const m = TYPE_META[type];
@@ -65,10 +60,10 @@ function TypeCell({ type }: { type: RequestTicket["type"] }) {
 /* ============================================================
    1 · Inbox — requests received from clients
    ============================================================ */
-const FILTERS = ["All", "Allotment", "Redemption", "Other"] as const;
+const FILTERS = ["All", "Allotment", "Redemption"] as const;
 type Filter = (typeof FILTERS)[number];
 
-const COLS = ["Ref", "Client", "Request", "Subject / Model", "Amount", "Received", "Status"];
+const COLS = ["Ref", "Client", "Request", "Model", "Subject", "Amount", "Received", "Status"];
 const RIGHT = new Set(["Amount"]);
 
 export function RequestTicketsInbox() {
@@ -168,7 +163,8 @@ export function RequestTicketsInbox() {
                     <div className="mt-0.5 text-[12px] text-secondary">{t.contact}</div>
                   </td>
                   <td className="border-t border-outline-variant px-[18px] py-[13px]"><TypeCell type={t.type} /></td>
-                  <td className="border-t border-outline-variant px-[18px] py-[13px] text-secondary">{t.type === "Other" ? t.subject : t.model}</td>
+                  <td className="border-t border-outline-variant px-[18px] py-[13px] text-secondary">{t.model}</td>
+                  <td className="border-t border-outline-variant px-[18px] py-[13px] text-secondary">{t.subject ?? "—"}</td>
                   <td className="border-t border-outline-variant px-[18px] py-[13px] text-right tabular-nums text-on-surface">
                     {t.cash === "—" ? "—" : `${t.ccy} ${t.cash}`}
                   </td>
@@ -202,10 +198,9 @@ function Fact({ k, v }: { k: string; v: string }) {
 /** Resolves the pre-filled Model Subscription URL for an Allotment/Redemption
  *  ticket, from the ticket's own real client/model ids (RmTicketDTO.client_id /
  *  model_id) -- no name-matching against fixture data. Returns null (button
- *  disabled) only when the ticket has no subscribed model, which "other"
- *  tickets never reach anyway (isTrade gates that). */
+ *  disabled) only when the ticket has no subscribed model. */
 function resolveActTarget(t: RequestTicket): string | null {
-  if (!isTrade(t.type) || !t.modelId) return null;
+  if (!t.modelId) return null;
   const mode = t.type === "Redemption" ? "redemption" : "add-allotment";
   return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}`;
 }
@@ -214,7 +209,6 @@ export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTick
   const router = useRouter();
   const m = TYPE_META[ticket.type];
   const Icon = m.icon;
-  const trade = isTrade(ticket.type);
   const closed = isTerminalStatus(ticket.status);
   const actTarget = resolveActTarget(ticket);
 
@@ -249,43 +243,25 @@ export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTick
         <Button variant="secondary" icon={Printer}>Print</Button>
       </div>
 
-      {trade ? (
-        <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-          <Card title="Client Request" className="h-full">
-            <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
-              <Fact k="Client" v={ticket.client} />
-              <Fact k="Subscribed model" v={ticket.model ?? "—"} />
-              <Fact k="IB account" v={ticket.account} />
-              <Fact k="Request type" v={ticket.type} />
-              <Fact k="Amount" v={`${ticket.ccy} ${ticket.cash}`} />
-              <Fact k="Model multiple" v={ticket.mult} />
-            </div>
-            <div className="mt-5 border-t border-outline-variant pt-[18px]">
-              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
-              <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject ?? ticket.model ?? ticket.type}</h3>
-              <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
-              <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
-            </div>
-          </Card>
-          <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} onStatusChange={onRefetch} />
-        </div>
-      ) : (
-        <Card title="Client Message">
+      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+        <Card title="Client Request" className="h-full">
           <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
             <Fact k="Client" v={ticket.client} />
-            <Fact k="Raised by" v={ticket.contact} />
-            <Fact k="Reply-to" v={ticket.email} />
-            <Fact k="Account" v={ticket.account} />
+            <Fact k="Subscribed model" v={ticket.model ?? "—"} />
+            <Fact k="IB account" v={ticket.account} />
+            <Fact k="Request type" v={ticket.type} />
+            <Fact k="Amount" v={`${ticket.ccy} ${ticket.cash}`} />
+            <Fact k="Model multiple" v={ticket.mult} />
           </div>
           <div className="mt-5 border-t border-outline-variant pt-[18px]">
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Subject</div>
-            <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject}</h3>
+            <h3 className="text-[16px] font-bold text-on-surface">{ticket.subject ?? ticket.model ?? ticket.type}</h3>
             <div className="mb-1.5 mt-4 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Message</div>
             <p className="text-[14.5px] leading-relaxed text-secondary">{ticket.message}</p>
           </div>
-          <TicketActions ticket={ticket} closed={closed} onStatusChange={onRefetch} />
         </Card>
-      )}
+        <ActOnTradePanel ticket={ticket} closed={closed} disabled={closed || !actTarget} onAct={() => actTarget && router.push(actTarget)} onStatusChange={onRefetch} />
+      </div>
     </div>
   );
 }
@@ -408,60 +384,3 @@ function ActOnTradePanel({
   );
 }
 
-/* ---- action row B · other → resolve / decline ------------------ */
-function TicketActions({
-  ticket, closed, onStatusChange,
-}: {
-  ticket: RequestTicket;
-  closed: boolean;
-  onStatusChange: () => void;
-}) {
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [customNote, setCustomNote] = useState("");
-  // No preset reason dropdown for "Other" tickets — just a single
-  // always-required note before Decline is clickable (adapted from
-  // ActOnTradePanel's customNote/declineDisabled pattern).
-  const declineDisabled = closed || !customNote.trim();
-  const canEdit = useCanEdit("rm.request-tickets");
-
-  async function run(status: "resolved" | "declined") {
-    const note = status === "declined" ? customNote.trim() : undefined;
-    const result = await setTicketStatus(ticket.ref, { status, note });
-    if (result.success) onStatusChange();
-    else setInlineError(result.error);
-  }
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(`[##RE ${ticket.ref}] "${ticket.subject}"`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  return (
-    <div className="mt-5 border-t border-outline-variant pt-[18px]">
-      <div className="flex gap-2.5">
-        <Button variant="secondary" icon={Copy} className="flex-1" onClick={handleCopy}>
-          {copied ? "Copied!" : "Copy ticket reference"}
-        </Button>
-        {/* View/Edit Gate Function */}
-        {canEdit && <Button icon={Check} className="flex-1" disabled={closed} onClick={() => run("resolved")}>Resolve</Button>}
-      </div>
-
-      <div className="mt-3.5">
-        <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Or decline with a note</div>
-        <textarea
-          value={customNote}
-          onChange={(e) => setCustomNote(e.target.value)}
-          disabled={closed}
-          placeholder="Add a note to the client explaining why this request is being declined…"
-          className="min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        {/* View/Edit Gate Function */}
-        {canEdit && <Button variant="secondary" icon={X} full className="mt-2.5" disabled={declineDisabled} onClick={() => run("declined")}>Decline</Button>}
-      </div>
-
-      {inlineError && <p className="mt-2.5 text-[13px] font-semibold text-red-600">{inlineError}</p>}
-    </div>
-  );
-}

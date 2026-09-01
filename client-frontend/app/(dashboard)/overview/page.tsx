@@ -31,7 +31,6 @@ const STATUS_BADGE: Record<TicketStatus, string> = {
 const REQUEST_TYPE_I18N_KEY: Record<TicketKind, string> = {
   allotment:  "request_type.allotment",
   redemption: "request_type.redemption",
-  other:      "request_type.others",
 };
 
 function formatRequestDate(iso: string) { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }); }

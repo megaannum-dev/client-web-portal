@@ -135,8 +135,7 @@
   },
   "request_type": {
     "allotment": "Allotment",
-    "redemption": "Redemption",
-    "others": "Others"
+    "redemption": "Redemption"
   },
   "portfolio": {
     "title": "Portfolio Details",
@@ -341,15 +340,12 @@
     "raise_ticket": "Raise a Ticket",
     "allotment_ticket": "Allotment Ticket",
     "redemption_ticket": "Redemption Ticket",
-    "others_ticket": "Others Ticket",
     "select_type_prompt": "Select the type of ticket you want to raise:",
     "types": {
       "allotment_label": "Allotment",
       "allotment_desc": "Request allocation to an available investment model.",
       "redemption_label": "Redemption",
-      "redemption_desc": "Redeem part or all of an existing model position.",
-      "others_label": "Others",
-      "others_desc": "General enquiries, questionnaires, or other requests."
+      "redemption_desc": "Redeem part or all of an existing model position."
     },
     "select_model": "Select Model",
     "select_model_placeholder": "— Select a model —",
@@ -370,17 +366,14 @@
     "redemption_amount": "Redemption Amount ($)",
     "returning_to": "Returning To",
     "redemption_processing_note": "Redemption processing typically takes 2–3 business days.",
-    "category": "Category",
     "subject": "Subject",
     "subject_placeholder": "Brief description of your request",
     "description": "Description",
     "description_placeholder": "Provide details about your request...",
     "confirm_rm_allotment": "I confirm that I have consulted my RM regarding this request.",
     "confirm_rm_redemption": "I confirm that I have consulted my RM regarding this redemption request.",
-    "confirm_others": "I confirm the above details are accurate and wish to submit this ticket to my RM.",
     "submit_allotment": "Submit Allotment",
     "submit_redemption": "Submit Redemption",
-    "submit_ticket": "Submit Ticket",
     "risk_high": "HIGH RISK",
     "risk_medium": "MEDIUM RISK",
     "risk_low": "LOW RISK",
