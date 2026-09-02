@@ -21,6 +21,7 @@ from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
+from app.libs.chat.router import router as chat_router
 from app.libs.client_portal.router import router as client_portal_router
 from app.libs.client_portal.service import assert_upload_window_valid
 from app.libs.clients.router import router as clients_router
@@ -128,6 +129,7 @@ app.include_router(
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
+app.include_router(chat_router, prefix="/api")  # /api/chat/…, /api/ws/chat
 
 
 @app.get("/health")
