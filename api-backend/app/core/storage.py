@@ -33,6 +33,7 @@ class Bucket(StrEnum):
     REPORTS = "reports"  # eod_records.file_storage_key  (EoD + EoM)
     LEGAL = "legal"  # read-only drop zone, no metadata table
     STATEMENTS = "statements"  # read-only drop zone, no metadata table
+    CHAT = "chat"  # chat_attachments.storage_key
 
 
 class StoredFile(NamedTuple):

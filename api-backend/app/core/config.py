@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     storage_root_reports: str | None = None  # default: {storage_root}/reports
     storage_root_legal: str | None = "./crm_filesystem/legal_docs"  # default: {storage_root}/legal
     storage_root_statements: str | None = None  # default: {storage_root}/statements
+    storage_root_chat: str | None = None  # default: {storage_root}/chat
 
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
