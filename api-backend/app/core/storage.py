@@ -161,7 +161,7 @@ class NasStorage:
 
 def _bucket_root(bucket: Bucket) -> Path:
     """Per-bucket override if set, else `{storage_root}/{bucket.value}`.
-    The setting name is `storage_root_{bucket.value}` for all six — no mapping table."""
+    The setting name is `storage_root_{bucket.value}` for every member — no mapping table."""
     s = get_settings()
     override = getattr(s, f"storage_root_{bucket.value}")
     return Path(override) if override else Path(s.storage_root) / bucket.value
