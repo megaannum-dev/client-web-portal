@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
   Briefcase,
+  MessagesSquare,
   CalendarDays,
   Scale,
   Activity,
@@ -15,6 +16,7 @@ import { NavItem } from "./NavItem";
 const NAV_ITEMS = [
   { href: "/overview",                    icon: LayoutDashboard, labelKey: "nav.overview"         },
   { href: "/portfolio",                   icon: Briefcase,       labelKey: "nav.portfolios"       },
+  { href: "/messaging",                   icon: MessagesSquare,  labelKey: "nav.messaging"        },
   { href: "/profile",                     icon: UserRound,       labelKey: "nav.profile"          },
   { href: "/documents/monthly-reports",   icon: CalendarDays,    labelKey: "nav.monthly_reports"  },
   { href: "/documents/legal-reports",     icon: Scale,           labelKey: "nav.legal_reports"    },
