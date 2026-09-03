@@ -18,6 +18,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { RailAccordion } from "@/components/rm/SummaryCard";
+import { ChatRoomButton } from "@/components/rm/chat/ChatRoomButton";
+import { useChatRoom } from "@/components/rm/chat/ChatRoomProvider";
 import type { SummaryItem, CountItem } from "@/lib/rm/types";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
@@ -72,6 +74,7 @@ export default function RmDashboardPage() {
   const { data: board } = useOnboardingBoard();
   const { data: tickets } = useRmTickets();
   const canEdit = useCanEdit("rm.client-info");
+  const { openRoom } = useChatRoom();
 
   // Client book — dominating search + field-level advanced search.
   const [q, setQ] = useState("");
@@ -427,7 +430,13 @@ export default function RmDashboardPage() {
                         {overlay.renewal.replace(", 2026", "")}
                       </td>
                       <td className="border-t border-outline-variant px-3.5 py-[13px] text-right text-secondary group-hover:text-primary">
-                        <ChevronRight size={16} strokeWidth={2} className="ml-auto" />
+                        <div className="ml-auto flex items-center justify-end gap-2">
+                          <ChatRoomButton
+                            size={28}
+                            onClick={() => openRoom({ id: r.id, name: r.name, assignedRm: r.assignedRm })}
+                          />
+                          <ChevronRight size={16} strokeWidth={2} />
+                        </div>
                       </td>
                     </tr>
                   );
