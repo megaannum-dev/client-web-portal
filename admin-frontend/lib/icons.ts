@@ -159,4 +159,13 @@ export {
   Receipt,
   // CRM — RM Contact Log (client-info detail)
   Video,
+  // CRM — RM Client Room chat panel (021 UI-3)
+  MessagesSquare,
+  SendHorizontal,
+  CalendarSearch,
+  ArrowDown,
+  Maximize2,
+  Minimize2,
+  FileSpreadsheet,
+  FileCheck2,
 } from "lucide-react";
