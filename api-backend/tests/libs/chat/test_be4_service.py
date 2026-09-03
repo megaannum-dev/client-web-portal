@@ -117,7 +117,7 @@ def test_rm_and_arm_can_send_and_read(session, storage, who):
     staff = rm if who == "rm" else arm
     dto, _ = svc.send(staff, client.id, body="hi there", files=[])
     assert dto.body == "hi there"
-    assert dto.sender_is_staff is True
+    assert dto.sender_role == ("rm" if who == "rm" else "assistant")
     assert dto.sender_uid == staff.firebase_uid
     rows = svc.history(staff, client.id, since=None, limit=50)
     assert [r.id for r in rows] == [dto.id]
@@ -254,3 +254,53 @@ def test_to_uids_covers_client_rm_arm_including_sender(session, storage):
     svc, rm, arm, client = _world(session)
     _, to_uids = svc.send(rm, client.id, body="ping", files=[])
     assert set(to_uids) == {client.firebase_uid, rm.firebase_uid, arm.firebase_uid}
+
+
+# ---------- 11. sender_role names all three seats, live ----------
+def test_sender_role_distinguishes_client_rm_and_arm(session, storage):
+    """The gap this field exists to close: `sender_is_staff` was one boolean,
+    so an RM and an ARM were indistinguishable on the wire."""
+    svc, rm, arm, client = _world(session)
+    svc.send(client, client.id, body="from the client", files=[])
+    svc.send(rm, client.id, body="from the rm", files=[])
+    svc.send(arm, client.id, body="from the arm", files=[])
+
+    rows = svc.history(rm, client.id, since=None, limit=50)
+    by_body = {r.body: r.sender_role for r in rows}
+    assert by_body == {
+        "from the client": "client",
+        "from the rm": "rm",
+        "from the arm": "assistant",
+    }
+
+
+def test_sender_role_follows_reassignment_like_access_does(session, storage):
+    """Roles are derived against the CURRENT assignment, never snapshotted --
+    the same property that moves the whole thread when an RM is swapped."""
+    svc, rm, arm, client = _world(session)
+    svc.send(arm, client.id, body="written while ARM", files=[])
+
+    # Promote the ARM into the RM seat and clear the assistant seat.
+    row = session.query(ClientProfile).filter_by(user_id=client.id).one()
+    row.assigned_rm_uid = arm.firebase_uid
+    row.asst_rm_uid = None
+    session.commit()
+
+    (msg,) = svc.history(arm, client.id, since=None, limit=50)
+    assert msg.sender_role == "rm"  # re-coloured, not frozen at "assistant"
+
+
+def test_unassigned_staff_sender_falls_back_to_the_rm_seat(session, storage):
+    """A previous RM's messages stay in the thread after reassignment (that is
+    the point of live membership). They cannot claim a seat nobody holds, and
+    chat_messages stores no role snapshot to recover the old one -- so they
+    render as "rm", never as "client"."""
+    svc, rm, arm, client = _world(session)
+    svc.send(rm, client.id, body="before the handover", files=[])
+
+    successor = make_admin(session, AdminRole.RM, name="Successor RM")
+    set_assigned_rm(session, client, successor)
+
+    (msg,) = svc.history(successor, client.id, since=None, limit=50)
+    assert msg.sender_uid == rm.firebase_uid
+    assert msg.sender_role == "rm"

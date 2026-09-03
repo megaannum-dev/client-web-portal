@@ -29,7 +29,7 @@ def _msg(**kw) -> ChatMessage:
 
 def _dto(msg: ChatMessage) -> ChatMessageDTO:
     return ChatMessageDTO.from_row(
-        msg, sender_uid="uid-rm", sender_name="Rita M", sender_is_staff=True
+        msg, sender_uid="uid-rm", sender_name="Rita M", sender_role="rm"
     )
 
 
@@ -110,9 +110,9 @@ def test_sender_identity_is_taken_from_arguments_not_the_relationship():
             raise AssertionError("from_row must not read msg.sender")
 
     dto = ChatMessageDTO.from_row(
-        _PoisonedSender(_msg()), sender_uid="uid-client", sender_name=None, sender_is_staff=False
+        _PoisonedSender(_msg()), sender_uid="uid-client", sender_name=None, sender_role="client"
     )
 
     assert dto.sender_uid == "uid-client"
     assert dto.sender_name is None
-    assert dto.sender_is_staff is False
+    assert dto.sender_role == "client"
