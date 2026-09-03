@@ -16,6 +16,22 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/overview" }));
 
+// The page derives its participant stack from the same two hooks the header
+// already uses on every page (plan §5): the signed-in client plus their
+// assigned RM. Mocked to the two-party case — ClientProfileDTO has no
+// assistant-RM field, so two is the most the client portal can name today.
+vi.mock("@/components/auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { displayName: "Alex Thompson" }, getIdToken: async () => "t" }),
+}));
+vi.mock("@/lib/hooks/useProfile", () => ({
+  useProfile: () => ({
+    data: { name: "Alex Thompson", assigned_rm: { name: "Sarah Mitchell", email: null, phone: null } },
+    loading: false,
+    error: null,
+    save: async () => ({ ok: true as const }),
+  }),
+}));
+
 import MessagingPage from "@/app/(dashboard)/messaging/page";
 import { AdvisoryRoom } from "@/components/messaging/AdvisoryRoom";
 import { SidebarNav } from "@/components/sidebar/SidebarNav";
@@ -25,7 +41,19 @@ describe("UI-2 /messaging page", () => {
     render(<MessagingPage />);
     expect(screen.getByText("messaging.title")).toBeInTheDocument();
     expect(screen.getByText("messaging.empty_state")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("messaging.composer_placeholder_empty")).toBeInTheDocument();
+    // With a staff participant present the named variant is used, carrying
+    // the RM's name — not the no-participants fallback.
+    expect(
+      screen.getByPlaceholderText('messaging.composer_placeholder:{"names":"Sarah"}'),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the two-party stack: the client and their assigned RM, no fabricated ARM", () => {
+    render(<MessagingPage />);
+    // initials only, since the caption is the one place names surface
+    expect(screen.getByText("AT")).toBeInTheDocument();
+    expect(screen.getByText("SM")).toBeInTheDocument();
+    expect(screen.queryByText("DW")).not.toBeInTheDocument();
   });
 
   it('"Jump to latest" never appears — an empty thread cannot overflow', () => {

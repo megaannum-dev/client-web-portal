@@ -1,5 +1,5 @@
 // 021 UI-2 — the Advisory Room: header chrome, thread, docs aside, composer.
-// Presentation only (plan §0/§5): messages/participants are unbound props
+// Presentation only (plan §5): messages/participants are unbound props
 // with no-op defaults, onSend/onAttach are unwired seams. No data fetch, no
 // WebSocket, no lib/api import — the wiring branch changes call sites only.
 "use client";
@@ -19,7 +19,7 @@ import { AttachmentRow } from "./AttachmentRow";
 import { DayJumpCalendar } from "./DayJumpCalendar";
 import type { ChatDay, Participant } from "./types";
 
-// ponytail: design literals with no token equivalent (plan §2/§123) — same
+// ponytail: design literals with no token equivalent (plan §2) — same
 // avatar fills as MessageBubble, duplicated rather than shared (no
 // cross-component primitive is worth extracting for a 3-line map, and the
 // two apps already duplicate this per plan §10).
