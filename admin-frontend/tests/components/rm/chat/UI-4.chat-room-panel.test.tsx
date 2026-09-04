@@ -83,7 +83,8 @@ describe("positive", () => {
     const textarea = screen.getByPlaceholderText(/message sarah/i) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "Hello room" } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
-    expect(onSend).toHaveBeenCalledWith("Hello room");
+    // Body plus the (empty) staged list — one message, not two calls.
+    expect(onSend).toHaveBeenCalledWith("Hello room", []);
     expect(textarea.value).toBe("");
   });
 
@@ -94,6 +95,76 @@ describe("positive", () => {
     fireEvent.change(textarea, { target: { value: "Hello" } });
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
     expect(onSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("EDIT: attachment staging — picking a file composes, it does not send", () => {
+  function pick(files: File[]) {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files } });
+  }
+  const FILE_A = new File(["a"], "Ardent_IPS_v4_draft.pdf", { type: "application/pdf" });
+  const FILE_B = new File(["bb"], "Q3_exposure_summary.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+
+  it("a picked file becomes a chip and fires no send", () => {
+    const onSend = vi.fn();
+    render(<ChatRoomPanel participants={PARTICIPANTS} onSend={onSend} onClose={vi.fn()} />);
+    pick([FILE_A]);
+    expect(screen.getByText("Ardent_IPS_v4_draft.pdf")).toBeInTheDocument();
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("staged files alone enable Send, with an empty draft", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} onClose={vi.fn()} />);
+    const send = screen.getByLabelText("Send") as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    pick([FILE_A]);
+    expect(send.disabled).toBe(false);
+  });
+
+  it("Send posts every staged file in ONE call and clears both draft and chips", () => {
+    const onSend = vi.fn();
+    render(<ChatRoomPanel participants={PARTICIPANTS} onSend={onSend} onClose={vi.fn()} />);
+    pick([FILE_A, FILE_B]);
+    const textarea = screen.getByPlaceholderText(/message sarah/i) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "Both attached" } });
+    fireEvent.click(screen.getByLabelText("Send"));
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend.mock.calls[0][0]).toBe("Both attached");
+    expect(onSend.mock.calls[0][1].map((f: File) => f.name)).toEqual([
+      "Ardent_IPS_v4_draft.pdf",
+      "Q3_exposure_summary.xlsx",
+    ]);
+    expect(textarea.value).toBe("");
+    expect(screen.queryByText("Ardent_IPS_v4_draft.pdf")).not.toBeInTheDocument();
+  });
+
+  it("a chip's remove button drops only that file", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} onClose={vi.fn()} />);
+    pick([FILE_A, FILE_B]);
+    fireEvent.click(screen.getByLabelText("Remove Ardent_IPS_v4_draft.pdf"));
+    expect(screen.queryByText("Ardent_IPS_v4_draft.pdf")).not.toBeInTheDocument();
+    expect(screen.getByText("Q3_exposure_summary.xlsx")).toBeInTheDocument();
+  });
+
+  it("the border moves from the textarea to the wrapper once a file is staged", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} onClose={vi.fn()} />);
+    const textarea = screen.getByPlaceholderText(/message sarah/i) as HTMLTextAreaElement;
+    expect(textarea.className).toContain("border-outline");
+    pick([FILE_A]);
+    expect(textarea.className).toContain("border-none");
+    expect(textarea.parentElement?.className).toContain("border-outline");
+  });
+
+  it("sending disables Send without hiding the composer", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} sending onClose={vi.fn()} />);
+    const textarea = screen.getByPlaceholderText(/message sarah/i);
+    fireEvent.change(textarea, { target: { value: "queued" } });
+    expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(true);
+    expect(textarea).toBeInTheDocument();
   });
 });
 
