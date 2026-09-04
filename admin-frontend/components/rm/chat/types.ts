@@ -1,13 +1,14 @@
 // 021 UI-3 — chat view-level types (RM Client Room panel)
 //
 // SenderRole/Participant/ChatMessage are VIEW-LEVEL types the components
-// consume. They deliberately do not mirror the wire contract: the committed
-// `ChatMessageDTO` (api-backend/app/libs/chat/schemas.py) carries only
-// `sender_uid` / `sender_name` / `sender_is_staff` — one boolean, so an RM
-// and an Assistant RM are identical on the wire. The wiring branch derives
-// `role` (most likely by matching `senderUid` against the client's
-// `assigned_rm_uid` / `asst_rm_uid`) or asks the backend for a role field.
-// Do not collapse these three roles to two to match the DTO.
+// consume; lib/chat/adapter.ts maps the wire DTO onto them.
+//
+// `role` is NOT derived here. BE-6 added `sender_role` to ChatMessageDTO
+// (api-backend/app/libs/chat/schemas.py), resolved server-side against the
+// client's CURRENT assignment — so the adapter passes it straight through and
+// no uid matching is written anywhere in this app. One consequence worth
+// knowing: a former RM or ARM matches neither seat and falls back to "rm",
+// while their name and uid stay whatever they were, because those are stored.
 
 export type SenderRole = "client" | "rm" | "assistant";
 
