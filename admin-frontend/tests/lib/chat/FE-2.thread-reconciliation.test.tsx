@@ -2,6 +2,7 @@
 // sources (REST catch-up, our own 201, and the WebSocket echo of that same
 // message — the backend fans out to the sender on purpose).
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ChatMessageDTO, NewMessageFrame } from "@/lib/api/chat";
 
@@ -175,5 +176,32 @@ describe("catch-up", () => {
     rerender(<Probe socketOpen />);
     await waitFor(() => expect(fetchMessages).toHaveBeenCalledTimes(2));
     expect(fetchMessages.mock.calls[1][1]).toMatchObject({ since: "2026-09-02T09:00:00.000Z" });
+  });
+});
+
+describe("StrictMode — the app runs with it on (Next 14 default)", () => {
+  it("does not strand the optimistic bubble beside its confirmed twin", async () => {
+    // React double-invokes state updaters here to surface impure ones. If the
+    // pending list is mutated INSIDE the updater, the second run sees the first
+    // run's mutation, fails to find the pending entry, and keeps the temp
+    // message -- a duplicate that only a reload clears.
+    let resolve!: (v: ChatMessageDTO) => void;
+    sendMessage.mockReturnValue(new Promise<ChatMessageDTO>((r) => (resolve = r)));
+    render(
+      <StrictMode>
+        <Probe />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
+
+    await act(async () => {
+      void api.send("Sup", []);
+    });
+    await act(async () => {
+      resolve(dto({ id: "real", body: "Sup" }));
+    });
+
+    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("1"));
+    expect(screen.getByText("real|Sup")).toBeInTheDocument();
   });
 });

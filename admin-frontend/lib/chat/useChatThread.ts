@@ -66,24 +66,29 @@ export function useChatThread({
 
   const merge = useCallback((incoming: ChatMessage[]) => {
     if (!incoming.length) return;
+
+    // Bookkeeping happens HERE, not inside the setMessages updater. React
+    // double-invokes updaters under StrictMode (on by default in Next 14) to
+    // surface impure ones: an updater that spliced pendingRef would, on its
+    // second run, find the entry already gone, skip the delete, and strand the
+    // optimistic bubble next to its confirmed twin -- a duplicate that only a
+    // reload cleared. The updater below is now a pure function of `prev`.
+    const retired: string[] = [];
+    for (const msg of incoming) {
+      if (!newestRef.current || msg.createdAt > newestRef.current) newestRef.current = msg.createdAt;
+      // Matched on body+file-count rather than id because the echo can beat our
+      // own 201 back to this tab, so the real id may arrive before we know it.
+      if (!msg.own) continue;
+      const i = pendingRef.current.findIndex(
+        (p) => p.body === msg.body && p.fileCount === msg.attachments.length,
+      );
+      if (i !== -1) retired.push(pendingRef.current.splice(i, 1)[0].tempId);
+    }
+
     setMessages((prev) => {
       const byId = new Map(prev.map((m) => [m.id, m]));
-      for (const msg of incoming) {
-        byId.set(msg.id, msg);
-        if (!newestRef.current || msg.createdAt > newestRef.current) newestRef.current = msg.createdAt;
-        // Retire the optimistic twin. Matching on body+file-count rather than
-        // id because the echo can beat our own 201 back to this tab, so the
-        // real id may arrive before we have been told what it is.
-        if (msg.own) {
-          const i = pendingRef.current.findIndex(
-            (p) => p.body === msg.body && p.fileCount === msg.attachments.length,
-          );
-          if (i !== -1) {
-            const [done] = pendingRef.current.splice(i, 1);
-            byId.delete(done.tempId);
-          }
-        }
-      }
+      for (const tempId of retired) byId.delete(tempId);
+      for (const msg of incoming) byId.set(msg.id, msg);
       return Array.from(byId.values()).sort(byCreatedAt);
     });
   }, []);
