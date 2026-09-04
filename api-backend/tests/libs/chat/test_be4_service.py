@@ -304,3 +304,56 @@ def test_unassigned_staff_sender_falls_back_to_the_rm_seat(session, storage):
     (msg,) = svc.history(successor, client.id, since=None, limit=50)
     assert msg.sender_uid == rm.firebase_uid
     assert msg.sender_role == "rm"
+
+
+# ---------- 12. the ARM seat: same live-membership rules as the RM seat ----------
+def test_arm_replacement_locks_out_the_old_arm_and_hands_the_thread_to_the_new_one(
+    session, storage
+):
+    """The ARM seat is not a lesser one: swapping its occupant revokes and
+    grants exactly as swapping the RM does (test_reassignment_moves_the_whole_thread)."""
+    svc, rm, old_arm, client = _world(session)
+    svc.send(old_arm, client.id, body="from the outgoing ARM", files=[])
+    svc.send(rm, client.id, body="from the RM", files=[])
+
+    new_arm = make_admin(session, AdminRole.RM, name="Nadia NewARM")
+    row = session.query(ClientProfile).filter_by(user_id=client.id).one()
+    row.asst_rm_uid = new_arm.firebase_uid
+    session.commit()
+
+    # Revoked instantly, both directions, with the existence-hiding 404.
+    with pytest.raises(HTTPException) as e:
+        svc.history(old_arm, client.id, since=None, limit=50)
+    assert e.value.status_code == 404
+    with pytest.raises(HTTPException) as e:
+        svc.send(old_arm, client.id, body="still here?", files=[])
+    assert e.value.status_code == 404
+
+    # And the successor inherits the whole thread, including messages written
+    # before they existed.
+    inherited = svc.history(new_arm, client.id, since=None, limit=50)
+    assert {r.body for r in inherited} == {"from the outgoing ARM", "from the RM"}
+
+
+def test_inherited_messages_keep_their_original_author_not_the_successor(session, storage):
+    """The successor sees WHO WROTE IT, never themselves.
+
+    `sender_id` is a stored FK and the history query joins `users` on it, so
+    identity is read off the actual author's row. Only `sender_role` is derived
+    live -- so a handover re-colours the seat without ever rewriting authorship.
+    """
+    svc, rm, old_arm, client = _world(session)
+    svc.send(old_arm, client.id, body="written by the outgoing ARM", files=[])
+
+    new_arm = make_admin(session, AdminRole.RM, name="Nadia NewARM")
+    row = session.query(ClientProfile).filter_by(user_id=client.id).one()
+    row.asst_rm_uid = new_arm.firebase_uid
+    session.commit()
+
+    (msg,) = svc.history(new_arm, client.id, since=None, limit=50)
+    assert msg.sender_name == "Andy ARM"  # the author, not "Nadia NewARM"
+    assert msg.sender_uid == old_arm.firebase_uid
+    assert msg.sender_uid != new_arm.firebase_uid  # so the FE never marks it "own"
+    # The seat, unlike the identity, IS live: the old ARM holds no seat now, so
+    # the message falls back to the RM seat rather than claiming Nadia's.
+    assert msg.sender_role == "rm"
