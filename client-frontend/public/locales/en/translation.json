@@ -258,6 +258,7 @@
     "documents_shared": "Documents shared in this room",
     "jump_to_latest": "Jump to latest",
     "attach_document": "Attach a document",
+    "remove_attachment": "Remove {{name}}",
     "send": "Send",
     "hide": "Hide",
     "shared_documents": "Shared documents · {{count}}",

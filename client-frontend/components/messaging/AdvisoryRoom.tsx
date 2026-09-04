@@ -13,9 +13,14 @@ import {
   Paperclip,
   ArrowDown,
   X,
+  FileText,
+  FileSpreadsheet,
+  FileCheck2,
 } from "@/lib/icons";
 import { MessageBubble } from "./MessageBubble";
 import { AttachmentRow } from "./AttachmentRow";
+import { attachmentKind, formatBytes } from "@/lib/chat/adapter";
+import { useAttachmentDownload } from "@/lib/chat/useAttachmentDownload";
 import { DayJumpCalendar } from "./DayJumpCalendar";
 import type { ChatDay, Participant } from "./types";
 
@@ -67,19 +72,31 @@ const ROLE_SHORT_KEY: Partial<Record<Participant["role"], string>> = {
   assistant: "messaging.role_short.assistant",
 };
 
+const STAGED_ICON = {
+  "file-text": FileText,
+  sheet: FileSpreadsheet,
+  "file-check": FileCheck2,
+} as const;
+
 export function AdvisoryRoom({
   messages = [],
   participants = [],
   onSend = () => {},
-  onAttach = () => {},
+  sending = false,
 }: {
   messages?: ChatDay[];
   participants?: Participant[];
-  onSend?: (body: string) => void;
-  onAttach?: (files: File[]) => void;
+  /** Body plus whatever files are staged, as ONE message — the backend takes
+   *  many attachments per POST. */
+  onSend?: (body: string, files: File[]) => void;
+  /** True while that POST is in flight; disables only the send button. */
+  sending?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState("");
+  // Files wait here until Send; picking one is not a send (design ChatRoom.jsx `pending`).
+  const [staged, setStaged] = useState<File[]>([]);
+  const download = useAttachmentDownload();
   const [docsOpen, setDocsOpen] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
   const [jumpedTo, setJumpedTo] = useState<string | null>(null);
@@ -143,9 +160,10 @@ export function AdvisoryRoom({
 
   function send() {
     const body = draft.trim();
-    if (!body) return;
-    onSend(body);
+    if (!body && !staged.length) return;
+    onSend(body, staged);
     setDraft("");
+    setStaged([]);
     requestAnimationFrame(() => {
       const thread = threadRef.current;
       if (thread) thread.scrollTop = thread.scrollHeight;
@@ -161,7 +179,8 @@ export function AdvisoryRoom({
 
   function onFilesPicked(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length) onAttach(files);
+    if (files.length) setStaged((prev) => [...prev, ...files]);
+    // Reset so re-picking the same file still fires a change event.
     e.target.value = "";
   }
 
@@ -250,7 +269,7 @@ export function AdvisoryRoom({
                     <span className={["flex-1 h-px bg-outline-variant", jumpedTo === day.iso ? "opacity-90" : "opacity-55"].join(" ")} />
                   </div>
                   {day.msgs.map((m) => (
-                    <MessageBubble key={m.id} message={m} />
+                    <MessageBubble key={m.id} message={m} onDownload={download} />
                   ))}
                 </div>
               ))
@@ -278,21 +297,62 @@ export function AdvisoryRoom({
               <Paperclip size={16} strokeWidth={1.75} />
             </button>
             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={onFilesPicked} />
-            <textarea
-              rows={2}
-              placeholder={composerPlaceholder}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              className="flex-1 resize-none box-border min-h-[52px] max-h-[140px] py-3 px-4 rounded-lg border border-outline outline-none text-[13.5px] leading-[18px] text-on-surface bg-surface-lowest"
-            />
+            {/* With files staged the border moves from the textarea out to this
+                wrapper, so the chips and the text read as one input rather than
+                a bar stuck above one (design ChatRoom.jsx). */}
+            <div
+              className={[
+                "flex-1 min-w-0 box-border flex flex-col gap-2 bg-surface-lowest",
+                staged.length ? "rounded-lg border border-outline p-2" : "",
+              ].join(" ")}
+            >
+              {staged.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5">
+                  {staged.map((file, i) => {
+                    const Icon = STAGED_ICON[attachmentKind(file.type || null, file.name)];
+                    return (
+                      <li
+                        key={`${file.name}:${file.lastModified}:${i}`}
+                        className="inline-flex max-w-full items-center gap-[7px] rounded border border-outline-variant bg-surface-low py-[5px] pl-[9px] pr-1.5"
+                      >
+                        <Icon size={14} strokeWidth={1.9} className="flex-none text-primary" />
+                        <span className="truncate text-[11.5px] font-semibold text-on-surface">{file.name}</span>
+                        <span className="flex-none text-[10.5px] text-secondary">{formatBytes(file.size)}</span>
+                        <button
+                          type="button"
+                          aria-label={t("messaging.remove_attachment", { name: file.name })}
+                          onClick={() => setStaged((prev) => prev.filter((_, j) => j !== i))}
+                          className="inline-flex flex-none rounded-[4px] border-none bg-transparent p-px text-secondary cursor-pointer"
+                        >
+                          <X size={13} strokeWidth={2} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <textarea
+                rows={2}
+                placeholder={composerPlaceholder}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onComposerKeyDown}
+                className={[
+                  "w-full resize-none box-border min-h-[52px] max-h-[140px] outline-none text-[13.5px] leading-[18px] text-on-surface bg-transparent",
+                  staged.length ? "border-none px-1.5 py-0.5" : "py-3 px-4 rounded-lg border border-outline",
+                ].join(" ")}
+              />
+            </div>
             <button
               type="button"
               onClick={send}
+              disabled={(!draft.trim() && !staged.length) || sending}
               aria-label={t("messaging.send")}
               className={[
                 "inline-flex items-center justify-center size-[34px] rounded-full border-none flex-none",
-                draft.trim() ? "bg-primary text-primary-foreground cursor-pointer" : "bg-surface-container text-secondary cursor-not-allowed",
+                (draft.trim() || staged.length) && !sending
+                  ? "bg-primary text-primary-foreground cursor-pointer"
+                  : "bg-surface-container text-secondary cursor-not-allowed",
               ].join(" ")}
             >
               <SendHorizontal size={16} strokeWidth={1.75} />
@@ -335,6 +395,7 @@ export function AdvisoryRoom({
                     attachment={d.attachment}
                     meta={t("messaging.shared_by", { name: d.senderName, size: d.attachment.size })}
                     fullWidth
+                    onClick={() => download(d.attachment)}
                   />
                 </div>
               ))}
