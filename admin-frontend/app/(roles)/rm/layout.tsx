@@ -1,4 +1,5 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { ChatRoomProvider } from "@/components/rm/chat/ChatRoomProvider";
 
 export default function RmLayout({
   children,
@@ -7,7 +8,7 @@ export default function RmLayout({
 }) {
   return (
     <RoleGuard prefix="/rm">
-      {children}
+      <ChatRoomProvider>{children}</ChatRoomProvider>
     </RoleGuard>
   );
 }

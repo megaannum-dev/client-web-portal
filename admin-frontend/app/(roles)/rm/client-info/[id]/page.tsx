@@ -21,6 +21,8 @@ import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
 import type { ClientDoc, HistoryEntry } from "@/lib/rm/types";
 import { ContactLogCard } from "@/components/rm/ContactLog";
 import { EditClientModal } from "@/components/rm/EditClientModal";
+import { ChatRoomButton } from "@/components/rm/chat/ChatRoomButton";
+import { useChatRoom } from "@/components/rm/chat/ChatRoomProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import ClientDetailSkeleton from "./Skeleton";
 
@@ -160,6 +162,7 @@ export default function ClientDetailPage() {
     createEntry: createContactLogEntry, downloadAttachment: downloadContactLogAttachment,
   } = useContactLogs(id);
   const canEdit = useCanEdit("rm.client-info");
+  const { openRoom } = useChatRoom();
 
   if (nf) notFound(); // Next.js 404
 
@@ -213,13 +216,21 @@ export default function ClientDetailPage() {
             <p className="mt-1 text-[14px] text-secondary">Discretionary mandate · Client since {since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
-        {/* View/Edit Gate Function */}
-        {canEdit && (
-          <div className="flex gap-3">
-            <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit profile</Button>
-            <Button icon={Plus}>New Subscription</Button>
-          </div>
-        )}
+        {/* Opening the Client Room is a read action too — not gated behind canEdit,
+            unlike Edit profile / New Subscription below. */}
+        <div className="flex gap-3">
+          <ChatRoomButton
+            label="Client Room"
+            onClick={() => openRoom({ id: data.id, name: data.name, assignedRm: data.assignedRm })}
+          />
+          {/* View/Edit Gate Function */}
+          {canEdit && (
+            <>
+              <Button variant="secondary" icon={Pencil} onClick={() => setEditOpen(true)}>Edit profile</Button>
+              <Button icon={Plus}>New Subscription</Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Client information */}

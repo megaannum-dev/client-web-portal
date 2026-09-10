@@ -24,6 +24,7 @@
   "nav": {
     "overview": "總覽",
     "portfolios": "投資組合",
+    "messaging": "訊息",
     "documents": "文件",
     "monthly_reports": "月結報告",
     "legal_reports": "法律文件",
@@ -241,6 +242,36 @@
       "account_notification": "帳戶通知",
       "requests_status": "申請狀態",
       "others": "其他"
+    }
+  },
+  "messaging": {
+    "title": "您的專屬顧問室",
+    "you": "您",
+    "role": {
+      "rm": "客戶關係經理",
+      "assistant": "助理客戶關係經理"
+    },
+    "role_short": {
+      "rm": "RM",
+      "assistant": "助理 RM"
+    },
+    "jump_to_date": "跳至此對話中的特定日期",
+    "documents_shared": "此聊天室中共享的文件",
+    "jump_to_latest": "跳至最新訊息",
+    "attach_document": "附加文件",
+    "send": "傳送",
+    "hide": "隱藏",
+    "shared_documents": "共享文件 · {{count}}",
+    "shared_by": "{{size}} · 由 {{name}} 分享",
+    "empty_state": "尚無訊息，請在下方開始對話。",
+    "today": "今天",
+    "yesterday": "昨天",
+    "composer_placeholder": "傳送訊息給 {{names}}…",
+    "composer_placeholder_empty": "傳送訊息給您的顧問團隊…",
+    "calendar": {
+      "prev_month": "上個月",
+      "next_month": "下個月",
+      "days_with_messages": "有訊息的日期"
     }
   },
   "profile": {

@@ -24,6 +24,7 @@
   "nav": {
     "overview": "Overview",
     "portfolios": "Portfolios",
+    "messaging": "Messages",
     "documents": "Documents",
     "monthly_reports": "Monthly Reports",
     "legal_reports": "Legal Reports",
@@ -240,6 +241,36 @@
       "account_notification": "Account Notification",
       "requests_status": "Requests Status",
       "others": "Others"
+    }
+  },
+  "messaging": {
+    "title": "Your Advisory Room",
+    "you": "You",
+    "role": {
+      "rm": "Relationship Manager",
+      "assistant": "Assistant RM"
+    },
+    "role_short": {
+      "rm": "RM",
+      "assistant": "Assistant RM"
+    },
+    "jump_to_date": "Jump to a date in this conversation",
+    "documents_shared": "Documents shared in this room",
+    "jump_to_latest": "Jump to latest",
+    "attach_document": "Attach a document",
+    "send": "Send",
+    "hide": "Hide",
+    "shared_documents": "Shared documents · {{count}}",
+    "shared_by": "{{size}} · shared by {{name}}",
+    "empty_state": "No messages yet. Start the conversation below.",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "composer_placeholder": "Message {{names}}…",
+    "composer_placeholder_empty": "Message your advisory team…",
+    "calendar": {
+      "prev_month": "Previous month",
+      "next_month": "Next month",
+      "days_with_messages": "Days with messages"
     }
   },
   "profile": {

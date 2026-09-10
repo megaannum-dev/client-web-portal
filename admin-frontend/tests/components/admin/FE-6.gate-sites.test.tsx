@@ -37,6 +37,7 @@ const GATE_FILES = [
   "components/rm/TransactionDetailModal.tsx",
   "app/(roles)/mobo/recon-overview/page.tsx",
   "app/(roles)/rm/model-subscription/page.tsx",
+  "components/rm/chat/ChatRoomPanel.tsx",
 ];
 const EXPECTED_MARKER_COUNTS: Record<string, number> = {
   "components/rm/OnboardingModal.tsx": 7,
@@ -56,6 +57,7 @@ const EXPECTED_MARKER_COUNTS: Record<string, number> = {
   "components/rm/TransactionDetailModal.tsx": 1,
   "app/(roles)/mobo/recon-overview/page.tsx": 1,
   "app/(roles)/rm/model-subscription/page.tsx": 1,
+  "components/rm/chat/ChatRoomPanel.tsx": 1,
 };
 
 const mockUseAuth = vi.fn();
@@ -120,8 +122,8 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="content-overlay-root"></div>';
 });
 
-describe("FE-6 static source scan — the invariant gate over all 11 files", () => {
-  it("the marker count over the 11 files is exactly 32, matching the per-file table", () => {
+describe("FE-6 static source scan — the invariant gate over all 12 files", () => {
+  it("the marker count over the 12 files is exactly 33, matching the per-file table", () => {
     let total = 0;
     for (const file of GATE_FILES) {
       const text = fs.readFileSync(path.join(ADMIN_FRONTEND_ROOT, file), "utf8");
@@ -129,10 +131,12 @@ describe("FE-6 static source scan — the invariant gate over all 11 files", () 
       expect(count, `${file} marker count`).toBe(EXPECTED_MARKER_COUNTS[file]);
       total += count;
     }
-    expect(total).toBe(32);   // was 34; -2 for RequestTickets.tsx's deleted "Other" TicketActions panel
+    // was 32 (itself was 34, -2 for RequestTickets.tsx's deleted "Other" panel);
+    // +1 for components/rm/chat/ChatRoomPanel.tsx (021 UI-5).
+    expect(total).toBe(33);
   });
 
-  it("each of the 11 files references useCanEdit at least once", () => {
+  it("each of the 12 files references useCanEdit at least once", () => {
     for (const file of GATE_FILES) {
       const text = fs.readFileSync(path.join(ADMIN_FRONTEND_ROOT, file), "utf8");
       expect(text.includes("useCanEdit("), `${file} must call useCanEdit`).toBe(true);

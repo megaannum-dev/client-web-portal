@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { Plus, Ticket, Download, HelpCircle } from "@/lib/icons";
@@ -28,6 +29,12 @@ export function FloatingActionButton() {
   const { getIdToken } = useAuth();
   const { data: statements } = useDocuments("statements");
   const latest = statements[0]; // server-sorted, newest first
+  const pathname = usePathname();
+
+  // The FAB's send button would sit on top of the composer's own send
+  // button on /messaging — the design hides the FAB there too (fabRootStyle,
+  // client-messaging.txt lines 424-427).
+  if (pathname === "/messaging") return null;
 
   async function handleDownloadLatest() {
     if (!latest) return;

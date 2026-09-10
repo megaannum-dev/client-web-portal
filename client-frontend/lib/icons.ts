@@ -74,4 +74,12 @@ export {
   // Documents — split nav
   CalendarDays,
   Scale,
+  // Messaging
+  MessagesSquare,
+  SendHorizontal,
+  CalendarSearch,
+  Paperclip,
+  ArrowDown,
+  FileSpreadsheet,
+  FileCheck2,
 } from "lucide-react";
