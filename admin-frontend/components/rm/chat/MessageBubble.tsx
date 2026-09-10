@@ -8,7 +8,7 @@
 import clsx from "clsx";
 import { fmtTimestampParts } from "@/lib/pc/format";
 import { AttachmentRow } from "./AttachmentRow";
-import { CR_ROLE, type ChatMessage, type SenderRole } from "./types";
+import { CR_ROLE, type ChatAttachment, type ChatMessage, type SenderRole } from "./types";
 
 // ponytail: design literals — no --primary-adjacent token exists for the
 // client gradient or the assistant-RM olive; kept as-is per plan §2.
@@ -53,7 +53,17 @@ export function RoomAvatar({
   );
 }
 
-export function MessageBubble({ message, mode }: { message: ChatMessage; mode: "mini" | "full" }) {
+export function MessageBubble({
+  message,
+  mode,
+  onDownload,
+}: {
+  message: ChatMessage;
+  mode: "mini" | "full";
+  /** Download one attachment. A prop, not a hook call: this component stays
+   *  presentational so it renders in a test with no AuthProvider. */
+  onDownload?: (attachment: ChatAttachment) => void;
+}) {
   const own = !!message.own;
   const avatarSize = mode === "full" ? 30 : 26;
   const { time } = fmtTimestampParts(message.createdAt);
@@ -91,6 +101,7 @@ export function MessageBubble({ message, mode }: { message: ChatMessage; mode: "
               attachment={a}
               onDark={own}
               meta={`${a.size} · ${time}`}
+              onClick={onDownload ? () => onDownload(a) : undefined}
               className={clsx(mode === "full" ? "max-w-[280px]" : "max-w-[240px]", "min-w-[176px]")}
             />
           ))}

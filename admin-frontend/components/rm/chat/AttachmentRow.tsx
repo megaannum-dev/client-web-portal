@@ -23,17 +23,22 @@ export function AttachmentRow({
   meta,
   onDark = false,
   className,
+  onClick,
 }: {
   attachment: ChatAttachment;
   /** Pre-formatted trailing line — `"1.4 MB · 11:40"` in a bubble, `"1.4 MB · shared by Sarah Mitchell"` in the docs aside. */
   meta: string;
   onDark?: boolean;
   className?: string;
+  /** Download this attachment. Optional so the row stays renderable in a
+   *  test with no auth and no network. */
+  onClick?: () => void;
 }) {
   const Icon = KIND_ICON[attachment.kind] ?? FileText;
   return (
     <button
       type="button"
+      onClick={onClick}
       className={clsx(
         "group flex w-full items-center gap-[9px] rounded px-2.5 py-2 text-left transition-colors duration-150",
         onDark

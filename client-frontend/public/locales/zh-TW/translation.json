@@ -259,6 +259,7 @@
     "documents_shared": "此聊天室中共享的文件",
     "jump_to_latest": "跳至最新訊息",
     "attach_document": "附加文件",
+    "remove_attachment": "移除 {{name}}",
     "send": "傳送",
     "hide": "隱藏",
     "shared_documents": "共享文件 · {{count}}",

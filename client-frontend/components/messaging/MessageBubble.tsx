@@ -3,7 +3,7 @@
 
 import { useTranslation } from "react-i18next";
 import { AttachmentRow } from "./AttachmentRow";
-import type { ChatMessage } from "./types";
+import type { ChatAttachment, ChatMessage } from "./types";
 
 // ponytail: design literals with no token equivalent (plan §2/§123) — the
 // client avatar gradient and the assistant-RM fill are hardcoded in the
@@ -34,7 +34,15 @@ const ROLE_LABEL_KEY: Partial<Record<ChatMessage["role"], string>> = {
   assistant: "messaging.role.assistant",
 };
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  onDownload,
+}: {
+  message: ChatMessage;
+  /** Download one attachment. A prop, not a hook call: this component stays
+   *  presentational so it renders in a test with no AuthProvider. */
+  onDownload?: (attachment: ChatAttachment) => void;
+}) {
   const { t } = useTranslation();
   const mine = !!message.own;
   const name = mine ? t("messaging.you") : (message.senderName ?? "?");
@@ -74,7 +82,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         >
           {message.body && <span>{message.body}</span>}
           {message.attachments.map((a) => (
-            <AttachmentRow key={a.id} attachment={a} meta={`${a.size} · ${message.time}`} onDark={mine} />
+            <AttachmentRow key={a.id} attachment={a} meta={`${a.size} · ${message.time}`} onDark={mine} onClick={onDownload ? () => onDownload(a) : undefined} />
           ))}
         </div>
       </div>

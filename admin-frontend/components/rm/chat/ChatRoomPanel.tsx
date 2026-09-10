@@ -14,9 +14,12 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 import {
   CalendarSearch, Eye, Maximize2, Minimize2, MessagesSquare, Paperclip, SendHorizontal, X, ArrowDown,
+  FileText, FileSpreadsheet, FileCheck2,
 } from "@/lib/icons";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { AttachmentRow } from "./AttachmentRow";
+import { attachmentKind, formatBytes } from "@/lib/chat/adapter";
+import { useAttachmentDownload } from "@/lib/chat/useAttachmentDownload";
 import { DayJumpCalendar } from "./DayJumpCalendar";
 import { MessageBubble, RoomAvatar } from "./MessageBubble";
 import type { ChatDay, Participant, SenderRole } from "./types";
@@ -45,15 +48,26 @@ function participantCaption(p: Participant, full: boolean): string {
 export interface ChatRoomPanelProps {
   /** 2–3 entries: client first, then the assigned RM and (if any) ARM. Never a fixed three. */
   participants: Participant[];
-  /** [] for now — no mock data ships in app code (plan §6); the wiring branch supplies real days. */
+  /** Supplied by ChatRoomProvider's thread hook. Still a prop, not a fetch:
+   *  this component stays presentational so it can be rendered from a test
+   *  with no network, no socket and no auth. */
   messages?: ChatDay[];
-  onSend?: (body: string) => void;
-  onAttach?: (files: File[]) => void;
+  /** Body plus whatever files are staged, as ONE message — the backend takes
+   *  many attachments per POST. */
+  onSend?: (body: string, files: File[]) => void;
+  /** True while that POST is in flight; disables only the send button. */
+  sending?: boolean;
   onClose: () => void;
 }
 
+const STAGED_ICON = {
+  "file-text": FileText,
+  sheet: FileSpreadsheet,
+  "file-check": FileCheck2,
+} as const;
+
 export function ChatRoomPanel({
-  participants, messages = [], onSend = () => {}, onAttach = () => {}, onClose,
+  participants, messages = [], onSend = () => {}, sending = false, onClose,
 }: ChatRoomPanelProps) {
   const [root, setRoot] = useState<Element | null>(null);
   useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
@@ -63,6 +77,8 @@ export function ChatRoomPanel({
   const [calOpen, setCalOpen] = useState(false);
   const [jumpedTo, setJumpedTo] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  // Files wait here until Send; picking one is not a send (design ChatRoom.jsx `pending`).
+  const [staged, setStaged] = useState<File[]>([]);
   const [atLatest, setAtLatest] = useState(true);
 
   const threadRef = useRef<HTMLDivElement>(null);
@@ -70,6 +86,7 @@ export function ChatRoomPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canEdit = useCanEdit("rm.client-info");
+  const download = useAttachmentDownload();
 
   const client = participants.find((p) => p.role === "client") ?? participants[0];
   const staff = participants.filter((p) => p.uid !== client?.uid);
@@ -127,9 +144,10 @@ export function ChatRoomPanel({
 
   function handleSend() {
     const body = draft.trim();
-    if (!body) return;
-    onSend(body);
+    if (!body && !staged.length) return;
+    onSend(body, staged);
     setDraft("");
+    setStaged([]);
     if (atLatest) requestAnimationFrame(scrollToEnd);
   }
 
@@ -144,7 +162,8 @@ export function ChatRoomPanel({
 
   function handleFilesPicked(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    if (files && files.length) onAttach(Array.from(files));
+    if (files && files.length) setStaged((prev) => [...prev, ...Array.from(files)]);
+    // Reset so re-picking the same file still fires a change event.
     e.target.value = "";
   }
 
@@ -312,7 +331,7 @@ export function ChatRoomPanel({
                     </div>
                     <div className="flex flex-col gap-4">
                       {day.messages.map((m) => (
-                        <MessageBubble key={m.id} message={m} mode={full ? "full" : "mini"} />
+                        <MessageBubble key={m.id} message={m} mode={full ? "full" : "mini"} onDownload={download} />
                       ))}
                     </div>
                   </div>
@@ -350,28 +369,70 @@ export function ChatRoomPanel({
                 <Paperclip size={16} strokeWidth={2} />
               </button>
               <input ref={fileInputRef} type="file" multiple hidden onChange={handleFilesPicked} />
-              <textarea
-                ref={textareaRef}
-                rows={3}
-                value={draft}
-                placeholder={composerPlaceholder}
-                onChange={handleDraftChange}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                className="min-h-[76px] max-h-[160px] flex-1 resize-none rounded-[14px] border border-outline bg-surface-lowest px-3.5 py-[9px] text-[13.5px] leading-[18px] text-on-surface outline-none"
-              />
+              {/* With files staged the border moves from the textarea out to
+                  this wrapper, so the chips and the text read as one input
+                  rather than a bar stuck above one (design ChatRoom.jsx). */}
+              <div
+                className={clsx(
+                  "flex min-w-0 flex-1 flex-col gap-2 bg-surface-lowest",
+                  staged.length && "rounded-[14px] border border-outline p-2",
+                )}
+              >
+                {staged.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {staged.map((file, i) => {
+                      const Icon = STAGED_ICON[attachmentKind(file.type || null, file.name)];
+                      return (
+                        <li
+                          key={`${file.name}:${file.lastModified}:${i}`}
+                          className="inline-flex max-w-full items-center gap-[7px] rounded border border-outline-variant bg-surface-low py-[5px] pl-[9px] pr-1.5"
+                        >
+                          <Icon size={14} strokeWidth={1.9} className="flex-none text-primary" />
+                          <span className="truncate text-[11.5px] font-semibold text-on-surface">{file.name}</span>
+                          <span className="flex-none text-[10.5px] text-secondary">{formatBytes(file.size)}</span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${file.name}`}
+                            onClick={() => setStaged((prev) => prev.filter((_, j) => j !== i))}
+                            className="inline-flex flex-none rounded-[4px] border-none bg-transparent p-px text-secondary"
+                          >
+                            <X size={13} strokeWidth={2} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <textarea
+                  ref={textareaRef}
+                  rows={3}
+                  value={draft}
+                  placeholder={composerPlaceholder}
+                  onChange={handleDraftChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  className={clsx(
+                    "min-h-[76px] max-h-[160px] w-full resize-none bg-transparent text-[13.5px] leading-[18px] text-on-surface outline-none",
+                    staged.length
+                      ? "border-none px-1.5 py-0.5"
+                      : "rounded-[14px] border border-outline px-3.5 py-[9px]",
+                  )}
+                />
+              </div>
               <button
                 type="button"
                 aria-label="Send"
-                disabled={!draft.trim()}
+                disabled={(!draft.trim() && !staged.length) || sending}
                 onClick={handleSend}
                 className={clsx(
                   "flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full border-none",
-                  draft.trim() ? "cursor-pointer bg-primary text-white" : "cursor-not-allowed bg-surface-container text-secondary",
+                  (draft.trim() || staged.length) && !sending
+                    ? "cursor-pointer bg-primary text-white"
+                    : "cursor-not-allowed bg-surface-container text-secondary",
                 )}
               >
                 <SendHorizontal size={16} strokeWidth={2} />
@@ -424,6 +485,7 @@ export function ChatRoomPanel({
                   <AttachmentRow
                     attachment={{ id: d.key, name: d.name, kind: d.kind, size: d.size }}
                     meta={`${d.size} · shared by ${CR_BY[d.by]}`}
+                    onClick={() => download({ id: d.key, name: d.name })}
                   />
                 </div>
               ))

@@ -1,11 +1,11 @@
 // 021 UI-1 — chat view-model types (presentation only, no wire types)
 //
 // SenderRole is a view-level concept the components key their styling off
-// (avatar fill, bubble side, radius inversion, role caption). The committed
-// wire contract (ChatMessageDTO) carries only sender_is_staff — one boolean —
-// so it cannot distinguish "rm" from "assistant". Deriving `role` from the
-// DTO is the wiring branch's job; these types just keep the two shapes apart
-// so that derivation has somewhere to land.
+// (avatar fill, bubble side, radius inversion, role caption). It is NOT
+// derived here: BE-6 added `sender_role` to ChatMessageDTO, resolved
+// server-side against the client's CURRENT assignment, so lib/chat/adapter.ts
+// passes it straight through. These types stay separate from the wire ones so
+// the pre-formatted display fields (`time`, `size`) have somewhere to live.
 
 export type SenderRole = "client" | "rm" | "assistant";
 

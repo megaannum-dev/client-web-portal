@@ -15,6 +15,7 @@ export function AttachmentRow({
   meta,
   onDark = false,
   fullWidth = false,
+  onClick,
 }: {
   attachment: ChatAttachment;
   /** pre-formatted meta line, e.g. "1.4 MB · 11:40" or "1.4 MB · shared by Sarah Mitchell" */
@@ -23,12 +24,16 @@ export function AttachmentRow({
   onDark?: boolean;
   /** true in the docs aside, where the row fills its container instead of capping at 260px */
   fullWidth?: boolean;
+  /** Download this attachment. Optional so the row stays renderable in a
+   *  test with no auth and no network. */
+  onClick?: () => void;
 }) {
   const Icon = KIND_ICON[attachment.kind] ?? FileText;
 
   return (
     <button
       type="button"
+      onClick={onClick}
       className={[
         "flex items-center gap-[9px] box-border rounded py-2 px-2.5 text-left transition-colors",
         fullWidth ? "w-full" : "w-[260px] max-w-full",
