@@ -13,7 +13,7 @@ from app.core.storage import Bucket, client_folder, get_storage
 from app.libs.access.resolver import actions_for
 from app.libs.auth.actions import Action
 from app.libs.chat.repository import ChatRepository
-from app.libs.chat.schemas import ChatMessageDTO
+from app.libs.chat.schemas import ChatMessageDTO, sender_role
 from app.libs.users.repository import UserRepository
 from app.models.users import ClientProfile, Portal, User
 
@@ -110,13 +110,18 @@ class ChatService:
         limit: int,
     ) -> list[ChatMessageDTO]:
         client_id = self.resolve_client_id(user, client_id)
-        self._require_member(client_id, user)
+        # The gate's profile is reused for the role derivation -- the same row,
+        # read once, so naming the seats costs no extra query.
+        profile = self._require_member(client_id, user)
         self._require_action(user, Action.CLIENT_VIEW)
         # A `limit` straight off the query string is a trust boundary too.
         capped = max(1, min(limit, CHAT_HISTORY_MAX_LIMIT))
         return [
             ChatMessageDTO.from_row(
-                msg, sender_uid=uid, sender_name=name, sender_is_staff=is_staff
+                msg,
+                sender_uid=uid,
+                sender_name=name,
+                sender_role=sender_role(is_staff=is_staff, sender_uid=uid, profile=profile),
             )
             for msg, uid, name, is_staff in self.repo.history(client_id, since=since, limit=capped)
         ]
@@ -194,7 +199,11 @@ class ChatService:
             msg,
             sender_uid=user.firebase_uid,
             sender_name=user.name,
-            sender_is_staff=user.portal == Portal.ADMIN,
+            sender_role=sender_role(
+                is_staff=user.portal == Portal.ADMIN,
+                sender_uid=user.firebase_uid,
+                profile=profile,
+            ),
         )
         # The sender is INCLUDED, deliberately. Excluding their uid excludes
         # EVERY socket they hold, so a message typed on desktop would never

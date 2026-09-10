@@ -11,10 +11,44 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
 from app.models.chat import ChatMessage
+from app.models.users import ClientProfile
+
+# Who a message is FROM, as the chat UI needs to know it: the fill of the
+# sender's avatar, which side of the thread the bubble sits on, and the role
+# caption under the name. Three values because the room has three seats.
+SenderRole = Literal["client", "rm", "assistant"]
+
+
+def sender_role(*, is_staff: bool, sender_uid: str, profile: ClientProfile) -> SenderRole:
+    """Which seat the sender occupies, resolved against the CLIENT'S CURRENT
+    assignment. The single derivation, shared by the history and send paths.
+
+    Costs nothing: `is_staff` already comes off the join the history query does
+    for `sender_name`, and `profile` is the row the membership gate just read.
+
+    Two consequences worth knowing, both flowing from the deliberate decision
+    in `app/models/chat.py` to store no role snapshot:
+
+    - A staff sender who is no longer assigned to this client -- a previous RM
+      or ARM -- matches neither uid and falls through to "rm". Their old
+      messages therefore render in the RM seat rather than vanishing or
+      claiming a seat someone else now holds. Distinguishing a former ARM from
+      a former RM is impossible without the snapshot the schema rejects, and
+      "some relationship manager wrote this" stays true either way.
+    - Reassignment re-colours history, exactly as it re-grants access. That is
+      the same property, not a separate one: the thread follows the
+      relationship.
+    """
+    if not is_staff:
+        return "client"
+    if sender_uid == profile.asst_rm_uid:
+        return "assistant"
+    return "rm"
 
 
 class ChatAttachmentDTO(BaseModel):
@@ -31,7 +65,11 @@ class ChatMessageDTO(BaseModel):
     client_id: uuid.UUID  # chat_messages.client_id (users.id)
     sender_uid: str  # users.firebase_uid -- NOT chat_messages.sender_id
     sender_name: str | None  # client_profiles.name / admin_profiles.name
-    sender_is_staff: bool  # users.portal == Portal.ADMIN
+    # DERIVED LIVE, never stored -- chat_messages has no role column, on
+    # purpose (app/models/chat.py). Resolved against the client's CURRENT
+    # assignment by `sender_role`, below, so a reassignment re-colours the
+    # whole history exactly as it re-grants access.
+    sender_role: SenderRole
     body: str | None  # chat_messages.body
     attachments: list[ChatAttachmentDTO]  # [] when none, never None
     created_at: datetime  # chat_messages.created_at
@@ -43,7 +81,7 @@ class ChatMessageDTO(BaseModel):
         *,
         sender_uid: str,
         sender_name: str | None,
-        sender_is_staff: bool,
+        sender_role: SenderRole,
     ) -> "ChatMessageDTO":
         """Serialize one row, with the sender's identity passed in explicitly.
 
@@ -65,7 +103,7 @@ class ChatMessageDTO(BaseModel):
             client_id=msg.client_id,
             sender_uid=sender_uid,
             sender_name=sender_name,
-            sender_is_staff=sender_is_staff,
+            sender_role=sender_role,
             body=msg.body,
             # Order comes from the relationship's order_by; just map it.
             attachments=[
