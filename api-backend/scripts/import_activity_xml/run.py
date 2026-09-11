@@ -48,8 +48,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import uuid
-import xml.etree.ElementTree as ET
 from collections import Counter
 from decimal import Decimal, InvalidOperation
 from typing import cast
@@ -57,206 +55,17 @@ from typing import cast
 from sqlalchemy import Table, select, text
 
 from app.core.database import engine
+from app.core.flex_xml import EXECUTION_LEVELS as _EXECUTION_LEVELS
+from app.core.flex_xml import ORDER_LEVELS as _ORDER_LEVELS
+from app.core.flex_xml import SUMMARY_LEVELS as _SUMMARY_LEVELS
+from app.core.flex_xml import detect_csv_type as _detect_csv_type
+from app.core.flex_xml import detect_type as _detect_type
+from app.core.flex_xml import parse, parse_csv
 from app.models.reconciliation import Order, SymbolSummary, Trade
-
-# levelOfDetail values that route to each table
-_ORDER_LEVELS = frozenset({"ORDER"})
-_EXECUTION_LEVELS = frozenset({"EXECUTION"})
-_SUMMARY_LEVELS = frozenset({"SYMBOL_SUMMARY"})
-_KEEP_LEVELS = _ORDER_LEVELS | _EXECUTION_LEVELS | _SUMMARY_LEVELS
-
-# Header attributes on <FlexStatement> that are also row columns.
-_STATEMENT_HEADER_KEYS = ("period", "fromDate", "toDate", "whenGenerated")
-
-# AF column name -> TCF column name (8 renames; everything else is unchanged).
-# NOTE: AF also has its own native "tradeID" attribute (same name as the TCF
-# column, so it needs no alias and passes through as-is). "transactionID" is
-# a *different* AF attribute that must NOT be aliased onto "tradeID" — doing
-# so overwrites the correct native tradeID with transactionID's value
-# whenever both are present on the same row (transactionID appears to vary
-# between report regenerations for the same trade; tradeID does not).
-_AF_TO_TCF: dict[str, str] = {
-    "ibOrderID": "orderID",
-    "ibExecID": "execID",
-    "tradePrice": "price",
-    "tradeMoney": "amount",
-    "ibCommission": "commission",
-    "ibCommissionCurrency": "commissionCurrency",
-    "settleDateTarget": "settleDate",
-    "taxes": "tax",
-}
 
 _ORDERS_TABLE: Table = cast(Table, Order.__table__)
 _TRADES_TABLE: Table = cast(Table, Trade.__table__)
 _SUMMARIES_TABLE: Table = cast(Table, SymbolSummary.__table__)
-
-_ORDERS_VALID = frozenset(_ORDERS_TABLE.columns.keys()) - {"id", "ingested_at"}
-_TRADES_VALID = frozenset(_TRADES_TABLE.columns.keys()) - {"id", "ingested_at"}
-_SUMMARIES_VALID = frozenset(_SUMMARIES_TABLE.columns.keys()) - {"id", "ingested_at"}
-
-
-def _detect_type(xml_path: str) -> str:
-    for _event, elem in ET.iterparse(xml_path, events=("start",)):
-        if elem.tag == "FlexQueryResponse":
-            file_type = elem.attrib.get("type", "")
-            if file_type not in ("AF", "TCF"):
-                raise SystemExit(
-                    f"Unknown FlexQueryResponse type={file_type!r}. Expected 'AF' or 'TCF'."
-                )
-            return file_type
-    raise SystemExit("No <FlexQueryResponse> root element found — not a Flex export.")
-
-
-def _detect_csv_type(header: list[str]) -> str:
-    """Infer AF vs TCF schema from a CSV header row (no type= attribute in CSV)."""
-    if "ibOrderID" in header:
-        return "AF"
-    if "orderID" in header:
-        return "TCF"
-    raise SystemExit(
-        f"Cannot detect Flex schema from CSV header — no 'ibOrderID' (AF) or "
-        f"'orderID' (TCF) column found: {header}"
-    )
-
-
-def _build_row(
-    attrs: dict[str, str],
-    header: dict[str, str],
-    aliases: dict[str, str],
-    valid: frozenset[str],
-) -> dict[str, object]:
-    """Merge header + attrs, apply aliases, filter to valid columns, stamp id."""
-    merged: dict[str, str] = {}
-    for key in _STATEMENT_HEADER_KEYS:
-        if key in header:
-            merged[key] = header[key]
-    for k, v in attrs.items():
-        merged[aliases.get(k, k)] = v
-
-    row: dict[str, object] = {
-        k: (v if v != "" else None)
-        for k, v in merged.items()
-        if k in valid
-    }
-    row["id"] = uuid.uuid4()
-    return row
-
-
-_ParseResult = tuple[
-    list[dict[str, object]],
-    list[dict[str, object]],
-    list[dict[str, object]],
-    Counter,
-    set[str],
-    set[str],
-    set[str],
-]
-
-
-def _route_row(
-    attrs: dict[str, str],
-    header: dict[str, str],
-    aliases: dict[str, str],
-    counts: Counter,
-    order_rows: list[dict[str, object]],
-    trade_rows: list[dict[str, object]],
-    summary_rows: list[dict[str, object]],
-    orders_unknown: set[str],
-    trades_unknown: set[str],
-    summaries_unknown: set[str],
-) -> None:
-    """Route one raw row (an XML element's attrib, or a CSV DictReader row) by levelOfDetail.
-
-    Shared by both the XML and CSV parsers so routing/dedup-of-unknown-columns
-    logic lives in exactly one place.
-    """
-    level = attrs.get("levelOfDetail")
-    if level is None:
-        return
-
-    counts[level] += 1
-    if level in _ORDER_LEVELS:
-        orders_unknown.update(
-            {aliases.get(k, k) for k in attrs} - _ORDERS_VALID - set(_STATEMENT_HEADER_KEYS)
-        )
-        order_rows.append(_build_row(attrs, header, aliases, _ORDERS_VALID))
-    elif level in _EXECUTION_LEVELS:
-        trades_unknown.update(
-            {aliases.get(k, k) for k in attrs} - _TRADES_VALID - set(_STATEMENT_HEADER_KEYS)
-        )
-        trade_rows.append(_build_row(attrs, header, aliases, _TRADES_VALID))
-    elif level in _SUMMARY_LEVELS:
-        summaries_unknown.update(
-            {aliases.get(k, k) for k in attrs} - _SUMMARIES_VALID - set(_STATEMENT_HEADER_KEYS)
-        )
-        summary_rows.append(_build_row(attrs, header, aliases, _SUMMARIES_VALID))
-
-
-def parse(xml_path: str, file_type: str) -> _ParseResult:
-    """Stream-parse a Flex XML export into three row buckets split by levelOfDetail.
-
-    Returns (order_rows, trade_rows, summary_rows, level_counts,
-             orders_unknown_attrs, trades_unknown_attrs, summaries_unknown_attrs).
-    """
-    aliases = _AF_TO_TCF if file_type == "AF" else {}
-    order_rows: list[dict[str, object]] = []
-    trade_rows: list[dict[str, object]] = []
-    summary_rows: list[dict[str, object]] = []
-    counts: Counter = Counter()
-    orders_unknown: set[str] = set()
-    trades_unknown: set[str] = set()
-    summaries_unknown: set[str] = set()
-    header: dict[str, str] = {}
-
-    for event, elem in ET.iterparse(xml_path, events=("start", "end")):
-        if event == "start":
-            if elem.tag == "FlexStatement":
-                header = dict(elem.attrib)
-            continue
-
-        _route_row(
-            elem.attrib, header, aliases, counts,
-            order_rows, trade_rows, summary_rows,
-            orders_unknown, trades_unknown, summaries_unknown,
-        )
-        elem.clear()
-
-    return (
-        order_rows, trade_rows, summary_rows,
-        counts,
-        orders_unknown, trades_unknown, summaries_unknown,
-    )
-
-
-def parse_csv(csv_path: str, file_type: str) -> _ParseResult:
-    """Parse a single per-section Activity Statement CSV into three row buckets.
-
-    Each CSV row already carries fromDate/toDate/period/whenGenerated directly
-    (unlike XML, where those live on the parent <FlexStatement> element), so no
-    separate header dict is needed — routing happens purely off levelOfDetail.
-    """
-    aliases = _AF_TO_TCF if file_type == "AF" else {}
-    order_rows: list[dict[str, object]] = []
-    trade_rows: list[dict[str, object]] = []
-    summary_rows: list[dict[str, object]] = []
-    counts: Counter = Counter()
-    orders_unknown: set[str] = set()
-    trades_unknown: set[str] = set()
-    summaries_unknown: set[str] = set()
-
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            _route_row(
-                row, {}, aliases, counts,
-                order_rows, trade_rows, summary_rows,
-                orders_unknown, trades_unknown, summaries_unknown,
-            )
-
-    return (
-        order_rows, trade_rows, summary_rows,
-        counts,
-        orders_unknown, trades_unknown, summaries_unknown,
-    )
 
 
 def _existing_single(conn, table: Table, col: str) -> set:
