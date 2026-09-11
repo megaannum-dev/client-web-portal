@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_name: str = "Bootstrap Admin"
 
+    # IB Flex — two interchangeable transports (mirrors storage_backend: "local"|"nas")
+    ib_flex_transport: str = "drop"  # "drop" (daily SFTP-populated dir) | "live" (Flex Web Service)
+    ib_flex_drop_root: str | None = None  # e.g. /srv/mega-crm-ib-flex | C:\...\mega-crm-ib-flex
+    ib_flex_token: str | None = None
+    ib_flex_query_id: str | None = None
+    ib_flex_cache_ttl_seconds: int = 900
 
 
 @lru_cache
