@@ -23,6 +23,12 @@ from app.models.pc import (  # noqa: F401
     ModelSymbol,
     AllocationPeriodModel,
 )
+from app.models.pc_data import (  # noqa: F401
+    PcEngineRun,
+    PcOrder,
+    PcOrderEvent,
+    PcTrade,
+)
 from app.models.post_trade_allocation import (  # noqa: F401
     RunStatus,
     RunTrigger,
