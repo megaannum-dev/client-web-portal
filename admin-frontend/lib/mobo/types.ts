@@ -1,20 +1,10 @@
 /* ============================================================
    MOBO — Reconciliation type layer (backend-aligned)
 
-   Two layers live here, deliberately separated:
-
-   1. DOMAIN types (`Order`, `Execution`) — named and shaped to
-      mirror the backend SQLAlchemy models in
-      `api-backend/app/models/reconciliation.py`
-      (`IBActivity` = AF / Activity export, `IBTrade` = TCF /
-      Trade-Confirmation export). Column names are the exact
-      camelCase CSV header tokens the backend stores 1:1. When
-      the API lands, its payload deserializes straight into these.
-
-   2. VIEW types (`ReconTrade`, `CompareField`, `ExecRow`, …) —
-      the shapes the screens render. These are DERIVED from the
-      domain types by the mapper in `lib/mobo/reconciliation.ts`;
-      they are never hand-authored inside components.
+   VIEW types (`ReconTrade`, `CompareField`, `ExecRow`, …) — the
+   shapes the screens render. These are derived by the mapper in
+   `lib/mobo/reconciliation.ts`; they are never hand-authored
+   inside components.
 
    DATA REALITY (see 001 §6): only stored-IB data exists today.
    There is no trader feed and no live-IB fetch. So:
@@ -33,133 +23,6 @@
        DB-level concern and is deliberately NOT surfaced here — the
        database will be reworked, so the UI stays decoupled from it.
    ============================================================ */
-
-/* ============================================================
-   DOMAIN LAYER — mirrors IBActivity (AF) / IBTrade (TCF)
-   ============================================================ */
-
-/** `levelOfDetail` discriminator shared by both staging tables. */
-export type LevelOfDetail = "ORDER" | "EXECUTION";
-
-/** Which IB Flex export a row originated from. */
-export type IBSource = "AF" | "TCF";
-
-/**
- * Numeric columns arrive from the backend as `Numeric(28,10)` and
- * are carried over the wire as strings to preserve precision (the
- * mapper formats them for display). All source columns are nullable.
- */
-export type DecimalString = string;
-
-/** `YYYYMMDD` (8) or `YYYYMMDD;HHMMSS` (20) raw IB date/datetime tokens. */
-export type IBDateString = string;
-
-/**
- * An ORDER- or EXECUTION-level row from `ib_activity` (AF / Activity export)
- * OR `ib_trades` (TCF / Trade-Confirmation export). The two exports use an
- * overlapping-but-distinct attribute set, so source-specific columns are
- * marked optional and the mapper coalesces them (e.g. `tradePrice`|`price`,
- * `settleDateTarget`|`settleDate`, `ibOrderID`|`orderID`,
- * `ibCommission`|`commission`, `tradeMoney`|`amount`).
- *
- * Attribute names track the backend columns exactly (camelCase = DB column).
- */
-export interface Order {
-  /** Infrastructure PK (backend UUID). */
-  id: string;
-  /** "ORDER" for this entity; an EXECUTION carries the parent's ibOrderID/orderID. */
-  levelOfDetail: LevelOfDetail;
-  /** Which export this row came from. */
-  source: IBSource;
-
-  // --- Join keys (string — IB emits dotted or numeric, never assume int) ---
-  /** AF (ib_activity) reconciliation join key. */
-  ibOrderID?: string | null;
-  /** TCF (ib_trades) join key — same concept as ibOrderID, TCF naming. */
-  orderID?: string | null;
-
-  // --- Shared / coalesced order fields ---
-  symbol?: string | null;
-  buySell?: string | null;
-  quantity?: DecimalString | null;
-  currency?: string | null;
-  assetCategory?: string | null;
-  tradeDate?: IBDateString | null;
-  netCash?: DecimalString | null;
-
-  // --- Price (AF: tradePrice · TCF: price) ---
-  /** AF Activity price column. */
-  tradePrice?: DecimalString | null;
-  /** TCF Trade-Confirm price column. */
-  price?: DecimalString | null;
-
-  // --- Settlement date (AF: settleDateTarget · TCF: settleDate) ---
-  /** AF Activity settlement-date column. */
-  settleDateTarget?: IBDateString | null;
-  /** TCF Trade-Confirm settlement-date column. */
-  settleDate?: IBDateString | null;
-
-  // --- Commission (AF: ibCommission · TCF: commission) ---
-  /** AF Activity commission column. */
-  ibCommission?: DecimalString | null;
-  /** TCF Trade-Confirm commission column. */
-  commission?: DecimalString | null;
-
-  // --- Net-amount-ish (AF: tradeMoney · TCF: amount) ---
-  tradeMoney?: DecimalString | null;
-  amount?: DecimalString | null;
-
-  // --- AF-only ---
-  /** FX rate to base — present on Activity (AF) rows only. */
-  fxRateToBase?: DecimalString | null;
-
-  /** The executions that fill this order (EXECUTION-level child rows). */
-  executions?: Execution[];
-}
-
-/**
- * An EXECUTION-level fill of an `Order`. Mirrors the EXECUTION /
- * TradeConfirm `levelOfDetail` rows of the same staging tables, carrying
- * the parent order's join key.
- */
-export interface Execution {
-  /** Infrastructure PK (backend UUID). */
-  id: string;
-  levelOfDetail: "EXECUTION";
-  source: IBSource;
-
-  /** Parent order join key (AF). */
-  ibOrderID?: string | null;
-  /** Parent order join key (TCF). */
-  orderID?: string | null;
-
-  /** Execution identifier — surfaced as the "Trade ID" added field. */
-  tradeID?: string | null;
-  /** AF execution id. */
-  ibExecID?: string | null;
-  /** TCF execution id. */
-  execID?: string | null;
-
-  symbol?: string | null;
-  buySell?: string | null;
-  quantity?: DecimalString | null;
-
-  // --- Price (AF: tradePrice · TCF: price) ---
-  tradePrice?: DecimalString | null;
-  price?: DecimalString | null;
-
-  // --- Commission (AF: ibCommission · TCF: commission) ---
-  ibCommission?: DecimalString | null;
-  commission?: DecimalString | null;
-
-  netCash?: DecimalString | null;
-  currency?: string | null;
-  assetCategory?: string | null;
-  tradeDate?: IBDateString | null;
-
-  /** Raw IB execution timestamp (`dateTime`, `YYYYMMDD;HHMMSS`). */
-  dateTime?: IBDateString | null;
-}
 
 /* ============================================================
    VIEW LAYER — derived by the mapper; rendered by components
