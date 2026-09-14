@@ -13,18 +13,26 @@
 
    Tab 2 "Master ↔ Client Settlement" — a simple settlement table.
 
-   DATA: rows come from `GET /api/mobo/trade-records` via
-   `useTradeRecords` — the `orders` + `trades` tables, projected
-   flat and PRE-FORMATTED by the backend. This page computes
-   nothing; it renders what it is handed.
+   DATA: rows come from `GET /api/mobo/executions` via `useExecutions`,
+   which unions CRM + IB + Portfolio Commander into one execution
+   grain and hands back pre-formatted display strings (see
+   `lib/mobo/executions.ts::mapExecutions`). This page does no
+   number/date formatting of its own, but it does derive the status
+   chip tone and the trade count from the mapped fields.
 
-   DATA REALITY: CRM is the only source wired, so every row is
-   system "CRM" / status "Confirmed" and NOTHING can disagree —
-   every break counter is 0 and the verdict is always clean. The
-   break-highlight cell paths (`missing` / `qtyBrk` / `priceBrk`)
-   are retained and simply never set; when a second source lands
-   the backend starts setting them and the red cells light up with
-   no change here.
+   `ref` / `group_ref` are intentionally never rendered as columns —
+   `group_ref` is used only as the row-selection/grouping key
+   (`ExecutionRow.groupRef`).
+
+   A degraded source (e.g. IB unconfigured) still returns HTTP 200
+   with that source's rows simply absent, so `data.warnings` is
+   surfaced as a notice above the table — otherwise a partial day
+   would look identical to a complete one.
+
+   Only PC rows carry a real lifecycle status (Filled/Canceled/
+   PartiallyFilled); for CRM and IB, `status` is a structural literal
+   ("a row exists therefore it executed"), so those chips render
+   with a neutral tone (`ExecutionRow.statusReal` distinguishes them).
 
    The Settlement tab reads `loadSettlement()`, which is EMPTY —
    its mock was deleted and no settlement source is wired yet.
@@ -37,19 +45,32 @@ import {
 } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
+import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
 import { TabBar } from "@/components/mobo/TabBar";
 import { DateControl } from "@/components/mobo/allocation/Panels";
-import { useTradeRecords } from "@/hooks/api/useTradeRecords";
+import { useExecutions } from "@/hooks/api/useExecutions";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
-import type { TradeRecordRowDTO } from "@/lib/mobo/types";
+import { mapExecutions, type ExecutionRow } from "@/lib/mobo/executions";
 import TradeReconciliationSkeleton from "./Skeleton";
 
-/* ---- day-token helpers — the API speaks raw IB `YYYYMMDD`, the
-   shared DateControl speaks `YYYY-MM-DD`. -------------------- */
-const toPickerKey = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-const toDayToken = (k: string) => k.replace(/-/g, "");
+/** Same UTC reasoning as `lib/mobo/executions.ts::fmtDate` — a bare
+ * "YYYY-MM-DD" parses as UTC midnight, so formatting it in browser-local
+ * time would shift it a day backwards for viewers west of UTC. */
+function fmtDayLabel(day: string | null): string {
+  if (!day) return "—";
+  const d = new Date(day);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** Only PC status is a real lifecycle value; CRM/IB status is structural. */
+function statusTone(r: ExecutionRow): ChipTone {
+  if (!r.statusReal) return "neutral";
+  if (r.status === "Filled") return "active";
+  if (r.status === "Canceled") return "failed";
+  return "pending"; // PartiallyFilled (or any other PC status)
+}
 
 function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
   if (!v) return <span className="text-secondary">—</span>;
@@ -57,27 +78,44 @@ function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
   return <span>{v}</span>;
 }
 
-function FlatRowTr({ r, ri, active, onClick }: { r: TradeRecordRowDTO; ri: number; active: boolean; onClick: () => void }) {
-  const miss = r.missing;
-  const bg = miss
-    ? "repeating-linear-gradient(45deg, transparent 0 6px, var(--surface-low) 6px 7px)"
-    : active ? "rgba(242,116,5,0.03)" : "transparent";
+const RIGHT_ALIGNED = new Set([6, 7, 14, 15, 16, 17, 18, 19, 20, 21]);
+
+function FlatRowTr({ r, ri, active, onClick }: { r: ExecutionRow; ri: number; active: boolean; onClick: () => void }) {
+  const bg = active ? "rgba(242,116,5,0.03)" : "transparent";
   const topBorder = ri === 0 ? "" : r.isFirst ? "border-t-2 border-outline-variant" : "border-t border-outline-variant";
-  const td = (content: ReactNode, extra?: string) => (
-    <td className={`px-3.5 py-2.5 ${topBorder} ${extra ?? ""}`} style={{ background: bg }}>{content}</td>
+  const td = (content: ReactNode, i: number) => (
+    <td
+      className={`px-3.5 py-2.5 ${topBorder} ${RIGHT_ALIGNED.has(i) ? "text-right tabular-nums" : ""}`}
+      style={{ background: bg }}
+    >
+      {content}
+    </td>
   );
   return (
     <tr onClick={onClick} className="cursor-pointer">
-      {td(<SysBadge sys={r.sys} />)}
-      {td(r.ref, "font-bold")}
-      {td(miss ? "—" : r.tradeDate)}
-      {td(miss ? "—" : r.mkt)}
-      {td(miss ? "—" : r.stock, miss ? "" : "font-bold")}
-      {td(miss ? <span className="text-secondary">—</span> : <BrkVal v={r.price} brk={r.priceBrk} />, "text-right tabular-nums")}
-      {td(miss ? <span className="text-secondary">—</span> : <BrkVal v={r.qty} brk={r.qtyBrk} />, "text-right tabular-nums")}
-      {td(miss ? "—" : r.txnType)}
-      {td(miss ? "—" : r.time, "text-secondary")}
-      {td(<Chip tone={r.status === "Confirmed" ? "active" : "neutral"} dot={false}>{r.status}</Chip>)}
+      {td(<SysBadge sys={r.system} />, 0)}
+      {td(r.grain, 1)}
+      {td(r.contract, 2)}
+      {td(r.underlying, 3)}
+      {td(r.expiry, 4)}
+      {td(r.right, 5)}
+      {td(r.strike, 6)}
+      {td(r.multiplier, 7)}
+      {td(r.securityType, 8)}
+      {td(r.currency, 9)}
+      {td(r.account, 10)}
+      {td(r.time, 11)}
+      {td(r.tradeDate, 12)}
+      {td(r.direction, 13)}
+      {td(r.qtySigned, 14)}
+      {td(<BrkVal v={r.qtyAbs} brk={false} />, 15)}
+      {td(<BrkVal v={r.price} brk={false} />, 16)}
+      {td(r.premiumSigned, 17)}
+      {td(r.premiumGross, 18)}
+      {td(r.fee, 19)}
+      {td(r.cashBeforeFees, 20)}
+      {td(r.cashAfterFees, 21)}
+      {td(<Chip tone={statusTone(r)} dot={false}>{r.status}</Chip>, 22)}
     </tr>
   );
 }
@@ -144,7 +182,11 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
   );
 }
 
-const TABLE_HEAD = ["System", "Ref #", "Trade Date", "Mkt", "Stock", "Price", "QTY", "Txn Type", "Time", "Status"];
+const TABLE_HEAD = [
+  "System", "Grain", "Contract", "Underlying", "Expiry", "Right", "Strike", "Mult", "Sec Type", "CCY",
+  "Account", "Time (ET)", "Trade Date", "Side", "Qty Signed", "QTY", "Price", "Premium", "Premium Gross",
+  "Fee", "Cash Pre-Fee", "Cash Post-Fee", "Status",
+];
 
 /* ---- THE records spreadsheet — ONE table for both scenarios.
    Breaks present → titled "Unreconciled records", open by default.
@@ -156,7 +198,7 @@ function RecordsTable({
 }: {
   title: string;
   subtitle: string;
-  rows: TradeRecordRowDTO[];
+  rows: ExecutionRow[];
   open: boolean;
   onToggle: () => void;
   selId: string | null;
@@ -172,13 +214,13 @@ function RecordsTable({
       </div>
       <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13.5px]">
+          <table className="w-full min-w-[2300px] border-collapse text-[13.5px]">
             <thead>
               <tr onClick={onToggle} className="cursor-pointer select-none">
                 {TABLE_HEAD.map((h, i) => (
                   <th
                     key={h}
-                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${i === 5 || i === 6 ? "text-right" : "text-left"}`}
+                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${RIGHT_ALIGNED.has(i) ? "text-right" : "text-left"}`}
                   >
                     {i === 0 ? (
                       <span className="flex items-center gap-1.5">
@@ -209,7 +251,9 @@ function RecordsTable({
                   </tr>
                 )}
                 {!error && rows.map((r, ri) => (
-                  <FlatRowTr key={`${r.ref}-${ri}`} r={r} ri={ri} active={selId === r.tradeId} onClick={() => onSelect(r.tradeId)} />
+                  // key/selection use groupRef — the mapper's unrendered grouping key, not
+                  // any visible column — so multi-row groups (order + its fills) select together.
+                  <FlatRowTr key={`${r.groupRef}-${ri}`} r={r} ri={ri} active={selId === r.groupRef} onClick={() => onSelect(r.groupRef)} />
                 ))}
               </tbody>
             )}
@@ -222,30 +266,33 @@ function RecordsTable({
 
 export default function TradeReconciliationPage() {
   const [day, setDay] = useState<string | undefined>(undefined);
-  const { data, loading, error } = useTradeRecords(day);
+  const { data, loading, error } = useExecutions(day);
   const settlementRows = loadSettlement();
 
   const [tab, setTab] = useState<"recon" | "settle">("recon");
   const [sel, setSel] = useState<string | null>(null);
   const toggle = (id: string) => setSel((s) => (s === id ? null : id));
 
-  const rows = data?.rows ?? [];
-  const dayLabel = data?.day ?? "—";
+  const rows = useMemo(() => mapExecutions(data), [data]);
+  const dayLabel = fmtDayLabel(data?.day ?? null);
+  // `data.days` is already "YYYY-MM-DD" — exactly what DateControl speaks — so
+  // it maps straight through with no token bridging.
   const pickerRuns = useMemo(
-    () => (data?.dates ?? []).map((d) => ({ date: toPickerKey(d), label: toPickerKey(d), grandTotal: 0 })),
-    [data?.dates],
+    () => (data?.days ?? []).map((d) => ({ date: d, label: d, grandTotal: 0 })),
+    [data?.days],
   );
 
-  // Single source (CRM) — nothing can disagree, so every break counter is 0
-  // and the day is always clean. These stay wired (not hardcoded away) so a
-  // second source only has to start reporting breaks.
+  // No reconciliation engine exists yet: /executions unions the three sources
+  // but compares nothing, so every break counter is 0 and the day always reads
+  // clean. These stay wired (not hardcoded away) so an engine only has to start
+  // reporting breaks. Deliberately out of scope for this pass.
   const totalBrk = 0;
   const qtyCat = 0;
   const priceCat = 0;
   const missCat = 0;
   const settleCat = 0;
   const isClean = totalBrk === 0;
-  const tradeCount = rows.filter((r) => r.txnType === "Order").length;
+  const tradeCount = rows.filter((r) => r.grain === "Order").length;
   const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
 
   // Breaks lead the page, so the table opens with them; a clean day opens
@@ -265,7 +312,7 @@ export default function TradeReconciliationPage() {
               <DateControl
                 dateLabel={dayLabel}
                 runs={pickerRuns}
-                onPickDate={(d) => setDay(toDayToken(d))}
+                onPickDate={setDay}
                 onPickRange={() => { /* range mode unused here — one day at a time */ }}
               />
               <Button variant="secondary" icon={Download}>Export</Button>
@@ -309,6 +356,16 @@ export default function TradeReconciliationPage() {
                 <div className="mb-1 text-[18px] font-bold text-on-surface">All {tradeCount} trades reconciled</div>
                 <div className="text-[14px] text-secondary">No breaks across CRM, IB, and Portfolio Commander for {dayLabel}.</div>
               </div>
+            </div>
+          )}
+
+          {!!data?.warnings.length && (
+            <div
+              className="mt-[18px] flex items-center gap-2 rounded-lg border-[1.5px] px-4 py-2.5 text-[13px]"
+              style={{ background: "#fff3e8", borderColor: "rgba(153,71,0,0.2)", color: "#994700" }}
+            >
+              <AlertCircle size={15} strokeWidth={2} />
+              <span>{data.warnings.join(" · ")}</span>
             </div>
           )}
 
