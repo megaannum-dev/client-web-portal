@@ -45,17 +45,17 @@ _FACTORIES: dict[str, Callable[[Session], ExecutionSource]] = {
 
 
 def _sort_key(row: UnifiedExecutionRow) -> tuple:
-    # None-safe: a missing trade_date/contract/group_ref/event_ts_utc must
+    # None-safe: a missing trade_date/descrpt/group_ref/txn_time_utc must
     # sort, not raise. Executions follow their own order
-    # (grain == "execution" -> True).
+    # (txn_type == "execution" -> True).
     return (
         row.trade_date is None,
         row.trade_date,
-        row.contract or "",
+        row.descrpt or "",
         row.group_ref or "",
-        row.grain == "execution",
-        row.event_ts_utc is None,
-        row.event_ts_utc,
+        row.txn_type == "execution",
+        row.txn_time_utc is None,
+        row.txn_time_utc,
     )
 
 
@@ -121,6 +121,6 @@ def build_view(
 
     rows.sort(key=_sort_key)
     if grain is not None:
-        rows = [r for r in rows if r.grain == grain]
+        rows = [r for r in rows if r.txn_type == grain]
 
     return UnifiedExecutionsViewOut(day=resolved_day, days=days, rows=rows, warnings=warnings)

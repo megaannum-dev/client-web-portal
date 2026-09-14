@@ -16,11 +16,12 @@ from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
 from app.libs.reconciliation.sources._transform import (
-    asset_category,
+    asset_class,
+    descrpt,
     flip_fee,
-    osi_strip,
     parse_day,
     parse_flex_ts,
+    venue,
 )
 from app.models.reconciliation import Order, Trade
 from app.schemas.unified_execution import UnifiedExecutionRow
@@ -43,36 +44,28 @@ def _row(
     rec: Order | Trade,
     *,
     grain: str,
-    ref: str | None,
     ts_primary: str | None,
     ts_fallback: str | None,
 ) -> UnifiedExecutionRow:
     qty_abs = abs(rec.quantity) if rec.quantity is not None else None
+    expiry = parse_day(rec.expiry)
     return UnifiedExecutionRow(
         system="CRM",
-        grain=grain,  # type: ignore[arg-type]
-        ref=ref or "",
+        txn_type=grain,  # type: ignore[arg-type]
         group_ref=rec.orderID or "",
-        contract=osi_strip(rec.symbol) or "",
-        underlying=rec.underlyingSymbol,
-        expiry=parse_day(rec.expiry),
-        right=rec.putCall,
-        strike=rec.strike,
-        multiplier=rec.multiplier,
-        security_type=asset_category(rec.assetCategory),
+        descrpt=descrpt(rec.underlyingSymbol, expiry, rec.putCall, rec.strike, rec.symbol),
+        exchange=venue(rec.exchange, rec.listingExchange),
+        asset_class=asset_class(rec.assetCategory, rec.putCall),
         currency=rec.currency,
         account=rec.accountId,
-        event_ts_utc=parse_flex_ts(ts_primary, ts_fallback),
+        txn_time_utc=parse_flex_ts(ts_primary, ts_fallback),
         trade_date=parse_day(rec.tradeDate),
         direction=_direction(rec.buySell, rec.quantity),  # type: ignore[arg-type]
-        qty_signed=rec.quantity,
-        qty_abs=qty_abs,
+        qty=qty_abs,
         price=rec.price,
-        premium_signed=rec.amount,
-        premium_gross=abs(rec.amount) if rec.amount is not None else None,
+        trade_amt=abs(rec.amount) if rec.amount is not None else None,
         fee=flip_fee(rec.commission),
-        cash_before_fees=rec.proceeds,
-        cash_after_fees=rec.netCash,
+        settlement_amt=rec.netCash,
         # IB has no lifecycle column: a row existing implies it executed.
         status="Filled",
     )
@@ -127,7 +120,6 @@ class CrmSource:
                 _row(
                     o,
                     grain="order",
-                    ref=o.orderID,
                     ts_primary=o.orderTime,
                     ts_fallback=o.dateTime,
                 )
@@ -137,10 +129,12 @@ class CrmSource:
                     _row(
                         t,
                         grain="execution",
-                        # tradeID not execID: execID is NULL on every BookTrade row
-                        # (expiries/assignments) — 34 of 856 — while tradeID is
-                        # populated on all. Mapping doc §4 warns the same for IB.
-                        ref=t.tradeID or t.execID,
+                        # ponytail: tradeID-over-execID no longer feeds a row
+                        # field (ref was dropped from UnifiedExecutionRow).
+                        # Kept as a note: execID is NULL on every BookTrade
+                        # row (expiries/assignments) — 34 of 856 — while
+                        # tradeID is populated on all; use tradeID as the key
+                        # if a per-row identity is ever re-added.
                         ts_primary=t.dateTime,
                         ts_fallback=t.orderTime,
                     )

@@ -47,7 +47,7 @@ def get_executions(
 
     `day` is a real ISO date (YYYY-MM-DD), unlike the legacy `/trade-records`
     route's raw YYYYMMDD token — FastAPI validates it. Day-scoping is on each
-    row's `trade_date` (the ET session date), not `event_ts_utc`. Omitted ->
+    row's `trade_date` (the ET session date), not `txn_time_utc`. Omitted ->
     the latest day across all requested sources.
 
     `system` is repeatable (`?system=CRM&system=PC`) and defaults to all

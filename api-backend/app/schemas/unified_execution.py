@@ -21,45 +21,29 @@ class UnifiedExecutionRow(BaseModel):
 
     # ---- identity / bookkeeping ----
     system: Literal["CRM", "IB", "PC"]
-    grain: Literal["order", "execution"]
-    # This row's own natural key, stringified. Per-source: CRM and IB both
-    # orderID/tradeID — the two systems carry the same Flex TCF schema, so they
-    # key identically (NOT execID: it is NULL/empty on every BookTrade expiry
-    # row, which would leave those rows with no identity at all); PC
-    # f"{source_run_id}|{lean_order_id}" for orders (composite is mandatory,
-    # lean_order_id restarts at 1 every run) / source_event_id for fills.
-    ref: str
-    # The parent order's key — fill rows nest under their order via this.
-    group_ref: str
-
-    # ---- instrument & context ----
-    contract: str  # OSI symbol, whitespace stripped (both IB and PC pad to 21 chars)
-    underlying: str | None
-    expiry: date | None
-    right: str | None  # 'C' | 'P'
-    strike: Decimal | None
-    multiplier: Decimal | None
-    security_type: str | None  # normalised to 'equity_option'
-    currency: str | None
     account: str | None
+    txn_type: Literal["order", "execution"]
+    descrpt: str | None  # derived: 'SPY 20AUG26 766 C', or osi_strip/underlying fallback
+    # 'exchange or listingExchange'. PC has no venue column at all -- a null
+    # here for a PC row is structural, not a data gap.
+    exchange: str | None
+    currency: str | None
+    asset_class: str | None  # derived: 'OPT-CALL' / 'OPT-PUT' / bare category
 
     # ---- time ----
-    event_ts_utc: datetime | None  # true instant, tz-aware UTC
     # ET session date — the column day-scoping filters use. Legitimately
-    # disagrees with event_ts_utc near midnight ET (e.g. an expiry stamped
+    # disagrees with txn_time_utc near midnight ET (e.g. an expiry stamped
     # 2026-08-12 01:24Z is trade_date 2026-08-11). Never derive one from the
     # other with a naive .date() — go through the source's own ET conversion.
     trade_date: date | None
 
     # ---- economics ----
     direction: Literal["BUY", "SELL"] | None
-    qty_signed: Decimal | None
-    qty_abs: Decimal | None  # carry both; abs(signed) == abs held in-sample but is not guaranteed
     # Fill price, or the quantity-weighted average at order grain (not last/nominal).
     # None on PC zero-fill cancelled orders. A rounded figure — compare with tolerance, never ==.
     price: Decimal | None
-    premium_signed: Decimal | None
-    premium_gross: Decimal | None
+    qty: Decimal | None
+    trade_amt: Decimal | None
     # Signed: POSITIVE = a charge, NEGATIVE = a rebate/credit. IB stores
     # commission as a negative charge, so the IB/CRM mappers sign-flip
     # (fee = -commission) and a positive IB commission correctly becomes a
@@ -70,13 +54,13 @@ class UnifiedExecutionRow(BaseModel):
     # proceeds (e.g. proceeds 6.0000, netCash 6.5306, commission +0.5306).
     # Mapping doc §7 check 3 asserts `fee >= 0` on all 446 rows — that holds
     # only for its narrow Aug-2026 extract, NOT for the full dataset.
-    # The real invariant is the cash identity below, which holds on every row.
+    # The real invariant is the cash identity, asserted in the mapper tests
+    # (test_unified.py) rather than encoded on the wire.
     fee: Decimal | None
-    # Derived identities that must hold to 1e-4 in every source:
-    #   cash_before_fees == -premium_signed
-    #   cash_after_fees  == cash_before_fees - fee
-    cash_before_fees: Decimal | None
-    cash_after_fees: Decimal | None
+    # settlement_amt == trade_amt(signed) - fee, per source; see the mapper
+    # tests (test_unified.py) for the identity check -- the signed
+    # intermediate (formerly cash_before_fees) no longer travels on the wire.
+    settlement_amt: Decimal | None
 
     # Not a cross-system attribute. Real values only from PC ('Filled' /
     # 'Canceled' at order grain, 'Filled' / 'PartiallyFilled' at execution
@@ -85,6 +69,11 @@ class UnifiedExecutionRow(BaseModel):
     # row exists therefore it executed"; IB has no lifecycle column at all.
     # Downstream UI should mark or grey this for non-PC rows.
     status: str | None
+    txn_time_utc: datetime | None  # true instant, tz-aware UTC
+
+    # The parent order's key — fill rows nest under their order via this.
+    # Kept on the wire but never rendered.
+    group_ref: str
 
 
 class UnifiedExecutionsViewOut(BaseModel):

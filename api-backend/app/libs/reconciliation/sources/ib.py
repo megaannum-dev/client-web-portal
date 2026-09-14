@@ -19,11 +19,12 @@ from typing import ClassVar, Literal
 from app.core.ib_flex import FlexFetcher, FlexUnavailable
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources._transform import (
-    asset_category,
+    asset_class,
+    descrpt,
     flip_fee,
-    osi_strip,
     parse_day,
     parse_flex_ts,
+    venue,
 )
 from app.schemas.unified_execution import UnifiedExecutionRow
 
@@ -60,37 +61,31 @@ def _row(
     rec: dict[str, str],
     *,
     grain: str,
-    ref: str,
     ts_primary: str | None,
     ts_fallback: str | None,
 ) -> UnifiedExecutionRow:
     quantity = _dec(rec.get("quantity"))
     amount = _dec(rec.get("amount"))
+    expiry = parse_day(rec.get("expiry"))
+    right = _opt(rec.get("putCall"))
+    strike = _dec(rec.get("strike"))
     return UnifiedExecutionRow(
         system="IB",
-        grain=grain,  # type: ignore[arg-type]
-        ref=ref,
+        txn_type=grain,  # type: ignore[arg-type]
         group_ref=rec.get("orderID") or "",
-        contract=osi_strip(rec.get("symbol")) or "",
-        underlying=_opt(rec.get("underlyingSymbol")),
-        expiry=parse_day(rec.get("expiry")),
-        right=_opt(rec.get("putCall")),
-        strike=_dec(rec.get("strike")),
-        multiplier=_dec(rec.get("multiplier")),
-        security_type=asset_category(_opt(rec.get("assetCategory"))),
+        descrpt=descrpt(_opt(rec.get("underlyingSymbol")), expiry, right, strike, rec.get("symbol")),
+        exchange=venue(_opt(rec.get("exchange")), _opt(rec.get("listingExchange"))),
+        asset_class=asset_class(_opt(rec.get("assetCategory")), right),
         currency=_opt(rec.get("currency")),
         account=_opt(rec.get("accountId")),
-        event_ts_utc=parse_flex_ts(ts_primary, ts_fallback),
+        txn_time_utc=parse_flex_ts(ts_primary, ts_fallback),
         trade_date=parse_day(rec.get("tradeDate")),
         direction=_direction(_opt(rec.get("buySell")), quantity),  # type: ignore[arg-type]
-        qty_signed=quantity,
-        qty_abs=abs(quantity) if quantity is not None else None,
+        qty=abs(quantity) if quantity is not None else None,
         price=_dec(rec.get("price")),
-        premium_signed=amount,
-        premium_gross=abs(amount) if amount is not None else None,
+        trade_amt=abs(amount) if amount is not None else None,
         fee=flip_fee(rec.get("commission")),
-        cash_before_fees=_dec(rec.get("proceeds")),
-        cash_after_fees=_dec(rec.get("netCash")),
+        settlement_amt=_dec(rec.get("netCash")),
         # IB has no lifecycle column: a row existing implies it executed.
         status="Filled",
     )
@@ -125,7 +120,6 @@ class IbSource:
                 _row(
                     o,
                     grain="order",
-                    ref=order_id,
                     ts_primary=o.get("orderTime"),
                     ts_fallback=o.get("dateTime"),
                 )
@@ -135,9 +129,11 @@ class IbSource:
                     _row(
                         f,
                         grain="execution",
-                        # tradeID not execID: execID is empty on BookTrade rows
-                        # (expiries/assignments). Mirrors crm.py.
-                        ref=f.get("tradeID") or f.get("execID") or "",
+                        # ponytail: tradeID-over-execID no longer feeds a row
+                        # field (ref was dropped from UnifiedExecutionRow).
+                        # Kept as a note: execID is NULL/empty on every
+                        # BookTrade expiry/assignment row, so tradeID is the
+                        # key to use if a per-row identity is ever re-added.
                         ts_primary=f.get("dateTime"),
                         ts_fallback=f.get("orderTime"),
                     )
