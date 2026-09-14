@@ -52,6 +52,7 @@ export const ENDPOINTS = {
   },
   MOBO: {
     TRADE_RECORDS: `${MOBO}/trade-records`,
+    EXECUTIONS:    `${MOBO}/executions`,
     PTA:      `${MOBO}/post-trade-allocation`,
     PTA_RUNS: `${MOBO}/post-trade-allocation/runs`,
     PTA_RUN:  `${MOBO}/post-trade-allocation/run`,
