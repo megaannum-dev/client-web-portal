@@ -136,7 +136,7 @@ class CrmSource:
                 out.append(
                     _row(
                         t,
-                        grain="fill",
+                        grain="execution",
                         # tradeID not execID: execID is NULL on every BookTrade row
                         # (expiries/assignments) — 34 of 856 — while tradeID is
                         # populated on all. Mapping doc §4 warns the same for IB.

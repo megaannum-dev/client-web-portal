@@ -5,7 +5,7 @@ drop directory or the Flex Web Service) into ``UnifiedExecutionRow``. Swapping
 a source's backing store means replacing its module, not this seam — see
 ``app.core.storage`` for the same pattern applied to file storage.
 
-Filtering by grain (order vs fill) is the caller's job, not the source's.
+Filtering by grain (order vs execution) is the caller's job, not the source's.
 """
 
 from __future__ import annotations
@@ -43,5 +43,5 @@ class ExecutionSource(Protocol):
         ...
 
     def rows(self, day: date) -> list[UnifiedExecutionRow]:
-        """Both grains for one ET session date, each order followed by its fills."""
+        """Both grains for one ET session date, each order followed by its executions."""
         ...

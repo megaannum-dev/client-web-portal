@@ -134,7 +134,7 @@ class IbSource:
                 out.append(
                     _row(
                         f,
-                        grain="fill",
+                        grain="execution",
                         # tradeID not execID: execID is empty on BookTrade rows
                         # (expiries/assignments). Mirrors crm.py.
                         ref=f.get("tradeID") or f.get("execID") or "",

@@ -46,13 +46,14 @@ _FACTORIES: dict[str, Callable[[Session], ExecutionSource]] = {
 
 def _sort_key(row: UnifiedExecutionRow) -> tuple:
     # None-safe: a missing trade_date/contract/group_ref/event_ts_utc must
-    # sort, not raise. Fills follow their own order (grain == "fill" -> True).
+    # sort, not raise. Executions follow their own order
+    # (grain == "execution" -> True).
     return (
         row.trade_date is None,
         row.trade_date,
         row.contract or "",
         row.group_ref or "",
-        row.grain == "fill",
+        row.grain == "execution",
         row.event_ts_utc is None,
         row.event_ts_utc,
     )

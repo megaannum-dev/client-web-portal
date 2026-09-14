@@ -185,7 +185,7 @@ def _cash_identity_row(
     elif system == "CRM":
         row = crm_row(
             _crm_trade(),
-            grain="fill",
+            grain="execution",
             ref="T123",
             ts_primary="20260811;093001",
             ts_fallback="20260811;093000",
@@ -193,7 +193,7 @@ def _cash_identity_row(
     else:  # IB
         row = ib_row(
             _ib_fill(),
-            grain="fill",
+            grain="execution",
             ref="T456",
             ts_primary="20260811;093001",
             ts_fallback="20260811;093000",
@@ -223,7 +223,7 @@ def test_crm_rebate_row_yields_negative_fee_not_clamped_to_zero() -> None:
     trade = _crm_trade(
         commission=Decimal("0.5306"), proceeds=Decimal("6.0000"), netCash=Decimal("6.5306")
     )
-    row = crm_row(trade, grain="fill", ref="T123", ts_primary="20260811;093001", ts_fallback=None)
+    row = crm_row(trade, grain="execution", ref="T123", ts_primary="20260811;093001", ts_fallback=None)
     assert row.fee == Decimal("-0.5306")
 
 
@@ -252,7 +252,7 @@ def test_crm_source_rows_prefer_tradeid_over_empty_execid(session) -> None:
 
     source = CrmSource(session)
     rows = source.rows(date(2026, 8, 11))
-    fill_rows = [r for r in rows if r.grain == "fill"]
+    fill_rows = [r for r in rows if r.grain == "execution"]
     assert len(fill_rows) == 1
     assert fill_rows[0].ref == "T123"
     assert fill_rows[0].ref != ""
@@ -265,7 +265,7 @@ def test_ib_source_rows_prefer_tradeid_over_empty_execid() -> None:
     fetcher = _FakeFetcher(FlexRows(orders=[order], fills=[fill]))
     source = IbSource(fetcher)
     rows = source.rows(date(2026, 8, 11))
-    fill_rows = [r for r in rows if r.grain == "fill"]
+    fill_rows = [r for r in rows if r.grain == "execution"]
     assert len(fill_rows) == 1
     assert fill_rows[0].ref == "T456"
     assert fill_rows[0].ref != ""
@@ -366,12 +366,12 @@ def test_build_view_orders_each_order_followed_by_its_own_fills(session) -> None
 
     out = build_view(session, day=date(2026, 8, 11), systems=["CRM"], grain=None)
     seq = [(r.grain, r.group_ref) for r in out.rows]
-    # Walk the sequence: every "fill" must immediately follow an "order" (or
+    # Walk the sequence: every "execution" must immediately follow an "order" (or
     # another fill) sharing the same group_ref -- i.e. each order's own fills
     # are contiguous with it, never interleaved with another order's rows.
     order_positions = {ref: i for i, (grain, ref) in enumerate(seq) if grain == "order"}
     for i, (grain, ref) in enumerate(seq):
-        if grain == "fill":
+        if grain == "execution":
             assert ref in order_positions
             order_idx = order_positions[ref]
             block = seq[order_idx : i + 1]
