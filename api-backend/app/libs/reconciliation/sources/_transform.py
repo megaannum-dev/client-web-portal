@@ -86,11 +86,46 @@ def parse_flex_ts(primary: str | None, fallback: str | None) -> datetime | None:
     return et_to_utc(naive_et)
 
 
-def asset_category(v: str | None) -> str | None:
-    """'OPT' -> 'equity_option'. Pass through anything else unchanged."""
-    if v == "OPT":
-        return "equity_option"
-    return v
+def descrpt(
+    underlying: str | None,
+    expiry: date | None,
+    right: str | None,
+    strike: Decimal | None,
+    contract: str | None,
+) -> str | None:
+    """'SPY' + 2026-08-20 + 'C' + Decimal('766.0000') -> 'SPY 20AUG26 766 C'.
+
+    Any of underlying/expiry/right/strike missing (a non-option row) falls
+    back to osi_strip(contract), then underlying, then None. Never raises.
+    """
+    if underlying and expiry and right and strike is not None:
+        n = strike.normalize()
+        if n == n.to_integral():
+            n = n.quantize(Decimal(1))
+        return f"{underlying} {expiry.strftime('%d%b%y').upper()} {n} {right.upper()}"
+    return osi_strip(contract) or underlying or None
+
+
+def asset_class(security_type: str | None, right: str | None) -> str | None:
+    """Fold of the old asset_category(): {'OPT','equity_option'} -> 'OPT',
+    then '-CALL'/'-PUT' appended from right. Unknown security_type passes
+    through upper-cased; missing right -> bare category.
+    """
+    if security_type is None:
+        return None
+    cat = "OPT" if security_type in ("OPT", "equity_option") else security_type.upper()
+    if not right:
+        return cat
+    suffix = "CALL" if right.upper() == "C" else "PUT" if right.upper() == "P" else None
+    return f"{cat}-{suffix}" if suffix else cat
+
+
+def venue(exchange: str | None, listing: str | None) -> str | None:
+    """'exchange or listingExchange'. Mirrors records.py:82 _market() -- a
+    2-line copy here rather than importing the legacy records module into
+    sources/ (wrong dependency direction).
+    """
+    return exchange or listing or None
 
 
 def flip_fee(commission: Decimal | str | None) -> Decimal | None:
@@ -141,6 +176,23 @@ def demo() -> None:
     expected = datetime(2026, 8, 11, 19, 45, 1, tzinfo=ZoneInfo("UTC"))
     assert parse_flex_ts("20260811;154501", None) == expected
     assert parse_flex_ts("", "20260811;154501") == expected
+
+    # 7. descrpt -- canonical, fractional strike, non-option fallback.
+    assert descrpt("SPY", date(2026, 8, 20), "C", Decimal("766.0000"), None) == "SPY 20AUG26 766 C"
+    assert descrpt("SPY", date(2026, 8, 20), "P", Decimal("767.50"), None) == "SPY 20AUG26 767.5 P"
+    assert descrpt(None, None, None, None, "SPY   260828C00774000") == "SPY260828C00774000"
+    assert descrpt(None, None, None, None, None) is None
+
+    # 8. asset_class.
+    assert asset_class("equity_option", "C") == "OPT-CALL"
+    assert asset_class("OPT", "P") == "OPT-PUT"
+    assert asset_class("STK", None) == "STK"
+    assert asset_class(None, "C") is None
+
+    # 9. venue.
+    assert venue("CBOE", None) == "CBOE"
+    assert venue(None, "CBOE2") == "CBOE2"
+    assert venue(None, None) is None
 
     print("app.libs.reconciliation.sources._transform: all checks passed")
 
