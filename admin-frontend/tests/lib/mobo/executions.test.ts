@@ -44,7 +44,7 @@ function view(rows: UnifiedExecutionRowDTO[]): UnifiedExecutionsViewDTO {
 describe("mapExecutions — isFirst grouping and order", () => {
   it("is true only on the first row of each contiguous group_ref run, false otherwise", () => {
     // A, A, B, A — last A is a NEW run (compares only to the immediately
-    // previous row, per the backend's pre-sorted-fills-under-parent-order guarantee)
+    // previous row, per the backend's pre-sorted-executions-under-parent-order guarantee)
     const rows = [
       row({ ref: "1", group_ref: "A" }),
       row({ ref: "2", group_ref: "A" }),
@@ -195,10 +195,10 @@ describe("mapExecutions — trivia", () => {
     expect(mapExecutions(view([]))).toEqual([]);
   });
 
-  it("maps grain 'order' -> 'Order' and 'fill' -> 'Fill'", () => {
-    const out = mapExecutions(view([row({ grain: "order" }), row({ grain: "fill" })]));
+  it("maps grain 'order' -> 'Order' and 'execution' -> 'Execution'", () => {
+    const out = mapExecutions(view([row({ grain: "order" }), row({ grain: "execution" })]));
     expect(out[0].grain).toBe("Order");
-    expect(out[1].grain).toBe("Fill");
+    expect(out[1].grain).toBe("Execution");
   });
 
   it("statusReal is true only for system 'PC'", () => {

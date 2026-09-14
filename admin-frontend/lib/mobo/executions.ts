@@ -4,7 +4,7 @@
    Wire contract mirrors api-backend/app/schemas/unified_execution.py
    field-for-field: snake_case, no aliases. Decimal -> JSON string,
    date -> "YYYY-MM-DD", datetime -> ISO-8601 with offset. Do not
-   re-sort `rows` — the backend pre-sorts fills under their parent
+   re-sort `rows` — the backend pre-sorts executions under their parent
    order and this mapper relies on that order to derive `isFirst`.
    ============================================================ */
 
@@ -12,7 +12,7 @@
 
 export interface UnifiedExecutionRowDTO {
   system: "CRM" | "IB" | "PC";
-  grain: "order" | "fill";
+  grain: "order" | "execution";
   ref: string;
   group_ref: string;
 
@@ -142,7 +142,7 @@ export function mapExecutions(view: UnifiedExecutionsViewDTO | null): ExecutionR
   const rows = view.rows;
   return rows.map((r, i) => ({
     system: r.system,
-    grain: r.grain === "order" ? "Order" : "Fill",
+    grain: r.grain === "order" ? "Order" : "Execution",
     contract: dash(r.contract),
     underlying: dash(r.underlying),
     expiry: fmtDate(r.expiry),

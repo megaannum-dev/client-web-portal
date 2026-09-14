@@ -41,7 +41,7 @@ def get_executions(
     _: Annotated[User, Depends(require_action(Action.RECON_VIEW))],
     day: date | None = None,
     system: Annotated[list[Literal["CRM", "IB", "PC"]] | None, Query()] = None,
-    grain: Literal["order", "fill"] | None = None,
+    grain: Literal["order", "execution"] | None = None,
 ) -> UnifiedExecutionsViewOut:
     """Unified CRM+IB+PC executions for one ET session date.
 

@@ -78,7 +78,7 @@ def _order_row(o: PcOrder) -> UnifiedExecutionRow:
 def _trade_row(t: PcTrade) -> UnifiedExecutionRow:
     return UnifiedExecutionRow(
         system="PC",
-        grain="fill",
+        grain="execution",
         ref=t.source_event_id,
         group_ref=f"{t.source_run_id}|{t.lean_order_id}",
         contract=osi_strip(t.symbol) or "",

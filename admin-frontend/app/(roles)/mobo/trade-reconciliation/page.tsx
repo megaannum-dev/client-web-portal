@@ -252,7 +252,7 @@ function RecordsTable({
                 )}
                 {!error && rows.map((r, ri) => (
                   // key/selection use groupRef — the mapper's unrendered grouping key, not
-                  // any visible column — so multi-row groups (order + its fills) select together.
+                  // any visible column — so multi-row groups (order + its executions) select together.
                   <FlatRowTr key={`${r.groupRef}-${ri}`} r={r} ri={ri} active={selId === r.groupRef} onClick={() => onSelect(r.groupRef)} />
                 ))}
               </tbody>

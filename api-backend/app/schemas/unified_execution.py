@@ -21,9 +21,11 @@ class UnifiedExecutionRow(BaseModel):
 
     # ---- identity / bookkeeping ----
     system: Literal["CRM", "IB", "PC"]
-    grain: Literal["order", "fill"]
-    # This row's own natural key, stringified. Per-source: CRM orderID/execID;
-    # IB orderID/tradeID (NOT execID — empty on BookTrade expiry rows); PC
+    grain: Literal["order", "execution"]
+    # This row's own natural key, stringified. Per-source: CRM and IB both
+    # orderID/tradeID — the two systems carry the same Flex TCF schema, so they
+    # key identically (NOT execID: it is NULL/empty on every BookTrade expiry
+    # row, which would leave those rows with no identity at all); PC
     # f"{source_run_id}|{lean_order_id}" for orders (composite is mandatory,
     # lean_order_id restarts at 1 every run) / source_event_id for fills.
     ref: str
@@ -77,7 +79,8 @@ class UnifiedExecutionRow(BaseModel):
     cash_after_fees: Decimal | None
 
     # Not a cross-system attribute. Real values only from PC ('Filled' /
-    # 'Canceled' at order grain, 'Filled' / 'PartiallyFilled' at fill grain).
+    # 'Canceled' at order grain, 'Filled' / 'PartiallyFilled' at execution
+    # grain).
     # For IB and CRM this is the structural literal 'Filled' — asserting "a
     # row exists therefore it executed"; IB has no lifecycle column at all.
     # Downstream UI should mark or grey this for non-PC rows.
