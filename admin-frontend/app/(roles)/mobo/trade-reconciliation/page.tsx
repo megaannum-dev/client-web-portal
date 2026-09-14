@@ -295,9 +295,11 @@ export default function TradeReconciliationPage() {
   const tradeCount = rows.filter((r) => r.grain === "Order").length;
   const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
 
-  // Breaks lead the page, so the table opens with them; a clean day opens
-  // collapsed behind the green verdict.
-  const [open, setOpen] = useState(!isClean);
+  // Open by default. The original design collapsed a "clean" day behind the
+  // green verdict, but isClean is pinned true until a reconciliation engine
+  // exists, which collapsed the table on EVERY load and hid the entire unified
+  // view. The header row still toggles it shut.
+  const [open, setOpen] = useState(true);
 
   if (loading && !data) return <TradeReconciliationSkeleton />;
 
