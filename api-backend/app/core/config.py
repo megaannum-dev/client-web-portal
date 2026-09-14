@@ -31,17 +31,16 @@ class Settings(BaseSettings):
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
 
-    # Trade reconciliation — abs-delta tolerance for notional comparisons (BE-7)
-    recon_notional_epsilon: str = "0.01"
-
     # Bootstrap CLI — pre-seeded Super Admin (BE-20)
     bootstrap_admin_email: str | None = None
     bootstrap_admin_name: str = "Bootstrap Admin"
 
-    # EoD PDF rendering — feature 015 (BE-9)
-    pdf_renderer: str = "simple"  # "simple" (fpdf2, default) | "chromium" (Playwright)
-    pdf_render_base_url: str = "http://localhost:3001"
-    pdf_render_token: str = ""
+    # IB Flex — two interchangeable transports (mirrors storage_backend: "local"|"nas")
+    ib_flex_transport: str = "drop"  # "drop" (daily SFTP-populated dir) | "live" (Flex Web Service)
+    ib_flex_drop_root: str | None = None  # e.g. /srv/mega-crm-ib-flex | C:\...\mega-crm-ib-flex
+    ib_flex_token: str | None = None
+    ib_flex_query_id: str | None = None
+    ib_flex_cache_ttl_seconds: int = 900
 
 
 @lru_cache

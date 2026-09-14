@@ -3,6 +3,7 @@
 import { apiClient, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
 import type { PtaViewDTO, PtaRunsDTO, PtaRunResultDTO, PtaHistoryDTO, TradeRecordsViewDTO } from "@/lib/mobo/types";
+import type { UnifiedExecutionsViewDTO } from "@/lib/mobo/executions";
 
 export type { APIResult };
 
@@ -12,6 +13,14 @@ export async function getTradeRecords(date?: string): Promise<APIResult<TradeRec
     ? `${ENDPOINTS.MOBO.TRADE_RECORDS}?date=${encodeURIComponent(date)}`
     : ENDPOINTS.MOBO.TRADE_RECORDS;
   return apiClient<TradeRecordsViewDTO>(path);
+}
+
+/** GET the unified CRM/IB/PC executions view; omitted day = latest day present. */
+export async function getExecutions(day?: string): Promise<APIResult<UnifiedExecutionsViewDTO>> {
+  const path = day
+    ? `${ENDPOINTS.MOBO.EXECUTIONS}?day=${encodeURIComponent(day)}`
+    : ENDPOINTS.MOBO.EXECUTIONS;
+  return apiClient<UnifiedExecutionsViewDTO>(path);
 }
 
 /** GET the view for a trade date; omitted date = most recent run (§4.1). */

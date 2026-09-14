@@ -11,8 +11,7 @@ unit fixes):
   user` -- `user.admin_profile` is loaded ON THE INSTANCE before the seed
   session closes, so `access.resolver.actions_for` (which reads
   `user.admin_profile.role`) never lazy-loads a relationship on a detached
-  instance. Root cause verified at tests/libs/eod/test_be10_router.py's
-  pre-fix fixture shape.
+  instance.
 
 - `FakeIdentityService`: the one test double for
   `app.libs.identity.service.FirebaseIdentityService`, superset of the three

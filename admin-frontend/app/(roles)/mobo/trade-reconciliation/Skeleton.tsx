@@ -1,7 +1,9 @@
 // Server component: no "use client", no hooks, no props. Mirrors page.tsx's
 // own wrapper + the default "recon" tab: 5 MetricStat tiles, the SegBar, and
-// the RecordsTable spreadsheet (10 columns per TABLE_HEAD in page.tsx).
+// the RecordsTable spreadsheet (23 columns per TABLE_HEAD in page.tsx).
 import { Skeleton } from "@/components/ui/skeleton";
+
+const COLS = 23;
 
 export default function TradeReconciliationSkeleton() {
   return (
@@ -36,27 +38,24 @@ export default function TradeReconciliationSkeleton() {
 
       <Skeleton className="h-3 w-full rounded-full" />
 
-      {/* Records spreadsheet — 10 columns */}
+      {/* Records spreadsheet — 23 columns, scrolls instead of squashing */}
       <div className="mt-[22px] overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
-        <div className="grid grid-cols-10 gap-3.5 bg-surface-low px-3.5 py-2.5">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-3.5 w-full" />
-          ))}
-        </div>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-10 items-center gap-3.5 border-t border-outline-variant px-3.5 py-2.5">
-            <Skeleton className="h-5 w-12 rounded" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-10" />
-            <Skeleton className="h-4 w-14" />
-            <Skeleton className="h-4 w-12 ml-auto" />
-            <Skeleton className="h-4 w-10 ml-auto" />
-            <Skeleton className="h-4 w-14" />
-            <Skeleton className="h-4 w-14" />
-            <Skeleton className="h-5 w-16 rounded-full" />
+        <div className="overflow-x-auto">
+          <div className="min-w-[2300px]">
+            <div className="grid grid-cols-[repeat(23,minmax(0,1fr))] gap-3.5 bg-surface-low px-3.5 py-2.5">
+              {Array.from({ length: COLS }).map((_, i) => (
+                <Skeleton key={i} className="h-3.5 w-full" />
+              ))}
+            </div>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-[repeat(23,minmax(0,1fr))] items-center gap-3.5 border-t border-outline-variant px-3.5 py-2.5">
+                {Array.from({ length: COLS }).map((_, j) => (
+                  <Skeleton key={j} className="h-4 w-full" />
+                ))}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
