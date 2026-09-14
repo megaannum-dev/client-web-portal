@@ -12,34 +12,24 @@
 
 export interface UnifiedExecutionRowDTO {
   system: "CRM" | "IB" | "PC";
-  grain: "order" | "execution";
-  ref: string;
-  group_ref: string;
-
-  contract: string;
-  underlying: string | null;
-  expiry: string | null; // date
-  right: string | null;
-  strike: string | null; // Decimal-as-string
-  multiplier: string | null;
-  security_type: string | null;
-  currency: string | null;
   account: string | null;
+  txn_type: "order" | "execution";
+  descrpt: string | null; // display-ready, e.g. "SPY 20AUG26 766 C"
+  exchange: string | null; // null on PC — structural, not a gap
+  currency: string | null;
+  asset_class: string | null; // display-ready, e.g. "OPT-CALL"
 
-  event_ts_utc: string | null; // ISO datetime, UTC
   trade_date: string | null; // date
-
   direction: "BUY" | "SELL" | null;
-  qty_signed: string | null;
-  qty_abs: string | null;
   price: string | null;
-  premium_signed: string | null;
-  premium_gross: string | null;
+  qty: string | null;
+  trade_amt: string | null;
   fee: string | null;
-  cash_before_fees: string | null;
-  cash_after_fees: string | null;
-
+  settlement_amt: string | null;
   status: string | null;
+  txn_time_utc: string | null; // ISO datetime, UTC
+
+  group_ref: string; // unrendered — grouping + row-selection key
 }
 
 export interface UnifiedExecutionsViewDTO {
@@ -53,28 +43,21 @@ export interface UnifiedExecutionsViewDTO {
 
 export interface ExecutionRow {
   system: "CRM" | "IB" | "PC"; // raw — SysBadge takes it verbatim
-  grain: string;
-  contract: string;
-  underlying: string;
-  expiry: string;
-  right: string;
-  strike: string;
-  multiplier: string;
-  securityType: string;
-  currency: string;
   account: string;
-  time: string;
+  txnType: string;
+  descrpt: string;
+  exchange: string;
+  currency: string;
+  assetClass: string;
   tradeDate: string;
   direction: string;
-  qtySigned: string;
-  qtyAbs: string;
   price: string;
-  premiumSigned: string;
-  premiumGross: string;
+  qty: string;
+  tradeAmt: string;
   fee: string;
-  cashBeforeFees: string;
-  cashAfterFees: string;
+  settlementAmt: string;
   status: string;
+  txnTime: string;
 
   groupRef: string; // unrendered — grouping + row-selection key
   isFirst: boolean; // true on the first row of each group_ref run
@@ -142,28 +125,21 @@ export function mapExecutions(view: UnifiedExecutionsViewDTO | null): ExecutionR
   const rows = view.rows;
   return rows.map((r, i) => ({
     system: r.system,
-    grain: r.grain === "order" ? "Order" : "Execution",
-    contract: dash(r.contract),
-    underlying: dash(r.underlying),
-    expiry: fmtDate(r.expiry),
-    right: dash(r.right),
-    strike: fmtNum(r.strike),
-    multiplier: fmtNum(r.multiplier),
-    securityType: dash(r.security_type),
-    currency: dash(r.currency),
     account: dash(r.account),
-    time: fmtEtTime(r.event_ts_utc),
+    txnType: r.txn_type === "order" ? "Order" : "Execution",
+    descrpt: dash(r.descrpt),
+    exchange: dash(r.exchange),
+    currency: dash(r.currency),
+    assetClass: dash(r.asset_class),
     tradeDate: fmtDate(r.trade_date),
     direction: dash(r.direction),
-    qtySigned: fmtNum(r.qty_signed),
-    qtyAbs: fmtNum(r.qty_abs),
     price: fmtMoney(r.price),
-    premiumSigned: fmtMoney(r.premium_signed),
-    premiumGross: fmtMoney(r.premium_gross),
+    qty: fmtNum(r.qty),
+    tradeAmt: fmtMoney(r.trade_amt),
     fee: fmtMoney(r.fee),
-    cashBeforeFees: fmtMoney(r.cash_before_fees),
-    cashAfterFees: fmtMoney(r.cash_after_fees),
+    settlementAmt: fmtMoney(r.settlement_amt),
     status: dash(r.status),
+    txnTime: fmtEtTime(r.txn_time_utc),
 
     groupRef: r.group_ref,
     isFirst: i === 0 || rows[i - 1].group_ref !== r.group_ref,

@@ -9,30 +9,22 @@ import type { UnifiedExecutionRowDTO, UnifiedExecutionsViewDTO } from "@/lib/mob
 function row(overrides: Partial<UnifiedExecutionRowDTO> = {}): UnifiedExecutionRowDTO {
   return {
     system: "CRM",
-    grain: "order",
-    ref: "ref-1",
-    group_ref: "grp-1",
-    contract: "AAPL   260815C00200000",
-    underlying: "AAPL",
-    expiry: "2026-08-15",
-    right: "C",
-    strike: "200",
-    multiplier: "100",
-    security_type: "equity_option",
-    currency: "USD",
     account: "ACC-1",
-    event_ts_utc: "2026-08-11T14:24:00Z",
+    txn_type: "order",
+    descrpt: "AAPL 15AUG26 200 C",
+    exchange: "NASDAQ",
+    currency: "USD",
+    asset_class: "OPT-CALL",
     trade_date: "2026-08-11",
     direction: "BUY",
-    qty_signed: "10",
-    qty_abs: "10",
     price: "1.5",
-    premium_signed: "150",
-    premium_gross: "150",
+    qty: "10",
+    trade_amt: "150",
     fee: "0.53",
-    cash_before_fees: "-150",
-    cash_after_fees: "-150.53",
+    settlement_amt: "-150.53",
     status: "Filled",
+    txn_time_utc: "2026-08-11T14:24:00Z",
+    group_ref: "grp-1",
     ...overrides,
   };
 }
@@ -46,10 +38,10 @@ describe("mapExecutions — isFirst grouping and order", () => {
     // A, A, B, A — last A is a NEW run (compares only to the immediately
     // previous row, per the backend's pre-sorted-executions-under-parent-order guarantee)
     const rows = [
-      row({ ref: "1", group_ref: "A" }),
-      row({ ref: "2", group_ref: "A" }),
-      row({ ref: "3", group_ref: "B" }),
-      row({ ref: "4", group_ref: "A" }),
+      row({ group_ref: "A" }),
+      row({ group_ref: "A" }),
+      row({ group_ref: "B" }),
+      row({ group_ref: "A" }),
     ];
     const out = mapExecutions(view(rows));
     expect(out.map((r) => r.isFirst)).toEqual([true, false, true, true]);
@@ -57,9 +49,9 @@ describe("mapExecutions — isFirst grouping and order", () => {
 
   it("preserves input order without sorting or filtering", () => {
     const rows = [
-      row({ ref: "1", group_ref: "Z" }),
-      row({ ref: "2", group_ref: "A" }),
-      row({ ref: "3", group_ref: "M" }),
+      row({ group_ref: "Z" }),
+      row({ group_ref: "A" }),
+      row({ group_ref: "M" }),
     ];
     const out = mapExecutions(view(rows));
     expect(out.map((r) => r.groupRef)).toEqual(["Z", "A", "M"]);
@@ -69,50 +61,38 @@ describe("mapExecutions — isFirst grouping and order", () => {
 describe("mapExecutions — nulls", () => {
   it("renders every nullable field as \"—\" and never NaN/Invalid Date/$NaN/empty string", () => {
     const nullRow = row({
-      underlying: null,
-      expiry: null,
-      right: null,
-      strike: null,
-      multiplier: null,
-      security_type: null,
-      currency: null,
       account: null,
-      event_ts_utc: null,
+      descrpt: null,
+      exchange: null,
+      currency: null,
+      asset_class: null,
       trade_date: null,
       direction: null,
-      qty_signed: null,
-      qty_abs: null,
       price: null,
-      premium_signed: null,
-      premium_gross: null,
+      qty: null,
+      trade_amt: null,
       fee: null,
-      cash_before_fees: null,
-      cash_after_fees: null,
+      settlement_amt: null,
       status: null,
+      txn_time_utc: null,
     });
     const [out] = mapExecutions(view([nullRow]));
 
     const nullableFields: (keyof typeof out)[] = [
-      "underlying",
-      "expiry",
-      "right",
-      "strike",
-      "multiplier",
-      "securityType",
-      "currency",
       "account",
-      "time",
+      "descrpt",
+      "exchange",
+      "currency",
+      "assetClass",
       "tradeDate",
       "direction",
-      "qtySigned",
-      "qtyAbs",
       "price",
-      "premiumSigned",
-      "premiumGross",
+      "qty",
+      "tradeAmt",
       "fee",
-      "cashBeforeFees",
-      "cashAfterFees",
+      "settlementAmt",
       "status",
+      "txnTime",
     ];
     for (const field of nullableFields) {
       expect(out[field]).toBe("—");
@@ -138,24 +118,14 @@ describe("mapExecutions — signed fields", () => {
     const [out] = mapExecutions(view([row({ fee: "0.5306" })]));
     expect(out.fee).toBe("$0.53");
   });
-
-  it("renders a negative qty_signed (SELL) with a visible minus sign", () => {
-    const [out] = mapExecutions(view([row({ qty_signed: "-10" })]));
-    expect(out.qtySigned).toBe("-10");
-  });
-
-  it("renders a positive qty_signed with no minus sign", () => {
-    const [out] = mapExecutions(view([row({ qty_signed: "10" })]));
-    expect(out.qtySigned).toBe("10");
-  });
 });
 
 describe("mapExecutions — ET time rendering (timezone-independent)", () => {
-  it("renders event_ts_utc in America/New_York regardless of the runner's local timezone", () => {
+  it("renders txn_time_utc in America/New_York regardless of the runner's local timezone", () => {
     // Documented example: an instant just after UTC midnight is still the
     // previous evening in ET, and trade_date correctly stays on that prior day.
     const [out] = mapExecutions(
-      view([row({ event_ts_utc: "2026-08-12T01:24:00Z", trade_date: "2026-08-11" })]),
+      view([row({ txn_time_utc: "2026-08-12T01:24:00Z", trade_date: "2026-08-11" })]),
     );
 
     // Compute the expected ET wall-clock time independently of any hardcoded
@@ -168,8 +138,8 @@ describe("mapExecutions — ET time rendering (timezone-independent)", () => {
       timeZone: "America/New_York",
     });
 
-    expect(out.time).toBe(expected);
-    expect(out.time).toContain("9:24:00 PM"); // evening ET, not the UTC hour
+    expect(out.txnTime).toBe(expected);
+    expect(out.txnTime).toContain("9:24:00 PM"); // evening ET, not the UTC hour
     expect(out.tradeDate).toBe("Aug 11, 2026");
   });
 });
@@ -178,11 +148,6 @@ describe("mapExecutions — calendar dates formatted in UTC", () => {
   it("renders trade_date as the same calendar day regardless of local timezone", () => {
     const [out] = mapExecutions(view([row({ trade_date: "2026-08-11" })]));
     expect(out.tradeDate).toBe("Aug 11, 2026");
-  });
-
-  it("renders expiry as the same calendar day regardless of local timezone", () => {
-    const [out] = mapExecutions(view([row({ expiry: "2026-08-11" })]));
-    expect(out.expiry).toBe("Aug 11, 2026");
   });
 });
 
@@ -195,10 +160,10 @@ describe("mapExecutions — trivia", () => {
     expect(mapExecutions(view([]))).toEqual([]);
   });
 
-  it("maps grain 'order' -> 'Order' and 'execution' -> 'Execution'", () => {
-    const out = mapExecutions(view([row({ grain: "order" }), row({ grain: "execution" })]));
-    expect(out[0].grain).toBe("Order");
-    expect(out[1].grain).toBe("Execution");
+  it("maps txn_type 'order' -> 'Order' and 'execution' -> 'Execution'", () => {
+    const out = mapExecutions(view([row({ txn_type: "order" }), row({ txn_type: "execution" })]));
+    expect(out[0].txnType).toBe("Order");
+    expect(out[1].txnType).toBe("Execution");
   });
 
   it("statusReal is true only for system 'PC'", () => {
