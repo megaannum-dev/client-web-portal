@@ -16,6 +16,7 @@ from fastapi import HTTPException, status
 
 from app.core.ib_flex import FlexUnavailable, get_fetcher
 from app.libs.reconciliation._reconcile import reconcile
+from app.libs.reconciliation._tree import build_trades
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources.crm import CrmSource
 from app.libs.reconciliation.sources.ib import IbSource
@@ -42,21 +43,6 @@ _FACTORIES: dict[str, Callable[[Session], ExecutionSource]] = {
     "PC": lambda db: PcSource(db),
     "IB": lambda db: IbSource(get_fetcher()),
 }
-
-
-def _sort_key(row: UnifiedExecutionRow) -> tuple:
-    # None-safe: a missing trade_date/descrpt/group_ref/txn_time_utc must
-    # sort, not raise. Executions follow their own order
-    # (txn_type == "execution" -> True).
-    return (
-        row.trade_date is None,
-        row.trade_date,
-        row.descrpt or "",
-        row.group_ref or "",
-        row.txn_type == "execution",
-        row.txn_time_utc is None,
-        row.txn_time_utc,
-    )
 
 
 def _build_source(name: str, db: Session, warnings: list[str]) -> ExecutionSource | None:
@@ -121,7 +107,7 @@ def build_view(
             "All requested reconciliation sources are unavailable",
         )
 
-    rows.sort(key=_sort_key)
+    trades = build_trades(rows)
 
     # Reconcile only against sources that both loaded AND cover this day. A degraded
     # source must never read as "missing everywhere" (that is what `warnings`
@@ -131,8 +117,8 @@ def build_view(
         for name in sources
         if name not in failed and resolved_day in days_by_source.get(name, ())
     }
-    recon = reconcile(rows, covered)
+    recon = reconcile(trades, covered)
 
     return UnifiedExecutionsViewOut(
-        day=resolved_day, days=days, rows=rows, warnings=warnings, recon=recon
+        day=resolved_day, days=days, trades=trades, warnings=warnings, recon=recon
     )
