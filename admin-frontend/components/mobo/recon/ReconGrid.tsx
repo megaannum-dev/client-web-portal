@@ -148,7 +148,6 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
   const handleDepth = (d: 0 | 1 | 2) => {
     setDepth(d);
     setFlip({});
-    setSort({ key: null, dir: 1 });
   };
 
   const handleSortClick = (key: ReconColKey) => {
@@ -179,15 +178,18 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
   const isOpen = (node: ReconNode): boolean => flip[node.ref] ?? depth > node.level;
 
   const display = useMemo<DisplayRow[]>(() => {
-    if (sort.key !== null) {
-      // While a sort is active the tree renders flat — expansion state is unused.
-      const col = RECON_COLUMNS.find((c) => c.key === sort.key)!;
-      const flat = walkNodes(pruned).sort((a, b) => compareNodes(a, b, col, sort.dir));
-      return flat.map((node) => ({ node, open: false, hasKids: node.children.length > 0, groupStart: false }));
-    }
+    // Sorting reorders SIBLINGS, never the tree itself: trades among trades,
+    // orders within their trade, fills within their order. Flattening would
+    // answer a different question — "which record has the biggest fee" — and
+    // lose the one this page exists to answer, which is whether the three
+    // systems agree about a given trade.
+    const col = sort.key ? (RECON_COLUMNS.find((c) => c.key === sort.key) ?? null) : null;
+    const ordered = (nodes: ReconNode[]) =>
+      col ? [...nodes].sort((a, b) => compareNodes(a, b, col, sort.dir)) : nodes;
+
     const out: DisplayRow[] = [];
     const walk = (nodes: ReconNode[]) => {
-      for (const node of nodes) {
+      for (const node of ordered(nodes)) {
         const hasKids = node.children.length > 0;
         const open = hasKids && isOpen(node);
         out.push({ node, open, hasKids, groupStart: node.level === 0 });
@@ -234,7 +236,6 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
         depth={depth}
         onDepth={handleDepth}
         counts={{ shown: display.length, total: totalNodes }}
-        grouped={sort.key === null}
         onReset={() => { setQ(""); setFilters({}); }}
       />
 

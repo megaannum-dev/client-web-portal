@@ -126,6 +126,45 @@ describe("ReconGrid — expansion depth", () => {
   });
 });
 
+describe("ReconGrid — sorting keeps the hierarchy", () => {
+  /** A trade whose two orders arrive qty 5 then qty 1, so an ascending qty sort
+   *  must reorder them WITHIN the trade rather than hoisting either out of it. */
+  function nested() {
+    const t = tradeRow({
+      ref: "T", account: "ACC-T", descrpt: "NVDA 15AUG26 500 C",
+      orders: [
+        orderRow({ ref: "ord-hi", system: "CRM", account: "ACC-T", descrpt: "NVDA 15AUG26 500 C", qty: "5" }),
+        orderRow({ ref: "ord-lo", system: "IB", account: "ACC-T", descrpt: "NVDA 15AUG26 500 C", qty: "1" }),
+      ],
+    });
+    return mapExecutions(viewOf([t]));
+  }
+
+  const kinds = () =>
+    screen.getAllByRole("row").slice(1).map((r) => r.children[2].textContent);
+
+  it("sorts siblings without flattening the tree", () => {
+    render(<ReconGrid trades={nested()} day="2026-08-11" error={null} />);
+    // depth defaults to Order, so the trade and both of its orders are visible
+    expect(kinds()).toEqual(["Trade", "Order", "Order"]);
+    expect(screen.getAllByRole("row")[2].children[10].textContent).toBe("5");
+
+    fireEvent.click(screen.getByText("QTY"));
+
+    // still Trade-then-its-orders, only the two orders swapped places
+    expect(kinds()).toEqual(["Trade", "Order", "Order"]);
+    expect(screen.getAllByRole("row")[2].children[10].textContent).toBe("1");
+    expect(screen.getAllByRole("row")[3].children[10].textContent).toBe("5");
+  });
+
+  it("keeps a sort applied across an expansion-level change", () => {
+    render(<ReconGrid trades={nested()} day="2026-08-11" error={null} />);
+    fireEvent.click(screen.getByText("QTY"));
+    fireEvent.click(screen.getByRole("button", { name: "Execution" }));
+    expect(screen.getAllByRole("row")[2].children[10].textContent).toBe("1");
+  });
+});
+
 describe("ReconGrid — row click toggles children", () => {
   it("clicking a trade row opens and closes its own children", () => {
     render(<ReconGrid trades={buildTrades()} day="2026-08-11" error={null} />);

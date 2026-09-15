@@ -23,7 +23,6 @@ export interface ToolbarProps {
   depth: 0 | 1 | 2;
   onDepth: (d: 0 | 1 | 2) => void;
   counts: { shown: number; total: number };
-  grouped: boolean;
   onReset: () => void;
 }
 
@@ -219,7 +218,7 @@ function ExpansionToggle({ depth, onDepth }: { depth: 0 | 1 | 2; onDepth: (d: 0 
 }
 
 export function ReconToolbar({
-  q, onQ, filters, onFilters, options, hidden, onHidden, depth, onDepth, counts, grouped, onReset,
+  q, onQ, filters, onFilters, options, hidden, onHidden, depth, onDepth, counts, onReset,
 }: ToolbarProps) {
   const hasFilters = Object.values(filters).some((v) => v.length > 0);
   const showReset = q.length > 0 || hasFilters;
@@ -258,8 +257,7 @@ export function ReconToolbar({
       )}
 
       <span className="ml-auto text-[12.5px] text-secondary tabular-nums whitespace-nowrap">
-        {counts.shown} of {counts.total} records
-        {grouped ? " · grouped by trade" : " · sorted flat"}
+        {counts.shown} of {counts.total} records · grouped by trade
       </span>
 
       <ColumnMenu hidden={hidden} onChange={onHidden} />
