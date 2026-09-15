@@ -104,3 +104,4 @@ class UnifiedExecutionsViewOut(BaseModel):
     days: list[date]  # newest first
     rows: list[UnifiedExecutionRow]
     warnings: list[str]  # degraded sources; fixed messages only, never str(exc)
+    recon: ReconSummary

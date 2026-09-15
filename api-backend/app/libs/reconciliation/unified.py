@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Callable
 from fastapi import HTTPException, status
 
 from app.core.ib_flex import FlexUnavailable, get_fetcher
+from app.libs.reconciliation._reconcile import reconcile
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources.crm import CrmSource
 from app.libs.reconciliation.sources.ib import IbSource
@@ -85,16 +86,20 @@ def build_view(
         else:
             sources[name] = source
 
-    all_days: set[date] = set()
+    # Kept per source, not just unioned: which days a source COVERS is what makes
+    # an absent record meaningful. The CRM tables carry months the IB drop
+    # directory never had, and calling every one of those rows "missing on IB"
+    # would drown the real breaks.
+    days_by_source: dict[str, set[date]] = {}
     for name, source in sources.items():
         try:
-            all_days.update(source.days())
+            days_by_source[name] = set(source.days())
         except (SourceUnavailable, FlexUnavailable):
             logger.exception("Reconciliation source %s unavailable (days)", name)
             warnings.append(f"{name}: source unavailable")
             failed.add(name)
 
-    days = sorted(all_days, reverse=True)
+    days = sorted(set().union(*days_by_source.values()) if days_by_source else set(), reverse=True)
     resolved_day = day if day is not None else (days[0] if days else None)
 
     rows: list[UnifiedExecutionRow] = []
@@ -118,4 +123,16 @@ def build_view(
 
     rows.sort(key=_sort_key)
 
-    return UnifiedExecutionsViewOut(day=resolved_day, days=days, rows=rows, warnings=warnings)
+    # Reconcile only against sources that both loaded AND cover this day. A degraded
+    # source must never read as "missing everywhere" (that is what `warnings`
+    # reports), and neither must one whose data simply does not reach this day.
+    covered = {
+        name
+        for name in sources
+        if name not in failed and resolved_day in days_by_source.get(name, ())
+    }
+    recon = reconcile(rows, covered)
+
+    return UnifiedExecutionsViewOut(
+        day=resolved_day, days=days, rows=rows, warnings=warnings, recon=recon
+    )
