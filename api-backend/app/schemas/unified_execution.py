@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---- Unified three-source execution view -------------------------------------
 # One row shape for executions pulled from CRM (portal `orders`/`trades` tables),
@@ -74,6 +74,27 @@ class UnifiedExecutionRow(BaseModel):
     # The parent order's key — fill rows nest under their order via this.
     # Kept on the wire but never rendered.
     group_ref: str
+
+    # ---- reconciliation output (app/libs/reconciliation/_reconcile.py) ----
+    # Both empty when the row reconciles, and on every row when fewer than two
+    # sources loaded (nothing to reconcile against).
+    breaks: list[str] = Field(default_factory=list)  # wire field names that disagree
+    # Live systems carrying no counterpart for this row's match key. Never names a
+    # source that failed to load — that is what `warnings` is for.
+    missing_from: list[str] = Field(default_factory=list)
+
+
+class ReconSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    broken_rows: int  # rows carrying at least one entry in `breaks`
+    missing_rows: int  # rows carrying at least one entry in `missing_from`
+    by_field: dict[str, int]  # 'qty' -> 3, 'exchange' -> 1, ... — open, not fixed buckets
+    # 'CRM' | 'IB' | 'PC' -> records absent there. Counts match-key BUCKETS, not rows:
+    # a bucket holding a PC and a CRM row but no IB row leaves both survivors carrying
+    # missing_from=['IB'], and counting rows would report 2 for one missing record.
+    # Keyed only on live systems, so a degraded source is absent rather than a false 0.
+    missing_by_system: dict[str, int]
 
 
 class UnifiedExecutionsViewOut(BaseModel):
