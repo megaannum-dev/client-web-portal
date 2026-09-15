@@ -84,15 +84,91 @@ class UnifiedExecutionRow(BaseModel):
     missing_from: list[str] = Field(default_factory=list)
 
 
+# ---- Nested view: Trade -> Order -> Execution --------------------------------
+# The rows above are the SOURCE-facing contract (each mapper emits a flat list,
+# each order followed by its own fills). The wire contract is the tree below,
+# folded from those rows by app/libs/reconciliation/_tree.py. A Trade spans all
+# three systems; the Orders beneath it stay system-scoped.
+
+
+class _Node(UnifiedExecutionRow):
+    # Stable within one response and across a refetch of the same day -- the fold
+    # assigns it, never the mappers. Executions carry no identity of their own on
+    # the wire, so theirs is positional within their order (see _tree._exec_ref).
+    ref: str
+    trade_ref: str  # the trade this node hangs under
+
+    # True = a synthesized placeholder standing in for a record this system does
+    # NOT have. Every economic field is None on one; it exists so the gap renders
+    # in place and is referenceable from ReconSummary.missing_rows -- never to be
+    # summed, compared, or counted as a real record.
+    missing: bool = False
+
+
+class ExecutionNode(_Node):
+    pass
+
+
+class OrderNode(_Node):
+    executions: list[ExecutionNode] = Field(default_factory=list)
+
+
+class TradeTotals(BaseModel):
+    """One system's contribution to a trade. Never summed ACROSS systems."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    qty: Decimal | None
+    # Quantity-weighted average over that system's order rows -- not a mean, and
+    # not the last price. Verified equivalent to the same average recomputed from
+    # the executions (86/86 orders, 76/76 trade-grain buckets, august_ib_data).
+    # A rounded figure on every source; compare with tolerance, never ==.
+    price: Decimal | None
+    trade_amt: Decimal | None
+    fee: Decimal | None  # signed, as on the rows: positive = charge. Do NOT abs().
+    settlement_amt: Decimal | None
+
+
+class TradeNode(BaseModel):
+    """Orders grouped by (account, description, trade date, side), across systems.
+
+    The same grain IB itself publishes as `SymbolSummary`
+    (accountId + symbol + tradeDate + buySell).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ref: str
+    account: str | None
+    descrpt: str | None
+    trade_date: date | None
+    direction: Literal["BUY", "SELL"] | None
+    asset_class: str | None
+
+    # Per system, because qty across systems is the SAME trade counted three
+    # times, not a bigger trade. Absent key = that system has no rows here.
+    # exchange/status/currency are deliberately not here: they legitimately
+    # differ per system and stay on the order/execution nodes.
+    by_system: dict[str, TradeTotals] = Field(default_factory=dict)
+
+    # Mirrors the order-grain annotation of the orders beneath it.
+    breaks: list[str] = Field(default_factory=list)
+    missing_from: list[str] = Field(default_factory=list)
+
+    orders: list[OrderNode] = Field(default_factory=list)
+
+
 class ReconSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    broken_rows: int  # rows carrying at least one entry in `breaks`
-    missing_rows: int  # rows carrying at least one entry in `missing_from`
+    # References into the tree, not a scoreboard -- a client jumps straight to
+    # what disagrees. Counts remain available as len(). Which field disagreed is
+    # on the referenced node's own `breaks`.
+    broken_rows: list[str]  # refs of order/execution nodes carrying >=1 break
+    missing_rows: list[str]  # refs of the synthesized `missing=True` placeholders
     by_field: dict[str, int]  # 'qty' -> 3, 'exchange' -> 1, ... — open, not fixed buckets
     # 'CRM' | 'IB' | 'PC' -> records absent there. Counts match-key BUCKETS, not rows:
-    # a bucket holding a PC and a CRM row but no IB row leaves both survivors carrying
-    # missing_from=['IB'], and counting rows would report 2 for one missing record.
+    # a bucket holding a PC and a CRM row but no IB row is one missing record, not two.
     # Keyed only on live systems, so a degraded source is absent rather than a false 0.
     missing_by_system: dict[str, int]
 
@@ -102,6 +178,6 @@ class UnifiedExecutionsViewOut(BaseModel):
 
     day: date | None
     days: list[date]  # newest first
-    rows: list[UnifiedExecutionRow]
+    trades: list[TradeNode]
     warnings: list[str]  # degraded sources; fixed messages only, never str(exc)
     recon: ReconSummary
