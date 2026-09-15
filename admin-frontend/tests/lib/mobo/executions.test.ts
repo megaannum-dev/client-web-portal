@@ -139,6 +139,23 @@ describe("mapExecutions — trade-level agreement", () => {
     expect(out.brk.price).toBeUndefined();
   });
 
+  it("does not flag totals that differ below the cent they are rendered at", () => {
+    // PC carries 9dp (modeled_cash_flow_after_fees_usd); CRM and IB carry two.
+    // A raw !== painted matching trades red -- the tooltip read
+    // "CRM $166.61 - IB $166.61 - PC $166.61" on a cell marked broken.
+    const t = tradeRow({
+      by_system: {
+        CRM: totals({ settlement_amt: "166.61" }),
+        IB: totals({ settlement_amt: "166.6100" }),
+        PC: totals({ settlement_amt: "166.6094321" }),
+      },
+    });
+    const [out] = mapExecutions(viewOf([t]));
+    expect(out.settlementAmt).toBe("$166.61");
+    expect(out.brk.settlementAmt).toBeUndefined();
+    expect(out.cellTitle.settlementAmt).toBeUndefined();
+  });
+
   it("flags a visible price difference as a disagreement", () => {
     const t = tradeRow({
       by_system: { CRM: totals({ price: "1.50" }), IB: totals({ price: "1.53" }) },

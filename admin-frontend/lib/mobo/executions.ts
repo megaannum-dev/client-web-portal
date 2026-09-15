@@ -265,23 +265,29 @@ const SYS_ORDER: Sys[] = ["CRM", "IB", "PC"];
  * cell shows the figure only when every contributing system agrees; when they
  * disagree it shows the first (CRM -> IB -> PC) and flags the cell, with each
  * system's own number carried in the tooltip. Never average them.
+ *
+ * Agreement is judged on the FORMATTED value, not the raw decimal. Every source
+ * rounds differently -- PC carries 9dp (`modeled_cash_flow_after_fees_usd`, a
+ * weighted average price), CRM and IB two -- so a raw `===` flags rows that are
+ * identical to the last cent and paints a matching trade red. The displayed
+ * figure is the thing being reconciled; anything below its precision is not a
+ * disagreement a human could act on, which is the same reason the schema says
+ * to compare price with tolerance and never with `==`.
  */
 function agree(
   entries: [Sys, string | null][],
   fmt: (v: string | null) => string,
-  tol = 0,
 ): { text: string; raw: number | null; disagree: boolean; title?: string } {
   const present = entries.filter((e): e is [Sys, string] => e[1] != null);
   if (present.length === 0) return { text: "—", raw: null, disagree: false };
-  const nums = present.map((e) => Number(e[1]));
-  const finite = nums.every((n) => Number.isFinite(n));
-  const spread = finite ? Math.max(...nums) - Math.min(...nums) : Infinity;
-  const disagree = present.length > 1 && !(spread <= tol);
+  const shown = present.map((e) => [e[0], fmt(e[1])] as const);
+  const disagree = new Set(shown.map((e) => e[1])).size > 1;
+  const first = Number(present[0][1]);
   return {
-    text: fmt(present[0][1]),
-    raw: finite ? nums[0] : null,
+    text: shown[0][1],
+    raw: Number.isFinite(first) ? first : null,
     disagree,
-    title: disagree ? present.map((e) => e[0] + " " + fmt(e[1])).join(" · ") : undefined,
+    title: disagree ? shown.map((e) => e[0] + " " + e[1]).join(" · ") : undefined,
   };
 }
 
@@ -368,8 +374,7 @@ function mapTrade(t: TradeNodeDTO): ReconNode {
   const totals = (f: keyof TradeTotalsDTO): [Sys, string | null][] =>
     systems.map((s) => [s, t.by_system[s]![f] ?? null]);
 
-  // price is a rounded weighted average on every source — tolerance, never ==.
-  const price = agree(totals("price"), fmtMoney, 1e-7);
+  const price = agree(totals("price"), fmtMoney);
   const qty = agree(totals("qty"), fmtNum);
   const tradeAmt = agree(totals("trade_amt"), fmtMoney);
   const fee = agree(totals("fee"), fmtMoney);
