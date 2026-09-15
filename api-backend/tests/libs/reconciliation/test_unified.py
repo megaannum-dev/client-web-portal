@@ -20,6 +20,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.ib_flex import DropFetcher, FlexRows, FlexUnavailable
+from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources._transform import et_to_utc, flip_fee
 from app.libs.reconciliation.sources.crm import CrmSource
 from app.libs.reconciliation.sources.crm import _row as crm_row
@@ -402,7 +403,7 @@ def test_build_view_degrades_unconfigured_ib_with_one_warning_no_raise(
         "app.libs.reconciliation.unified.get_fetcher",
         lambda: DropFetcher(None),
     )
-    out = build_view(session, day=date(2026, 8, 11), systems=["CRM", "IB"], grain=None)
+    out = build_view(session, day=date(2026, 8, 11))
     assert out.warnings == ["IB: source unavailable"]
     for w in out.warnings:
         assert "\\" not in w and "/" not in w  # no filesystem path
@@ -413,12 +414,21 @@ def test_build_view_degrades_unconfigured_ib_with_one_warning_no_raise(
 
 
 def test_build_view_502_when_every_requested_source_fails(session, monkeypatch) -> None:
+    """build_view always requests all three sources now (no systems scoping),
+    so forcing the 502 means failing all three at construction, not just IB."""
+
+    class _DeadSource:
+        def __init__(self, *args, **kwargs) -> None:
+            raise SourceUnavailable("dead")
+
     monkeypatch.setattr(
         "app.libs.reconciliation.unified.get_fetcher",
         lambda: DropFetcher(None),
     )
+    monkeypatch.setattr("app.libs.reconciliation.unified.CrmSource", _DeadSource)
+    monkeypatch.setattr("app.libs.reconciliation.unified.PcSource", _DeadSource)
     with pytest.raises(HTTPException) as exc_info:
-        build_view(session, day=date(2026, 8, 11), systems=["IB"], grain=None)
+        build_view(session, day=date(2026, 8, 11))
     assert exc_info.value.status_code == 502
 
 
@@ -449,7 +459,10 @@ def test_build_view_orders_each_order_followed_by_its_own_fills(session) -> None
     session.add_all([o1, o2, t1a, t1b, t2a])
     session.commit()
 
-    out = build_view(session, day=date(2026, 8, 11), systems=["CRM"], grain=None)
+    # IB is unconfigured in tests (ib_flex_drop_root unset) so it degrades to
+    # a warning with no rows, and PC has no fixtures here -- only CRM
+    # contributes rows, same as the old systems=["CRM"] scoping achieved.
+    out = build_view(session, day=date(2026, 8, 11))
     seq = [(r.txn_type, r.group_ref) for r in out.rows]
     # Walk the sequence: every "execution" must immediately follow an "order" (or
     # another fill) sharing the same group_ref -- i.e. each order's own fills

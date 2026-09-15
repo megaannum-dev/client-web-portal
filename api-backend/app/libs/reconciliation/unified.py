@@ -22,7 +22,6 @@ from app.libs.reconciliation.sources.pc import PcSource
 from app.schemas.unified_execution import UnifiedExecutionsViewOut
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from datetime import date
 
     from sqlalchemy.orm import Session
@@ -73,10 +72,8 @@ def build_view(
     db: Session,
     *,
     day: date | None,
-    systems: Sequence[str] | None,
-    grain: str | None,
 ) -> UnifiedExecutionsViewOut:
-    requested = list(systems) if systems else list(_ALL_SYSTEMS)
+    requested = list(_ALL_SYSTEMS)
     warnings: list[str] = []
     failed: set[str] = set()
 
@@ -120,7 +117,5 @@ def build_view(
         )
 
     rows.sort(key=_sort_key)
-    if grain is not None:
-        rows = [r for r in rows if r.txn_type == grain]
 
     return UnifiedExecutionsViewOut(day=resolved_day, days=days, rows=rows, warnings=warnings)

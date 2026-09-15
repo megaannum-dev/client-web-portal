@@ -54,4 +54,4 @@ def get_executions(
     empty 200 there would misleadingly read as "nothing traded"). Empty
     `rows` on a real day is otherwise a normal 200, not a 404.
     """
-    return build_unified_view(db, day=day, systems=None, grain=None)
+    return build_unified_view(db, day=day)
