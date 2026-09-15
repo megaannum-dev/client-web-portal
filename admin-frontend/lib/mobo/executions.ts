@@ -438,6 +438,15 @@ function mapTrade(t: TradeNodeDTO): ReconNode {
 
 export function mapExecutions(view: UnifiedExecutionsViewDTO | null): ReconNode[] {
   if (!view) return [];
+  // A backend still on the old flat contract sends `rows`, not `trades`. That is
+  // FE/BE deploy skew, not corrupt data -- degrade to an empty view and say so in
+  // the console rather than taking the whole page down on `undefined.map`.
+  if (!Array.isArray(view.trades)) {
+    console.error(
+      "[mobo] /api/mobo/executions returned no `trades` array - the API is on an older contract.",
+    );
+    return [];
+  }
   return view.trades.map(mapTrade);
 }
 
