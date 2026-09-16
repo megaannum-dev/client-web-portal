@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, AlertCircle } from "@/lib/icons";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SysBadge } from "@/components/mobo/Shared";
 import {
   RECON_COLUMNS, RECON_FILTERS, RECON_SEARCH_COLS, RECON_TXN_COLS,
@@ -25,6 +26,10 @@ export interface ReconGridProps {
   trades: ReconNode[];
   day: string | null;
   error: string | null;
+  /** A refetch is in flight (e.g. the day was switched). `trades` still holds
+   *  the PREVIOUS day's tree until it lands, so the body renders skeleton rows
+   *  rather than data that belongs to a day the header no longer names. */
+  loading?: boolean;
   onExportChange?: (run: (() => void) | null) => void;
 }
 
@@ -147,7 +152,7 @@ function CellValue({ node, col }: { node: ReconNode; col: ReconColumn }) {
   return content;
 }
 
-export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps) {
+export function ReconGrid({ trades, day, error, loading = false, onExportChange }: ReconGridProps) {
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [hidden, setHidden] = useState<ReconColKey[]>([]);
@@ -220,11 +225,13 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
   useEffect(() => {
     const filtered = q !== "" || Object.values(filters).some((v) => v.length > 0);
     onExportChange?.(
-      display.length ? () => downloadReconCsv(display.map((d) => d.node), visibleCols, { day, filtered }) : null,
+      !loading && display.length
+        ? () => downloadReconCsv(display.map((d) => d.node), visibleCols, { day, filtered })
+        : null,
     );
     return () => onExportChange?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [display, visibleCols, day]);
+  }, [display, visibleCols, day, loading]);
 
   const toggleRow = (row: DisplayRow) => {
     if (!row.hasKids) return;
@@ -245,7 +252,7 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
         onHidden={setHidden}
         depth={depth}
         onDepth={handleDepth}
-        counts={{ shown: display.length, total: totalNodes }}
+        counts={loading ? undefined : { shown: display.length, total: totalNodes }}
         onReset={() => { setQ(""); setFilters({}); }}
       />
 
@@ -277,7 +284,18 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
               </tr>
             </thead>
             <tbody>
-              {error && (
+              {loading &&
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`} style={{ borderTop: i === 0 ? undefined : "1px solid var(--outline-variant)" }}>
+                    {visibleCols.map((col) => (
+                      <td key={col.key} className="px-3 py-2.5">
+                        {/* ponytail: fixed 8 rows — the real count isn't known until it lands */}
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              {!loading && error && (
                 <tr>
                   <td colSpan={span} className="px-3 py-10 text-center text-[13px] text-secondary">
                     <span className="inline-flex items-center gap-2" style={{ color: "#93000a" }}>
@@ -286,21 +304,21 @@ export function ReconGrid({ trades, day, error, onExportChange }: ReconGridProps
                   </td>
                 </tr>
               )}
-              {!error && trades.length === 0 && (
+              {!loading && !error && trades.length === 0 && (
                 <tr>
                   <td colSpan={span} className="px-3 py-10 text-center text-[13px] text-secondary">
                     No trade records for this day.
                   </td>
                 </tr>
               )}
-              {!error && trades.length > 0 && display.length === 0 && (
+              {!loading && !error && trades.length > 0 && display.length === 0 && (
                 <tr>
                   <td colSpan={span} className="px-3 py-10 text-center text-[13px] text-secondary">
                     No records match the current filters.
                   </td>
                 </tr>
               )}
-              {!error && display.map((row, index) => {
+              {!loading && !error && display.map((row, index) => {
                 const { node } = row;
                 // Roll-up flags (hasMissing/hasBreak), not the node's own missing/breaks —
                 // a trade collapsed to its own row must still read as broken when only a

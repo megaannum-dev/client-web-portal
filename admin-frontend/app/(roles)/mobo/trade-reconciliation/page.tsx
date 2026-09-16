@@ -225,6 +225,7 @@ export default function TradeReconciliationPage() {
               trades={trades}
               day={data?.day ?? null}
               error={error}
+              loading={loading}
               onExportChange={onExportChange}
             />
           </div>

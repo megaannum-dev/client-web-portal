@@ -22,7 +22,8 @@ export interface ToolbarProps {
   onHidden: (h: ReconColKey[]) => void;
   depth: 0 | 1 | 2;
   onDepth: (d: 0 | 1 | 2) => void;
-  counts: { shown: number; total: number };
+  /** Omitted while a refetch is in flight — the counts would name the previous day. */
+  counts?: { shown: number; total: number };
   onReset: () => void;
 }
 
@@ -257,7 +258,7 @@ export function ReconToolbar({
       )}
 
       <span className="ml-auto text-[12.5px] text-secondary tabular-nums whitespace-nowrap">
-        {counts.shown} of {counts.total} records
+        {counts ? `${counts.shown} of ${counts.total} records` : "Loading records…"}
       </span>
 
       <ColumnMenu hidden={hidden} onChange={onHidden} />
