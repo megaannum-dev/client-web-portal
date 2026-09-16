@@ -106,7 +106,9 @@ def _slots(by_sys: dict[str, list[_N]]) -> list[dict[str, _N]]:
 
     So the earliest unassigned record anchors a slot and each other system joins
     it with its nearest record, if that falls inside `_PAIR_WINDOW`. Anything
-    beyond the window is a different order and opens its own slot.
+    beyond the window is a different order and opens its own slot -- unless that
+    leaves every system in a slot of its own, which the guard at the bottom treats
+    as the matcher failing rather than as records missing everywhere.
     """
     pending = {s: sorted(rows, key=_time_key) for s, rows in by_sys.items() if rows}
     slots: list[dict[str, _N]] = []
@@ -140,6 +142,31 @@ def _slots(by_sys: dict[str, list[_N]]) -> list[dict[str, _N]]:
             # `remove` drop a different object than the one `min` picked.
             rows[:] = [r for r in rows if r is not nearest]
         slots.append(slot)
+
+    # Degenerate-split guard. Time is the ONLY discriminator inside a trade
+    # bucket -- every other field is a compare field, and a field used to match
+    # can never be reported as a break -- so when the systems disagree about
+    # which instant to stamp, the matcher has nothing to fall back on and splits
+    # one order into single-system slots. Each half then reports the other
+    # half's systems absent, turning one disagreement into six fabricated
+    # missing records and a `missing_by_system` that claims an order is missing
+    # from all three systems at once -- which cannot be true of an order that
+    # exists.
+    #
+    # When no system holds more than one order here, the bucket key (account,
+    # descrpt, trade_date, direction) has already asserted these ARE the same
+    # trade, so any split is a matcher artifact and there is exactly one way to
+    # rejoin it. Above one order per system the merge would be a guess about
+    # which pairs with which, so the guard declines and the split stands.
+    #
+    # Deliberately NOT a wider `_PAIR_WINDOW`: the gaps seen run to five hours
+    # (each system books an expiry on its own end-of-day clock) while genuinely
+    # distinct orders sit three seconds apart, so no window separates them.
+    if len(slots) > 1 and all(len(rows) <= 1 for rows in by_sys.values()):
+        merged: dict[str, _N] = {}
+        for slot in slots:
+            merged.update(slot)
+        return [merged]
     return slots
 
 
