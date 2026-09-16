@@ -40,8 +40,30 @@ def _direction(net_fill_quantity: Decimal | None) -> str:
     return "BUY" if net_fill_quantity is not None and net_fill_quantity > 0 else "SELL"
 
 
-def _order_row(o: PcOrder) -> UnifiedExecutionRow:
-    ts = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
+def _fill_time(fills: list[PcTrade]) -> datetime | None:
+    """The instant this order actually traded: its EARLIEST fill.
+
+    `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
+    event, so for an order partially filled and then cancelled it is the cancel:
+    order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
+    counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill and
+    sitting 25 minutes from the cancel. `_reconcile._slots` pairs orders across
+    systems on a 60-second window, so stamping the cancel split one real order into
+    two unmatched slots and reported it missing on all three systems at once.
+
+    Earliest, not last: a partial fill's later siblings are the same order continuing,
+    while the first fill is the moment the other systems also record.
+    """
+    stamps = [cast(datetime, t.executed_at_utc) for t in fills if t.executed_at_utc is not None]
+    return min(stamps) if stamps else None
+
+
+def _order_row(o: PcOrder, fills: list[PcTrade]) -> UnifiedExecutionRow:
+    last_event = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
+    # Fill instant for MATCHING, last event for the DATE (below) -- they are
+    # different questions and only the date one is settled by §3.
+    fill_ts = _as_utc(_fill_time(fills))
+    ts = fill_ts if fill_ts is not None else last_event
     ref = _order_ref(o)
     return UnifiedExecutionRow(
         system="PC",
@@ -55,9 +77,11 @@ def _order_row(o: PcOrder) -> UnifiedExecutionRow:
         currency=o.quote_currency,
         account=o.account_id,
         txn_time_utc=ts,
-        # last_event_utc is the last EVENT (may be a later cancel), not the
-        # fill — but its ET date is still the correct trade_date per §3.
-        trade_date=et_date(ts) if ts is not None else None,
+        # Still derived from last_event_utc, never from `ts`: §3 settles the ET
+        # date on the last event, and `rows()` below selects the day the same
+        # way -- deriving it from the fill instead could hand an order a
+        # trade_date outside the very day it was fetched for.
+        trade_date=et_date(last_event) if last_event is not None else None,
         direction=_direction(o.net_fill_quantity),  # type: ignore[arg-type]
         qty=o.gross_fill_quantity,  # type: ignore[arg-type]
         # NULL on the zero-fill cancelled orders; a rounded 9dp figure, never compare with ==.
@@ -145,7 +169,7 @@ class PcSource:
         for o in day_orders:
             ref = _order_ref(o)
             seen_groups.add(ref)
-            out.append(_order_row(o))
+            out.append(_order_row(o, fills_by_group.get(ref, [])))
             for t in fills_by_group.get(ref, []):
                 out.append(_trade_row(t))
 
@@ -167,7 +191,7 @@ class PcSource:
                 None,
             )
             if orphan is not None:
-                out.append(_order_row(orphan))
+                out.append(_order_row(orphan, fills))
                 out.extend(_trade_row(t) for t in fills)
 
         return out
