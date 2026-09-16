@@ -1,56 +1,50 @@
 "use client";
 
 /* ============================================================
-   MOBO Trade Reconciliation — FLAT SPREADSHEET + TABS
+   MOBO Trade Reconciliation — NESTED TRADE TREE + TABS
    Ported from the design handoff (mobo/mobo-app/MoboRecon.jsx).
 
-   Tab 1 "Three-System Reconciliation" — exception stats -> a
-   segmented progress bar -> ONE collapsible spreadsheet of every
-   order + execution for the selected day. Breaks present: titled
-   "Unreconciled records", open by default. All clean: titled
-   "Daily records", collapsed behind the green verdict — the same
-   table either way, so a clean day is still inspectable.
+   Tab 1 "Three-System Reconciliation" — an exception bento -> a
+   segmented progress bar -> ONE spreadsheet of the day's trades,
+   nested Trade -> Order -> Execution and expandable to any of the
+   three levels.
 
    Tab 2 "Master ↔ Client Settlement" — a simple settlement table.
 
-   DATA: rows come from `GET /api/mobo/executions` via `useExecutions`,
-   which unions CRM + IB + Portfolio Commander into one execution
-   grain and hands back pre-formatted display strings (see
-   `lib/mobo/executions.ts::mapExecutions`). This page does no
-   number/date formatting of its own, but it does derive the status
-   chip tone and the trade count from the mapped fields.
+   DATA: `GET /api/mobo/executions` via `useExecutions`. It returns a
+   TREE (`trades`), not a row list: a Trade spans CRM + IB + Portfolio
+   Commander (its key is account + descrpt + trade date + side) and the
+   Orders beneath it stay system-scoped. `lib/mobo/executions.ts::
+   mapExecutions` folds that into pre-formatted `ReconNode`s, so this
+   page does no number or date formatting of its own.
 
-   `group_ref` is intentionally never rendered as a column — it is used
-   only as the row-selection/grouping key (`ExecutionRow.groupRef`).
+   The reconciler annotates the tree in place: `breaks` names the fields
+   a node disagrees on, and a record a system does NOT have is
+   materialized as a `missing` placeholder with null economics so the
+   gap renders where it belongs instead of being a number in a summary.
 
-   A degraded source (e.g. IB unconfigured) still returns HTTP 200
-   with that source's rows simply absent, so `data.warnings` is
-   surfaced as a notice above the table — otherwise a partial day
-   would look identical to a complete one.
+   A degraded source (e.g. IB unconfigured) still returns HTTP 200 with
+   that source's rows simply absent, so `data.warnings` is surfaced as a
+   notice above the table — otherwise a partial day would look identical
+   to a complete one.
 
-   Only PC rows carry a real lifecycle status (Filled/Canceled/
-   PartiallyFilled); for CRM and IB, `status` is a structural literal
-   ("a row exists therefore it executed"), so those chips render
-   with a neutral tone (`ExecutionRow.statusReal` distinguishes them).
-
-   The Settlement tab reads `loadSettlement()`, which is EMPTY —
-   its mock was deleted and no settlement source is wired yet.
+   The Settlement tab reads `loadSettlement()`, which is EMPTY — its
+   mock was deleted and no settlement source is wired yet.
    ============================================================ */
 
-import { useMemo, useState, type ReactNode } from "react";
-import {
-  ChevronDown, ChevronUp, Download, ShieldAlert, Unlink, X, Clock, Check,
-  Database, Users, AlertCircle,
-} from "@/lib/icons";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Download, Clock, Check, Database, Users, AlertCircle } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Chip, type ChipTone } from "@/components/ui/Chip";
-import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
+import { Chip } from "@/components/ui/Chip";
+import { MetricStat, SegBar } from "@/components/mobo/Shared";
 import { TabBar } from "@/components/mobo/TabBar";
 import { DateControl } from "@/components/mobo/allocation/Panels";
+import { ExceptionBento } from "@/components/mobo/recon/ExceptionBento";
+import { ReconGrid } from "@/components/mobo/recon/ReconGrid";
 import { useExecutions } from "@/hooks/api/useExecutions";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
-import { mapExecutions, type ExecutionRow } from "@/lib/mobo/executions";
+import { mapExecutions } from "@/lib/mobo/executions";
 import TradeReconciliationSkeleton from "./Skeleton";
 
 /** Same UTC reasoning as `lib/mobo/executions.ts::fmtDate` — a bare
@@ -61,62 +55,6 @@ function fmtDayLabel(day: string | null): string {
   const d = new Date(day);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-}
-
-/** Only PC status is a real lifecycle value; CRM/IB status is structural. */
-function statusTone(r: ExecutionRow): ChipTone {
-  if (!r.statusReal) return "neutral";
-  if (r.status === "Filled") return "active";
-  if (r.status === "Canceled") return "failed";
-  return "pending"; // PartiallyFilled (or any other PC status)
-}
-
-function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
-  if (!v) return <span className="text-secondary">—</span>;
-  if (brk) return <span className="font-bold" style={{ color: "#93000a" }}>{v}</span>;
-  return <span>{v}</span>;
-}
-
-const COLUMNS: {
-  head: string;
-  key: keyof ExecutionRow;
-  right?: boolean;
-  render?: (r: ExecutionRow) => ReactNode;
-}[] = [
-  { head: "System", key: "system", render: (r) => <SysBadge sys={r.system} /> },
-  { head: "Account Number", key: "account" },
-  { head: "Txn Type", key: "txnType" },
-  { head: "Descrpt", key: "descrpt" },
-  { head: "Exch", key: "exchange" },
-  { head: "Currency", key: "currency" },
-  { head: "Asset Category", key: "assetClass" },
-  { head: "TradeDate", key: "tradeDate" },
-  { head: "BuySell", key: "direction" },
-  { head: "Price", key: "price", right: true, render: (r) => <BrkVal v={r.price} brk={false} /> },
-  { head: "QTY", key: "qty", right: true, render: (r) => <BrkVal v={r.qty} brk={false} /> },
-  { head: "Trade Amt", key: "tradeAmt", right: true },
-  { head: "Fee", key: "fee", right: true },
-  { head: "Settlement Amt", key: "settlementAmt", right: true },
-  { head: "Status", key: "status", render: (r) => <Chip tone={statusTone(r)} dot={false}>{r.status}</Chip> },
-  { head: "Txn Time", key: "txnTime" },
-];
-
-function FlatRowTr({ r, ri, active, onClick }: { r: ExecutionRow; ri: number; active: boolean; onClick: () => void }) {
-  const bg = active ? "rgba(242,116,5,0.03)" : "transparent";
-  const topBorder = ri === 0 ? "" : r.isFirst ? "border-t-2 border-outline-variant" : "border-t border-outline-variant";
-  return (
-    <tr onClick={onClick} className="cursor-pointer">
-      {COLUMNS.map((c) => (
-        <td
-          key={c.key}
-          className={`px-3.5 py-2.5 ${topBorder} ${c.right ? "text-right tabular-nums" : ""}`}
-          style={{ background: bg }}
-        >
-          {c.render ? c.render(r) : r[c.key]}
-        </td>
-      ))}
-    </tr>
-  );
 }
 
 /* ---- settlement tab — ported from MoboRecon.jsx's SettlementPanel.
@@ -181,92 +119,14 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
   );
 }
 
-/* ---- THE records spreadsheet — ONE table for both scenarios.
-   Breaks present → titled "Unreconciled records", open by default.
-   All reconciled → titled "Daily records", collapsed so the clean
-   verdict leads. Either way it's this component; the header row is
-   the toggle. */
-function RecordsTable({
-  title, subtitle, rows, open, onToggle, selId, onSelect, error,
-}: {
-  title: string;
-  subtitle: string;
-  rows: ExecutionRow[];
-  open: boolean;
-  onToggle: () => void;
-  selId: string | null;
-  onSelect: (id: string) => void;
-  error: string | null;
-}) {
-  const span = COLUMNS.length;
-  return (
-    <div className="min-w-0 overflow-hidden">
-      <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[15px] font-bold text-on-surface">{title}</span>
-        <span className="text-[12.5px] text-secondary">{subtitle}</span>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1500px] border-collapse text-[13.5px]">
-            <thead>
-              <tr onClick={onToggle} className="cursor-pointer select-none">
-                {COLUMNS.map((c, i) => (
-                  <th
-                    key={c.key}
-                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${c.right ? "text-right" : "text-left"}`}
-                  >
-                    {i === 0 ? (
-                      <span className="flex items-center gap-1.5">
-                        {open ? <ChevronUp size={13} strokeWidth={2} /> : <ChevronDown size={13} strokeWidth={2} />}
-                        {c.head}
-                      </span>
-                    ) : c.head}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            {open && (
-              <tbody>
-                {error && (
-                  <tr>
-                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10">
-                      <span className="flex items-center justify-center gap-2 text-[13px]" style={{ color: "#93000a" }}>
-                        <AlertCircle size={15} strokeWidth={2} /> {error}
-                      </span>
-                    </td>
-                  </tr>
-                )}
-                {!error && rows.length === 0 && (
-                  <tr>
-                    <td colSpan={span} className="border-t border-outline-variant px-3.5 py-10 text-center text-[13px] text-secondary">
-                      No trade records for this day.
-                    </td>
-                  </tr>
-                )}
-                {!error && rows.map((r, ri) => (
-                  // key/selection use groupRef — the mapper's unrendered grouping key, not
-                  // any visible column — so multi-row groups (order + its executions) select together.
-                  <FlatRowTr key={`${r.groupRef}-${ri}`} r={r} ri={ri} active={selId === r.groupRef} onClick={() => onSelect(r.groupRef)} />
-                ))}
-              </tbody>
-            )}
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function TradeReconciliationPage() {
   const [day, setDay] = useState<string | undefined>(undefined);
   const { data, loading, error } = useExecutions(day);
   const settlementRows = loadSettlement();
 
   const [tab, setTab] = useState<"recon" | "settle">("recon");
-  const [sel, setSel] = useState<string | null>(null);
-  const toggle = (id: string) => setSel((s) => (s === id ? null : id));
 
-  const rows = useMemo(() => mapExecutions(data), [data]);
+  const trades = useMemo(() => mapExecutions(data), [data]);
   const dayLabel = fmtDayLabel(data?.day ?? null);
   // `data.days` is already "YYYY-MM-DD" — exactly what DateControl speaks — so
   // it maps straight through with no token bridging.
@@ -275,24 +135,26 @@ export default function TradeReconciliationPage() {
     [data?.days],
   );
 
-  // No reconciliation engine exists yet: /executions unions the three sources
-  // but compares nothing, so every break counter is 0 and the day always reads
-  // clean. These stay wired (not hardcoded away) so an engine only has to start
-  // reporting breaks. Deliberately out of scope for this pass.
-  const totalBrk = 0;
-  const qtyCat = 0;
-  const priceCat = 0;
-  const missCat = 0;
-  const settleCat = 0;
-  const isClean = totalBrk === 0;
-  const tradeCount = rows.filter((r) => r.txnType === "Order").length;
-  const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
+  // The grid owns search/filter/sort/expansion, so only it knows what is on
+  // screen. It hands the export closure up here; the header button fires it.
+  const exportRef = useRef<(() => void) | null>(null);
+  const [canExport, setCanExport] = useState(false);
+  const onExportChange = useCallback((run: (() => void) | null) => {
+    exportRef.current = run;
+    setCanExport(run != null);
+  }, []);
 
-  // Open by default. The original design collapsed a "clean" day behind the
-  // green verdict, but isClean is pinned true until a reconciliation engine
-  // exists, which collapsed the table on EVERY load and hid the entire unified
-  // view. The header row still toggles it shut.
-  const [open, setOpen] = useState(true);
+  // Break counts are per TRADE, and the rolled-up flags mean a trade still
+  // reads as broken when only a nested fill disagrees.
+  const brokenN = trades.filter((t) => t.hasBreak || t.hasMissing).length;
+  const missingN = trades.filter((t) => t.hasMissing).length;
+  const breakN = brokenN - missingN;
+  const total = trades.length || 1;
+  const bad = Math.round((missingN / total) * 100);
+  const warn = Math.round((breakN / total) * 100);
+  const ok = 100 - bad - warn; // absorbs the rounding so the bar always fills
+
+  const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
 
   if (loading && !data) return <TradeReconciliationSkeleton />;
 
@@ -310,7 +172,14 @@ export default function TradeReconciliationPage() {
                 onPickDate={setDay}
                 onPickRange={() => { /* range mode unused here — one day at a time */ }}
               />
-              <Button variant="secondary" icon={Download}>Export</Button>
+              <Button
+                variant="secondary"
+                icon={Download}
+                disabled={tab !== "recon" || !canExport}
+                onClick={() => exportRef.current?.()}
+              >
+                Export
+              </Button>
             </>
           }
         />
@@ -318,7 +187,7 @@ export default function TradeReconciliationPage() {
 
       <TabBar
         tabs={[
-          { key: "recon", label: "Three-System Reconciliation", badge: totalBrk || undefined, tone: totalBrk ? "warm" : "active" },
+          { key: "recon", label: "Three-System Reconciliation", badge: brokenN || undefined, tone: brokenN ? "warm" : "active" },
           { key: "settle", label: "Master ↔ Client Settlement", badge: settlePending || undefined, tone: settlePending ? "warm" : "active" },
         ]}
         active={tab}
@@ -329,30 +198,9 @@ export default function TradeReconciliationPage() {
         <SettlementPanel rows={settlementRows} />
       ) : (
         <>
-          <div className="mb-[18px] grid grid-cols-2 gap-3.5 lg:grid-cols-5">
-            <MetricStat label="Total breaks" value={totalBrk} tone={totalBrk ? "bad" : "ok"} icon={ShieldAlert} />
-            <MetricStat label="Qty mismatch" value={qtyCat} tone={qtyCat ? "warn" : ""} icon={Unlink} />
-            <MetricStat label="Price / rate" value={priceCat} tone={priceCat ? "warn" : ""} icon={Unlink} />
-            <MetricStat label="Missing record" value={missCat} tone={missCat ? "bad" : ""} icon={X} />
-            <MetricStat label="Settlement" value={settleCat} tone={settleCat ? "warn" : ""} icon={Clock} />
-          </div>
+          <ExceptionBento trades={trades} dayLabel={dayLabel} />
 
-          <SegBar ok={100} warn={0} bad={0} />
-
-          {isClean && !loading && !error && (
-            <div
-              className="mt-[22px] flex flex-col items-center gap-3.5 rounded-2xl border-[1.5px] px-6 py-14 text-center"
-              style={{ background: "rgba(47,122,71,0.04)", borderColor: "rgba(47,122,71,0.15)" }}
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: "#e3f1e7", color: "#2f7a47" }}>
-                <Check size={24} strokeWidth={2} />
-              </span>
-              <div>
-                <div className="mb-1 text-[18px] font-bold text-on-surface">All {tradeCount} trades reconciled</div>
-                <div className="text-[14px] text-secondary">No breaks across CRM, IB, and Portfolio Commander for {dayLabel}.</div>
-              </div>
-            </div>
-          )}
+          <SegBar ok={ok} warn={warn} bad={bad} />
 
           {!!data?.warnings.length && (
             <div
@@ -365,15 +213,20 @@ export default function TradeReconciliationPage() {
           )}
 
           <div className="mt-[22px]">
-            <RecordsTable
-              title={isClean ? "Daily records" : "Unreconciled records"}
-              subtitle={`every row from CRM, IB, and Portfolio Commander for ${dayLabel}`}
-              rows={rows}
-              open={open}
-              onToggle={() => setOpen((o) => !o)}
-              selId={sel}
-              onSelect={toggle}
+            <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[15px] font-bold text-on-surface">
+                {brokenN ? "Unreconciled records" : "Daily records"}
+              </span>
+              <span className="text-[12.5px] text-secondary">
+                every trade from CRM, IB, and Portfolio Commander for {dayLabel} · expand to orders and fills
+              </span>
+            </div>
+            <ReconGrid
+              trades={trades}
+              day={data?.day ?? null}
               error={error}
+              loading={loading}
+              onExportChange={onExportChange}
             />
           </div>
         </>
