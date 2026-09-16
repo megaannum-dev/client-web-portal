@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Callable
 from fastapi import HTTPException, status
 
 from app.core.ib_flex import FlexUnavailable, get_fetcher
+from app.libs.reconciliation._reconcile import reconcile
+from app.libs.reconciliation._tree import build_trades
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources.crm import CrmSource
 from app.libs.reconciliation.sources.ib import IbSource
@@ -22,7 +24,6 @@ from app.libs.reconciliation.sources.pc import PcSource
 from app.schemas.unified_execution import UnifiedExecutionsViewOut
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from datetime import date
 
     from sqlalchemy.orm import Session
@@ -44,21 +45,6 @@ _FACTORIES: dict[str, Callable[[Session], ExecutionSource]] = {
 }
 
 
-def _sort_key(row: UnifiedExecutionRow) -> tuple:
-    # None-safe: a missing trade_date/contract/group_ref/event_ts_utc must
-    # sort, not raise. Executions follow their own order
-    # (grain == "execution" -> True).
-    return (
-        row.trade_date is None,
-        row.trade_date,
-        row.contract or "",
-        row.group_ref or "",
-        row.grain == "execution",
-        row.event_ts_utc is None,
-        row.event_ts_utc,
-    )
-
-
 def _build_source(name: str, db: Session, warnings: list[str]) -> ExecutionSource | None:
     """Construct one source, degrading (fixed warning, never str(exc)) on failure."""
     try:
@@ -73,10 +59,8 @@ def build_view(
     db: Session,
     *,
     day: date | None,
-    systems: Sequence[str] | None,
-    grain: str | None,
 ) -> UnifiedExecutionsViewOut:
-    requested = list(systems) if systems else list(_ALL_SYSTEMS)
+    requested = list(_ALL_SYSTEMS)
     warnings: list[str] = []
     failed: set[str] = set()
 
@@ -88,16 +72,20 @@ def build_view(
         else:
             sources[name] = source
 
-    all_days: set[date] = set()
+    # Kept per source, not just unioned: which days a source COVERS is what makes
+    # an absent record meaningful. The CRM tables carry months the IB drop
+    # directory never had, and calling every one of those rows "missing on IB"
+    # would drown the real breaks.
+    days_by_source: dict[str, set[date]] = {}
     for name, source in sources.items():
         try:
-            all_days.update(source.days())
+            days_by_source[name] = set(source.days())
         except (SourceUnavailable, FlexUnavailable):
             logger.exception("Reconciliation source %s unavailable (days)", name)
             warnings.append(f"{name}: source unavailable")
             failed.add(name)
 
-    days = sorted(all_days, reverse=True)
+    days = sorted(set().union(*days_by_source.values()) if days_by_source else set(), reverse=True)
     resolved_day = day if day is not None else (days[0] if days else None)
 
     rows: list[UnifiedExecutionRow] = []
@@ -119,8 +107,18 @@ def build_view(
             "All requested reconciliation sources are unavailable",
         )
 
-    rows.sort(key=_sort_key)
-    if grain is not None:
-        rows = [r for r in rows if r.grain == grain]
+    trades = build_trades(rows)
 
-    return UnifiedExecutionsViewOut(day=resolved_day, days=days, rows=rows, warnings=warnings)
+    # Reconcile only against sources that both loaded AND cover this day. A degraded
+    # source must never read as "missing everywhere" (that is what `warnings`
+    # reports), and neither must one whose data simply does not reach this day.
+    covered = {
+        name
+        for name in sources
+        if name not in failed and resolved_day in days_by_source.get(name, ())
+    }
+    recon = reconcile(trades, covered)
+
+    return UnifiedExecutionsViewOut(
+        day=resolved_day, days=days, trades=trades, warnings=warnings, recon=recon
+    )

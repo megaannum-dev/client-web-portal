@@ -20,9 +20,8 @@
    number/date formatting of its own, but it does derive the status
    chip tone and the trade count from the mapped fields.
 
-   `ref` / `group_ref` are intentionally never rendered as columns —
-   `group_ref` is used only as the row-selection/grouping key
-   (`ExecutionRow.groupRef`).
+   `group_ref` is intentionally never rendered as a column — it is used
+   only as the row-selection/grouping key (`ExecutionRow.groupRef`).
 
    A degraded source (e.g. IB unconfigured) still returns HTTP 200
    with that source's rows simply absent, so `data.warnings` is
@@ -78,44 +77,44 @@ function BrkVal({ v, brk }: { v?: string | null; brk?: boolean }) {
   return <span>{v}</span>;
 }
 
-const RIGHT_ALIGNED = new Set([6, 7, 14, 15, 16, 17, 18, 19, 20, 21]);
+const COLUMNS: {
+  head: string;
+  key: keyof ExecutionRow;
+  right?: boolean;
+  render?: (r: ExecutionRow) => ReactNode;
+}[] = [
+  { head: "System", key: "system", render: (r) => <SysBadge sys={r.system} /> },
+  { head: "Account Number", key: "account" },
+  { head: "Txn Type", key: "txnType" },
+  { head: "Descrpt", key: "descrpt" },
+  { head: "Exch", key: "exchange" },
+  { head: "Currency", key: "currency" },
+  { head: "Asset Category", key: "assetClass" },
+  { head: "TradeDate", key: "tradeDate" },
+  { head: "BuySell", key: "direction" },
+  { head: "Price", key: "price", right: true, render: (r) => <BrkVal v={r.price} brk={false} /> },
+  { head: "QTY", key: "qty", right: true, render: (r) => <BrkVal v={r.qty} brk={false} /> },
+  { head: "Trade Amt", key: "tradeAmt", right: true },
+  { head: "Fee", key: "fee", right: true },
+  { head: "Settlement Amt", key: "settlementAmt", right: true },
+  { head: "Status", key: "status", render: (r) => <Chip tone={statusTone(r)} dot={false}>{r.status}</Chip> },
+  { head: "Txn Time", key: "txnTime" },
+];
 
 function FlatRowTr({ r, ri, active, onClick }: { r: ExecutionRow; ri: number; active: boolean; onClick: () => void }) {
   const bg = active ? "rgba(242,116,5,0.03)" : "transparent";
   const topBorder = ri === 0 ? "" : r.isFirst ? "border-t-2 border-outline-variant" : "border-t border-outline-variant";
-  const td = (content: ReactNode, i: number) => (
-    <td
-      className={`px-3.5 py-2.5 ${topBorder} ${RIGHT_ALIGNED.has(i) ? "text-right tabular-nums" : ""}`}
-      style={{ background: bg }}
-    >
-      {content}
-    </td>
-  );
   return (
     <tr onClick={onClick} className="cursor-pointer">
-      {td(<SysBadge sys={r.system} />, 0)}
-      {td(r.grain, 1)}
-      {td(r.contract, 2)}
-      {td(r.underlying, 3)}
-      {td(r.expiry, 4)}
-      {td(r.right, 5)}
-      {td(r.strike, 6)}
-      {td(r.multiplier, 7)}
-      {td(r.securityType, 8)}
-      {td(r.currency, 9)}
-      {td(r.account, 10)}
-      {td(r.time, 11)}
-      {td(r.tradeDate, 12)}
-      {td(r.direction, 13)}
-      {td(r.qtySigned, 14)}
-      {td(<BrkVal v={r.qtyAbs} brk={false} />, 15)}
-      {td(<BrkVal v={r.price} brk={false} />, 16)}
-      {td(r.premiumSigned, 17)}
-      {td(r.premiumGross, 18)}
-      {td(r.fee, 19)}
-      {td(r.cashBeforeFees, 20)}
-      {td(r.cashAfterFees, 21)}
-      {td(<Chip tone={statusTone(r)} dot={false}>{r.status}</Chip>, 22)}
+      {COLUMNS.map((c) => (
+        <td
+          key={c.key}
+          className={`px-3.5 py-2.5 ${topBorder} ${c.right ? "text-right tabular-nums" : ""}`}
+          style={{ background: bg }}
+        >
+          {c.render ? c.render(r) : r[c.key]}
+        </td>
+      ))}
     </tr>
   );
 }
@@ -182,12 +181,6 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
   );
 }
 
-const TABLE_HEAD = [
-  "System", "Grain", "Contract", "Underlying", "Expiry", "Right", "Strike", "Mult", "Sec Type", "CCY",
-  "Account", "Time (ET)", "Trade Date", "Side", "Qty Signed", "QTY", "Price", "Premium", "Premium Gross",
-  "Fee", "Cash Pre-Fee", "Cash Post-Fee", "Status",
-];
-
 /* ---- THE records spreadsheet — ONE table for both scenarios.
    Breaks present → titled "Unreconciled records", open by default.
    All reconciled → titled "Daily records", collapsed so the clean
@@ -205,7 +198,7 @@ function RecordsTable({
   onSelect: (id: string) => void;
   error: string | null;
 }) {
-  const span = TABLE_HEAD.length;
+  const span = COLUMNS.length;
   return (
     <div className="min-w-0 overflow-hidden">
       <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
@@ -214,20 +207,20 @@ function RecordsTable({
       </div>
       <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[2300px] border-collapse text-[13.5px]">
+          <table className="w-full min-w-[1500px] border-collapse text-[13.5px]">
             <thead>
               <tr onClick={onToggle} className="cursor-pointer select-none">
-                {TABLE_HEAD.map((h, i) => (
+                {COLUMNS.map((c, i) => (
                   <th
-                    key={h}
-                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${RIGHT_ALIGNED.has(i) ? "text-right" : "text-left"}`}
+                    key={c.key}
+                    className={`whitespace-nowrap bg-surface-low px-3.5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary transition-colors hover:bg-surface-low/70 ${c.right ? "text-right" : "text-left"}`}
                   >
                     {i === 0 ? (
                       <span className="flex items-center gap-1.5">
                         {open ? <ChevronUp size={13} strokeWidth={2} /> : <ChevronDown size={13} strokeWidth={2} />}
-                        {h}
+                        {c.head}
                       </span>
-                    ) : h}
+                    ) : c.head}
                   </th>
                 ))}
               </tr>
@@ -292,7 +285,7 @@ export default function TradeReconciliationPage() {
   const missCat = 0;
   const settleCat = 0;
   const isClean = totalBrk === 0;
-  const tradeCount = rows.filter((r) => r.grain === "Order").length;
+  const tradeCount = rows.filter((r) => r.txnType === "Order").length;
   const settlePending = settlementRows.filter((r) => r.status === "Pending").length;
 
   // Open by default. The original design collapsed a "clean" day behind the

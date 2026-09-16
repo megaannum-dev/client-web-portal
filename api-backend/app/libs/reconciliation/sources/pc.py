@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.libs.reconciliation.sources._transform import et_date, osi_strip
+from app.libs.reconciliation.sources._transform import asset_class, descrpt, et_date
 from app.models.pc_data import PcOrder, PcTrade
 from app.schemas.unified_execution import UnifiedExecutionRow
 
@@ -40,37 +40,55 @@ def _direction(net_fill_quantity: Decimal | None) -> str:
     return "BUY" if net_fill_quantity is not None and net_fill_quantity > 0 else "SELL"
 
 
-def _order_row(o: PcOrder) -> UnifiedExecutionRow:
-    ts = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
+def _fill_time(fills: list[PcTrade]) -> datetime | None:
+    """The instant this order actually traded: its EARLIEST fill.
+
+    `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
+    event, so for an order partially filled and then cancelled it is the cancel:
+    order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
+    counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill and
+    sitting 25 minutes from the cancel. `_reconcile._slots` pairs orders across
+    systems on a 60-second window, so stamping the cancel split one real order into
+    two unmatched slots and reported it missing on all three systems at once.
+
+    Earliest, not last: a partial fill's later siblings are the same order continuing,
+    while the first fill is the moment the other systems also record.
+    """
+    stamps = [cast(datetime, t.executed_at_utc) for t in fills if t.executed_at_utc is not None]
+    return min(stamps) if stamps else None
+
+
+def _order_row(o: PcOrder, fills: list[PcTrade]) -> UnifiedExecutionRow:
+    last_event = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
+    # Fill instant for MATCHING, last event for the DATE (below) -- they are
+    # different questions and only the date one is settled by §3.
+    fill_ts = _as_utc(_fill_time(fills))
+    ts = fill_ts if fill_ts is not None else last_event
     ref = _order_ref(o)
     return UnifiedExecutionRow(
         system="PC",
-        grain="order",
-        ref=ref,
+        txn_type="order",
         group_ref=ref,
-        contract=osi_strip(o.symbol) or "",
-        underlying=o.underlying_symbol,
-        expiry=o.option_expiry,  # type: ignore[arg-type]
-        right=o.option_right,
-        strike=o.strike_price,  # type: ignore[arg-type]
-        multiplier=o.contract_multiplier,  # type: ignore[arg-type]
-        security_type=o.security_type,
+        descrpt=descrpt(
+            o.underlying_symbol, o.option_expiry, o.option_right, o.strike_price, o.symbol  # type: ignore[arg-type]
+        ),
+        exchange=None,  # PC has no venue column at all
+        asset_class=asset_class(o.security_type, o.option_right),
         currency=o.quote_currency,
         account=o.account_id,
-        event_ts_utc=ts,
-        # last_event_utc is the last EVENT (may be a later cancel), not the
-        # fill — but its ET date is still the correct trade_date per §3.
-        trade_date=et_date(ts) if ts is not None else None,
+        txn_time_utc=ts,
+        # Still derived from last_event_utc, never from `ts`: §3 settles the ET
+        # date on the last event, and `rows()` below selects the day the same
+        # way -- deriving it from the fill instead could hand an order a
+        # trade_date outside the very day it was fetched for.
+        trade_date=et_date(last_event) if last_event is not None else None,
         direction=_direction(o.net_fill_quantity),  # type: ignore[arg-type]
-        qty_signed=o.net_fill_quantity,  # type: ignore[arg-type]
-        qty_abs=o.gross_fill_quantity,  # type: ignore[arg-type]
+        qty=o.gross_fill_quantity,  # type: ignore[arg-type]
         # NULL on the zero-fill cancelled orders; a rounded 9dp figure, never compare with ==.
         price=o.weighted_average_fill_price,  # type: ignore[arg-type]
-        premium_signed=o.signed_premium_usd,  # type: ignore[arg-type]
-        premium_gross=o.gross_premium_usd,  # type: ignore[arg-type]
+        trade_amt=o.gross_premium_usd,  # type: ignore[arg-type]
         fee=o.total_fee_usd,  # type: ignore[arg-type]  # already positive, do not flip
-        cash_before_fees=o.modeled_cash_flow_before_fees_usd,  # type: ignore[arg-type]
-        cash_after_fees=o.modeled_cash_flow_after_fees_usd,  # type: ignore[arg-type]
+        settlement_amt=o.modeled_cash_flow_after_fees_usd,  # type: ignore[arg-type]
         status=o.latest_status,  # 'Filled' | 'Canceled' — pass through
     )
 
@@ -78,29 +96,23 @@ def _order_row(o: PcOrder) -> UnifiedExecutionRow:
 def _trade_row(t: PcTrade) -> UnifiedExecutionRow:
     return UnifiedExecutionRow(
         system="PC",
-        grain="execution",
-        ref=t.source_event_id,
+        txn_type="execution",
         group_ref=f"{t.source_run_id}|{t.lean_order_id}",
-        contract=osi_strip(t.symbol) or "",
-        underlying=t.underlying_symbol,
-        expiry=t.option_expiry,  # type: ignore[arg-type]
-        right=t.option_right,
-        strike=t.strike_price,  # type: ignore[arg-type]
-        multiplier=t.contract_multiplier,  # type: ignore[arg-type]
-        security_type=t.security_type,
+        descrpt=descrpt(
+            t.underlying_symbol, t.option_expiry, t.option_right, t.strike_price, t.symbol  # type: ignore[arg-type]
+        ),
+        exchange=None,  # PC has no venue column at all
+        asset_class=asset_class(t.security_type, t.option_right),
         currency=t.quote_currency,
         account=t.account_id,
-        event_ts_utc=_as_utc(t.executed_at_utc),  # type: ignore[arg-type]
+        txn_time_utc=_as_utc(t.executed_at_utc),  # type: ignore[arg-type]
         trade_date=t.trade_date_et,  # type: ignore[arg-type]  # already correct ET date
         direction=t.side,  # type: ignore[arg-type]
-        qty_signed=t.fill_quantity_signed,  # type: ignore[arg-type]
-        qty_abs=t.fill_quantity_abs,  # type: ignore[arg-type]
+        qty=t.fill_quantity_abs,  # type: ignore[arg-type]
         price=t.fill_price,  # type: ignore[arg-type]
-        premium_signed=t.signed_premium_usd,  # type: ignore[arg-type]
-        premium_gross=t.gross_premium_usd,  # type: ignore[arg-type]
+        trade_amt=t.gross_premium_usd,  # type: ignore[arg-type]
         fee=t.fee_usd,  # type: ignore[arg-type]  # already positive, do not flip
-        cash_before_fees=t.modeled_cash_flow_before_fees_usd,  # type: ignore[arg-type]
-        cash_after_fees=t.modeled_cash_flow_after_fees_usd,  # type: ignore[arg-type]
+        settlement_amt=t.modeled_cash_flow_after_fees_usd,  # type: ignore[arg-type]
         # 'Filled' | 'PartiallyFilled' — do NOT collapse to a 'Filled' literal;
         # PartiallyFilled is the only signal that a fill was cancelled mid-way.
         status=t.fill_status,
@@ -157,7 +169,7 @@ class PcSource:
         for o in day_orders:
             ref = _order_ref(o)
             seen_groups.add(ref)
-            out.append(_order_row(o))
+            out.append(_order_row(o, fills_by_group.get(ref, [])))
             for t in fills_by_group.get(ref, []):
                 out.append(_trade_row(t))
 
@@ -179,7 +191,7 @@ class PcSource:
                 None,
             )
             if orphan is not None:
-                out.append(_order_row(orphan))
+                out.append(_order_row(orphan, fills))
                 out.extend(_trade_row(t) for t in fills)
 
         return out

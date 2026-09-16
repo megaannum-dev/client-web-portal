@@ -11,9 +11,13 @@ Active implementation is chosen by ``settings.ib_flex_transport``
 
 from __future__ import annotations
 
+import contextlib
+import os
+import time
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple, Protocol
+from typing import Iterator, NamedTuple, Protocol
 
 from app.core import flex_xml
 from app.core.config import get_settings
@@ -60,10 +64,7 @@ class DropFetcher:
 
     def fetch(self, day: date) -> FlexRows:
         xml_path = (
-            self._trade_confirm_dir()
-            / f"{day:%Y}"
-            / f"{day:%m}"
-            / f"ib_trades_{day:%Y%m%d}.xml"
+            self._trade_confirm_dir() / f"{day:%Y}" / f"{day:%m}" / f"ib_trades_{day:%Y%m%d}.xml"
         )
         if not xml_path.is_file():
             return FlexRows(orders=[], fills=[])  # nothing traded that day
@@ -86,8 +87,11 @@ class LiveFetcher:
             )
         return self._token, self._query_id
 
-    def _statement_rows(self, topic: str) -> list[dict[str, str]]:
+    def _statement_rows(self, topic: str, day: date | None = None) -> list[dict[str, str]]:
+        """Rows for one topic. ``day`` asks the service for exactly that date;
+        ``None`` leaves the range to the saved Flex query's own period."""
         token, query_id = self._require_config()
+        print(f"token: {token}, query_id: {query_id}")
         try:
             from ib_async import FlexReport  # lazy: keep ib_async off the default drop path
         except ImportError as exc:
@@ -96,8 +100,11 @@ class LiveFetcher:
             ) from exc
 
         try:
-            report = _cached_flex_report(FlexReport, token, query_id, self._ttl)
-            return list(report.extract(topic, parseNumbers=False))
+            report = _cached_flex_report(FlexReport, token, query_id, self._ttl, day)
+            # extract() yields ib_async DynamicObjects; the rest of the pipeline
+            # (and DropFetcher) speaks plain str dicts. parseNumbers=False keeps
+            # every value a string, so vars() is the whole conversion.
+            return [dict(vars(row)) for row in report.extract(topic, parseNumbers=False)]
         except FlexUnavailable:
             raise
         except Exception as exc:
@@ -110,23 +117,66 @@ class LiveFetcher:
 
     def fetch(self, day: date) -> FlexRows:
         day_str = f"{day:%Y%m%d}"
-        orders = [r for r in self._statement_rows("Order") if r.get("tradeDate") == day_str]
-        fills = [r for r in self._statement_rows("TradeConfirm") if r.get("tradeDate") == day_str]
+        # Filtered as well as date-ranged: the range is what makes an old day
+        # reachable at all, the filter is what keeps a wider-than-asked
+        # statement (a query whose own period overrides fd/td) honest.
+        orders = [r for r in self._statement_rows("Order", day) if r.get("tradeDate") == day_str]
+        fills = [
+            r for r in self._statement_rows("TradeConfirm", day) if r.get("tradeDate") == day_str
+        ]
         return FlexRows(orders=orders, fills=fills)
 
 
-def _cached_flex_report(flex_report_cls: type, token: str, query_id: str, ttl_seconds: int):  # type: ignore[no-untyped-def]
-    # ponytail: bucket-keyed lru_cache is the whole cache; upgrade to real TTL/LRU
-    # eviction if this ever grows past a handful of (token, query, bucket) keys.
-    import time
-    from functools import lru_cache
+@contextlib.contextmanager
+def _flex_date_range(day: date | None) -> Iterator[None]:
+    """Ask the Flex Web Service for one specific date.
 
-    @lru_cache(maxsize=8)
-    def _get(token: str, query_id: str, bucket: int):  # type: ignore[no-untyped-def]
+    ``FlexReport.download()`` only sends ``t=``/``q=``/``v=3`` — no from/to
+    date. But it builds its URL as ``IB_FLEXREPORT_URL`` (env, default
+    ``FLEXREPORT_URL``) + those params by plain string concatenation, so an
+    ``fd=``/``td=``/``&`` prefix stuffed into that env var rides along.
+    """
+    if day is None:
+        yield
+        return
+
+    key = "IB_FLEXREPORT_URL"
+    previous = os.environ.get(key)
+    if previous is None:
+        from ib_async.flexreport import FLEXREPORT_URL
+
+        base = FLEXREPORT_URL
+    else:
+        base = previous
+    os.environ[key] = f"{base}fd={day:%Y%m%d}&td={day:%Y%m%d}&"
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+
+
+# ponytail: bucket-keyed lru_cache is the whole cache; upgrade to real TTL/LRU
+# eviction if this ever grows past a handful of (token, query, day, bucket) keys.
+@lru_cache(maxsize=32)
+def _download_flex_report(  # type: ignore[no-untyped-def]
+    flex_report_cls: type, token: str, query_id: str, day: date | None, _bucket: int
+):
+    with _flex_date_range(day):
         return flex_report_cls(token, query_id)
 
+
+def _cached_flex_report(  # type: ignore[no-untyped-def]
+    flex_report_cls: type,
+    token: str,
+    query_id: str,
+    ttl_seconds: int,
+    day: date | None = None,
+):
     bucket = int(time.time() // ttl_seconds) if ttl_seconds > 0 else 0
-    return _get(token, query_id, bucket)
+    return _download_flex_report(flex_report_cls, token, query_id, day, bucket)
 
 
 def get_fetcher() -> FlexFetcher:
