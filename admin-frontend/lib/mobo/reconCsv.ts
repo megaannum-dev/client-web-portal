@@ -2,7 +2,7 @@
    Reconciliation grid -> CSV export — data layer only.
 
    Takes the grid's already-derived display list (post filter/search/
-   sort/flatten) and its visible columns, and renders exactly that —
+   sort) and its visible columns, and renders exactly that —
    no re-filtering, re-sorting, or re-formatting here.
    ============================================================ */
 

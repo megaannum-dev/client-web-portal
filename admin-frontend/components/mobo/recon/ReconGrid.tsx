@@ -121,7 +121,17 @@ function CellValue({ node, col }: { node: ReconNode; col: ReconColumn }) {
     return <span className="text-secondary">—</span>;
   }
   if (col.key === "system") return <SystemCell node={node} />;
-  if (col.key === "status") return <Chip dot={false} tone={statusTone(node)}>{node.status}</Chip>;
+  if (col.key === "status") {
+    // `status` is the one break the red-text treatment cannot carry, because this
+    // cell renders a chip. Recolour the chip instead -- a cancelled-but-traded
+    // exception is precisely the case that has to be visible here.
+    const broken = node.breaks.includes("status");
+    return (
+      <span title={broken ? "status disagrees across systems" : undefined}>
+        <Chip dot={false} tone={broken ? "failed" : statusTone(node)}>{node.status}</Chip>
+      </span>
+    );
+  }
 
   const raw = fieldStr(node, col.key);
   const content: ReactNode = col.key === "descrpt" ? <span className="font-bold">{raw}</span> : raw;

@@ -144,6 +144,9 @@ export const RECON_SEARCH_COLS: ReconColKey[] = [
   "account", "descrpt", "exchange", "assetClass", "currency", "system", "kind", "status",
 ];
 
+/** Trade-level disagreements that count as an exception, not just a red cell. */
+export const STRUCTURAL_BRK = ["qty", "exchange", "currency", "assetClass"] as const;
+
 export type BrkKey =
   | "price" | "qty" | "tradeAmt" | "fee" | "settlementAmt"
   | "exchange" | "currency" | "assetClass";
@@ -307,15 +310,18 @@ function agreeText(values: (string | null)[]): { text: string; disagree: boolean
 
 // ---- Mapper -----------------------------------------------------------------
 
-/** Wire field name -> the view column it lands in. */
+/** Wire field name -> the view column it lands in.
+ *
+ *  Only the fields the reconciler actually compares at row grain: its
+ *  `_COMPARED` tuple plus `qty`. It deliberately does NOT compare price,
+ *  trade_amt, fee or settlement_amt between systems -- each source computes its
+ *  own figure -- so mapping them here would advertise a break that cannot occur.
+ *  `status` is the exception it also emits, handled by the Status cell itself
+ *  because that cell renders a chip and cannot take the red-text treatment. */
 const BRK_FIELD: Record<string, BrkKey> = {
-  price: "price",
   qty: "qty",
-  fee: "fee",
   exchange: "exchange",
   currency: "currency",
-  trade_amt: "tradeAmt",
-  settlement_amt: "settlementAmt",
   asset_class: "assetClass",
 };
 
@@ -400,7 +406,20 @@ function mapTrade(t: TradeNodeDTO): ReconNode {
   mark("currency", currency);
 
   const hasMissing = t.missing_from.length > 0 || orders.some((o) => o.hasMissing);
-  const hasBreak = t.breaks.length > 0 || orders.some((o) => o.hasBreak);
+  // A trade-level disagreement has to reach `hasBreak` too, or the row shows a
+  // red cell beside a green "Matched" chip and goes uncounted in the exception
+  // bento -- the headline card claiming "all reconciled" above a red figure.
+  //
+  // Structural fields only. Quantity, venue, currency and asset class must agree
+  // across systems, so a difference is a real break. Price / trade amt / fee /
+  // settlement are each source's own figure -- PC's settlement is MODELLED, not
+  // observed -- so they stay red on the cell with the per-system breakdown in the
+  // tooltip, but do not flip the trade. Promoting them would mark nearly every
+  // trade an exception and bury the ones that matter.
+  const hasBreak =
+    t.breaks.length > 0 ||
+    STRUCTURAL_BRK.some((k) => brk[k]) ||
+    orders.some((o) => o.hasBreak);
 
   return {
     ref: t.ref,

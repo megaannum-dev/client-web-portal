@@ -139,6 +139,34 @@ describe("mapExecutions — trade-level agreement", () => {
     expect(out.brk.price).toBeUndefined();
   });
 
+  it("a structural trade-level disagreement reaches hasBreak and the status chip", () => {
+    // Otherwise the row shows a red QTY cell beside a green "Matched" chip and
+    // goes uncounted in the exception bento.
+    const t = tradeRow({
+      by_system: { CRM: totals({ qty: "10" }), IB: totals({ qty: "12" }) },
+    });
+    const [out] = mapExecutions(viewOf([t]));
+    expect(out.brk.qty).toBe(true);
+    expect(out.hasBreak).toBe(true);
+    expect(out.status).toBe("Break");
+  });
+
+  it("a money-only disagreement marks the cell but is not an exception", () => {
+    // Price / trade amt / fee / settlement are each source's own figure -- PC's
+    // settlement is MODELLED, not observed -- so they are shown, not escalated.
+    const t = tradeRow({
+      by_system: {
+        CRM: totals({ settlement_amt: "-150.53" }),
+        IB: totals({ settlement_amt: "-151.10" }),
+      },
+    });
+    const [out] = mapExecutions(viewOf([t]));
+    expect(out.brk.settlementAmt).toBe(true);
+    expect(out.cellTitle.settlementAmt).toContain("IB");
+    expect(out.hasBreak).toBe(false);
+    expect(out.status).toBe("Matched");
+  });
+
   it("does not flag totals that differ below the cent they are rendered at", () => {
     // PC carries 9dp (modeled_cash_flow_after_fees_usd); CRM and IB carry two.
     // A raw !== painted matching trades red -- the tooltip read

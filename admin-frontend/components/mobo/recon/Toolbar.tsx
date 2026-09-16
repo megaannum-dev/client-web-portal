@@ -257,7 +257,7 @@ export function ReconToolbar({
       )}
 
       <span className="ml-auto text-[12.5px] text-secondary tabular-nums whitespace-nowrap">
-        {counts.shown} of {counts.total} records · grouped by trade
+        {counts.shown} of {counts.total} records
       </span>
 
       <ColumnMenu hidden={hidden} onChange={onHidden} />
