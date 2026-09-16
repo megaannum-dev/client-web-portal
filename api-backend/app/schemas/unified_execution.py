@@ -167,8 +167,10 @@ class ReconSummary(BaseModel):
     broken_rows: list[str]  # refs of order/execution nodes carrying >=1 break
     missing_rows: list[str]  # refs of the synthesized `missing=True` placeholders
     by_field: dict[str, int]  # 'qty' -> 3, 'exchange' -> 1, ... — open, not fixed buckets
-    # 'CRM' | 'IB' | 'PC' -> records absent there. Counts match-key BUCKETS, not rows:
-    # a bucket holding a PC and a CRM row but no IB row is one missing record, not two.
+    # 'CRM' | 'IB' | 'PC' -> records absent there. Counts MATCH SLOTS, not rows: a
+    # slot holding a PC and a CRM order but no IB one is a single missing record,
+    # not two. A slot is one order paired across the systems by time order within
+    # its trade (see _reconcile._slots), so a trade with two orders can report two.
     # Keyed only on live systems, so a degraded source is absent rather than a false 0.
     missing_by_system: dict[str, int]
 

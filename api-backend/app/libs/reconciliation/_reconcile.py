@@ -9,20 +9,28 @@ Matching is on CONTENT. No identifier is shared across the three systems -- see
 ``unified_view_mapping.md`` §5: PC's ``ib_brokerage_ids`` are small integers, IB's
 are hex strings, and "Literal values never compare". Adding the real IB ``orderID``
 to PC fill records remains the highest-value schema change available; until then a
-content key is the only thing there is. That key is the trade node itself
-(account, descrpt, trade_date, direction) -- ``_tree`` already grouped by it, so
-this module compares buckets rather than re-deriving them.
+content key is the only thing there is.
+
+That key has two levels. ``_tree`` groups records into trades on
+(account, descrpt, trade_date, direction); within a trade, orders are paired
+ACROSS systems by time PROXIMITY -- see ``_slots``. Comparison then happens
+between paired orders rather than over the trade as a whole, which is what keeps
+one system's extra order from contaminating the orders that agree.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from app.schemas.unified_execution import ExecutionNode, OrderNode, ReconSummary
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from datetime import datetime
+
     from app.schemas.unified_execution import TradeNode, _Node
 
 # Compared value-by-value across systems. Deliberately absent:
@@ -33,6 +41,9 @@ if TYPE_CHECKING:
 #   trade_amt / fee / settlement_amt -- pass-through of each source's own figure
 #     by design; the whole point is that they may legitimately differ.
 _COMPARED = ("exchange", "currency", "asset_class")
+
+# Slotting preserves the node type it was handed: order slots hold OrderNodes.
+_N = TypeVar("_N", bound="_Node")
 
 
 def _zero_fill_cancel(row: _Node) -> bool:
@@ -53,45 +64,156 @@ def _zero_fill_cancel(row: _Node) -> bool:
 
 
 def _qty_sum(rows: list[_Node]) -> Decimal:
-    # Summed, not compared row-by-row: at execution grain one order's partial fills
-    # all land in the same bucket, and only the total is comparable across systems.
-    # At order grain the bucket usually holds one row, so the sum is that row.
+    # Summed, not compared row-by-row: one order's partial fills all land in the
+    # same bucket and the sources split them differently -- IB reports a fill per
+    # venue where PC may report one aggregate -- so only the total is comparable.
     return sum((r.qty for r in rows if r.qty is not None), Decimal(0))
 
 
-def _compare(
-    by_sys: dict[str, list[_Node]],
+def _time_key(r: _Node) -> tuple[bool, datetime | None, str]:
+    # Nulls last; group_ref breaks ties so the pairing is stable across refetches.
+    return (r.txn_time_utc is None, r.txn_time_utc, r.group_ref)
+
+
+# How far apart two systems' timestamps may be and still be the same order.
+# The sources agree on the instant to within a second or two but not exactly, so
+# some slack is required; distinct orders on one contract sit minutes apart, so
+# it must stay well under that. Widen it if a source starts reporting a lag, and
+# narrow it if two genuinely different orders ever pair.
+_PAIR_WINDOW = timedelta(seconds=60)
+
+
+def _gap(a: _Node, b: _Node) -> timedelta:
+    # No timestamp on one side: nothing to judge distance on, so treat them as
+    # co-located and let the caller fall back to time ORDER.
+    if a.txn_time_utc is None or b.txn_time_utc is None:
+        return timedelta(0)
+    return abs(a.txn_time_utc - b.txn_time_utc)
+
+
+def _slots(by_sys: dict[str, list[_N]]) -> list[dict[str, _N]]:
+    """Pair each system's records with their nearest counterpart in time.
+
+    A slot is one such pairing -- the finest match key available -- and a system
+    missing from a slot is missing that record.
+
+    Matched by PROXIMITY, not by rank. Zipping each system's i-th earliest
+    record works only while every system holds the same records: on 2026-08-25
+    PC carried an extra 12:33:04 order that CRM and IB never saw, so PC's
+    *earliest* was the unmatched one and rank-pairing compared it against the
+    12:44:46 orders the other two did have -- reporting a quantity break on
+    three rows that agreed, and a missing record against the wrong one.
+
+    So the earliest unassigned record anchors a slot and each other system joins
+    it with its nearest record, if that falls inside `_PAIR_WINDOW`. Anything
+    beyond the window is a different order and opens its own slot.
+    """
+    pending = {s: sorted(rows, key=_time_key) for s, rows in by_sys.items() if rows}
+    slots: list[dict[str, _N]] = []
+    while any(pending.values()):
+        anchor_sys = min(
+            (s for s, rows in pending.items() if rows), key=lambda s: _time_key(pending[s][0])
+        )
+        anchor = pending[anchor_sys].pop(0)
+        slot = {anchor_sys: anchor}
+        for system, rows in pending.items():
+            if system == anchor_sys or not rows:
+                continue
+            # ties go to the earliest, since `rows` is time-sorted
+            nearest = min(rows, key=lambda r: _gap(anchor, r))
+            if _gap(anchor, nearest) > _PAIR_WINDOW:
+                continue
+            # Mutual-nearest gate. Anchoring on the globally earliest record is
+            # not enough on its own: if this system's record is CLOSER to a
+            # later record of the anchor's own system, that later one is its
+            # real counterpart and the anchor would be stealing the pairing.
+            # CRM holding a stale 14:00:00 order plus the real 14:00:45 one,
+            # against IB's single 14:00:44, paired IB to the stale order 44s
+            # away and left the 1s-apart true match reported missing on both
+            # sides -- a false break from the matcher meant to remove them.
+            rival = min(pending[anchor_sys], key=lambda r: _gap(nearest, r), default=None)
+            if rival is not None and _gap(nearest, rival) < _gap(anchor, nearest):
+                continue
+            slot[system] = nearest
+            # By identity, never `list.remove`: `_Node` is a Pydantic model with
+            # field-based equality, so two value-identical rows would let
+            # `remove` drop a different object than the one `min` picked.
+            rows[:] = [r for r in rows if r is not nearest]
+        slots.append(slot)
+    return slots
+
+
+def _compare_pair(
+    slot: Mapping[str, _Node],
     live: set[str],
     by_field: defaultdict[str, int],
-) -> tuple[list[str], list[str], dict[str, int]]:
-    """Annotate one bucket in place.
+) -> tuple[list[str], list[str]]:
+    """Annotate one matched set of orders in place.
 
-    Returns (breaks, systems short of the widest, how many records each is short by).
+    Returns (breaks, the live systems with no order in this slot).
     """
-    members = [r for rows in by_sys.values() for r in rows]
-    # Zero-fill cancels are expected to exist on PC alone, so they take no part
-    # in the counts, the comparisons, or the annotations -- a cancel sharing a
-    # bucket with a genuinely missing record must not itself read as missing.
-    # `missing` placeholders are output, never input: they are excluded too.
+    absent = sorted(s for s in live if s not in slot)
+    rows = list(slot.values())
+    for r in rows:
+        # Never a row's own system -- it has itself. `absent` cannot contain it.
+        r.missing_from = absent
+    breaks: list[str] = []
+
+    for field in _COMPARED:
+        values = {
+            v
+            for system, r in slot.items()
+            # PC has no venue column at all, so its structural null must not read
+            # as a disagreement -- `exchange` is a CRM<->IB check.
+            if not (field == "exchange" and system == "PC") and (v := getattr(r, field)) is not None
+        }
+        if len(values) > 1:
+            for r in rows:
+                r.breaks.append(field)
+            by_field[field] += 1
+            breaks.append(field)
+
+    # Compared value-to-value, not as a bucket sum: these orders are counterparts
+    # of each other, so a difference between them is a real disagreement about
+    # the same order rather than the arithmetic shadow of a missing one.
+    quantities = {r.qty for r in rows if r.qty is not None}
+    if len(quantities) > 1:
+        for r in rows:
+            r.breaks.append("qty")
+        by_field["qty"] += 1
+        breaks.append("qty")
+
+    return breaks, absent
+
+
+def _compare_fills(
+    by_sys: Mapping[str, list[_Node]],
+    live: set[str],
+    by_field: defaultdict[str, int],
+) -> dict[str, int]:
+    """Annotate the fills under one matched set of orders in place.
+
+    Fills are compared as a SET, not paired like their orders: the sources split
+    an order into executions differently -- IB reports one per venue where PC may
+    report a single aggregate -- so the count and the total are comparable but the
+    i-th fill of one is not the i-th fill of another.
+
+    Returns how many fills each system is short by.
+    """
     live_rows = {
         s: [r for r in rows if not r.missing and not _zero_fill_cancel(r)]
         for s, rows in by_sys.items()
     }
     checked = [r for rows in live_rows.values() for r in rows]
-    breaks: list[str] = []
 
-    if by_sys.get("PC") and not live_rows.get("PC") and any(live_rows.values()):
-        # PC's only content here is cancelled-before-fill, yet another system
-        # reports a trade: the broker filled what the engine believes it
-        # cancelled. The one thing `status` can say across systems.
-        for r in members:
-            r.breaks.append("status")
-        by_field["status"] += 1
-        return ["status"], [], {}
-
-    # One rule covers both "source has no rows at all" and "source has fewer
-    # rows than its peers" -- the latter is what catches the known order-393
+    # One rule covers both "source has no fills at all" and "source has fewer
+    # fills than its peers" -- the latter is what catches the known order-393
     # duplicate-fill defect, where PC carries more fills than IB.
+    #
+    # It is also the sole owner of "a missing filled order carries at least one
+    # missing fill": a system absent from the slot has no fills here, so its
+    # deficit is the full `widest` and its order stand-in gets that many fill
+    # stand-ins. A second explicit guarantee upstream was redundant.
     widest = max(len(live_rows.get(s, [])) for s in live)
     deficits = {
         s: widest - len(live_rows.get(s, []))
@@ -99,9 +221,8 @@ def _compare(
         if widest - len(live_rows.get(s, [])) > 0
     }
     short = sorted(deficits)
-    if short:
-        for r in checked:
-            r.missing_from = short
+    for r in checked:
+        r.missing_from = [s for s in short if s != r.system]
 
     for field in _COMPARED:
         # Compared as a SET PER SYSTEM, never as one pooled set: an order's
@@ -111,23 +232,22 @@ def _compare(
         per_system = {
             frozenset(v for r in rows if (v := getattr(r, field)) is not None)
             for system, rows in live_rows.items()
-            # PC has no venue column at all, so its structural null must not
-            # read as a disagreement -- `exchange` is a CRM<->IB check.
             if rows and not (field == "exchange" and system == "PC")
         }
         if len(per_system - {frozenset()}) > 1:
             for r in checked:
                 r.breaks.append(field)
             by_field[field] += 1
-            breaks.append(field)
 
-    if len({_qty_sum(rs) for rs in live_rows.values() if rs}) > 1:
+    # Only when nothing is short. A sum over differently-sized sets is not a
+    # comparable: if a system is missing a fill its total is lower BECAUSE of that
+    # fill, and the gap is already reported as the missing record itself.
+    if not short and len({_qty_sum(rs) for rs in live_rows.values() if rs}) > 1:
         for r in checked:
             r.breaks.append("qty")
         by_field["qty"] += 1
-        breaks.append("qty")
 
-    return breaks, short, deficits
+    return deficits
 
 
 def _placeholder(
@@ -164,6 +284,15 @@ def _placeholder(
     )
 
 
+def _cancelled_but_traded(
+    orders_by_sys: Mapping[str, list[_N]], live_orders: Mapping[str, list[_N]]
+) -> bool:
+    """PC's only content here is cancelled-before-fill, yet another system reports
+    a trade: the broker filled what the engine believes it cancelled. The one thing
+    `status` can say across systems."""
+    return bool(orders_by_sys.get("PC")) and not live_orders.get("PC") and any(live_orders.values())
+
+
 def reconcile(trades: list[TradeNode], live: set[str]) -> ReconSummary:
     """Annotate `trades` in place with breaks and missing placeholders; return the roll-up."""
     summary = ReconSummary(broken_rows=[], missing_rows=[], by_field={}, missing_by_system={})
@@ -176,46 +305,74 @@ def reconcile(trades: list[TradeNode], live: set[str]) -> ReconSummary:
     missing_by_system = {s: 0 for s in sorted(live)}
 
     for trade in trades:
-        orders_by_sys: defaultdict[str, list[_Node]] = defaultdict(list)
-        execs_by_sys: defaultdict[str, list[_Node]] = defaultdict(list)
+        orders_by_sys: defaultdict[str, list[OrderNode]] = defaultdict(list)
         for o in trade.orders:
             orders_by_sys[o.system].append(o)
-            execs_by_sys[o.system].extend(o.executions)
+        live_orders = {
+            s: [o for o in rows if not o.missing and not _zero_fill_cancel(o)]
+            for s, rows in orders_by_sys.items()
+        }
 
-        breaks, short, deficits = _compare(dict(orders_by_sys), live, by_field)
-        trade.breaks = breaks
-        trade.missing_from = short
-        for s in short:
-            missing_by_system[s] += 1
+        if _cancelled_but_traded(orders_by_sys, live_orders):
+            for rows in orders_by_sys.values():
+                for o in rows:
+                    o.breaks.append("status")
+            by_field["status"] += 1
+            trade.breaks = ["status"]
+            # No placeholders: the cancel explains the gap, so calling it a
+            # missing record too would report one fact twice.
+            continue
 
-        _, _, exec_deficits = _compare(dict(execs_by_sys), live, by_field)
-        # A short fill count is its own missing record (the order-393
-        # duplicate-fill shape: the orders match, the fills do not) -- but only
-        # when the order grain was NOT already short for that system, otherwise
-        # one absent order and its absent fills would count twice.
-        for s in exec_deficits:
-            if s not in short:
+        trade_breaks: list[str] = []
+        trade_short: set[str] = set()
+
+        for i, slot in enumerate(_slots(live_orders)):
+            breaks, absent = _compare_pair(slot, live, by_field)
+            trade_breaks += breaks
+            trade_short |= set(absent)
+            for s in absent:
                 missing_by_system[s] += 1
 
-        # Materialized only after BOTH comparisons, so a placeholder can never
-        # become an input to one.
-        present = sorted(s for s in live if s not in short)
-        for s, n in deficits.items():
-            for i in range(n):
-                trade.orders.append(
-                    _placeholder(trade, s, "order", f"O|{s}|missing|{trade.ref}|{i}", present)  # type: ignore[arg-type]
-                )
-        for s, n in exec_deficits.items():
-            # ponytail: attached to that system's first order in the trade -- the
-            # gap belongs to the bucket, not to any one order. Revisit only if the
-            # FE needs a fill gap pinned to a specific parent.
-            parent = next((o for o in trade.orders if o.system == s), None)
-            if parent is None:
-                continue
-            for i in range(n):
-                parent.executions.append(
-                    _placeholder(trade, s, "execution", f"E|{s}|missing|{trade.ref}|{i}", present)  # type: ignore[arg-type]
-                )
+            # Fills are compared WITHIN this matched set of orders, never across
+            # the whole trade: scoped this way, an order only one system carries
+            # keeps its fills in its own slot instead of skewing the counts and
+            # totals of the orders that do match.
+            # `trade.breaks` mirrors the ORDER grain only, per the schema: a fill
+            # break is visible on the fill, and the FE rolls it up for display.
+            fills: dict[str, list[_Node]] = {s: list(o.executions) for s, o in slot.items()}
+            fill_deficits = _compare_fills(fills, live, by_field)
+            # A short fill count is its own missing record (the order-393
+            # duplicate-fill shape: the orders match, the fills do not) -- but only
+            # when this slot was NOT already short for that system, otherwise one
+            # absent order and its absent fills would count twice.
+            for s in fill_deficits:
+                if s not in absent:
+                    missing_by_system[s] += 1
+
+            # Materialized only after BOTH comparisons, so a placeholder can never
+            # become an input to one.
+            present = sorted(slot)
+            stand_ins: dict[str, OrderNode] = {}
+            for s in absent:
+                ref = f"O|{s}|missing|{trade.ref}|{i}"
+                stand_in = _placeholder(trade, s, "order", ref, present)
+                trade.orders.append(stand_in)  # type: ignore[arg-type]
+                stand_ins[s] = stand_in  # type: ignore[assignment]
+            for s, n in fill_deficits.items():
+                # The order stand-in wins when this system is short at BOTH grains:
+                # the fills are missing BECAUSE the order is. Hanging them off a
+                # real order instead makes one that reconciles read as broken.
+                parent = stand_ins.get(s) or slot.get(s)
+                if parent is None:
+                    continue
+                for k in range(n):
+                    ref = f"E|{s}|missing|{trade.ref}|{i}|{k}"
+                    parent.executions.append(
+                        _placeholder(trade, s, "execution", ref, present)  # type: ignore[arg-type]
+                    )
+
+        trade.breaks = sorted(set(trade_breaks))
+        trade.missing_from = sorted(trade_short)
 
     for trade in trades:
         for o in trade.orders:
