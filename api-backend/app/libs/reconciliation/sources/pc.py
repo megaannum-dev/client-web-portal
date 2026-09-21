@@ -9,15 +9,15 @@ per-event landing table; `last_event_utc` (orders) and `executed_at_utc`
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
-from app.libs.reconciliation.sources._transform import asset_class, descrpt, et_date
+from app.libs.reconciliation.sources._transform import asset_class, descrpt, et_date, et_to_utc
 from app.models.pc_data import PcOrder, PcTrade
 from app.schemas.unified_execution import UnifiedExecutionRow
 
@@ -128,23 +128,36 @@ class PcSource:
         return sorted(trade_days | order_days, reverse=True)
 
     def rows(self, day: date) -> list[UnifiedExecutionRow]:
-        # pc_orders has no stored trade_date column (it's derived from
-        # last_event_utc), and the table is small (110 rows) -- filter in
-        # Python rather than push a per-row zoneinfo conversion into SQL.
-        # ponytail: O(n) scan over ~110 rows, fine at this scale.
-        all_orders = self._db.execute(select(PcOrder)).scalars().all()
-        day_orders = [
-            o
-            for o in all_orders
-            if o.last_event_utc is not None
-            and et_date(cast(datetime, o.last_event_utc).replace(tzinfo=_UTC)) == day
-        ]
-        day_orders.sort(key=lambda o: (o.source_run_id, o.lean_order_id))
+        # pc_orders has no stored trade_date column -- it's derived from
+        # last_event_utc -- so filter on a UTC half-open range for the ET day.
+        # Both endpoints go through et_to_utc independently (not lo + 24h)
+        # because the DST-transition day is 23h or 25h long, never exactly 24.
+        lo = et_to_utc(datetime.combine(day, time.min)).replace(tzinfo=None)
+        hi = et_to_utc(datetime.combine(day + timedelta(days=1), time.min)).replace(tzinfo=None)
+        # .replace(tzinfo=None): last_event_utc is a naive-UTC column: comparing
+        # it to a tz-aware bound would either error or silently misconvert.
+        day_orders = (
+            self._db.execute(
+                select(PcOrder)
+                .where(PcOrder.last_event_utc >= lo, PcOrder.last_event_utc < hi)
+                .order_by(PcOrder.source_run_id, PcOrder.lean_order_id)
+            )
+            .scalars()
+            .all()
+        )
+        if not day_orders:
+            return []
 
+        # Fetch fills by the parent order's own key, not by trade_date_et: the
+        # two date filters could disagree (e.g. an order whose last event is a
+        # next-morning cancel), a fill belongs with its order regardless of
+        # which day the fill itself is stamped, and keying this way is what
+        # removes the need for a second, orphan-reconciliation pass.
+        keys = [(o.source_run_id, o.lean_order_id) for o in day_orders]
         trades = (
             self._db.execute(
                 select(PcTrade)
-                .where(PcTrade.trade_date_et == day)
+                .where(tuple_(PcTrade.source_run_id, PcTrade.lean_order_id).in_(keys))
                 .order_by(PcTrade.executed_at_utc, PcTrade.source_event_id)
             )
             .scalars()
@@ -155,33 +168,8 @@ class PcSource:
             fills_by_group.setdefault(f"{t.source_run_id}|{t.lean_order_id}", []).append(t)
 
         out: list[UnifiedExecutionRow] = []
-        seen_groups: set[str] = set()
         for o in day_orders:
-            ref = _order_ref(o)
-            seen_groups.add(ref)
             out.append(_order_row(o))
-            for t in fills_by_group.get(ref, []):
+            for t in fills_by_group.get(_order_ref(o), []):
                 out.append(_trade_row(t))
-
-        # A fill's own trade_date_et can, in principle, differ from its
-        # parent order's derived (last-event) date -- see the cancel-time
-        # caveat in _transform/module docstring. Surface any such orphaned
-        # group by pulling its order in too, so every fill's group_ref
-        # still resolves within this day's result.
-        for group_ref, fills in fills_by_group.items():
-            if group_ref in seen_groups:
-                continue
-            run_id_s, lean_id_s = group_ref.split("|", 1)
-            orphan = next(
-                (
-                    o
-                    for o in all_orders
-                    if str(o.source_run_id) == run_id_s and str(o.lean_order_id) == lean_id_s
-                ),
-                None,
-            )
-            if orphan is not None:
-                out.append(_order_row(orphan))
-                out.extend(_trade_row(t) for t in fills)
-
         return out
