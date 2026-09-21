@@ -26,7 +26,9 @@ class UnifiedExecutionRow(BaseModel):
     # Cross-system MATCH KEY: osi_strip(contract), e.g. 'SPY260820C00766000'.
     # Not for display -- see `descrpt` for that.
     symbol: str | None
-    descrpt: str | None  # DISPLAY ONLY now: derived 'SPY 20AUG26 766 C', or osi_strip/underlying fallback
+    # DISPLAY ONLY: derived 'SPY 20AUG26 766 C', or osi_strip/underlying
+    # fallback. Not the match key -- `symbol` above is.
+    descrpt: str | None
     # 'exchange or listingExchange'. PC has no venue column at all -- a null
     # here for a PC row is structural, not a data gap.
     exchange: str | None
