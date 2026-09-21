@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model, PeriodStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
-    ClientPortfolioRunDelta,
+    DailyClientPortfolio,
     PostTradeAllocation,
     PostTradeAllocationRun,
     RunStatus,
@@ -29,6 +29,13 @@ from app.models.reconciliation import Order
 class PostTradeAllocationRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
+        # ponytail: one repository instance = one service = one run() call.
+        # Rows this run just flushed (but not committed) never get a real
+        # created_at (server_default only fires on commit), so two
+        # same-trade-date rows from this run can't be told apart by
+        # re-querying the DB. Cache each user's latest running total here
+        # instead of trusting DB ordering for writes this run itself made.
+        self._latest_portfolio_cache: dict[uuid.UUID, Decimal] = {}
 
     # --- Step 1: pick up new orders --------------------------------------
     def unallocated_orders(self, *, after: datetime | None = None) -> list[Order]:
@@ -111,7 +118,39 @@ class PostTradeAllocationRepository:
             self.db.flush()
         return portfolio
 
-    def upsert_portfolio_deltas(self, deltas: dict[uuid.UUID, Decimal], run_id: uuid.UUID) -> None:
+    def reset_portfolio_cache(self) -> None:
+        """Drop the running-total cache. Called at the top of every run() so a
+        repository instance reused after a rollback (or for a second run)
+        cannot carry forward amounts that were never committed."""
+        self._latest_portfolio_cache.clear()
+
+    def latest_portfolio_amount(self, user_id: uuid.UUID) -> Decimal:
+        """Newest daily_client_portfolios balance for this user (0 if none
+        exist yet). Checks this run's own in-memory cache first — see the
+        comment on `_latest_portfolio_cache` in __init__ for why a fresh
+        DB query can't disambiguate two rows this same run just wrote.
+
+        ponytail: "newest" is by trade_date, so this assumes runs arrive in
+        roughly trade-date order. Back-dating a run after a later one already
+        landed would chain the old day's delta onto the newer balance. Fix by
+        recomputing that user's tail if back-dated runs ever become real.
+        """
+        if user_id in self._latest_portfolio_cache:
+            return self._latest_portfolio_cache[user_id]
+        row = (
+            self.db.query(DailyClientPortfolio)
+            .filter(DailyClientPortfolio.user_id == user_id)
+            .order_by(
+                DailyClientPortfolio.trade_date.desc(),
+                DailyClientPortfolio.created_at.desc(),
+            )
+            .first()
+        )
+        return row.portfolio_amount if row is not None else Decimal("0")
+
+    def upsert_portfolio_deltas(
+        self, deltas: dict[uuid.UUID, Decimal], run_id: uuid.UUID, trade_date: str
+    ) -> None:
         for user_id, delta in deltas.items():
             portfolio = self.get_or_create_portfolio(user_id)
             portfolio.previous_amount_in_trade = portfolio.amount_in_trade
@@ -120,7 +159,16 @@ class PostTradeAllocationRepository:
             # ponytail: run_id is a fresh uuid4 per create_run call (one per
             # (trade_date, model) group), so (run_id, user_id) can never repeat
             # within or across calls — plain insert, no upsert-on-conflict needed.
-            self.db.add(ClientPortfolioRunDelta(run_id=run_id, user_id=user_id, delta=delta))
+            new_amount = self.latest_portfolio_amount(user_id) + delta  # signed (D-3)
+            self.db.add(
+                DailyClientPortfolio(
+                    run_id=run_id,
+                    user_id=user_id,
+                    portfolio_amount=new_amount,
+                    trade_date=trade_date,
+                )
+            )
+            self._latest_portfolio_cache[user_id] = new_amount
         self.db.flush()
 
     # --- GET path ------------------------------------------------------------

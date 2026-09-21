@@ -62,6 +62,7 @@ class PostTradeAllocationService:
         period exists in any real environment.
         """
         with self.db.begin_nested():
+            self.repo.reset_portfolio_cache()
             # --- Step 0: resolve split basis (latest confirmed, D-5) — required ---
             period = self.repo.latest_confirmed_period()
             if period is None:
@@ -143,7 +144,7 @@ class PostTradeAllocationService:
                     )
 
                     # --- Step 5: update portfolios (signed; D-1/D-3) -------------
-                    self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id)
+                    self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id, trade_date)
                     newest_run = run
 
             self.db.commit()
