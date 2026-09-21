@@ -18,16 +18,18 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
+from app.core.config import Settings
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import ClientOnboarding
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminRole
 from tests.libs.onboarding.conftest import (
     FakeIdentityService,
+    FakeIdentityServiceWithSetPasswordLink,
     make_admin,
     make_model,
     make_start_req,
-    run_full_approved_cycle,
+    run_to_reviewing,
 )
 
 
@@ -131,9 +133,28 @@ def test_renewal_approve_never_creates_a_client_portfolios_row(
     from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
     from app.libs.onboarding.schemas import VerdictBatchReq, VerdictItem
 
-    approved = run_full_approved_cycle(
-        svc, model, rm_uid=rm.firebase_uid, compliance_uid=compliance.firebase_uid
+    # Built locally rather than via conftest's run_full_approved_cycle: that
+    # helper is pinned to the pre-019 `approve(id, compliance_uid=...)`
+    # signature and its own docstring says it raises TypeError now that BE-20
+    # added required identity/settings kwargs. 23 tests already fail that way;
+    # this one must actually exercise the invariant, so it calls approve itself.
+    def _approve(onboarding_id):
+        return svc.approve(
+            onboarding_id,
+            compliance_uid=compliance.firebase_uid,
+            identity=FakeIdentityServiceWithSetPasswordLink(),
+            settings=Settings(firebase_auth_disabled=True, _env_file=None),
+        )
+
+    submitted = run_to_reviewing(svc, model, rm_uid=rm.firebase_uid)
+    svc.verdict_batch(
+        submitted.id,
+        VerdictBatchReq(
+            items=[VerdictItem(doc_type=spec.key, verdict="valid") for spec in REQUIRED_DOCS]
+        ),
+        reviewer_uid=compliance.firebase_uid,
     )
+    approved = _approve(submitted.id)
     onboarding = session.get(ClientOnboarding, approved.id)
     doc = svc.repo.documents_for(onboarding.id)[0]
 
@@ -153,7 +174,7 @@ def test_renewal_approve_never_creates_a_client_portfolios_row(
         VerdictBatchReq(items=[VerdictItem(doc_type=k, verdict="valid") for k in pending]),
         reviewer_uid=compliance.firebase_uid,
     )
-    svc.approve(onboarding.id, compliance_uid=compliance.firebase_uid)
+    _approve(onboarding.id)
 
     assert session.get(ClientPortfolio, approved.user_id) is None
 
