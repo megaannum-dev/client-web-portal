@@ -266,6 +266,27 @@ function fmtEtTime(v: string | null): string {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", timeZone: "America/New_York" });
 }
 
+/**
+ * ISO date ("YYYY-MM-DD") -> the long day label the MOBO page headers carry.
+ * Same UTC reasoning as `fmtDate` above — a bare date has no timezone to
+ * convert into, so formatting it locally would shift it a day west of UTC.
+ */
+export function fmtDayLabel(day: string | null): string {
+  if (!day) return "—";
+  const d = new Date(day);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * Today's ET session date as "YYYY-MM-DD" — the day the backend files trades
+ * under. `en-CA` is the locale that formats as ISO; anything else would need
+ * reassembling part-by-part. Browser-local would be the wrong day for most of
+ * the working day anywhere east of New York.
+ */
+export const etToday = (): string =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+
 const dash = (v: string | null): string => v ?? "—";
 
 /** Single display column joined browser-side, e.g. "OPT-CALL" / bare "STK". */

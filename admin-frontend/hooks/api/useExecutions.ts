@@ -11,8 +11,7 @@ export interface UseExecutionsResult {
   refetch: () => void;
 }
 
-// Module-scoped cache keyed by day ("__latest__" for the no-day default),
-// mirroring useTradeRecords.
+// Module-scoped cache keyed by day ("__latest__" for the no-day default).
 const cache = new Map<string, UnifiedExecutionsViewDTO>();
 const cacheKey = (day: string | undefined) => day ?? "__latest__";
 

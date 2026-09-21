@@ -13,11 +13,11 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { ChevronUp, ChevronDown, ChevronRight, AlertCircle } from "@/lib/icons";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SysBadge } from "@/components/mobo/Shared";
+import { SystemCell } from "@/components/mobo/Shared";
 import {
   RECON_COLUMNS, RECON_FILTERS, RECON_SEARCH_COLS, RECON_TXN_COLS,
   walkNodes,
-  type ReconNode, type ReconColumn, type ReconColKey, type Sys, brkKeysFor,
+  type ReconNode, type ReconColumn, type ReconColKey, brkKeysFor,
 } from "@/lib/mobo/executions";
 import { ReconToolbar } from "./Toolbar";
 import { downloadReconCsv } from "@/lib/mobo/reconCsv";
@@ -32,13 +32,6 @@ export interface ReconGridProps {
   loading?: boolean;
   onExportChange?: (run: (() => void) | null) => void;
 }
-
-/** Mirrors Shared.tsx's SYS_CLR — not exported there, so kept in sync by hand. */
-const SYS_CLR: Record<Sys, string> = {
-  CRM: "var(--primary)",
-  IB: "#3f6196",
-  PC: "#6b6a6a",
-};
 
 /** Read a formatted display field off a node by column key. All ReconColKeys
  *  that participate in filter/search/sort-by-string map straight to a
@@ -104,19 +97,6 @@ function statusTone(node: ReconNode): ChipTone {
   if (node.status === "Filled") return "active";
   if (node.status === "Canceled") return "failed";
   return "pending";
-}
-
-function SystemCell({ node }: { node: ReconNode }) {
-  if (node.level === 0) {
-    return (
-      <span className="inline-flex gap-1">
-        {node.systems.map((s) => (
-          <span key={s} title={s} className="h-[9px] w-[9px] rounded-[2px]" style={{ background: SYS_CLR[s] }} />
-        ))}
-      </span>
-    );
-  }
-  return node.system ? <SysBadge sys={node.system} /> : <span className="text-secondary">—</span>;
 }
 
 function CellValue({ node, col }: { node: ReconNode; col: ReconColumn }) {

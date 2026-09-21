@@ -3,8 +3,15 @@
 /* ============================================================
    MOBO Dashboard — operations control tower
    Ported from the design handoff (MoboDashboard.jsx).
+
+   DATA: the same `GET /api/mobo/executions` tree the recon screen
+   reads, folded by `mapExecutions`, so the two screens cannot
+   disagree. This page is quick facts only, so it pins the day to
+   TODAY's ET session date rather than following the latest day
+   that happens to carry rows — an empty day is a real answer here.
    ============================================================ */
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays, ArrowLeftRight, Inbox, Link2, Unlink, Receipt,
@@ -13,10 +20,10 @@ import {
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { MetricStat, SegBar, SysBadge } from "@/components/mobo/Shared";
-import { useReconciliation } from "@/lib/mobo/reconciliation";
+import { MetricStat, SegBar, SystemCell } from "@/components/mobo/Shared";
+import { useExecutions } from "@/hooks/api/useExecutions";
+import { etToday, fmtDayLabel, mapExecutions, type ReconNode } from "@/lib/mobo/executions";
 import { loadCommissions, computeFeeTotals, fmtFeeShort } from "@/lib/mobo/commissions";
-import type { ReconTrade } from "@/lib/mobo/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import ReconOverviewSkeleton from "./Skeleton";
 
@@ -29,40 +36,27 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   );
 }
 
-/* ---- broken-trade row helpers (ported from MoboDashboard.jsx) --- */
-const MARKET_LABEL: Record<string, string> = { US: "NYSE / NASDAQ", LN: "LSE" };
-function marketFor(inst: string): string {
-  if (inst.includes("/")) return "FX";
-  const suf = inst.split(" ").pop() ?? "";
-  return MARKET_LABEL[suf] || suf;
-}
-function stockFor(inst: string): string {
-  return inst.includes("/") ? inst : inst.split(" ")[0];
-}
-function qtyFor(ls: string | null): string {
-  if (!ls) return "—";
-  const parts = ls.replace(/\{\/?b\}/g, "").split("·").map((s) => s.trim());
-  return (parts[1] || "—").split("@")[0].trim() || "—";
-}
-function sysForTrade(t: ReconTrade): "CRM" | "IB" | "PC" {
-  if (!t.ib) return "IB";
-  if (!t.crm) return "PC";
-  if (t.ti.state !== "ok") return "IB";
-  if (t.ic.state !== "ok") return "PC";
-  return "CRM";
-}
-
-function ExcRow({ t, settleDay, onClick }: { t: ReconTrade; settleDay: string; onClick: () => void }) {
+/* ---- one exception row -------------------------------------
+   Every cell is a pre-formatted string off the ReconNode — `mapExecutions`
+   already did the formatting, so this page does none of its own. */
+function ExcRow({ t, onClick }: { t: ReconNode; onClick: () => void }) {
   return (
     <tr
       onClick={onClick}
       className="cursor-pointer transition-colors duration-100 hover:bg-surface-container [&>td]:border-t [&>td]:border-outline-variant"
     >
-      <td className="px-[18px] py-3"><SysBadge sys={sysForTrade(t)} /></td>
-      <td className="px-[18px] py-3 text-on-surface">{settleDay}</td>
-      <td className="px-[18px] py-3 text-secondary">{marketFor(t.inst)}</td>
-      <td className="px-[18px] py-3 font-bold text-on-surface">{stockFor(t.inst)}</td>
-      <td className="px-[18px] py-3 text-right tabular-nums text-on-surface">{qtyFor(t.ti.ls)}</td>
+      <td className="px-[18px] py-3"><SystemCell node={t} /></td>
+      <td className="px-[18px] py-3 font-bold text-on-surface">{t.descrpt}</td>
+      <td className="px-[18px] py-3 text-on-surface">{t.tradeDate}</td>
+      <td className="px-[18px] py-3 text-secondary">{t.direction}</td>
+      <td className="px-[18px] py-3 text-right tabular-nums text-on-surface">{t.qty}</td>
+      <td className="px-[18px] py-3">
+        {/* A trade is only ever "Break" or "Matched"; split the break in two so
+            a one-sided trade reads as the gap it is, not a field mismatch. */}
+        <Chip dot={false} tone={t.hasMissing ? "failed" : "warm"}>
+          {t.hasMissing ? "Missing" : "Break"}
+        </Chip>
+      </td>
       <td className="px-[18px] py-3 text-right text-secondary">
         <ChevronRight size={16} strokeWidth={2} className="inline" />
       </td>
@@ -76,9 +70,12 @@ export default function MoboDashboardPage() {
   const router = useRouter();
   const canEdit = useCanEdit("mobo.recon-overview");
 
-  // SINGLE SOURCE: every figure on this page is read from the same bundle the
-  // recon screen consumes, so the dashboard and recon never disagree.
-  const { data, loading, error } = useReconciliation();
+  // SINGLE SOURCE: the same day's tree the recon screen reads, so the dashboard
+  // and recon never disagree. The day is pinned at mount so a session that
+  // straddles ET midnight doesn't silently re-fetch under the reader.
+  const day = useMemo(etToday, []);
+  const { data, loading, error } = useExecutions(day);
+  const trades = useMemo(() => mapExecutions(data), [data]);
   // Empty today — the fee seam has no source wired, so this tile reads $0.
   const { month: feeMonth, rows: feeRows } = loadCommissions();
   const { totalBillable } = computeFeeTotals(feeRows);
@@ -91,21 +88,25 @@ export default function MoboDashboardPage() {
       </div>
     );
   }
-  const { settleDay, counters, trades } = data;
+  const dayLabel = fmtDayLabel(data.day ?? day);
 
-  const openBreaks = counters.breaks + counters.unmatched;
-  const brokenTrades = trades.filter((t) => t.ti.state !== "ok" || t.ic.state !== "ok");
-  const top = brokenTrades.slice(0, 5);
+  // Counts are per TRADE and read the ROLLED-UP flags, so a trade still reads
+  // as broken when only a nested fill disagrees. Same expressions as the recon
+  // page, which is what keeps the two screens' headline numbers identical.
+  const top = trades.filter((t) => t.hasBreak || t.hasMissing);
+  const openBreaks = top.length;
+  const missingN = trades.filter((t) => t.hasMissing).length;
+  const breakN = openBreaks - missingN;
+  const matchedN = trades.length - openBreaks;
 
-  // Today's-reconciliation bar segments, derived from the single-source counts
-  // (matched / breaks / unmatched) so the bar matches the legend below it. Each
-  // segment is its own proportion (same method as the recon screen), so the
-  // Breaks segment width tracks the Breaks count instead of absorbing rounding.
-  // Nothing to reconcile reads as fully matched (100%), not an empty/0% bar.
-  const pct = (n: number) => Math.round((n / counters.reconciled) * 100);
-  const segOk = counters.reconciled > 0 ? pct(counters.matched) : 100;
-  const segWarn = counters.reconciled > 0 ? pct(counters.breaks) : 0;
-  const segBad = counters.reconciled > 0 ? pct(counters.unmatched) : 0;
+  // Today's-reconciliation bar segments, on the same denominator as the legend
+  // below it. Nothing to reconcile reads as fully matched (100%), not an
+  // empty/0% bar — an empty book has no unmatched trades left.
+  const total = trades.length || 1;
+  const matchedPct = trades.length > 0 ? (matchedN / total) * 100 : 100;
+  const segBad = Math.round((missingN / total) * 100);
+  const segWarn = Math.round((breakN / total) * 100);
+  const segOk = 100 - segBad - segWarn; // absorbs the rounding so the bar fills
 
   const goRecon = () => router.push("/mobo/trade-reconciliation");
   const goCommissions = () => router.push("/mobo/commission-tracking");
@@ -115,10 +116,10 @@ export default function MoboDashboardPage() {
       <div className="mb-7">
         <PageHeader
           title="Dashboard"
-          subtitle={`Middle & back office · Settlement day ${settleDay}`}
+          subtitle={`Middle & back office · Settlement day ${dayLabel}`}
           actions={
             <>
-              <Button variant="secondary" icon={CalendarDays}>24 July 2026</Button>
+              <Button variant="secondary" icon={CalendarDays}>{dayLabel}</Button>
               <Button icon={ArrowLeftRight} onClick={goRecon}>Run reconciliation</Button>
             </>
           }
@@ -127,9 +128,9 @@ export default function MoboDashboardPage() {
 
       {/* four counters */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricStat label="Trades to reconcile" value={counters.reconciled.toLocaleString("en-US")} icon={Inbox} />
-        <MetricStat label="Auto-matched" value={counters.autoMatchedPct} sub={counters.matched.toLocaleString("en-US")} tone="ok" icon={Link2} />
-        <MetricStat label="Open breaks" value={openBreaks} sub={`${counters.breaks} field · ${counters.unmatched} unmatched`} tone="warn" icon={Unlink} onClick={goRecon} />
+        <MetricStat label="Trades to reconcile" value={trades.length.toLocaleString("en-US")} icon={Inbox} />
+        <MetricStat label="Auto-matched" value={`${matchedPct.toFixed(1)}%`} sub={matchedN.toLocaleString("en-US")} tone="ok" icon={Link2} />
+        <MetricStat label="Open breaks" value={openBreaks} sub={`${breakN} field · ${missingN} missing`} tone="warn" icon={Unlink} onClick={goRecon} />
         <MetricStat label={`Fees billable · ${feeMonth}`} value={fmtFeeShort(totalBillable)} sub="management + incentive" icon={Receipt} onClick={goCommissions} />
       </div>
 
@@ -144,9 +145,9 @@ export default function MoboDashboardPage() {
             </div>
             <SegBar ok={segOk} warn={segWarn} bad={segBad} />
             <div className="mt-3.5 flex flex-wrap items-center gap-[18px]">
-              <Legend color="#3f9d63" label="Matched" value={counters.matched.toLocaleString("en-US")} />
-              <Legend color="#e0922f" label="Breaks" value={String(counters.breaks)} />
-              <Legend color="#d3654f" label="Unmatched" value={String(counters.unmatched)} />
+              <Legend color="#3f9d63" label="Matched" value={matchedN.toLocaleString("en-US")} />
+              <Legend color="#e0922f" label="Breaks" value={String(breakN)} />
+              <Legend color="#d3654f" label="Missing" value={String(missingN)} />
               <button
                 type="button"
                 onClick={goRecon}
@@ -172,7 +173,7 @@ export default function MoboDashboardPage() {
             <table className="w-full border-collapse text-[13.5px]">
               <thead>
                 <tr>
-                  {["System", "Trade Date", "Market", "Stock", "Quantity", ""].map((h, i) => (
+                  {["System", "Description", "Trade Date", "Buy/Sell", "Quantity", "Status", ""].map((h, i) => (
                     <th
                       key={i}
                       className={`bg-surface-low px-[18px] py-2.5 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary ${i === 4 ? "text-right" : "text-left"}`}
@@ -183,8 +184,17 @@ export default function MoboDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {top.map((t) => (
-                  <ExcRow key={t.id} t={t} settleDay={settleDay} onClick={goRecon} />
+                {top.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="border-t border-outline-variant px-[18px] py-12 text-center text-[13px] text-secondary">
+                      {trades.length === 0
+                        ? `No trades for ${dayLabel}.`
+                        : `No exceptions — all ${trades.length.toLocaleString("en-US")} trades reconciled.`}
+                    </td>
+                  </tr>
+                )}
+                {top.slice(0, 5).map((t) => (
+                  <ExcRow key={t.ref} t={t} onClick={goRecon} />
                 ))}
               </tbody>
             </table>
