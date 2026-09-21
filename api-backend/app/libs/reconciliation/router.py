@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
-from app.libs.reconciliation.unified import build_view as build_unified_view
+from app.libs.reconciliation.service import build_view as build_unified_view
 from app.models.users import User
 from app.schemas.unified_execution import UnifiedExecutionsViewOut
 
