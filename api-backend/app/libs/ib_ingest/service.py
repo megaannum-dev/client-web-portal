@@ -68,12 +68,20 @@ def ingest_day(day: date, *, now: datetime | None = None) -> tuple[int, int, int
     no-op too.
     """
     now = now or datetime.now(_MARKET_TZ)
-    # The in-progress session only: a past day is fetchable at any hour (so
-    # backfill/multi-day catch-up works), and `day >= now.date()` refuses a
-    # future day for free via the same comparison. Guard lives here, not in
-    # each caller (scheduler, route) -- one shared check instead of one per
+    # A past day is fetchable at any hour, so backfill and the caller's
+    # multi-day catch-up window work; only the in-progress session is
+    # refused, and only until the close. Guard lives here, not in each
+    # caller (scheduler, route) -- one shared check instead of one per
     # caller that a sibling path can forget.
-    if day >= now.date() and now.time() < _AFTER_MARKET:
+    #
+    # A FUTURE day is refused outright, at any hour. It is not merely
+    # pointless: storage keys are named after the requested day, and
+    # reconciliation's build_view resolves an omitted `day` to the LATEST day
+    # across sources -- so one future-dated file would hijack the default
+    # reconciliation view until someone deleted it by hand.
+    if day > now.date():
+        raise MarketStillOpen(f"{day} is in the future — refusing to ingest")
+    if day == now.date() and now.time() < _AFTER_MARKET:
         raise MarketStillOpen(
             f"{day} is still in progress — refusing to ingest before market close"
         )
