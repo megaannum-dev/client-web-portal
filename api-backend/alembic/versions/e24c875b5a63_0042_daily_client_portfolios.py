@@ -144,5 +144,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index("ix_daily_client_portfolios_user_date", table_name="daily_client_portfolios")
+    # drop_table only. An explicit drop_index first fails with MariaDB 1553
+    # ("needed in a foreign key constraint"): ix_..._user_date is the only
+    # index whose leftmost column covers the user_id FK, so InnoDB refuses to
+    # drop it while that constraint exists. Dropping the table takes its
+    # indexes and constraints with it.
     op.drop_table("daily_client_portfolios")
