@@ -177,3 +177,41 @@ class ClientPortfolioRunDelta(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+# ---------------------------------------------------------------------------
+# daily_client_portfolios (per-run running portfolio total)
+# ---------------------------------------------------------------------------
+
+
+# Private to the post-trade-allocation module: the allocation run is the only
+# writer, and the only reader is this module's own repository, computing the
+# next running total for the following run. No route, no schema, no other
+# libs/ package, neither frontend, and explicitly NOT onboarding or
+# allotment/redemption reads or writes this table. Do not re-point the
+# client-portal history endpoint at it -- that endpoint reads
+# client_portfolio_run_deltas, which keeps its table and rows (still written
+# up to the cutover, then read-only) precisely so this table can stay private.
+class DailyClientPortfolio(Base):
+    __tablename__ = "daily_client_portfolios"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("post_trade_allocation_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(native_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    # signed (D-3) -- running total AFTER this run; can decrease on a losing day
+    portfolio_amount: Mapped[Decimal] = mapped_column(Numeric(28, 10), nullable=False)
+    trade_date: Mapped[str] = mapped_column(String(8), nullable=False)  # denormalised, YYYYMMDD
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_daily_client_portfolios_user_date", "user_id", "trade_date"),
+    )
