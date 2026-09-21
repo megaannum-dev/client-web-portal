@@ -175,6 +175,43 @@ def _cached_flex_report(  # type: ignore[no-untyped-def]
     return _download_flex_report(flex_report_cls, token, query_id, day, bucket)
 
 
+def download_day(day: date) -> object:  # -> ib_async.FlexReport, but ib_async is optional
+    """Fetch the raw Flex report for exactly one day (`FlexReport.data` holds
+    the raw response bytes). Used by the scheduled ingest job, which stores
+    that raw payload verbatim -- see app.libs.ib_ingest.service.ingest_day.
+
+    Bypasses the TTL cache entirely: `_cached_flex_report` collapses its
+    bucket to a constant 0 when `ttl_seconds` is 0, which caches the report
+    FOREVER for a given day rather than skipping the cache -- the opposite
+    of what a retry needs. `lru_cache` never caches an exception (a hard
+    failure already re-downloads on retry), but a successful-but-empty
+    report (a real, valid response on a no-trade day) would otherwise be
+    pinned for up to `ib_flex_cache_ttl_seconds`, making any retry inside
+    that window a guaranteed no-op. So this calls the undecorated function
+    directly -- reusing its body (and `_flex_date_range` inside it), just
+    skipping the `lru_cache` wrapper -- to guarantee a fresh download.
+    """
+    settings = get_settings()
+    token, query_id = settings.ib_flex_token, settings.ib_flex_query_id
+    if not token or not query_id:
+        raise FlexUnavailable(
+            "ib_flex_token/ib_flex_query_id are not configured — Flex Web Service unavailable"
+        )
+    try:
+        from ib_async import FlexReport  # lazy: keep ib_async off the default stored path
+    except ImportError as exc:
+        raise FlexUnavailable(
+            "ib_async is not installed — required for ib_flex_transport=live"
+        ) from exc
+
+    try:
+        return _download_flex_report.__wrapped__(FlexReport, token, query_id, day, 0)
+    except FlexUnavailable:
+        raise
+    except Exception as exc:
+        raise FlexUnavailable(f"Flex Web Service request failed: {exc}") from exc
+
+
 def get_fetcher() -> FlexFetcher:
     """Selects the active transport by ``settings.ib_flex_transport``."""
     settings = get_settings()
