@@ -43,21 +43,13 @@ services:
       DEV_MODE: ${DEV_MODE:-false}
       PC_PERIOD_OPEN_DAYS_BEFORE_END: ${PC_PERIOD_OPEN_DAYS_BEFORE_END:-9}
       STORAGE_ROOT: /app/crm_filesystem
-      IB_FLEX_TRANSPORT: ${IB_FLEX_TRANSPORT:-drop}
-      IB_FLEX_DROP_ROOT: /srv/mega-crm-ib-flex
+      IB_FLEX_TRANSPORT: ${IB_FLEX_TRANSPORT:-stored}
       IB_FLEX_TOKEN: ${IB_FLEX_TOKEN:-}
       IB_FLEX_QUERY_ID: ${IB_FLEX_QUERY_ID:-}
       IB_FLEX_CACHE_TTL_SECONDS: ${IB_FLEX_CACHE_TTL_SECONDS:-900}
     volumes:
       - ./firebase-client-web-portal.json:/secrets/firebase.json:ro
       - ./crm_filesystem:/app/crm_filesystem
-      # Host dir -> container dir. Two DIFFERENT variables on purpose:
-      # IB_FLEX_HOST_DIR is read by Compose on the host (from .env) and is a
-      # host path; IB_FLEX_DROP_ROOT above is read by the app INSIDE the
-      # container and is the container path. Reusing one name for both made
-      # editing .env silently change only the mount source. Read-only: see
-      # DropFetcher in app/core/ib_flex.py -- it never writes.
-      - ${IB_FLEX_HOST_DIR:?set IB_FLEX_HOST_DIR in api-backend/.env to the host IB Flex drop directory}:/srv/mega-crm-ib-flex:ro
     depends_on:
       mariadb:
         condition: service_healthy
