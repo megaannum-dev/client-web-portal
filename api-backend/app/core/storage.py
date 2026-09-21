@@ -34,6 +34,7 @@ class Bucket(StrEnum):
     LEGAL = "legal"  # read-only drop zone, no metadata table
     STATEMENTS = "statements"  # read-only drop zone, no metadata table
     CHAT = "chat"  # chat_attachments.storage_key
+    IB_FLEX = "ib_flex"  # IB Flex statement XML, written by the daily ingest job
 
 
 class StoredFile(NamedTuple):
@@ -65,6 +66,10 @@ class FileStorage(Protocol):
         missing directory — returns []."""
         ...
 
+    def save_at(self, stream: BinaryIO, key: str) -> str:
+        """Persist *stream* at exactly *key*, replacing whatever is there."""
+        ...
+
 
 class LocalStorage:
     """Writes files to a configured filesystem mount — one root per bucket."""
@@ -88,6 +93,24 @@ class LocalStorage:
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("wb") as fh:
             fh.write(stream.read())
+        return key
+
+    def save_at(self, stream: BinaryIO, key: str) -> str:
+        """Persist *stream* at exactly *key*, replacing whatever is there.
+
+        Unlike `save()`, which deliberately prefixes `uuid4().hex` so an upload
+        never overwrites, this is for a file that must have a deterministic,
+        discoverable name and must be replaceable on re-ingest.
+        """
+        dest = self._resolve(key)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        # Sweep orphaned *.tmp siblings left by a crashed run before writing.
+        for orphan in dest.parent.glob("*.tmp"):
+            orphan.unlink(missing_ok=True)
+        tmp = dest.with_name(dest.name + ".tmp")
+        with tmp.open("wb") as fh:
+            fh.write(stream.read())
+        os.replace(tmp, dest)  # atomic only within one filesystem — tmp must live in dest's dir
         return key
 
     def _resolve(self, storage_key: str) -> Path:
@@ -156,6 +179,9 @@ class NasStorage:
         raise NotImplementedError("NasStorage is not yet configured")
 
     def list(self, subdir: str) -> list[StoredFile]:
+        raise NotImplementedError("NasStorage is not yet configured")
+
+    def save_at(self, stream: BinaryIO, key: str) -> str:
         raise NotImplementedError("NasStorage is not yet configured")
 
 
