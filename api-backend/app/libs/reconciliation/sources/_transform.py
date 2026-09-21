@@ -146,24 +146,30 @@ _ASSET_RULES = {
     # IB's Flex export says 'OPT'/'STK'; PC's engine says 'equity_option'.
     # Keys are UPPER-CASED for matching. A new dialect adds a LINE, not a branch.
     "cat": {"OPT": "OPT", "EQUITY_OPTION": "OPT"},
+    # IB/CRM carry `subCategory` ('C'/'P' on options, 'COMMON'/'ETF' on stock);
+    # PC carries `option_right`. Unlisted values pass through upper-cased, same
+    # as "cat" -- dropping them would discard real sub-classification and hide a
+    # genuine cross-system disagreement behind a pair of Nones.
     "sub": {"C": "CALL", "P": "PUT"},
 }
 
 
 def asset_class(
     security_type: str | None, right: str | None, rules: dict[str, dict[str, str]] = _ASSET_RULES
-) -> str | None:
+) -> tuple[str | None, str | None]:
     """Fold of the old asset_category(): {'OPT','equity_option'} -> 'OPT',
-    then '-CALL'/'-PUT' appended from right. Unknown security_type passes
-    through upper-cased; missing right -> bare category. Case-insensitive.
+    then a normalized sub-category ('CALL'/'PUT', or a stock's 'COMMON'/'ETF')
+    from right. Unknown values pass through upper-cased on BOTH halves;
+    only a missing value yields None. Case-insensitive. Returns (cat, sub) now, not a joined
+    string -- the fold into one display string moved to the reconciliation
+    layer (unified.py), the only caller left.
     """
     if security_type is None:
-        return None
+        return None, None
     cat = rules["cat"].get(security_type.upper(), security_type.upper())
     if not right:
-        return cat
-    suffix = rules["sub"].get(right.upper())
-    return f"{cat}-{suffix}" if suffix else cat
+        return cat, None
+    return cat, rules["sub"].get(right.upper(), right.upper())
 
 
 def venue(exchange: str | None, listing: str | None) -> str | None:
@@ -230,10 +236,10 @@ def demo() -> None:
     assert descrpt(None, None, None, None, None) is None
 
     # 8. asset_class.
-    assert asset_class("equity_option", "C") == "OPT-CALL"
-    assert asset_class("OPT", "P") == "OPT-PUT"
-    assert asset_class("STK", None) == "STK"
-    assert asset_class(None, "C") is None
+    assert asset_class("equity_option", "C") == ("OPT", "CALL")
+    assert asset_class("OPT", "P") == ("OPT", "PUT")
+    assert asset_class("STK", None) == ("STK", None)
+    assert asset_class(None, "C") == (None, None)
 
     # 9. venue.
     assert venue("CBOE", None) == "CBOE"
@@ -248,7 +254,7 @@ def demo() -> None:
     pc_args = ("SPY", date(2026, 8, 28), "C", Decimal("774.0000"), "SPY   260828C00774000")
     ib_args = ("SPY", date(2026, 8, 28), "C", Decimal("774"), "SPY 260828C00774000")
     assert descrpt(*pc_args) == descrpt(*ib_args) == "SPY 28AUG26 774 C"
-    assert asset_class("equity_option", "C") == asset_class("OPT", "C") == "OPT-CALL"
+    assert asset_class("equity_option", "C") == asset_class("OPT", "C") == ("OPT", "CALL")
     assert osi_strip(pc_args[4]) == osi_strip(ib_args[4]) == "SPY260828C00774000"
     assert descrpt(None, None, None, None, "TSLA") == "TSLA"  # pinned STK ceiling
 

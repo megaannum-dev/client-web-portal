@@ -24,7 +24,8 @@ export interface UnifiedExecutionRowDTO {
   descrpt: string | null; // display-ready, e.g. "SPY 20AUG26 766 C"
   exchange: string | null; // null on PC — structural, not a gap
   currency: string | null;
-  asset_class: string | null; // display-ready, e.g. "OPT-CALL"
+  asset_cat: string | null; // canonical, e.g. "OPT" / "STK"
+  sub_cat: string | null; // canonical, e.g. "CALL" / "PUT"
 
   trade_date: string | null; // date
   direction: "BUY" | "SELL" | null;
@@ -71,7 +72,8 @@ export interface TradeNodeDTO {
   descrpt: string | null;
   trade_date: string | null;
   direction: "BUY" | "SELL" | null;
-  asset_class: string | null;
+  asset_cat: string | null;
+  sub_cat: string | null;
   by_system: Partial<Record<Sys, TradeTotalsDTO>>;
   breaks: string[];
   missing_from: string[];
@@ -146,12 +148,14 @@ export const RECON_SEARCH_COLS: ReconColKey[] = [
   "account", "descrpt", "exchange", "assetClass", "currency", "system", "kind", "status",
 ];
 
-/** Trade-level disagreements that count as an exception, not just a red cell. */
-export const STRUCTURAL_BRK = ["qty", "exchange", "currency", "assetClass"] as const;
+/** Trade-level disagreements that count as an exception, not just a red cell.
+ *  Both assetCat and subCat are listed -- dropping either would silently stop
+ *  counting a category or call/put disagreement as an exception. */
+export const STRUCTURAL_BRK = ["qty", "exchange", "currency", "assetCat", "subCat"] as const;
 
 export type BrkKey =
   | "price" | "qty" | "tradeAmt" | "fee" | "settlementAmt"
-  | "exchange" | "currency" | "assetClass";
+  | "exchange" | "currency" | "assetCat" | "subCat";
 
 export interface ReconNode {
   ref: string;
@@ -254,6 +258,12 @@ function fmtEtTime(v: string | null): string {
 
 const dash = (v: string | null): string => v ?? "—";
 
+/** Single display column joined browser-side, e.g. "OPT-CALL" / bare "STK". */
+function fmtAssetClass(cat: string | null, sub: string | null): string {
+  if (cat == null) return "—";
+  return sub ? `${cat}-${sub}` : cat;
+}
+
 function num(v: string | null): number | null {
   if (v == null) return null;
   const n = Number(v);
@@ -324,7 +334,8 @@ const BRK_FIELD: Record<string, BrkKey> = {
   qty: "qty",
   exchange: "exchange",
   currency: "currency",
-  asset_class: "assetClass",
+  asset_cat: "assetCat",
+  sub_cat: "subCat",
 };
 
 function mapRow(r: ExecutionNodeDTO, level: 1 | 2, children: ReconNode[]): ReconNode {
@@ -345,7 +356,7 @@ function mapRow(r: ExecutionNodeDTO, level: 1 | 2, children: ReconNode[]): Recon
     descrpt: dash(r.descrpt),
     exchange: dash(r.exchange),
     currency: dash(r.currency),
-    assetClass: dash(r.asset_class),
+    assetClass: fmtAssetClass(r.asset_cat, r.sub_cat),
     tradeDate: fmtDate(r.trade_date),
     direction: dash(r.direction),
     price: fmtMoney(r.price),
@@ -433,7 +444,7 @@ function mapTrade(t: TradeNodeDTO): ReconNode {
     descrpt: dash(t.descrpt),
     exchange: exchange.text,
     currency: currency.text,
-    assetClass: dash(t.asset_class),
+    assetClass: fmtAssetClass(t.asset_cat, t.sub_cat),
     tradeDate: fmtDate(t.trade_date),
     direction: dash(t.direction),
     price: price.text,

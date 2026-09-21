@@ -181,7 +181,8 @@ def build_trades(rows: list[UnifiedExecutionRow]) -> list[TradeNode]:
                 or next((o.descrpt for o in members if o.descrpt), None),
                 trade_date=trade_date,  # type: ignore[arg-type]
                 direction=direction,  # type: ignore[arg-type]
-                asset_class=next((o.asset_class for o in members if o.asset_class), None),
+                asset_cat=next((o.asset_cat for o in members if o.asset_cat), None),
+                sub_cat=next((o.sub_cat for o in members if o.sub_cat), None),
                 by_system=by_system,
                 orders=members,
             )

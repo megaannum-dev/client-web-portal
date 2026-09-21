@@ -18,7 +18,6 @@ from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from app.libs.reconciliation.sources._transform import (
-    asset_class,
     descrpt,
     et_date,
     et_to_utc,
@@ -70,7 +69,8 @@ def _order_row(o: PcOrder) -> UnifiedExecutionRow:
             o.underlying_symbol, o.option_expiry, o.option_right, o.strike_price, o.symbol  # type: ignore[arg-type]
         ),
         exchange=None,  # PC has no venue column at all
-        asset_class=asset_class(o.security_type, o.option_right),
+        asset_cat=o.security_type,  # type: ignore[arg-type]  # raw; canonicalized in build_view
+        sub_cat=o.option_right,  # type: ignore[arg-type]
         currency=o.quote_currency,
         account=o.account_id,
         txn_time_utc=ts,
@@ -100,7 +100,8 @@ def _trade_row(t: PcTrade) -> UnifiedExecutionRow:
             t.underlying_symbol, t.option_expiry, t.option_right, t.strike_price, t.symbol  # type: ignore[arg-type]
         ),
         exchange=None,  # PC has no venue column at all
-        asset_class=asset_class(t.security_type, t.option_right),
+        asset_cat=t.security_type,  # type: ignore[arg-type]  # raw; canonicalized in build_view
+        sub_cat=t.option_right,  # type: ignore[arg-type]
         currency=t.quote_currency,
         account=t.account_id,
         txn_time_utc=_as_utc(t.executed_at_utc),  # type: ignore[arg-type]

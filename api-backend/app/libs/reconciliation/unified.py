@@ -18,6 +18,7 @@ from app.core.ib_flex import FlexUnavailable, get_fetcher
 from app.libs.reconciliation._reconcile import reconcile
 from app.libs.reconciliation._tree import build_trades
 from app.libs.reconciliation.sources import SourceUnavailable
+from app.libs.reconciliation.sources._transform import asset_class
 from app.libs.reconciliation.sources.crm import CrmSource
 from app.libs.reconciliation.sources.ib import IbSource
 from app.libs.reconciliation.sources.pc import PcSource
@@ -107,6 +108,12 @@ def build_view(
             "All requested reconciliation sources are unavailable",
         )
 
+    # Fold each source's raw (asset_cat, sub_cat) into canonical values HERE,
+    # after every source has reported, rather than duplicating the same
+    # asset_class() call in three mappers -- one place to update the rules,
+    # one place a new vendor dialect needs a line added.
+    for r in rows:
+        r.asset_cat, r.sub_cat = asset_class(r.asset_cat, r.sub_cat)
     trades = build_trades(rows)
 
     # Reconcile only against sources that both loaded AND cover this day. A degraded

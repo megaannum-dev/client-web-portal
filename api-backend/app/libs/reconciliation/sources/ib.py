@@ -19,7 +19,6 @@ from typing import ClassVar, Literal
 from app.core.ib_flex import FlexFetcher, FlexUnavailable
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources._transform import (
-    asset_class,
     descrpt,
     flip_fee,
     osi_strip,
@@ -79,7 +78,8 @@ def _row(
             _opt(rec.get("underlyingSymbol")), expiry, right, strike, rec.get("symbol")
         ),
         exchange=venue(_opt(rec.get("exchange")), _opt(rec.get("listingExchange"))),
-        asset_class=asset_class(_opt(rec.get("assetCategory")), right),
+        asset_cat=_opt(rec.get("assetCategory")),  # raw; canonicalized in build_view
+        sub_cat=_opt(rec.get("subCategory")),
         currency=_opt(rec.get("currency")),
         account=_opt(rec.get("accountId")),
         txn_time_utc=parse_flex_ts(ts_primary, ts_fallback),

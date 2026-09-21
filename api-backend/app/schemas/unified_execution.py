@@ -31,7 +31,12 @@ class UnifiedExecutionRow(BaseModel):
     # here for a PC row is structural, not a data gap.
     exchange: str | None
     currency: str | None
-    asset_class: str | None  # derived: 'OPT-CALL' / 'OPT-PUT' / bare category
+    # RAW vendor values between the source and build_view -- e.g. PC's
+    # 'equity_option'/'C' vs IB's 'OPT'/'C'. Normalized to canonical
+    # ('OPT', 'CALL') only at the reconciliation layer (unified.py), via
+    # `asset_class()`, so every source has reported before the fold happens.
+    asset_cat: str | None
+    sub_cat: str | None
 
     # ---- time ----
     # ET session date — the column day-scoping filters use. Legitimately
@@ -147,7 +152,10 @@ class TradeNode(BaseModel):
     descrpt: str | None
     trade_date: date | None
     direction: Literal["BUY", "SELL"] | None
-    asset_class: str | None
+    # Canonical here (post-fold): every row this trade groups has already
+    # passed through build_view's asset_class() call before build_trades runs.
+    asset_cat: str | None
+    sub_cat: str | None
 
     # Per system, because qty across systems is the SAME trade counted three
     # times, not a bigger trade. Absent key = that system has no rows here.

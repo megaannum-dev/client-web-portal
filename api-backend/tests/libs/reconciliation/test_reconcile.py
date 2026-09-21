@@ -35,7 +35,8 @@ def _row(system: str, **overrides: object) -> UnifiedExecutionRow:
         # PC has no venue column at all -- structural null, not a data gap.
         exchange=None if system == "PC" else "CBOE",
         currency="USD",
-        asset_class="OPT-CALL",
+        asset_cat="OPT",
+        sub_cat="CALL",
         trade_date=date(2026, 8, 11),
         direction="BUY",
         price=Decimal("1.50"),
@@ -129,13 +130,17 @@ def test_qty_sum_disagreement_breaks() -> None:
     assert summary.by_field["qty"] == 1
 
 
-def test_currency_and_asset_class_are_compared() -> None:
-    # asset_class is part of neither the trade key nor the nesting, so a
+def test_currency_and_asset_cat_sub_cat_are_compared() -> None:
+    # asset_cat/sub_cat are part of neither the trade key nor the nesting, so a
     # disagreeing IB row still lands in the same trade and is compared there.
-    rows = [_row("CRM"), _row("IB", currency="CAD", asset_class="OPT-PUT"), _row("PC")]
+    rows = [
+        _row("CRM"),
+        _row("IB", currency="CAD", asset_cat="OPT", sub_cat="PUT"),
+        _row("PC"),
+    ]
     _, summary = _recon(rows)
 
-    assert summary.by_field == {"currency": 1, "asset_class": 1}
+    assert summary.by_field == {"currency": 1, "sub_cat": 1}
 
 
 # --- missing records ----------------------------------------------------------
