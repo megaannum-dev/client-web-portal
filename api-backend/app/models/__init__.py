@@ -36,19 +36,6 @@ from app.models.post_trade_allocation import (  # noqa: F401
     PostTradeAllocation,
     ClientPortfolio,
 )
-from app.models.recon import (  # noqa: F401
-    AlgoTradeExecution,
-    AlgoTradeOrder,
-    ReconSession,
-    SourceKind,
-)
-from app.models.eod import (  # noqa: F401
-    EodBreakRecord,
-    EodLeg,
-    EodOutcome,
-    EodRecord,
-    EodStatus,
-)
 from app.models.onboarding import (  # noqa: F401
     ClientOnboarding,
     OnboardingDocument,
