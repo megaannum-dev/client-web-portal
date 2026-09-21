@@ -91,7 +91,6 @@ class LiveFetcher:
         """Rows for one topic. ``day`` asks the service for exactly that date;
         ``None`` leaves the range to the saved Flex query's own period."""
         token, query_id = self._require_config()
-        print(f"token: {token}, query_id: {query_id}")
         try:
             from ib_async import FlexReport  # lazy: keep ib_async off the default drop path
         except ImportError as exc:
