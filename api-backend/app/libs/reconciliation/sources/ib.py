@@ -22,6 +22,7 @@ from app.libs.reconciliation.sources._transform import (
     asset_class,
     descrpt,
     flip_fee,
+    osi_strip,
     parse_day,
     parse_flex_ts,
     venue,
@@ -73,7 +74,10 @@ def _row(
         system="IB",
         txn_type=grain,  # type: ignore[arg-type]
         group_ref=rec.get("orderID") or "",
-        descrpt=descrpt(_opt(rec.get("underlyingSymbol")), expiry, right, strike, rec.get("symbol")),
+        symbol=osi_strip(rec.get("symbol")),
+        descrpt=descrpt(
+            _opt(rec.get("underlyingSymbol")), expiry, right, strike, rec.get("symbol")
+        ),
         exchange=venue(_opt(rec.get("exchange")), _opt(rec.get("listingExchange"))),
         asset_class=asset_class(_opt(rec.get("assetCategory")), right),
         currency=_opt(rec.get("currency")),

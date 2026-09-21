@@ -17,7 +17,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
-from app.libs.reconciliation.sources._transform import asset_class, descrpt, et_date, et_to_utc
+from app.libs.reconciliation.sources._transform import (
+    asset_class,
+    descrpt,
+    et_date,
+    et_to_utc,
+    osi_strip,
+)
 from app.models.pc_data import PcOrder, PcTrade
 from app.schemas.unified_execution import UnifiedExecutionRow
 
@@ -59,6 +65,7 @@ def _order_row(o: PcOrder) -> UnifiedExecutionRow:
         system="PC",
         txn_type="order",
         group_ref=ref,
+        symbol=osi_strip(o.symbol),  # type: ignore[arg-type]
         descrpt=descrpt(
             o.underlying_symbol, o.option_expiry, o.option_right, o.strike_price, o.symbol  # type: ignore[arg-type]
         ),
@@ -88,6 +95,7 @@ def _trade_row(t: PcTrade) -> UnifiedExecutionRow:
         system="PC",
         txn_type="execution",
         group_ref=f"{t.source_run_id}|{t.lean_order_id}",
+        symbol=osi_strip(t.symbol),  # type: ignore[arg-type]
         descrpt=descrpt(
             t.underlying_symbol, t.option_expiry, t.option_right, t.strike_price, t.symbol  # type: ignore[arg-type]
         ),

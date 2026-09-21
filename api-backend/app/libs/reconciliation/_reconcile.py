@@ -34,8 +34,11 @@ if TYPE_CHECKING:
     from app.schemas.unified_execution import TradeNode, _Node
 
 # Compared value-by-value across systems. Deliberately absent:
-#   descrpt / trade_date / direction / account -- they are the trade key instead, so a
+#   symbol / trade_date / direction / account -- they are the trade key instead, so a
 #     disagreement there surfaces as a missing-record pair on both sides.
+#   descrpt -- free to compare now that `symbol` (not `descrpt`) is the trade key,
+#     but PC cannot synthesize IB's native long name (e.g. 'TESLA INC' for a stock
+#     row), so comparing it would emit known-noise breaks on every such symbol.
 #   price -- a rounded weighted average; the schema says compare with
 #     tolerance, never ==, so an equality check would be pure noise.
 #   trade_amt / fee / settlement_amt -- pass-through of each source's own figure
@@ -290,6 +293,7 @@ def _placeholder(
         system=system,  # type: ignore[arg-type]
         account=trade.account,
         txn_type=grain,  # type: ignore[arg-type]
+        symbol=trade.symbol,
         descrpt=trade.descrpt,
         exchange=None,
         currency=None,

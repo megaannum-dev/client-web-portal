@@ -7,7 +7,7 @@
 
    The endpoint returns a TREE, not a row list: Trade -> Order ->
    Execution. A Trade spans all three systems (its key is account +
-   descrpt + trade_date + direction); the Orders beneath it stay
+   symbol + trade_date + direction); the Orders beneath it stay
    system-scoped. Do not re-sort anything — the backend already orders
    trades, orders and fills.
    ============================================================ */
@@ -20,6 +20,7 @@ export interface UnifiedExecutionRowDTO {
   system: Sys;
   account: string | null;
   txn_type: "order" | "execution";
+  symbol: string | null; // cross-system match key, e.g. "SPY260820C00766000" — not for display
   descrpt: string | null; // display-ready, e.g. "SPY 20AUG26 766 C"
   exchange: string | null; // null on PC — structural, not a gap
   currency: string | null;
@@ -66,6 +67,7 @@ export interface TradeTotalsDTO {
 export interface TradeNodeDTO {
   ref: string;
   account: string | null;
+  symbol: string | null;
   descrpt: string | null;
   trade_date: string | null;
   direction: "BUY" | "SELL" | null;

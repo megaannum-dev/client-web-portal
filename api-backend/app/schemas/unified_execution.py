@@ -23,7 +23,10 @@ class UnifiedExecutionRow(BaseModel):
     system: Literal["CRM", "IB", "PC"]
     account: str | None
     txn_type: Literal["order", "execution"]
-    descrpt: str | None  # derived: 'SPY 20AUG26 766 C', or osi_strip/underlying fallback
+    # Cross-system MATCH KEY: osi_strip(contract), e.g. 'SPY260820C00766000'.
+    # Not for display -- see `descrpt` for that.
+    symbol: str | None
+    descrpt: str | None  # DISPLAY ONLY now: derived 'SPY 20AUG26 766 C', or osi_strip/underlying fallback
     # 'exchange or listingExchange'. PC has no venue column at all -- a null
     # here for a PC row is structural, not a data gap.
     exchange: str | None
@@ -130,9 +133,9 @@ class TradeTotals(BaseModel):
 
 
 class TradeNode(BaseModel):
-    """Orders grouped by (account, description, trade date, side), across systems.
+    """Orders grouped by (account, symbol, trade date, side), across systems.
 
-    The same grain IB itself publishes as `SymbolSummary`
+    This IS the grain IB itself publishes as `SymbolSummary`
     (accountId + symbol + tradeDate + buySell).
     """
 
@@ -140,6 +143,7 @@ class TradeNode(BaseModel):
 
     ref: str
     account: str | None
+    symbol: str | None
     descrpt: str | None
     trade_date: date | None
     direction: Literal["BUY", "SELL"] | None

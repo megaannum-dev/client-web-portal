@@ -19,6 +19,7 @@ from app.libs.reconciliation.sources._transform import (
     asset_class,
     descrpt,
     flip_fee,
+    osi_strip,
     parse_day,
     parse_flex_ts,
     venue,
@@ -53,6 +54,7 @@ def _row(
         system="CRM",
         txn_type=grain,  # type: ignore[arg-type]
         group_ref=rec.orderID or "",
+        symbol=osi_strip(rec.symbol),
         descrpt=descrpt(rec.underlyingSymbol, expiry, rec.putCall, rec.strike, rec.symbol),
         exchange=venue(rec.exchange, rec.listingExchange),
         asset_class=asset_class(rec.assetCategory, rec.putCall),
