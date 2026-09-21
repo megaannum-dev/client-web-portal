@@ -163,8 +163,10 @@ class OnboardingService:
         if model is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown model_id")
         # 014 C-9: AUM-floor check -- validated up front so a 422 here leaves
-        # no client_onboardings/onboarding_documents/client_portfolios/users/
-        # client_profiles row behind (no rollback dance needed).
+        # no client_onboardings/onboarding_documents/users/client_profiles row
+        # behind (no rollback dance needed). Unit 13: client_portfolios is no
+        # longer seeded from these locals -- they survive purely as guard
+        # inputs, not because anything downstream still persists them.
         amount_in_trade = req.units * (model.model_size or Decimal("0"))
         cash_deposit = req.initial_cash_deposit - amount_in_trade
         if cash_deposit < 0:
@@ -210,9 +212,6 @@ class OnboardingService:
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
-            )
-            self.repo.set_initial_portfolio(
-                staged_user.id, amount_in_trade=amount_in_trade, cash_deposit=cash_deposit
             )
             self.db.commit()
         except Exception:
@@ -693,7 +692,6 @@ class OnboardingService:
             incentive_override = existing.incentive_fee_override
 
         agg_after = agg_before + req.multiplier
-        amount = req.multiplier * (model.model_size or Decimal("0"))
 
         try:
             self.repo.upsert_subscription(
@@ -731,7 +729,6 @@ class OnboardingService:
                 ),
             )
             self._link_ticket_if_requested(allotment, req.source_ticket_ref)
-            self.repo.shift_portfolio_for_allotment(req.client_id, amount)
             self.repo.create_event(
                 user_id=req.client_id,
                 category="Account Notification",
@@ -924,11 +921,10 @@ class OnboardingService:
         deleted; there is no literal "unsubscription", the row is the
         client_ib_accounts binding's permanent anchor and a later
         re-subscription is always Add Allotment on this same row), (3)
-        agg_after = agg_before - row.multiplier, (4) paired portfolio shift
-        (D-1 redemption direction), (5) status=approved + decided_by/
-        decided_at, (6) insert client_events. No commit here -- caller's txn
-        boundary. Defined in this unit (not BE-5) because pc_decide_redemption,
-        its only caller, lives here."""
+        agg_after = agg_before - row.multiplier, (4) status=approved +
+        decided_by/decided_at, (5) insert client_events. No commit here --
+        caller's txn boundary. Defined in this unit (not BE-5) because
+        pc_decide_redemption, its only caller, lives here."""
         self._guard_against_rm_decline(row.id)
         model = self.db.get(Model, row.model_id)
         assert model is not None
@@ -940,8 +936,6 @@ class OnboardingService:
         sub.multiplier = remaining if remaining > 0 else Decimal("0")
 
         agg_after = agg_before - row.multiplier
-        amount = row.multiplier * (model.model_size or Decimal("0"))
-        self.repo.shift_portfolio_for_redemption(row.user_id, amount)
 
         row.status = AllotRdmpStatus.APPROVED
         row.decided_by = decided_by

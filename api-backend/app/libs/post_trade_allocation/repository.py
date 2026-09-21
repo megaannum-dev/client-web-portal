@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model, PeriodStatus
 from app.models.post_trade_allocation import (
-    ClientPortfolio,
     DailyClientPortfolio,
     PostTradeAllocation,
     PostTradeAllocationRun,
@@ -105,19 +104,6 @@ class PostTradeAllocationRepository:
         self.db.flush()
 
     # --- Step 5: portfolios --------------------------------------------------
-    def get_or_create_portfolio(self, user_id: uuid.UUID) -> ClientPortfolio:
-        portfolio = self.db.get(ClientPortfolio, user_id)
-        if portfolio is None:
-            portfolio = ClientPortfolio(
-                user_id=user_id,
-                cash_deposit=Decimal("0"),
-                amount_in_trade=Decimal("0"),
-                previous_amount_in_trade=Decimal("0"),
-            )
-            self.db.add(portfolio)
-            self.db.flush()
-        return portfolio
-
     def reset_portfolio_cache(self) -> None:
         """Drop the running-total cache. Called at the top of every run() so a
         repository instance reused after a rollback (or for a second run)
@@ -152,10 +138,6 @@ class PostTradeAllocationRepository:
         self, deltas: dict[uuid.UUID, Decimal], run_id: uuid.UUID, trade_date: str
     ) -> None:
         for user_id, delta in deltas.items():
-            portfolio = self.get_or_create_portfolio(user_id)
-            portfolio.previous_amount_in_trade = portfolio.amount_in_trade
-            portfolio.amount_in_trade = portfolio.amount_in_trade + delta
-            portfolio.last_run_id = run_id
             # ponytail: run_id is a fresh uuid4 per create_run call (one per
             # (trade_date, model) group), so (run_id, user_id) can never repeat
             # within or across calls — plain insert, no upsert-on-conflict needed.

@@ -74,17 +74,10 @@ def test_reject_on_awaiting_pc_sets_terminal_fields_and_leaves_state_untouched(s
 # --- Positive: approve, partial redemption ----------------------------------------------
 
 
-def test_approve_on_awaiting_pc_decrements_subscription_and_shifts_portfolio(session):
+def test_approve_on_awaiting_pc_decrements_subscription(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("10"))
-    make_portfolio(
-        session,
-        client,
-        cash_deposit=Decimal("100"),
-        amount_in_trade=Decimal("300"),
-        previous_amount_in_trade=Decimal("300"),
-    )
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
@@ -99,11 +92,8 @@ def test_approve_on_awaiting_pc_decrements_subscription_and_shifts_portfolio(ses
     assert dto.status == "approved"
     sub = session.get(ClientSubscription, (client.id, model.id))
     assert sub.multiplier == Decimal("7")
-
-    portfolio = session.get(ClientPortfolio, client.id)
-    assert portfolio.amount_in_trade == Decimal("297")
-    assert portfolio.previous_amount_in_trade == Decimal("297")
-    assert portfolio.cash_deposit == Decimal("103")
+    # Unit 13: shift_portfolio_for_redemption is gone -- approval no longer
+    # writes client_portfolios at all, so there is nothing left to assert here.
 
 
 def test_approve_fully_closing_subscription_sets_multiplier_to_zero(session):

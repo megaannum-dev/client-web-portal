@@ -18,7 +18,6 @@ from unittest.mock import MagicMock
 import pytest
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.models.post_trade_allocation import (
-    ClientPortfolio,
     DailyClientPortfolio,
     RunStatus,
     RunTrigger,
@@ -253,96 +252,14 @@ def test_mutating_methods_never_commit(session, repo, method_name, args):
     getattr(repo, method_name)(*args)
 
 
-# --- get_or_create_portfolio / upsert_portfolio_deltas ------------------------
-
-
-def test_get_or_create_portfolio_creates_on_first_call(session, repo):
-    user = make_user(session)
-    portfolio = repo.get_or_create_portfolio(user.id)
-    assert portfolio.user_id == user.id
-
-
-def test_get_or_create_portfolio_is_idempotent(session, repo):
-    user = make_user(session)
-    first = repo.get_or_create_portfolio(user.id)
-    second = repo.get_or_create_portfolio(user.id)
-    assert first.user_id == second.user_id
-
-    count = session.query(ClientPortfolio).filter_by(user_id=user.id).count()
-    assert count == 1
-
-
-def test_upsert_portfolio_deltas_increases_on_positive_delta(session, repo):
-    user = make_user(session)
-    repo.get_or_create_portfolio(user.id)
-    run_id = uuid.uuid4()
-
-    repo.upsert_portfolio_deltas({user.id: Decimal("60")}, run_id, "20260603")
-
-    portfolio = session.query(ClientPortfolio).filter_by(user_id=user.id).one()
-    assert portfolio.amount_in_trade == Decimal("60")
-    assert portfolio.last_run_id == run_id
-
-
-def test_upsert_portfolio_deltas_decreases_on_negative_delta(session, repo):
-    """D-3 safety: a losing day must be able to shrink amount_in_trade."""
-    user = make_user(session)
-    portfolio = repo.get_or_create_portfolio(user.id)
-    portfolio.amount_in_trade = Decimal("100")
-    session.flush()
-    run_id = uuid.uuid4()
-
-    repo.upsert_portfolio_deltas({user.id: Decimal("-60")}, run_id, "20260603")
-
-    session.refresh(portfolio)
-    assert portfolio.amount_in_trade == Decimal("40")
-
-
-def test_upsert_portfolio_deltas_captures_previous_amount(session, repo):
-    user = make_user(session)
-    portfolio = repo.get_or_create_portfolio(user.id)
-    portfolio.amount_in_trade = Decimal("100")
-    session.flush()
-
-    repo.upsert_portfolio_deltas({user.id: Decimal("25")}, uuid.uuid4(), "20260603")
-
-    session.refresh(portfolio)
-    assert portfolio.previous_amount_in_trade == Decimal("100")
-    assert portfolio.amount_in_trade == Decimal("125")
-
-
-def test_upsert_portfolio_deltas_never_touches_cash_deposit(session, repo):
-    user = make_user(session)
-    portfolio = repo.get_or_create_portfolio(user.id)
-    portfolio.cash_deposit = Decimal("5000")
-    session.flush()
-
-    repo.upsert_portfolio_deltas({user.id: Decimal("25")}, uuid.uuid4(), "20260603")
-
-    session.refresh(portfolio)
-    assert portfolio.cash_deposit == Decimal("5000")
-
-
-def test_upsert_portfolio_deltas_handles_multiple_users_independently(session, repo):
-    user_a = make_user(session, email="a@example.com")
-    user_b = make_user(session, email="b@example.com")
-    repo.get_or_create_portfolio(user_a.id)
-    repo.get_or_create_portfolio(user_b.id)
-    run_id = uuid.uuid4()
-
-    repo.upsert_portfolio_deltas(
-        {user_a.id: Decimal("60"), user_b.id: Decimal("-30")}, run_id, "20260603"
-    )
-
-    pa = session.query(ClientPortfolio).filter_by(user_id=user_a.id).one()
-    pb = session.query(ClientPortfolio).filter_by(user_id=user_b.id).one()
-    assert pa.amount_in_trade == Decimal("60")
-    assert pb.amount_in_trade == Decimal("-30")
+# --- upsert_portfolio_deltas ---------------------------------------------------
+# Unit 13: get_or_create_portfolio and every ClientPortfolio mutation inside
+# upsert_portfolio_deltas are gone -- client_portfolios is frozen-but-readable.
+# Only the DailyClientPortfolio-writing coverage below survives.
 
 
 def test_upsert_portfolio_deltas_writes_a_balance_row_for_the_run(session, repo):
     user = make_user(session)
-    repo.get_or_create_portfolio(user.id)
     run_id = uuid.uuid4()
 
     repo.upsert_portfolio_deltas({user.id: Decimal("60")}, run_id, "20260603")
@@ -356,10 +273,8 @@ def test_upsert_portfolio_deltas_writes_a_balance_row_for_the_run(session, repo)
 def test_upsert_portfolio_deltas_keeps_a_distinct_balance_row_per_run(session, repo):
     """Regression: two calls for the same user with DIFFERENT run_ids must
     each leave their OWN row behind in daily_client_portfolios -- not
-    just the latest one. This is what previous_amount_in_trade could never
-    guarantee once a later run touched the same client."""
+    just the latest one."""
     user = make_user(session)
-    repo.get_or_create_portfolio(user.id)
     run_a = uuid.uuid4()
     run_b = uuid.uuid4()
 
@@ -378,10 +293,8 @@ def test_upsert_portfolio_deltas_chains_balance_across_same_day_model_groups(ses
     a client in two models on the same day gets two rows on the same
     trade_date, written in the same flush (no commit in between -- created_at
     server_default never fires). The second row's balance MUST chain off the
-    first row's, not recompute from whatever was on ClientPortfolio before
-    either call."""
+    first row's, not recompute from scratch."""
     user = make_user(session)
-    repo.get_or_create_portfolio(user.id)
     run_a = uuid.uuid4()
     run_b = uuid.uuid4()
 
@@ -397,7 +310,6 @@ def test_upsert_portfolio_deltas_chains_balance_across_same_day_model_groups(ses
 
 def test_upsert_portfolio_deltas_never_commits(session, repo):
     user = make_user(session)
-    repo.get_or_create_portfolio(user.id)
     session.commit = MagicMock(side_effect=AssertionError("repository must not commit"))
     repo.upsert_portfolio_deltas({user.id: Decimal("1")}, uuid.uuid4(), "20260603")
 

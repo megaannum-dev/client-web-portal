@@ -25,7 +25,6 @@ from app.models.onboarding import (
     TransactionDetail,
 )
 from app.models.pc import ClientIbAccount, ClientSubscription, Model
-from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, ClientProfile, User
 
 
@@ -114,27 +113,6 @@ class OnboardingRepository:
                 )
             )
         return onboarding
-
-    def set_initial_portfolio(
-        self, user_id: uuid.UUID, *, amount_in_trade: Decimal, cash_deposit: Decimal
-    ) -> None:
-        """014 C-9: seeds client_portfolios (proposal 011) at intake. Assumes no
-        row exists yet for this user_id (true by construction -- this is the
-        same request that creates the client's subscription eligibility in the
-        first place); the `else` branch is defensive-only, not an expected path.
-        No commit here -- caller's txn boundary (OnboardingService.start)."""
-        portfolio = self.db.get(ClientPortfolio, user_id)
-        if portfolio is None:
-            portfolio = ClientPortfolio(
-                user_id=user_id,
-                cash_deposit=cash_deposit,
-                amount_in_trade=amount_in_trade,
-                previous_amount_in_trade=Decimal("0"),
-            )
-            self.db.add(portfolio)
-        else:
-            portfolio.cash_deposit = cash_deposit
-            portfolio.amount_in_trade = amount_in_trade
 
     # ---- read --------------------------------------------------------
     def get_by_id(self, onboarding_id: uuid.UUID) -> ClientOnboarding | None:
@@ -426,29 +404,6 @@ class OnboardingRepository:
         )
         self.db.add(allotment)
         return allotment
-
-    def shift_portfolio_for_allotment(self, user_id: uuid.UUID, amount: Decimal) -> None:
-        """D-1: cash_deposit -= amount, amount_in_trade += amount,
-        previous_amount_in_trade += amount. Preserves the trading delta
-        (amount_in_trade - previous_amount_in_trade) and total portfolio value
-        (cash_deposit + amount_in_trade) is shifted by zero net, since this moves
-        cash INTO trade, not new money in. Does NOT touch client_portfolio_run_deltas
-        (proposal D-1 / Non-Goals -- that ledger is post-trade-allocation-run only)."""
-        portfolio = self.db.get(ClientPortfolio, user_id)
-        assert portfolio is not None  # every subscribed client has one, seeded at onboarding
-        portfolio.cash_deposit -= amount
-        portfolio.amount_in_trade += amount
-        portfolio.previous_amount_in_trade += amount
-
-    def shift_portfolio_for_redemption(self, user_id: uuid.UUID, amount: Decimal) -> None:
-        """D-1: the redemption-direction mirror of shift_portfolio_for_allotment
-        above -- amount_in_trade -= amount, previous_amount_in_trade -= amount,
-        cash_deposit += amount. Does NOT touch client_portfolio_run_deltas."""
-        portfolio = self.db.get(ClientPortfolio, user_id)
-        assert portfolio is not None
-        portfolio.amount_in_trade -= amount
-        portfolio.previous_amount_in_trade -= amount
-        portfolio.cash_deposit += amount
 
     def list_rm_options(self) -> list[tuple[str, str]]:
         """(firebase_uid, display name) for every RM-role admin -- feeds the
