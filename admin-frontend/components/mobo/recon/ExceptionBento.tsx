@@ -7,15 +7,10 @@
    ============================================================ */
 
 import { Check, ShieldAlert } from "@/lib/icons";
-import { SysBadge } from "@/components/mobo/Shared";
+import { SysBadge, SYS_CLR } from "@/components/mobo/Shared";
 import { walkNodes, type ReconNode, type Sys } from "@/lib/mobo/executions";
 
 const SYS_ORDER: Sys[] = ["CRM", "IB", "PC"];
-const SYS_CLR: Record<Sys, string> = {
-  CRM: "var(--primary)",
-  IB: "#3f6196",
-  PC: "#6b6a6a",
-};
 
 function SysExcCard({ sys, n, total }: { sys: Sys; n: number; total: number }) {
   const pct = total ? Math.round((n / total) * 100) : 0;

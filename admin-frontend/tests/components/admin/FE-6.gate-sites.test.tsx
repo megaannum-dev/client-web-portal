@@ -465,26 +465,20 @@ describe("FE-6 components/rm/RequestTickets.tsx (RequestTicketDetail) — gated 
   });
 });
 
-// NOTE (triage, proposal 020 FE-4): the `loadReconciliation` mock below is dead —
-// lib/mobo/reconciliation.ts's own header says that function "is retired"; the real
-// current seam is useReconciliation() -> useTradeRecords() (hooks/api/useTradeRecords.ts),
-// which calls a real Next.js server action and throws ("cookies() called outside a
-// request scope") in this jsdom env, leaving recon-overview/page.tsx stuck on its
-// loading skeleton forever. Mocking the REAL seam directly so recon-overview's "Sign
-// off" gating is actually reachable; the stale loadReconciliation mock is left in place
-// (harmless — nothing imports it) rather than removed, since untangling it fully is out
-// of this unit's narrow triage scope.
-vi.mock("@/hooks/api/useTradeRecords", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("@/hooks/api/useTradeRecords")>()),
-  useTradeRecords: () => ({
+// recon-overview and trade-reconciliation both read GET /api/mobo/executions via
+// useExecutions, which calls a real Next.js server action and throws ("cookies()
+// called outside a request scope") in this jsdom env -- leaving both pages stuck on
+// their loading skeleton forever. Mock the seam so the pages' gated controls are
+// actually reachable. An empty tree is enough: these cases assert gating, not data.
+vi.mock("@/hooks/api/useExecutions", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/hooks/api/useExecutions")>()),
+  useExecutions: () => ({
     data: {
-      day: "Tue 03 Jun 2026",
-      dates: ["20260603"],
-      rows: [{
-        sys: "CRM", ref: "TRD-1", tradeId: "t1", tradeDate: "2026-06-03",
-        mkt: "US", stock: "AAPL", price: "187.40", qty: "100", txnType: "Order",
-        time: "09:31:02", status: "Confirmed", isFirst: true,
-      }],
+      day: "2026-06-03",
+      days: ["2026-06-03"],
+      trades: [],
+      warnings: [],
+      recon: { broken_rows: [], missing_rows: [], by_field: {}, missing_by_system: {} },
     },
     loading: false,
     error: null,
@@ -492,29 +486,11 @@ vi.mock("@/hooks/api/useTradeRecords", async (importOriginal) => ({
   }),
 }));
 
-vi.mock("@/lib/mobo/reconciliation", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("@/lib/mobo/reconciliation")>()),
-  loadReconciliation: () => ({
-    settleDay: "Tue 03 Jun 2026",
-    trades: [
-      {
-        id: "t1", inst: "AAPL", book: "Book A", ib: "IB-1", trader: null, crm: null,
-        ti: { state: "brk", breakType: "Quantity break", ls: null, rs: null, fields: [] },
-        ic: { state: "ok", ls: null, rs: null, fields: [] },
-      },
-    ],
-    counters: { reconciled: 10, matched: 9, breaks: 1, unmatched: 0, autoMatchedPct: "90.0%" },
-    exceptions: [],
-    feeds: [],
-    eod: {},
-  }),
-}));
-
 // commission-tracking/page.tsx's loadCommissions() (lib/mobo/commissions.ts:72-74) is a
 // documented stub ("NO DATA... no fee/settlement API yet") returning zero rows, so there
 // is nothing to expand and no Fee note/invoice button to gate. Mock a single fee row so
 // the EDIT/VIEW gating on those buttons is reachable, same rationale as the
-// useTradeRecords mock above.
+// useExecutions mock above.
 vi.mock("@/lib/mobo/commissions", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/lib/mobo/commissions")>()),
   loadCommissions: () => ({
@@ -539,7 +515,7 @@ vi.mock("@/lib/mobo/commissions", async (importOriginal) => ({
 // reading the full current source, not by re-deriving from this test's failure). This
 // is proposal-019 FE-6 debt that was never carried into the later rebuild — a real,
 // pre-existing, separately-tracked gap, not something FE-13's skeleton swap broke and
-// not fixable by better mocking (the useTradeRecords mock above already lets this page
+// not fixable by better mocking (the useExecutions mock above already lets this page
 // load real data past its skeleton; the missing UI is still missing regardless). Left
 // red on purpose: the marker-count/useCanEdit static-scan checks and the EDIT
 // behavioral assertion below. The VIEW behavioral assertion passes, but only because

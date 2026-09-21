@@ -44,18 +44,8 @@ import { ExceptionBento } from "@/components/mobo/recon/ExceptionBento";
 import { ReconGrid } from "@/components/mobo/recon/ReconGrid";
 import { useExecutions } from "@/hooks/api/useExecutions";
 import { loadSettlement, type SettlementRow } from "@/lib/mobo/commissions";
-import { mapExecutions } from "@/lib/mobo/executions";
+import { fmtDayLabel, mapExecutions } from "@/lib/mobo/executions";
 import TradeReconciliationSkeleton from "./Skeleton";
-
-/** Same UTC reasoning as `lib/mobo/executions.ts::fmtDate` — a bare
- * "YYYY-MM-DD" parses as UTC midnight, so formatting it in browser-local
- * time would shift it a day backwards for viewers west of UTC. */
-function fmtDayLabel(day: string | null): string {
-  if (!day) return "—";
-  const d = new Date(day);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-}
 
 /* ---- settlement tab — ported from MoboRecon.jsx's SettlementPanel.
    `loadSettlement()` returns pre-formatted amounts, so there's nothing
