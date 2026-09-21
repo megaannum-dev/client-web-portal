@@ -1,9 +1,8 @@
 """CRM execution source: portal `orders` / `trades` tables (IB Flex TCF schema).
 
-Fetch shape mirrors ``app.libs.reconciliation.records.load_records`` — orders
-for the day, then their fills fetched by parent ``orderID`` (not by the fill's
-own ``dateTime``), so an order keeps every fill even when one rolls past
-midnight ET.
+Fetch shape: orders for the day, then their fills fetched by parent
+``orderID`` (not by the fill's own ``dateTime``), so an order keeps every
+fill even when one rolls past midnight ET.
 """
 
 from __future__ import annotations
@@ -16,9 +15,9 @@ from sqlalchemy import distinct, select
 from sqlalchemy.orm import Session
 
 from app.libs.reconciliation.sources._transform import (
-    asset_class,
     descrpt,
     flip_fee,
+    osi_strip,
     parse_day,
     parse_flex_ts,
     venue,
@@ -53,9 +52,11 @@ def _row(
         system="CRM",
         txn_type=grain,  # type: ignore[arg-type]
         group_ref=rec.orderID or "",
+        symbol=osi_strip(rec.symbol),
         descrpt=descrpt(rec.underlyingSymbol, expiry, rec.putCall, rec.strike, rec.symbol),
         exchange=venue(rec.exchange, rec.listingExchange),
-        asset_class=asset_class(rec.assetCategory, rec.putCall),
+        asset_cat=rec.assetCategory,  # raw; canonicalized in build_view
+        sub_cat=rec.subCategory,
         currency=rec.currency,
         account=rec.accountId,
         txn_time_utc=parse_flex_ts(ts_primary, ts_fallback),

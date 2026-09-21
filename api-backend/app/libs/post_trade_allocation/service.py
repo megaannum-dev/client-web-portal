@@ -14,9 +14,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.libs.eod.repository import EodRepository
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
-from app.libs.reconciliation.algotrade.synth import _parse_yyyymmdd, synthesize_from_run
 from app.models.pc import AllocationModelSnapshot, Model
 from app.models.post_trade_allocation import (
     PostTradeAllocation,
@@ -147,23 +145,6 @@ class PostTradeAllocationService:
                     # --- Step 5: update portfolios (signed; D-1/D-3) -------------
                     self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id)
                     newest_run = run
-
-                    # BE-8: materialize the AlgoTrade side for this run, same
-                    # transaction. Skipped when there's no snapshot for this
-                    # model in the confirmed period (`cells` empty) — same as
-                    # the unresolvable-model branch above, there's no
-                    # (period, user, model) triple to build a ReconSession
-                    # against.
-                    if cells:
-                        synthesize_from_run(
-                            self.db,
-                            run=run,
-                            period=period,
-                            snapshot=cells[0],
-                            orders=orders_by_key[(trade_date, model_name)],
-                        )
-                    # BE-6: open (or no-op if already open) the day's EoD header, same transaction.
-                    EodRepository(self.db).ensure_open(_parse_yyyymmdd(trade_date))
 
             self.db.commit()
         assert newest_run is not None

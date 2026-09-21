@@ -23,12 +23,22 @@ class UnifiedExecutionRow(BaseModel):
     system: Literal["CRM", "IB", "PC"]
     account: str | None
     txn_type: Literal["order", "execution"]
-    descrpt: str | None  # derived: 'SPY 20AUG26 766 C', or osi_strip/underlying fallback
+    # Cross-system MATCH KEY: osi_strip(contract), e.g. 'SPY260820C00766000'.
+    # Not for display -- see `descrpt` for that.
+    symbol: str | None
+    # DISPLAY ONLY: derived 'SPY 20AUG26 766 C', or osi_strip/underlying
+    # fallback. Not the match key -- `symbol` above is.
+    descrpt: str | None
     # 'exchange or listingExchange'. PC has no venue column at all -- a null
     # here for a PC row is structural, not a data gap.
     exchange: str | None
     currency: str | None
-    asset_class: str | None  # derived: 'OPT-CALL' / 'OPT-PUT' / bare category
+    # RAW vendor values between the source and build_view -- e.g. PC's
+    # 'equity_option'/'C' vs IB's 'OPT'/'C'. Normalized to canonical
+    # ('OPT', 'CALL') only at the reconciliation layer (unified.py), via
+    # `asset_class()`, so every source has reported before the fold happens.
+    asset_cat: str | None
+    sub_cat: str | None
 
     # ---- time ----
     # ET session date — the column day-scoping filters use. Legitimately
@@ -130,9 +140,9 @@ class TradeTotals(BaseModel):
 
 
 class TradeNode(BaseModel):
-    """Orders grouped by (account, description, trade date, side), across systems.
+    """Orders grouped by (account, symbol, trade date, side), across systems.
 
-    The same grain IB itself publishes as `SymbolSummary`
+    This IS the grain IB itself publishes as `SymbolSummary`
     (accountId + symbol + tradeDate + buySell).
     """
 
@@ -140,10 +150,14 @@ class TradeNode(BaseModel):
 
     ref: str
     account: str | None
+    symbol: str | None
     descrpt: str | None
     trade_date: date | None
     direction: Literal["BUY", "SELL"] | None
-    asset_class: str | None
+    # Canonical here (post-fold): every row this trade groups has already
+    # passed through build_view's asset_class() call before build_trades runs.
+    asset_cat: str | None
+    sub_cat: str | None
 
     # Per system, because qty across systems is the SAME trade counted three
     # times, not a bigger trade. Absent key = that system has no rows here.

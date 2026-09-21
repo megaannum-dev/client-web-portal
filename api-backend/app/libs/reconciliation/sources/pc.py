@@ -9,15 +9,20 @@ per-event landing table; `last_event_utc` (orders) and `executed_at_utc`
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import ClassVar, Literal, cast
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
-from app.libs.reconciliation.sources._transform import asset_class, descrpt, et_date
+from app.libs.reconciliation.sources._transform import (
+    descrpt,
+    et_date,
+    et_to_utc,
+    osi_strip,
+)
 from app.models.pc_data import PcOrder, PcTrade
 from app.schemas.unified_execution import UnifiedExecutionRow
 
@@ -40,40 +45,32 @@ def _direction(net_fill_quantity: Decimal | None) -> str:
     return "BUY" if net_fill_quantity is not None and net_fill_quantity > 0 else "SELL"
 
 
-def _fill_time(fills: list[PcTrade]) -> datetime | None:
-    """The instant this order actually traded: its EARLIEST fill.
-
-    `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
-    event, so for an order partially filled and then cancelled it is the cancel:
-    order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
-    counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill and
-    sitting 25 minutes from the cancel. `_reconcile._slots` pairs orders across
-    systems on a 60-second window, so stamping the cancel split one real order into
-    two unmatched slots and reported it missing on all three systems at once.
-
-    Earliest, not last: a partial fill's later siblings are the same order continuing,
-    while the first fill is the moment the other systems also record.
-    """
-    stamps = [cast(datetime, t.executed_at_utc) for t in fills if t.executed_at_utc is not None]
-    return min(stamps) if stamps else None
-
-
-def _order_row(o: PcOrder, fills: list[PcTrade]) -> UnifiedExecutionRow:
+def _order_row(o: PcOrder) -> UnifiedExecutionRow:
+    # `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
+    # event, so for an order partially filled and then cancelled it is the cancel:
+    # order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
+    # counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill
+    # and sitting 25 minutes from the cancel, past `_reconcile._PAIR_WINDOW`'s 60s.
+    #
+    # `first_event_utc` (the submit) is measured at median 0.107s / max 43.7s
+    # before the earliest fill, always inside that window -- and needs no fills
+    # loaded, which is what lets rows() below fetch orders and fills separately.
+    # ponytail: 43.7s of the 60s budget is the worst case seen; _PAIR_WINDOW is
+    # the knob to widen if a source develops more lag than that.
     last_event = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
-    # Fill instant for MATCHING, last event for the DATE (below) -- they are
-    # different questions and only the date one is settled by §3.
-    fill_ts = _as_utc(_fill_time(fills))
-    ts = fill_ts if fill_ts is not None else last_event
+    ts = _as_utc(o.first_event_utc) or last_event  # type: ignore[arg-type]
     ref = _order_ref(o)
     return UnifiedExecutionRow(
         system="PC",
         txn_type="order",
         group_ref=ref,
+        symbol=osi_strip(o.symbol),  # type: ignore[arg-type]
         descrpt=descrpt(
             o.underlying_symbol, o.option_expiry, o.option_right, o.strike_price, o.symbol  # type: ignore[arg-type]
         ),
         exchange=None,  # PC has no venue column at all
-        asset_class=asset_class(o.security_type, o.option_right),
+        asset_cat=o.security_type,  # type: ignore[arg-type]  # raw; canonicalized in build_view
+        sub_cat=o.option_right,  # type: ignore[arg-type]
         currency=o.quote_currency,
         account=o.account_id,
         txn_time_utc=ts,
@@ -98,11 +95,13 @@ def _trade_row(t: PcTrade) -> UnifiedExecutionRow:
         system="PC",
         txn_type="execution",
         group_ref=f"{t.source_run_id}|{t.lean_order_id}",
+        symbol=osi_strip(t.symbol),  # type: ignore[arg-type]
         descrpt=descrpt(
             t.underlying_symbol, t.option_expiry, t.option_right, t.strike_price, t.symbol  # type: ignore[arg-type]
         ),
         exchange=None,  # PC has no venue column at all
-        asset_class=asset_class(t.security_type, t.option_right),
+        asset_cat=t.security_type,  # type: ignore[arg-type]  # raw; canonicalized in build_view
+        sub_cat=t.option_right,  # type: ignore[arg-type]
         currency=t.quote_currency,
         account=t.account_id,
         txn_time_utc=_as_utc(t.executed_at_utc),  # type: ignore[arg-type]
@@ -126,35 +125,67 @@ class PcSource:
         self._db = db
 
     def days(self) -> list[date]:
+        # ponytail: NOT folding the ET-date conversion into SQL (e.g. MySQL
+        # CONVERT_TZ) -- it needs tz tables loaded, doesn't exist on the
+        # SQLite the tests use, and would put timezone math outside
+        # _transform, which that module's docstring reserves exclusively for
+        # et_to_utc/et_date. .distinct() is still worth adding: it's free and
+        # collapses trade_date_et duplicates even though last_event_utc is
+        # datetime(6)-precision and DISTINCT there collapses almost nothing.
         trade_days: set[date] = {
             cast(date, d)
-            for d in self._db.execute(select(PcTrade.trade_date_et)).scalars().all()
+            for d in self._db.execute(
+                select(PcTrade.trade_date_et).where(PcTrade.trade_date_et.is_not(None)).distinct()
+            )
+            .scalars()
+            .all()
             if d
         }
-        order_ts = self._db.execute(select(PcOrder.last_event_utc)).scalars().all()
+        order_ts = (
+            self._db.execute(
+                select(PcOrder.last_event_utc)
+                .where(PcOrder.last_event_utc.is_not(None))
+                .distinct()
+            )
+            .scalars()
+            .all()
+        )
         order_days = {
             et_date(cast(datetime, ts).replace(tzinfo=_UTC)) for ts in order_ts if ts is not None
         }
         return sorted(trade_days | order_days, reverse=True)
 
     def rows(self, day: date) -> list[UnifiedExecutionRow]:
-        # pc_orders has no stored trade_date column (it's derived from
-        # last_event_utc), and the table is small (110 rows) -- filter in
-        # Python rather than push a per-row zoneinfo conversion into SQL.
-        # ponytail: O(n) scan over ~110 rows, fine at this scale.
-        all_orders = self._db.execute(select(PcOrder)).scalars().all()
-        day_orders = [
-            o
-            for o in all_orders
-            if o.last_event_utc is not None
-            and et_date(cast(datetime, o.last_event_utc).replace(tzinfo=_UTC)) == day
-        ]
-        day_orders.sort(key=lambda o: (o.source_run_id, o.lean_order_id))
+        # pc_orders has no stored trade_date column -- it's derived from
+        # last_event_utc -- so filter on a UTC half-open range for the ET day.
+        # Both endpoints go through et_to_utc independently (not lo + 24h)
+        # because the DST-transition day is 23h or 25h long, never exactly 24.
+        lo = et_to_utc(datetime.combine(day, time.min)).replace(tzinfo=None)
+        hi = et_to_utc(datetime.combine(day + timedelta(days=1), time.min)).replace(tzinfo=None)
+        # .replace(tzinfo=None): last_event_utc is a naive-UTC column: comparing
+        # it to a tz-aware bound would either error or silently misconvert.
+        day_orders = (
+            self._db.execute(
+                select(PcOrder)
+                .where(PcOrder.last_event_utc >= lo, PcOrder.last_event_utc < hi)
+                .order_by(PcOrder.source_run_id, PcOrder.lean_order_id)
+            )
+            .scalars()
+            .all()
+        )
+        if not day_orders:
+            return []
 
+        # Fetch fills by the parent order's own key, not by trade_date_et: the
+        # two date filters could disagree (e.g. an order whose last event is a
+        # next-morning cancel), a fill belongs with its order regardless of
+        # which day the fill itself is stamped, and keying this way is what
+        # removes the need for a second, orphan-reconciliation pass.
+        keys = [(o.source_run_id, o.lean_order_id) for o in day_orders]
         trades = (
             self._db.execute(
                 select(PcTrade)
-                .where(PcTrade.trade_date_et == day)
+                .where(tuple_(PcTrade.source_run_id, PcTrade.lean_order_id).in_(keys))
                 .order_by(PcTrade.executed_at_utc, PcTrade.source_event_id)
             )
             .scalars()
@@ -165,33 +196,8 @@ class PcSource:
             fills_by_group.setdefault(f"{t.source_run_id}|{t.lean_order_id}", []).append(t)
 
         out: list[UnifiedExecutionRow] = []
-        seen_groups: set[str] = set()
         for o in day_orders:
-            ref = _order_ref(o)
-            seen_groups.add(ref)
-            out.append(_order_row(o, fills_by_group.get(ref, [])))
-            for t in fills_by_group.get(ref, []):
+            out.append(_order_row(o))
+            for t in fills_by_group.get(_order_ref(o), []):
                 out.append(_trade_row(t))
-
-        # A fill's own trade_date_et can, in principle, differ from its
-        # parent order's derived (last-event) date -- see the cancel-time
-        # caveat in _transform/module docstring. Surface any such orphaned
-        # group by pulling its order in too, so every fill's group_ref
-        # still resolves within this day's result.
-        for group_ref, fills in fills_by_group.items():
-            if group_ref in seen_groups:
-                continue
-            run_id_s, lean_id_s = group_ref.split("|", 1)
-            orphan = next(
-                (
-                    o
-                    for o in all_orders
-                    if str(o.source_run_id) == run_id_s and str(o.lean_order_id) == lean_id_s
-                ),
-                None,
-            )
-            if orphan is not None:
-                out.append(_order_row(orphan, fills))
-                out.extend(_trade_row(t) for t in fills)
-
         return out

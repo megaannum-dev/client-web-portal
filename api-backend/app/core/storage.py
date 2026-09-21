@@ -30,7 +30,7 @@ class Bucket(StrEnum):
     MARKETING = "marketing"  # model_materials.storage_key
     KYC = "kyc"  # onboarding_documents.storage_key
     CONTACT_LOG = "contact_log"  # client_contact_logs.doc_storage_key
-    REPORTS = "reports"  # eod_records.file_storage_key  (EoD + EoM)
+    REPORTS = "reports"  # EoD + EoM report files
     LEGAL = "legal"  # read-only drop zone, no metadata table
     STATEMENTS = "statements"  # read-only drop zone, no metadata table
     CHAT = "chat"  # chat_attachments.storage_key

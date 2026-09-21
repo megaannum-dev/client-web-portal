@@ -7,7 +7,7 @@ and pulls its factories from tests/conftest.py + tests/libs/auth/conftest.py;
 the `engine`/`session` fixtures here are kept for other consumers.
 
 Layer isolation: only imports from app/libs/reconciliation/, app/models/,
-app/schemas/reconciliation.py, and stdlib/pytest -- no sibling -db/-fe code.
+and stdlib/pytest -- no sibling -db/-fe code.
 """
 
 from __future__ import annotations

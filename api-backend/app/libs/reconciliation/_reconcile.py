@@ -34,13 +34,20 @@ if TYPE_CHECKING:
     from app.schemas.unified_execution import TradeNode, _Node
 
 # Compared value-by-value across systems. Deliberately absent:
-#   descrpt / trade_date / direction / account -- they are the trade key instead, so a
+#   symbol / trade_date / direction / account -- they are the trade key instead, so a
 #     disagreement there surfaces as a missing-record pair on both sides.
+#   descrpt -- free to compare now that `symbol` (not `descrpt`) is the trade key,
+#     but PC cannot synthesize IB's native long name (e.g. 'TESLA INC' for a stock
+#     row), so comparing it would emit known-noise breaks on every such symbol.
 #   price -- a rounded weighted average; the schema says compare with
 #     tolerance, never ==, so an equality check would be pure noise.
 #   trade_amt / fee / settlement_amt -- pass-through of each source's own figure
 #     by design; the whole point is that they may legitimately differ.
-_COMPARED = ("exchange", "currency", "asset_class")
+#
+# asset_cat/sub_cat replacing the old joined asset_class is an IMPROVEMENT, not a
+# rename: a category disagreement (STK vs OPT) and a call/put disagreement are
+# now two separately named breaks instead of one opaque 'asset_class' break.
+_COMPARED = ("exchange", "currency", "asset_cat", "sub_cat")
 
 # Slotting preserves the node type it was handed: order slots hold OrderNodes.
 _N = TypeVar("_N", bound="_Node")
@@ -290,10 +297,12 @@ def _placeholder(
         system=system,  # type: ignore[arg-type]
         account=trade.account,
         txn_type=grain,  # type: ignore[arg-type]
+        symbol=trade.symbol,
         descrpt=trade.descrpt,
         exchange=None,
         currency=None,
-        asset_class=trade.asset_class,
+        asset_cat=trade.asset_cat,
+        sub_cat=trade.sub_cat,
         trade_date=trade.trade_date,
         direction=trade.direction,
         price=None,

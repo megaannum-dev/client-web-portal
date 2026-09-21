@@ -17,7 +17,7 @@ import { SysBadge } from "@/components/mobo/Shared";
 import {
   RECON_COLUMNS, RECON_FILTERS, RECON_SEARCH_COLS, RECON_TXN_COLS,
   walkNodes,
-  type ReconNode, type ReconColumn, type ReconColKey, type Sys, type BrkKey,
+  type ReconNode, type ReconColumn, type ReconColKey, type Sys, brkKeysFor,
 } from "@/lib/mobo/executions";
 import { ReconToolbar } from "./Toolbar";
 import { downloadReconCsv } from "@/lib/mobo/reconCsv";
@@ -141,8 +141,8 @@ function CellValue({ node, col }: { node: ReconNode; col: ReconColumn }) {
   const raw = fieldStr(node, col.key);
   const content: ReactNode = col.key === "descrpt" ? <span className="font-bold">{raw}</span> : raw;
 
-  const brkKey = col.key as BrkKey;
-  if (node.brk[brkKey]) {
+  const brkKey = brkKeysFor(col.key).find((k) => node.brk[k]);
+  if (brkKey) {
     return (
       <span className="font-bold" style={{ color: "#93000a" }} title={node.cellTitle[brkKey]}>
         {content}

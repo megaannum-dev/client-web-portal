@@ -6,7 +6,7 @@ pure, DB-free fold applied after collection, so swapping a source's backing
 store still means replacing its module and nothing else.
 
 A Trade spans all three systems; the Orders beneath it stay system-scoped. Its
-key -- (account, descrpt, trade_date, direction) -- is the reconciliation match
+key -- (account, symbol, trade_date, direction) -- is the reconciliation match
 key minus ``txn_type`` and minus ``system``, so a trade node IS a match bucket
 and ``_reconcile`` no longer re-derives one. It is also the grain IB itself
 publishes as ``SymbolSummary`` (accountId + symbol + tradeDate + buySell).
@@ -31,7 +31,7 @@ _Key = tuple[object, object, object, object]
 
 
 def _trade_key(row: UnifiedExecutionRow) -> _Key:
-    return (row.account, row.descrpt, row.trade_date, row.direction)
+    return (row.account, row.symbol, row.trade_date, row.direction)
 
 
 def trade_ref(key: _Key) -> str:
@@ -100,7 +100,7 @@ def _trade_sort(t: TradeNode) -> tuple:
     return (
         t.trade_date is None,
         t.trade_date,
-        t.descrpt or "",
+        t.symbol or "",
         t.direction or "",
         t.account or "",
     )
@@ -164,7 +164,7 @@ def build_trades(rows: list[UnifiedExecutionRow]) -> list[TradeNode]:
         by_trade.setdefault(tkey, []).append(o)
 
     trades = []
-    for (account, descrpt, trade_date, direction), members in by_trade.items():
+    for (account, symbol, trade_date, direction), members in by_trade.items():
         members.sort(key=_order_sort)
         by_system: dict[str, TradeTotals] = {}
         for system in sorted({o.system for o in members}):
@@ -173,10 +173,16 @@ def build_trades(rows: list[UnifiedExecutionRow]) -> list[TradeNode]:
             TradeNode(
                 ref=members[0].trade_ref,
                 account=account,  # type: ignore[arg-type]
-                descrpt=descrpt,  # type: ignore[arg-type]
+                symbol=symbol,  # type: ignore[arg-type]
+                # Derived from members, IB preferred: it's authoritative, and a
+                # bucket can now legitimately hold two spellings since the key
+                # is `symbol`, not `descrpt`.
+                descrpt=next((o.descrpt for o in members if o.system == "IB" and o.descrpt), None)
+                or next((o.descrpt for o in members if o.descrpt), None),
                 trade_date=trade_date,  # type: ignore[arg-type]
                 direction=direction,  # type: ignore[arg-type]
-                asset_class=next((o.asset_class for o in members if o.asset_class), None),
+                asset_cat=next((o.asset_cat for o in members if o.asset_cat), None),
+                sub_cat=next((o.sub_cat for o in members if o.sub_cat), None),
                 by_system=by_system,
                 orders=members,
             )
