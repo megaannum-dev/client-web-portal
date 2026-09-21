@@ -40,30 +40,20 @@ def _direction(net_fill_quantity: Decimal | None) -> str:
     return "BUY" if net_fill_quantity is not None and net_fill_quantity > 0 else "SELL"
 
 
-def _fill_time(fills: list[PcTrade]) -> datetime | None:
-    """The instant this order actually traded: its EARLIEST fill.
-
-    `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
-    event, so for an order partially filled and then cancelled it is the cancel:
-    order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
-    counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill and
-    sitting 25 minutes from the cancel. `_reconcile._slots` pairs orders across
-    systems on a 60-second window, so stamping the cancel split one real order into
-    two unmatched slots and reported it missing on all three systems at once.
-
-    Earliest, not last: a partial fill's later siblings are the same order continuing,
-    while the first fill is the moment the other systems also record.
-    """
-    stamps = [cast(datetime, t.executed_at_utc) for t in fills if t.executed_at_utc is not None]
-    return min(stamps) if stamps else None
-
-
-def _order_row(o: PcOrder, fills: list[PcTrade]) -> UnifiedExecutionRow:
+def _order_row(o: PcOrder) -> UnifiedExecutionRow:
+    # `last_event_utc` is the wrong instant to match on. It is the last LIFECYCLE
+    # event, so for an order partially filled and then cancelled it is the cancel:
+    # order 22|8 filled at 19:50:31.667 and was cancelled at 20:15:00.385, and CRM's
+    # counterpart fill is stamped 19:50:31 -- agreeing to the second with the fill
+    # and sitting 25 minutes from the cancel, past `_reconcile._PAIR_WINDOW`'s 60s.
+    #
+    # `first_event_utc` (the submit) is measured at median 0.107s / max 43.7s
+    # before the earliest fill, always inside that window -- and needs no fills
+    # loaded, which is what lets rows() below fetch orders and fills separately.
+    # ponytail: 43.7s of the 60s budget is the worst case seen; _PAIR_WINDOW is
+    # the knob to widen if a source develops more lag than that.
     last_event = _as_utc(o.last_event_utc)  # type: ignore[arg-type]
-    # Fill instant for MATCHING, last event for the DATE (below) -- they are
-    # different questions and only the date one is settled by §3.
-    fill_ts = _as_utc(_fill_time(fills))
-    ts = fill_ts if fill_ts is not None else last_event
+    ts = _as_utc(o.first_event_utc) or last_event  # type: ignore[arg-type]
     ref = _order_ref(o)
     return UnifiedExecutionRow(
         system="PC",
@@ -169,7 +159,7 @@ class PcSource:
         for o in day_orders:
             ref = _order_ref(o)
             seen_groups.add(ref)
-            out.append(_order_row(o, fills_by_group.get(ref, [])))
+            out.append(_order_row(o))
             for t in fills_by_group.get(ref, []):
                 out.append(_trade_row(t))
 
@@ -191,7 +181,7 @@ class PcSource:
                 None,
             )
             if orphan is not None:
-                out.append(_order_row(orphan, fills))
+                out.append(_order_row(orphan))
                 out.extend(_trade_row(t) for t in fills)
 
         return out
