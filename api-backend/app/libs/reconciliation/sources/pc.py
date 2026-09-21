@@ -116,12 +116,31 @@ class PcSource:
         self._db = db
 
     def days(self) -> list[date]:
+        # ponytail: NOT folding the ET-date conversion into SQL (e.g. MySQL
+        # CONVERT_TZ) -- it needs tz tables loaded, doesn't exist on the
+        # SQLite the tests use, and would put timezone math outside
+        # _transform, which that module's docstring reserves exclusively for
+        # et_to_utc/et_date. .distinct() is still worth adding: it's free and
+        # collapses trade_date_et duplicates even though last_event_utc is
+        # datetime(6)-precision and DISTINCT there collapses almost nothing.
         trade_days: set[date] = {
             cast(date, d)
-            for d in self._db.execute(select(PcTrade.trade_date_et)).scalars().all()
+            for d in self._db.execute(
+                select(PcTrade.trade_date_et).where(PcTrade.trade_date_et.is_not(None)).distinct()
+            )
+            .scalars()
+            .all()
             if d
         }
-        order_ts = self._db.execute(select(PcOrder.last_event_utc)).scalars().all()
+        order_ts = (
+            self._db.execute(
+                select(PcOrder.last_event_utc)
+                .where(PcOrder.last_event_utc.is_not(None))
+                .distinct()
+            )
+            .scalars()
+            .all()
+        )
         order_days = {
             et_date(cast(datetime, ts).replace(tzinfo=_UTC)) for ts in order_ts if ts is not None
         }
