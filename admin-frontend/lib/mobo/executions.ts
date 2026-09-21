@@ -157,6 +157,16 @@ export type BrkKey =
   | "price" | "qty" | "tradeAmt" | "fee" | "settlementAmt"
   | "exchange" | "currency" | "assetCat" | "subCat";
 
+/** The break keys a DISPLAY column stands for. Identity for every column whose
+ *  key is itself a break key; the exception is the joined "Asset Category" cell,
+ *  which renders assetCat + subCat together and so must redden on either. Without
+ *  this the cell would silently stop highlighting once asset_class split in two. */
+const COL_BRK: Partial<Record<ReconColKey, BrkKey[]>> = {
+  assetClass: ["assetCat", "subCat"],
+};
+
+export const brkKeysFor = (key: ReconColKey): BrkKey[] => COL_BRK[key] ?? [key as BrkKey];
+
 export interface ReconNode {
   ref: string;
   level: 0 | 1 | 2; // trade | order | execution
