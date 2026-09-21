@@ -4,10 +4,14 @@ The ONLY module in the codebase permitted to do timezone conversion — every
 source's timestamp parsing exits through :func:`et_to_utc`, so both DST
 offsets (EDT −4 / EST −5) are handled in exactly one place. Pure: no DB, no
 I/O, no logging, no settings.
+
+`asset_class` is source-agnostic and is moving to serve the reconciliation
+layer directly (rather than each source) in a later commit.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
@@ -86,37 +90,79 @@ def parse_flex_ts(primary: str | None, fallback: str | None) -> datetime | None:
     return et_to_utc(naive_et)
 
 
+def _descrpt_option(
+    underlying: str, expiry: date, right: str, strike: Decimal, contract: str | None
+) -> str | None:
+    """'SPY' + 2026-08-20 + 'C' + Decimal('766.0000') -> 'SPY 20AUG26 766 C'.
+
+    Verified byte-identical against IB's native `description` column on
+    771/771 option rows. Do NOT simplify the strike formatting: `normalize()`
+    alone emits exponent notation for round numbers (e.g. '7.66E+2'), and the
+    trailing `quantize(Decimal(1))` is what forces plain-integer output.
+    """
+    n = strike.normalize()
+    if n == n.to_integral():
+        n = n.quantize(Decimal(1))
+    return f"{underlying} {expiry.strftime('%d%b%y').upper()} {n} {right.upper()}"
+
+
+# ponytail: category -> formatter registry. Only one category (options) has a
+# bespoke format today. The day a SECOND category needs its own formatter,
+# swap the shape-based inference in descrpt() below for an explicit
+# `security_type` argument instead of guessing from which fields are present.
+_DESCRPT: dict[str, Callable[..., str | None]] = {"OPT": _descrpt_option}
+
+
 def descrpt(
     underlying: str | None,
     expiry: date | None,
     right: str | None,
     strike: Decimal | None,
     contract: str | None,
+    rules: dict[str, Callable[..., str | None]] = _DESCRPT,
 ) -> str | None:
     """'SPY' + 2026-08-20 + 'C' + Decimal('766.0000') -> 'SPY 20AUG26 766 C'.
 
     Any of underlying/expiry/right/strike missing (a non-option row) falls
     back to osi_strip(contract), then underlying, then None. Never raises.
     """
+    # ponytail: category inferred from row shape (identical condition to the
+    # old inline `if`, so output stays byte-for-byte unchanged); swap for an
+    # explicit security_type arg once a second category needs its own rule.
     if underlying and expiry and right and strike is not None:
-        n = strike.normalize()
-        if n == n.to_integral():
-            n = n.quantize(Decimal(1))
-        return f"{underlying} {expiry.strftime('%d%b%y').upper()} {n} {right.upper()}"
+        fmt = rules.get("OPT")
+        if fmt is not None:
+            return fmt(underlying, expiry, right, strike, contract)
     return osi_strip(contract) or underlying or None
 
 
-def asset_class(security_type: str | None, right: str | None) -> str | None:
+# ponytail: known ceiling — IB's native `description` for a STOCK is a company
+# long name ('TESLA INC', 'SS SPDR S&P 500 ETF TRUST-US'), which no formatting
+# rule can derive from the ticker ('TSLA'): 0/6 match. This is COSMETIC ONLY
+# once the trade-grouping key moves to `symbol` (a later commit). Upgrade path:
+# read IB/CRM's native `description` column (100% populated) instead of
+# synthesizing one on PC/IB.
+_ASSET_RULES = {
+    # IB's Flex export says 'OPT'/'STK'; PC's engine says 'equity_option'.
+    # Keys are UPPER-CASED for matching. A new dialect adds a LINE, not a branch.
+    "cat": {"OPT": "OPT", "EQUITY_OPTION": "OPT"},
+    "sub": {"C": "CALL", "P": "PUT"},
+}
+
+
+def asset_class(
+    security_type: str | None, right: str | None, rules: dict[str, dict[str, str]] = _ASSET_RULES
+) -> str | None:
     """Fold of the old asset_category(): {'OPT','equity_option'} -> 'OPT',
     then '-CALL'/'-PUT' appended from right. Unknown security_type passes
-    through upper-cased; missing right -> bare category.
+    through upper-cased; missing right -> bare category. Case-insensitive.
     """
     if security_type is None:
         return None
-    cat = "OPT" if security_type in ("OPT", "equity_option") else security_type.upper()
+    cat = rules["cat"].get(security_type.upper(), security_type.upper())
     if not right:
         return cat
-    suffix = "CALL" if right.upper() == "C" else "PUT" if right.upper() == "P" else None
+    suffix = rules["sub"].get(right.upper())
     return f"{cat}-{suffix}" if suffix else cat
 
 
@@ -193,6 +239,18 @@ def demo() -> None:
     assert venue("CBOE", None) == "CBOE"
     assert venue(None, "CBOE2") == "CBOE2"
     assert venue(None, None) is None
+
+    # 10. Cross-source parity -- the invariant the whole matcher rests on.
+    # PC and IB describe the same option contract with different types/padding
+    # (Decimal("774.0000") vs Decimal("774"), OSI padded vs unpadded). If these
+    # ever disagree, _tree buckets them as two different trades and _reconcile
+    # reports both sides as missing when they're really the same trade.
+    pc_args = ("SPY", date(2026, 8, 28), "C", Decimal("774.0000"), "SPY   260828C00774000")
+    ib_args = ("SPY", date(2026, 8, 28), "C", Decimal("774"), "SPY 260828C00774000")
+    assert descrpt(*pc_args) == descrpt(*ib_args) == "SPY 28AUG26 774 C"
+    assert asset_class("equity_option", "C") == asset_class("OPT", "C") == "OPT-CALL"
+    assert osi_strip(pc_args[4]) == osi_strip(ib_args[4]) == "SPY260828C00774000"
+    assert descrpt(None, None, None, None, "TSLA") == "TSLA"  # pinned STK ceiling
 
     print("app.libs.reconciliation.sources._transform: all checks passed")
 
