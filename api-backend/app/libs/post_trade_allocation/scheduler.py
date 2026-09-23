@@ -35,15 +35,6 @@ PTA_SCHEDULER_DAYS = {
 _WEEKDAY_TOKENS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 _TARGET_H, _TARGET_M = (int(x) for x in PTA_SCHEDULER_TIME.split(":"))
 
-# today, today-1, today-2 in PTA_SCHEDULER_TZ, oldest first. Not a retry
-# mechanism -- it's the mitigation for three overlapping gaps at once: a
-# missed tick or a restart that skipped a day, a transient IB 5xx, and IB
-# amending/correcting confirms overnight (US extended hours run to 20:00 ET,
-# past this job's typical 18:00 pull, so today's own pull is provisional).
-# Re-ingesting is free: flex_import.load dedups on orders.orderID/trades.execID,
-# so re-fetching an already-loaded day inserts zero rows.
-_WINDOW_DAYS = 3
-
 
 def _should_fire(now: datetime, fired_today: str | None) -> bool:
     """True when `now` is on an enabled weekday at/after the target time and
@@ -78,9 +69,38 @@ def _should_fire(now: datetime, fired_today: str | None) -> bool:
     return (now.hour, now.minute) >= (_TARGET_H, _TARGET_M)
 
 
-def _window_days(today: date) -> list[date]:
-    """The `_WINDOW_DAYS` calendar days ending at `today`, oldest first."""
-    return [today - timedelta(days=n) for n in range(_WINDOW_DAYS - 1, -1, -1)]
+def _ingest_days(today: date) -> list[date]:
+    """Weekdays with no archived statement, from the newest archived date
+    (exclusive) through `today`, oldest first -- plus `today` itself
+    unconditionally, so an amended statement overwrites the archived file
+    (`save_at` is `os.replace`: atomic and idempotent). Weekends are never
+    gap-filled (D2: expected sessions are weekdays only).
+
+    Replaces the old fixed 3-day window. That window covered three
+    overlapping cases; a gap fill turns out to subsume it: (a) a missed
+    tick/restart and (b) a transient IB 5xx are both better served by
+    gap-filling, which has no 3-day horizon -- a gap however old is still
+    picked up. (c) IB amending confirms overnight was never actually
+    served by re-ingesting a day already on disk: `flex_import.load`
+    dedups, so a stale pre-amendment row survives a re-ingest regardless.
+    The only real benefit of revisiting an already-archived day is
+    refreshing the archived XML itself, which the unconditional `today`
+    re-fetch below preserves.
+    """
+    from app.core.flex_query import StoredFetcher
+
+    days = StoredFetcher().days()  # [] on a fresh install -- max([]) would raise
+    start = max(days) if days else today
+    have = set(days)
+
+    gap: list[date] = []
+    d = start + timedelta(days=1)
+    while d < today:
+        if d.weekday() < 5 and d not in have:  # Mon-Fri
+            gap.append(d)
+        d += timedelta(days=1)
+    gap.append(today)
+    return gap
 
 
 async def _scheduled_job() -> None:
@@ -101,13 +121,14 @@ async def _scheduled_job() -> None:
 
 
 async def _ingest_window(today: date) -> None:
-    """Ingest the `_WINDOW_DAYS`-day catch-up window, oldest first, each day
-    in its own try/except so one bad day doesn't stop the others -- and so an
-    ingest failure never blocks the allocation run that follows."""
+    """Ingest the gap-filled catch-up days (see `_ingest_days`), oldest
+    first, each day in its own try/except so one bad day doesn't stop the
+    others -- and so an ingest failure never blocks the allocation run that
+    follows."""
     from app.core.flex_query import FlexUnavailable
     from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
 
-    for day in _window_days(today):
+    for day in _ingest_days(today):
         try:
             # Synchronous HTTP download + full XML parse + batched inserts --
             # off the event loop or it blocks every API request and the

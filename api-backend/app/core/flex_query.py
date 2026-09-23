@@ -59,11 +59,18 @@ class StoredFetcher:
         return sorted(found, reverse=True)
 
     def fetch(self, day: date) -> FlexRows:
+        """A present file that parses to zero rows means "IB delivered a
+        statement showing no trades" -- that case returns FlexRows([], []).
+        A missing file means "IB never delivered a statement for this day
+        at all" -- a completely different fact, which must not collapse
+        into the same empty result. It raises FlexUnavailable instead, so
+        callers (reconciliation) can tell "nothing happened" apart from
+        "we don't know what happened"."""
         key = f"trade-confirm/{day:%Y-%m}/ib_trades_{day:%Y%m%d}.xml"
         try:
             handle = self._storage.open(key)
-        except FileNotFoundError:
-            return FlexRows(orders=[], fills=[])  # nothing traded that day
+        except FileNotFoundError as exc:
+            raise FlexUnavailable(f"no stored IB statement for {day:%Y-%m-%d}") from exc
         with handle:
             orders, trades, _summaries, _counts, _o, _t, _s = flex_import.parse(handle, "TCF")
         return FlexRows(orders=orders, fills=trades)  # type: ignore[arg-type]

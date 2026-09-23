@@ -1,9 +1,11 @@
 """Units 9 (fix: catch-up fire condition) and 10 (feat: IB ingest before the
 allocation run) of the PTA scheduler, branch pta-revival-live-ib.
 
-Pins the pure decision helpers (`_should_fire`, `_window_days`) without
+Pins the pure decision helpers (`_should_fire`, `_ingest_days`) without
 sleeping, and `_run_scheduled`'s call order without hitting a real DB or
-network.
+network. `_ingest_days` reads the archive via `StoredFetcher().days()`, so
+its tests fake `app.core.flex_query.StoredFetcher` rather than touching the
+real filesystem or DB.
 
 Run: .venv/Scripts/python.exe -m pytest -q \
     tests/libs/post_trade_allocation/test_be9_be10_scheduler_catchup_ingest.py
@@ -15,6 +17,7 @@ import asyncio
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+from app.core import flex_query
 from app.libs.post_trade_allocation import scheduler as sched
 
 _TZ = ZoneInfo("America/New_York")
@@ -67,13 +70,44 @@ def test_should_fire_true_on_drift_past_target_minute(monkeypatch):
     assert sched._should_fire(_at(2026, 6, 3, 19, 1), None) is True
 
 
-# --- Unit 10: _window_days ---------------------------------------------------
+# --- Unit 10 (rework): _ingest_days gap fill ---------------------------------
 
 
-def test_window_days_is_three_dates_oldest_first_ending_today():
+def _fake_stored_fetcher(days: list[date]) -> type:
+    """A `StoredFetcher` stand-in whose `.days()` returns a fixed list, so
+    `_ingest_days` is tested without a real filesystem or DB."""
+
+    class _Fetcher:
+        def days(self) -> list[date]:
+            return list(days)
+
+    return _Fetcher
+
+
+def test_ingest_days_fills_missing_weekday_but_skips_weekends(monkeypatch):
+    # Newest archived date is Friday 2026-06-05; today is Wednesday 2026-06-10.
+    # Sat 6/6 and Sun 6/7 are not gaps (D2: weekends are never expected).
+    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([date(2026, 6, 5)]))
     today = date(2026, 6, 10)
-    assert sched._window_days(today) == [date(2026, 6, 8), date(2026, 6, 9), date(2026, 6, 10)]
-    assert len(sched._window_days(today)) == sched._WINDOW_DAYS == 3
+    assert sched._ingest_days(today) == [
+        date(2026, 6, 8),  # Monday, missing -> fetched
+        date(2026, 6, 9),  # Tuesday, missing -> fetched
+        date(2026, 6, 10),  # today, fetched unconditionally
+    ]
+
+
+def test_ingest_days_today_always_included_even_if_already_archived(monkeypatch):
+    today = date(2026, 6, 10)
+    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([today]))
+    assert sched._ingest_days(today) == [today]  # no duplicate, still re-fetched
+
+
+def test_ingest_days_empty_archive_returns_just_today(monkeypatch):
+    """Fresh install: StoredFetcher().days() == [] -- max([]) would raise
+    ValueError if not guarded. No archive means no gap to fill."""
+    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([]))
+    today = date(2026, 6, 10)
+    assert sched._ingest_days(today) == [today]
 
 
 # --- Unit 10: _run_scheduled ordering ---------------------------------------
