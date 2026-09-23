@@ -20,7 +20,7 @@ from datetime import date
 from functools import lru_cache
 from typing import Iterator, NamedTuple, Protocol
 
-from app.core import flex_xml
+from app.core import flex_import
 from app.core.config import get_settings
 from app.core.storage import Bucket, get_storage
 
@@ -65,7 +65,7 @@ class StoredFetcher:
         except FileNotFoundError:
             return FlexRows(orders=[], fills=[])  # nothing traded that day
         with handle:
-            orders, trades, _summaries, _counts, _o, _t, _s = flex_xml.parse(handle, "TCF")
+            orders, trades, _summaries, _counts, _o, _t, _s = flex_import.parse(handle, "TCF")
         return FlexRows(orders=orders, fills=trades)  # type: ignore[arg-type]
 
 

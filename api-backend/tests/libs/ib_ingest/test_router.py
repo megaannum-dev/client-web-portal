@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
-from app.core.ib_flex import FlexUnavailable
+from app.core.flex_query import FlexUnavailable
 from app.libs.auth.deps import get_current_admin_user
 from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen
 from app.main import app

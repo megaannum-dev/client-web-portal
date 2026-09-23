@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.ib_flex import FlexUnavailable
+from app.core.flex_query import FlexUnavailable
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
 from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day

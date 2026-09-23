@@ -40,7 +40,7 @@ _TARGET_H, _TARGET_M = (int(x) for x in PTA_SCHEDULER_TIME.split(":"))
 # missed tick or a restart that skipped a day, a transient IB 5xx, and IB
 # amending/correcting confirms overnight (US extended hours run to 20:00 ET,
 # past this job's typical 18:00 pull, so today's own pull is provisional).
-# Re-ingesting is free: flex_load.load dedups on orders.orderID/trades.execID,
+# Re-ingesting is free: flex_import.load dedups on orders.orderID/trades.execID,
 # so re-fetching an already-loaded day inserts zero rows.
 _WINDOW_DAYS = 3
 
@@ -104,7 +104,7 @@ async def _ingest_window(today: date) -> None:
     """Ingest the `_WINDOW_DAYS`-day catch-up window, oldest first, each day
     in its own try/except so one bad day doesn't stop the others -- and so an
     ingest failure never blocks the allocation run that follows."""
-    from app.core.ib_flex import FlexUnavailable
+    from app.core.flex_query import FlexUnavailable
     from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
 
     for day in _window_days(today):
@@ -128,7 +128,7 @@ async def _ingest_window(today: date) -> None:
 async def _run_scheduled() -> None:
     # Ingest strictly before the allocation run opens its DB session: the run
     # reads unallocated_orders(after=period.confirmed_at) from `orders`, and
-    # flex_load.load commits its own engine.begin() transaction, so this
+    # flex_import.load commits its own engine.begin() transaction, so this
     # ordering keeps the run's REPEATABLE READ snapshot from ever opening in
     # front of the ingest's commit.
     if IB_INGEST_ENABLED:

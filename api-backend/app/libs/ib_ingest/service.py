@@ -5,7 +5,7 @@ BEFORE writing anything, write the canonical storage key LAST. The Flex Web
 Service answers HTTP 200 even for a bad token / unpermitted query --
 `<FlexStatementResponse><Status>Fail</Status>...` -- and if that payload ever
 reached the canonical key it would sit there forever and get served to
-reconciliation (`app.core.ib_flex.StoredFetcher`) every day after. A failed
+reconciliation (`app.core.flex_query.StoredFetcher`) every day after. A failed
 ingest must leave the previous good file untouched.
 
 Does not import from app.libs.post_trade_allocation or any other feature
@@ -19,8 +19,8 @@ from datetime import date, datetime, time
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
-from app.core import flex_load, flex_xml
-from app.core.ib_flex import download_day
+from app.core import flex_import
+from app.core.flex_query import download_day
 from app.core.storage import Bucket, get_storage
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class IngestFailed(RuntimeError):
 def _is_fail_envelope(raw: bytes) -> bool:
     """Detect the Flex Web Service's HTTP-200 failure envelope.
 
-    `flex_xml.detect_type` only recognizes `<FlexQueryResponse type=...>` and
+    `flex_import.detect_type` only recognizes `<FlexQueryResponse type=...>` and
     raises a generic "not a Flex export" SystemExit on anything else --
     including a Fail envelope. Check for it explicitly first so a bad
     token/query id fails with a clear, catchable error instead of falling
@@ -58,11 +58,11 @@ def _is_fail_envelope(raw: bytes) -> bool:
 
 
 def ingest_day(day: date, *, now: datetime | None = None) -> tuple[int, int, int, int, int, int]:
-    """Ingest one day's IB Flex statement. Returns flex_load.load's 6-tuple
+    """Ingest one day's IB Flex statement. Returns flex_import.load's 6-tuple
     (orders_inserted, orders_skipped, trades_inserted, trades_skipped,
     summaries_inserted, summaries_skipped).
 
-    Idempotent: flex_load.load's dedup (on orders.orderID / trades.execID,
+    Idempotent: flex_import.load's dedup (on orders.orderID / trades.execID,
     or the 7-column fallback key) makes a re-run of the same day a no-op
     insert-wise; save_at re-writing the same bytes at the same key is a
     no-op too.
@@ -94,8 +94,8 @@ def ingest_day(day: date, *, now: datetime | None = None) -> tuple[int, int, int
     if _is_fail_envelope(raw):
         raise IngestFailed(f"Flex Web Service returned a Fail envelope for {day}")
 
-    file_type = flex_xml.detect_type(BytesIO(raw))
-    orders, trades, summaries, _counts, *_ = flex_xml.parse(BytesIO(raw), file_type)
+    file_type = flex_import.detect_type(BytesIO(raw))
+    orders, trades, summaries, _counts, *_ = flex_import.parse(BytesIO(raw), file_type)
 
     # Not paranoia: the saved query's own period ("Today") can override the
     # fd/td URL params download_day relies on to scope the request --
@@ -111,7 +111,7 @@ def ingest_day(day: date, *, now: datetime | None = None) -> tuple[int, int, int
                 f"row tradeDate {trade_date!r} does not match requested day {day_str}"
             )
 
-    counts = flex_load.load(orders, trades, summaries, mode="append", batch_size=1000)
+    counts = flex_import.load(orders, trades, summaries, mode="append", batch_size=1000)
     # ponytail: append-mode + execID/orderID dedup means an IB-amended or
     # busted confirm re-sent under the same execID is silently skipped and
     # the stale row stays -- no upsert path exists yet. Upgrade: upsert-on-
