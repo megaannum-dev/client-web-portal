@@ -34,12 +34,11 @@ from app.schemas.post_trade_allocation import (
 from tests.conftest import make_admin_stub
 
 EMPTY_VIEW = PostTradeAllocationView(
-    tradeDate="2026-06-05", settleDay="Thu 05 Jun 2026", grandTotal=0.0, models=[]
+    tradeDate="2026-06-05", grandTotal=0.0, models=[]
 )
 SAMPLE_VIEW = PostTradeAllocationView.model_validate(
     {
         "tradeDate": "2026-06-03",
-        "settleDay": "Tue 03 Jun 2026",
         "grandTotal": 11450000.0,
         "models": [
             {
@@ -64,9 +63,8 @@ SAMPLE_VIEW = PostTradeAllocationView.model_validate(
 
 
 class _StubRun:
-    def __init__(self, trade_date="2026-06-03", settle_date=None):
+    def __init__(self, trade_date="2026-06-03"):
         self.trade_date = trade_date
-        self.settle_date = settle_date
 
 
 @pytest.fixture
@@ -74,7 +72,7 @@ def stub_service():
     service = MagicMock()
     service.get_view.return_value = SAMPLE_VIEW
     service.list_runs.return_value = PtaRunListOut(
-        runs=[PtaRunListEntryOut(date="2026-06-03", label="Tue 03 Jun 2026", grandTotal=11450000.0)]
+        runs=[PtaRunListEntryOut(date="2026-06-03", grandTotal=11450000.0)]
     )
     service.run.return_value = _StubRun()
     return service

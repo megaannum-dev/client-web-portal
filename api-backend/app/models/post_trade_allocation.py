@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Numeric,
     String,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -46,7 +47,6 @@ class PostTradeAllocationRun(Base):
         Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
     )
     trade_date: Mapped[str] = mapped_column(String(8), nullable=False)  # IB ET YYYYMMDD token (B-4)
-    settle_date: Mapped[str | None] = mapped_column(String(8), nullable=True)  # max(orders.settleDate) in the group; NULL if IB never supplied one
     period_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(native_uuid=False),
         ForeignKey("allocation_periods.id", ondelete="CASCADE"),
@@ -68,7 +68,9 @@ class PostTradeAllocationRun(Base):
     )
 
     __table_args__ = (
-        Index("ix_post_trade_allocation_runs_trade_date", "trade_date"),
+        # One run session per date (unit A4) -- replaces the old non-unique
+        # ix_post_trade_allocation_runs_trade_date index (migration 0044).
+        UniqueConstraint("trade_date", name="uq_pta_runs_trade_date"),
     )
 
 
