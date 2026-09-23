@@ -101,7 +101,17 @@ class PostTradeAllocationService:
                     orders_by_key[key].append(o)
 
                 newest_run = None
-                for (trade_date, model_name), traded in agg.items():
+                # Chronological, NOT agg insertion order. `agg` is keyed
+                # (trade_date, model_name) and populated by iterating
+                # unallocated_orders(), which has no ORDER BY -- so trade-date
+                # groups arrive arbitrarily. That was harmless while each
+                # portfolio row held an independent delta, but
+                # daily_client_portfolios rows hold a RUNNING BALANCE, so the
+                # write order IS the chain order: processing 0814 before 0813
+                # makes 0813's balance chain off 0814's. trade_date is a
+                # YYYYMMDD token, so lexicographic sort is chronological.
+                # It also makes `newest_run` below genuinely the newest.
+                for (trade_date, model_name), traded in sorted(agg.items()):
                     model = self.repo.model_by_name(model_name)
                     group_orders = orders_by_key[(trade_date, model_name)]
                     settle_date = max(
