@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # PC workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
     storage_backend: str = "local"  # "local" | "nas"
-    storage_root: str = "./crm_filesystem"  # base for the six bucket defaults below (BE-5)
+    storage_root: str = "./crm_filesystem"  # base for the seven bucket defaults below (BE-5)
     storage_root_marketing: str | None = None  # default: {storage_root}/marketing
     storage_root_kyc: str | None = None  # default: {storage_root}/kyc
     storage_root_contact_log: str | None = None  # default: {storage_root}/contact_log
@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     storage_root_legal: str | None = "./crm_filesystem/legal_docs"  # default: {storage_root}/legal
     storage_root_statements: str | None = None  # default: {storage_root}/statements
     storage_root_chat: str | None = None  # default: {storage_root}/chat
+    storage_root_ib_flex: str | None = None  # default: {storage_root}/ib_flex
 
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
@@ -36,8 +37,7 @@ class Settings(BaseSettings):
     bootstrap_admin_name: str = "Bootstrap Admin"
 
     # IB Flex — two interchangeable transports (mirrors storage_backend: "local"|"nas")
-    ib_flex_transport: str = "drop"  # "drop" (daily SFTP-populated dir) | "live" (Flex Web Service)
-    ib_flex_drop_root: str | None = None  # e.g. /srv/mega-crm-ib-flex | C:\...\mega-crm-ib-flex
+    ib_flex_transport: str = "stored"  # "stored" (read Bucket.IB_FLEX) | "live" (Flex Web Service)
     ib_flex_token: str | None = None
     ib_flex_query_id: str | None = None
     ib_flex_cache_ttl_seconds: int = 900

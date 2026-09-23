@@ -1,10 +1,19 @@
 """Assembles the three execution sources (CRM, IB, PC) into one view.
 
 Each source is built lazily (a factory, not an instance) so that a source
-which fails at *construction* time — IB when ``ib_flex_drop_root`` is unset,
-see ``app.core.ib_flex.DropFetcher.__init__`` — degrades only that source
-instead of 500ing the whole endpoint. See ``app.libs.reconciliation.sources``
-for the seam contract.
+which fails at *construction* time — e.g. IB when the Flex transport is
+misconfigured, see ``app.core.ib_flex.get_fetcher`` — degrades only that
+source instead of 500ing the whole endpoint. See
+``app.libs.reconciliation.sources`` for the seam contract.
+
+REDUCED GUARANTEE, since the IB statements are now produced by our own
+scheduled ingest rather than dropped in by an external party: the CRM side
+(``orders``/``trades``) and the IB side (the stored XML) come from ONE fetch.
+A CRM↔IB agreement therefore proves only that parsing and loading worked —
+it can no longer prove IB had no trades we failed to fetch, because a
+truncated or silently empty statement makes both sides agree on the same
+wrong answer. Do not read a green reconciliation as proof of completeness;
+PC↔IB is the comparison that still carries that information.
 """
 
 from __future__ import annotations

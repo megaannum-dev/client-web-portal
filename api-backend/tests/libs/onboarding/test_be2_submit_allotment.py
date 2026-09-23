@@ -19,7 +19,6 @@ from app.libs.onboarding.schemas import RedemptionDecisionReq, SubmitAllotmentRe
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus, ClientEvent
 from app.models.pc import ClientIbAccount, ClientSubscription
-from app.models.post_trade_allocation import ClientPortfolio
 
 from tests.libs.onboarding.conftest import (
     make_client,
@@ -147,12 +146,9 @@ def test_full_write_set_lands_atomically(session):
 
     events = _events_for(session, client.id)
     assert len(events) == 1
-
-    portfolio = session.get(ClientPortfolio, client.id)
-    amount = Decimal("2") * Decimal("1000000")
-    assert portfolio.cash_deposit == Decimal("5000000") - amount
-    assert portfolio.amount_in_trade == amount
-    assert portfolio.previous_amount_in_trade == amount
+    # Unit 13: client_portfolios is no longer shifted here -- the pre-seeded
+    # make_portfolio row above is untouched (kept only as harmless fixture
+    # setup shared with the other tests in this file).
 
 
 # --- Negative -------------------------------------------------------------------------
@@ -222,9 +218,6 @@ def test_forced_failure_after_subscription_upsert_rolls_back_everything(session,
 
     # subscription upsert must have been rolled back along with everything else
     assert session.get(ClientSubscription, (client.id, model.id)) is None
-    portfolio = session.get(ClientPortfolio, client.id)
-    assert portfolio.cash_deposit == Decimal("5000000")
-    assert portfolio.amount_in_trade == Decimal("0")
 
 
 def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(session):

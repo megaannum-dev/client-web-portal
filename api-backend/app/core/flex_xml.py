@@ -20,7 +20,7 @@ import csv
 import uuid
 import xml.etree.ElementTree as ET
 from collections import Counter
-from typing import cast
+from typing import BinaryIO, cast
 
 from sqlalchemy import Table
 
@@ -62,8 +62,19 @@ _TRADES_VALID = frozenset(_TRADES_TABLE.columns.keys()) - {"id", "ingested_at"}
 _SUMMARIES_VALID = frozenset(_SUMMARIES_TABLE.columns.keys()) - {"id", "ingested_at"}
 
 
-def detect_type(xml_path: str) -> str:
-    for _event, elem in ET.iterparse(xml_path, events=("start",)):
+def detect_type(source: str | BinaryIO) -> str:
+    """Sniff AF vs TCF from the <FlexQueryResponse type=...> attribute.
+
+    `source` is a path or an already-open binary file/stream (e.g. an
+    in-memory `BytesIO` from a scheduled ingest job that must classify the
+    statement before deciding whether to persist it, or a file object handed
+    back by a storage abstraction). `iterparse` reads a stream forward-only
+    and this returns as soon as the root element is seen, leaving the rest
+    unread — so if you also call `parse()` on the same stream object, pass a
+    *fresh* stream per call (e.g. a new `BytesIO` over the same bytes); this
+    function does not seek/rewind for you.
+    """
+    for _event, elem in ET.iterparse(source, events=("start",)):
         if elem.tag == "FlexQueryResponse":
             file_type = elem.attrib.get("type", "")
             if file_type not in ("AF", "TCF"):
@@ -159,8 +170,12 @@ def _route_row(
         summary_rows.append(_build_row(attrs, header, aliases, _SUMMARIES_VALID))
 
 
-def parse(xml_path: str, file_type: str) -> ParseResult:
+def parse(xml_path: str | BinaryIO, file_type: str) -> ParseResult:
     """Stream-parse a Flex XML export into three row buckets split by levelOfDetail.
+
+    `xml_path` is a path or an already-open binary file/stream, same as
+    `detect_type` above — same fresh-stream-per-call contract applies if the
+    caller ran `detect_type` on the same stream object first.
 
     Returns (order_rows, trade_rows, summary_rows, level_counts,
              orders_unknown_attrs, trades_unknown_attrs, summaries_unknown_attrs).

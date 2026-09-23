@@ -62,6 +62,7 @@ class PostTradeAllocationService:
         period exists in any real environment.
         """
         with self.db.begin_nested():
+            self.repo.reset_portfolio_cache()
             # --- Step 0: resolve split basis (latest confirmed, D-5) — required ---
             period = self.repo.latest_confirmed_period()
             if period is None:
@@ -100,7 +101,17 @@ class PostTradeAllocationService:
                     orders_by_key[key].append(o)
 
                 newest_run = None
-                for (trade_date, model_name), traded in agg.items():
+                # Chronological, NOT agg insertion order. `agg` is keyed
+                # (trade_date, model_name) and populated by iterating
+                # unallocated_orders(), which has no ORDER BY -- so trade-date
+                # groups arrive arbitrarily. That was harmless while each
+                # portfolio row held an independent delta, but
+                # daily_client_portfolios rows hold a RUNNING BALANCE, so the
+                # write order IS the chain order: processing 0814 before 0813
+                # makes 0813's balance chain off 0814's. trade_date is a
+                # YYYYMMDD token, so lexicographic sort is chronological.
+                # It also makes `newest_run` below genuinely the newest.
+                for (trade_date, model_name), traded in sorted(agg.items()):
                     model = self.repo.model_by_name(model_name)
                     group_orders = orders_by_key[(trade_date, model_name)]
                     settle_date = max(
@@ -143,7 +154,7 @@ class PostTradeAllocationService:
                     )
 
                     # --- Step 5: update portfolios (signed; D-1/D-3) -------------
-                    self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id)
+                    self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id, trade_date)
                     newest_run = run
 
             self.db.commit()
