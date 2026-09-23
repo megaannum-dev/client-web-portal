@@ -31,7 +31,6 @@ from app.models.post_trade_allocation import (
     RunStatus,
     RunTrigger,
 )
-from app.models.reconciliation import Order
 from app.models.users import User
 
 
@@ -101,11 +100,10 @@ def test_run_persists_and_reloads_enum_values(session, period):
     assert reloaded.trigger.value == "scheduled"
 
 
-def test_run_trade_date_not_unique_two_rows_same_date_persist(session, period):
-    r1 = _run(session, period, trade_date="20260603")
-    r2 = _run(session, period, trade_date="20260603")
-    assert r1.id != r2.id
-    assert session.query(PostTradeAllocationRun).filter_by(trade_date="20260603").count() == 2
+def test_run_trade_date_unique_second_row_same_date_raises(session, period):
+    _run(session, period, trade_date="20260603")
+    with pytest.raises(IntegrityError):
+        _run(session, period, trade_date="20260603")
 
 
 def test_run_missing_trigger_raises_on_commit(session, period):
@@ -248,50 +246,9 @@ def test_portfolio_cash_deposit_untouched_by_amount_in_trade_update(session, use
     assert reloaded.amount_in_trade == Decimal("-2500")
 
 
-# --- DB-4: orders.allocated_run_id -------------------------------------------
-
-
-def _order(order_id):
-    return Order(orderID=order_id)
-
-
-def test_order_allocated_run_id_defaults_none(session):
-    order = _order("ord-1")
-    session.add(order)
-    session.commit()
-    session.expunge_all()
-
-    reloaded = session.query(Order).filter_by(orderID="ord-1").one()
-    assert reloaded.allocated_run_id is None
-
-
-def test_order_allocated_run_id_settable_and_reloads(session, period):
-    run = _run(session, period)
-    order = _order("ord-2")
-    session.add(order)
-    session.commit()
-
-    order.allocated_run_id = run.id
-    session.commit()
-    session.expunge_all()
-
-    reloaded = session.query(Order).filter_by(orderID="ord-2").one()
-    assert reloaded.allocated_run_id == run.id
-
-
-def test_orders_filter_unallocated_excludes_marked_rows(session, period):
-    run = _run(session, period)
-    marked = _order("ord-marked")
-    unmarked_a = _order("ord-unmarked-a")
-    unmarked_b = _order("ord-unmarked-b")
-    session.add_all([marked, unmarked_a, unmarked_b])
-    session.commit()
-
-    marked.allocated_run_id = run.id
-    session.commit()
-
-    unallocated = session.query(Order).filter(Order.allocated_run_id.is_(None)).all()
-    assert {o.orderID for o in unallocated} == {"ord-unmarked-a", "ord-unmarked-b"}
+# DB-4 (the per-order idempotency marker column on `orders`) was dropped by
+# unit A4 -- the runs ledger alone now records which dates are done. See
+# migration 0044.
 
 
 if __name__ == "__main__":

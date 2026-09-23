@@ -17,7 +17,6 @@ from app.libs.auth.deps import require_action
 from app.libs.post_trade_allocation.service import (
     PostTradeAllocationService,
     _format_date,
-    _format_settle_day,
 )
 from app.models.post_trade_allocation import RunTrigger
 from app.models.users import User
@@ -50,7 +49,6 @@ def get_post_trade_allocation(
         raw_date = date.replace("-", "") if date else datetime.now(timezone.utc).strftime("%Y%m%d")
         view = PostTradeAllocationView(
             tradeDate=_format_date(raw_date),
-            settleDay=_format_settle_day(None),
             grandTotal=0.0,
             models=[],
         )
@@ -91,7 +89,6 @@ def run_post_trade_allocation(
         # so synthesize the empty view instead (BE-7 invariant).
         latest = PostTradeAllocationView(
             tradeDate=_format_date(run.trade_date),
-            settleDay=_format_settle_day(run.settle_date),
             grandTotal=0.0,
             models=[],
         )
@@ -102,7 +99,6 @@ def run_post_trade_allocation(
     new_runs = [
         PtaRunListEntryOut(
             date=latest.tradeDate,
-            label=latest.settleDay,
             grandTotal=latest.grandTotal,
         )
     ]

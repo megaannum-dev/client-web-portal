@@ -35,14 +35,12 @@ class PostTradeAllocationView(BaseModel):
     MAJOR units, not Decimal strings (contrast the reconciliation DTOs)."""
 
     tradeDate: str  # YYYY-MM-DD, ET token (D-6) — the sole anchor for query/group/filter
-    settleDay: str  # referential display label from orders.settleDate; "—" if IB never supplied one
     grandTotal: float
     models: list[PtaModelOut]
 
 
 class PtaRunListEntryOut(BaseModel):
     date: str
-    label: str
     grandTotal: float
 
 

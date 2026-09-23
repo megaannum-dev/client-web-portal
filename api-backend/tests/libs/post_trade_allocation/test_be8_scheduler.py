@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
 from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -279,31 +278,11 @@ def test_run_scheduled_no_trade_day_completes_cleanly(monkeypatch, db_session_fa
     assert "run failed" not in caplog.text
 
 
-def test_run_scheduled_pre_existing_allocated_orders_are_untouched(monkeypatch, db_session_factory):
-    """Only already-allocated_run_id-marked orders exist — still a no-trade tick."""
-    from app.models.post_trade_allocation import PostTradeAllocationRun, RunStatus
-
-    from tests.libs.post_trade_allocation.conftest import make_confirmed_period, make_order
-
-    monkeypatch.setattr(sched, "IB_INGEST_ENABLED", False)
-    monkeypatch.setattr(sched, "PTA_SCHEDULER_ENABLED", True)
-
-    Session = db_session_factory
-    seed_db = Session()
-    make_confirmed_period(seed_db)
-    make_order(seed_db, proceeds=100, allocated_run_id=uuid.uuid4())
-    seed_db.commit()
-    seed_db.close()
-
-    asyncio.run(sched._run_scheduled())
-
-    db = Session()
-    try:
-        runs = db.query(PostTradeAllocationRun).all()
-        assert len(runs) == 1
-        assert runs[0].status == RunStatus.EMPTY.value
-    finally:
-        db.close()
+# ponytail (unit A4): the "pre-existing marked orders are untouched"
+# no-trade-tick case is gone along with the per-order marker column itself
+# -- unallocated_orders() no longer has a marked/unmarked distinction to test.
+# A5's date-floor + gap scan is where "an already-processed date is skipped"
+# coverage belongs once the ledger is the source of truth again.
 
 
 # --- Manual route independence --------------------------------------------------

@@ -39,22 +39,19 @@ def repo(session):
 
 
 # --- unallocated_orders ------------------------------------------------------
+# ponytail (unit A4): the per-order marker column is gone, so
+# unallocated_orders() no longer excludes previously-processed orders --
+# coverage for that marker filter is retired here, not converted. A5
+# replaces this method with a trade_date floor + gap scan, which is where
+# its idempotency tests belong.
 
 
-def test_unallocated_orders_returns_only_unmarked_rows(session, repo):
-    unmarked = make_order(session, proceeds=100)
-    marked = make_order(session, proceeds=50, allocated_run_id=uuid.uuid4())
+def test_unallocated_orders_returns_all_rows(session, repo):
+    order = make_order(session, proceeds=100)
 
     result = repo.unallocated_orders()
 
-    ids = {o.id for o in result}
-    assert unmarked.id in ids
-    assert marked.id not in ids
-
-
-def test_unallocated_orders_empty_list_when_none_pending(session, repo):
-    make_order(session, proceeds=10, allocated_run_id=uuid.uuid4())
-    assert repo.unallocated_orders() == []
+    assert {o.id for o in result} == {order.id}
 
 
 def test_unallocated_orders_empty_table_returns_empty_list(repo):
@@ -148,7 +145,7 @@ def test_model_by_name_no_exception_on_miss(session, repo):
     assert result is None
 
 
-# --- create_run / write_cells / mark_orders_allocated (flush, never commit) ---
+# --- create_run / write_cells (flush, never commit) --------------------------
 
 
 def test_create_run_persists_row_and_returns_it(session, repo):
@@ -220,36 +217,9 @@ def test_write_cells_bulk_inserts_rows(session, repo):
     assert cells[0].allocated == Decimal("60")
 
 
-def test_mark_orders_allocated_only_touches_given_ids(session, repo):
-    o1 = make_order(session, proceeds=10)
-    o2 = make_order(session, proceeds=20)
-    run_id = uuid.uuid4()
-
-    repo.mark_orders_allocated([o1.id], run_id)
-
-    session.refresh(o1)
-    session.refresh(o2)
-    assert o1.allocated_run_id == run_id
-    assert o2.allocated_run_id is None
-
-
-def test_mark_orders_allocated_empty_list_is_noop(session, repo):
-    o1 = make_order(session, proceeds=10)
-    repo.mark_orders_allocated([], uuid.uuid4())
-    session.refresh(o1)
-    assert o1.allocated_run_id is None
-
-
-@pytest.mark.parametrize(
-    "method_name,args",
-    [
-        ("write_cells", ([],)),
-        ("mark_orders_allocated", ([], uuid.uuid4())),
-    ],
-)
-def test_mutating_methods_never_commit(session, repo, method_name, args):
+def test_write_cells_never_commits(session, repo):
     session.commit = MagicMock(side_effect=AssertionError("repository must not commit"))
-    getattr(repo, method_name)(*args)
+    repo.write_cells([])
 
 
 # --- upsert_portfolio_deltas ---------------------------------------------------
@@ -336,7 +306,11 @@ def test_latest_portfolio_amount_reads_the_newest_row_across_dates(session, repo
 # --- GET-path read methods -----------------------------------------------------
 
 
-def test_runs_for_trade_date_returns_all_runs_for_that_date(session, repo):
+def test_runs_for_trade_date_returns_the_one_run_for_that_date(session, repo):
+    # ponytail (unit A4): trade_date is now UNIQUE on post_trade_allocation_runs,
+    # so "returns ALL runs for that date" (plural) can no longer happen -- this
+    # used to seed two rows on the same date to prove D-9's late-arriving-order
+    # semantics; that scenario is retired by the schema change itself.
     period = make_confirmed_period(session)
     r1 = repo.create_run(
         trade_date="20260603",
@@ -344,14 +318,6 @@ def test_runs_for_trade_date_returns_all_runs_for_that_date(session, repo):
         status=RunStatus.COMPLETED.value,
         trigger=RunTrigger.MANUAL.value,
         grand_total=Decimal("10"),
-        run_by=None,
-    )
-    r2 = repo.create_run(
-        trade_date="20260603",
-        period_id=period.id,
-        status=RunStatus.COMPLETED.value,
-        trigger=RunTrigger.SCHEDULED.value,
-        grand_total=Decimal("20"),
         run_by=None,
     )
     repo.create_run(
@@ -365,7 +331,7 @@ def test_runs_for_trade_date_returns_all_runs_for_that_date(session, repo):
 
     result = repo.runs_for_trade_date("20260603")
     ids = {r.id for r in result}
-    assert ids == {r1.id, r2.id}
+    assert ids == {r1.id}
 
 
 def test_runs_for_trade_date_empty_for_unknown_date(repo):
@@ -431,7 +397,10 @@ def test_cells_for_runs_spans_multiple_run_ids(session, repo):
         run_by=None,
     )
     run_b = repo.create_run(
-        trade_date="20260603",
+        # unit A4: trade_date is UNIQUE on post_trade_allocation_runs now, so
+        # this second run (to prove cells_for_runs spans run IDS, not dates)
+        # must be on a different date.
+        trade_date="20260604",
         period_id=period.id,
         status=RunStatus.COMPLETED.value,
         trigger=RunTrigger.SCHEDULED.value,

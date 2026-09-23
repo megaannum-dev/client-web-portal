@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from sqlalchemy import (
     DateTime,
-    ForeignKey,
     Index,
     Numeric,
     String,
@@ -140,15 +139,8 @@ class Order(Base, _TradeRow):
 
     __tablename__ = "orders"
 
-    allocated_run_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(native_uuid=False),
-        ForeignKey("post_trade_allocation_runs.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-
     __table_args__ = (
         UniqueConstraint("orderID", name="uq_orders_orderID"),
-        Index("ix_orders_allocated_run_id", "allocated_run_id"),
     )
 
 

@@ -76,9 +76,14 @@ class PostTradeAllocationService:
                 by_model[s.model_id].append(s)
 
             # --- Step 1: pick up new orders ---------------------------------
-            # demo_datetime = datetime(2026, 7, 13, tzinfo=timezone.utc);
+            # ponytail: the per-order idempotency marker is gone (unit A4), so
+            # unallocated_orders() no longer excludes previously-processed
+            # orders -- only the ingested_at > confirmed_at cutoff still
+            # limits the batch, which means a second run() call over the
+            # same period re-processes every order already seen. A5 replaces
+            # this with the trade_date floor + gap scan (plan Part 4b-4g),
+            # which restores idempotency without a per-order marker.
             orders = self.repo.unallocated_orders(after=period.confirmed_at)
-            # orders = self.repo.unallocated_orders(after=demo_datetime)
             if not orders:
                 newest_run = self.repo.create_run(
                     trade_date=datetime.now(timezone.utc).strftime("%Y%m%d"),
@@ -113,10 +118,6 @@ class PostTradeAllocationService:
                 # It also makes `newest_run` below genuinely the newest.
                 for (trade_date, model_name), traded in sorted(agg.items()):
                     model = self.repo.model_by_name(model_name)
-                    group_orders = orders_by_key[(trade_date, model_name)]
-                    settle_date = max(
-                        (o.settleDate for o in group_orders if o.settleDate), default=None
-                    )
                     run = self.repo.create_run(
                         trade_date=trade_date,
                         period_id=period.id,
@@ -124,14 +125,9 @@ class PostTradeAllocationService:
                         trigger=trigger.value,
                         grand_total=traded,
                         run_by=actor,
-                        settle_date=settle_date,
                     )
                     if model is None:
-                        # unresolvable model name — logged, orders still marked so
-                        # they don't jam the queue forever; no cells, no portfolio delta
-                        self.repo.mark_orders_allocated(
-                            [o.id for o in orders_by_key[(trade_date, model_name)]], run.id
-                        )
+                        # unresolvable model name — logged; no cells, no portfolio delta
                         newest_run = run
                         continue
 
@@ -149,9 +145,6 @@ class PostTradeAllocationService:
                         run_id=run.id,
                     )
                     self.repo.write_cells(cell_rows)
-                    self.repo.mark_orders_allocated(
-                        [o.id for o in orders_by_key[(trade_date, model_name)]], run.id
-                    )
 
                     # --- Step 5: update portfolios (signed; D-1/D-3) -------------
                     self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id, trade_date)
@@ -220,8 +213,7 @@ class PostTradeAllocationService:
         cells = self.repo.cells_for_runs([r.id for r in run_rows])
         if not cells:
             return None
-        settle_date = max((r.settle_date for r in run_rows if r.settle_date), default=None)
-        return self._assemble_view(trade_date, cells, settle_date)
+        return self._assemble_view(trade_date, cells)
 
     def list_runs(self, include_empty: bool = False) -> PtaRunListOut:
         """GET /post-trade-allocation/runs — feeds the DateControl dropdown.
@@ -229,18 +221,12 @@ class PostTradeAllocationService:
         run of that date (empty runs carry grand_total=0, so they add
         nothing even when included)."""
         totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
-        settle_dates: dict[str, str | None] = {}
         for run in self.repo.list_run_dates(include_empty=include_empty):
             totals[run.trade_date] += run.grand_total or ZERO
-            if run.settle_date:
-                settle_dates[run.trade_date] = max(
-                    settle_dates.get(run.trade_date) or run.settle_date, run.settle_date
-                )
 
         entries = [
             PtaRunListEntryOut(
                 date=_format_date(trade_date),
-                label=_format_settle_day(settle_dates.get(trade_date)),
                 grandTotal=float(total),
             )
             for trade_date, total in totals.items()
@@ -249,7 +235,7 @@ class PostTradeAllocationService:
         return PtaRunListOut(runs=entries)
 
     def _assemble_view(
-        self, trade_date: str, cells: list[PostTradeAllocation], settle_date: str | None
+        self, trade_date: str, cells: list[PostTradeAllocation]
     ) -> PostTradeAllocationView:
         """Group frozen cell rows by model, then by client, summing across
         every run so a late-arriving second run for the same (date, model)
@@ -308,7 +294,6 @@ class PostTradeAllocationService:
         grand_total = sum(model_traded.values(), ZERO)
         return PostTradeAllocationView(
             tradeDate=_format_date(trade_date),
-            settleDay=_format_settle_day(settle_date),
             grandTotal=float(grand_total),
             models=models_out,
         )
@@ -353,15 +338,6 @@ class PostTradeAllocationService:
 def _format_date(trade_date: str) -> str:
     """YYYYMMDD -> YYYY-MM-DD wire format (D-6)."""
     return f"{trade_date[0:4]}-{trade_date[4:6]}-{trade_date[6:8]}"
-
-
-def _format_settle_day(settle_date: str | None) -> str:
-    """Display label, e.g. 'Wed 05 Jun 2026' — from orders.settleDate (IB),
-    never from tradeDate. Referential only: no query/grouping/filter path
-    uses this value, so a genuine gap is shown as "—" rather than faked."""
-    if not settle_date:
-        return "—"
-    return datetime.strptime(settle_date, "%Y%m%d").strftime("%a %d %b %Y")
 
 
 def _pct(units: Decimal, units_total: Decimal) -> int:
