@@ -160,6 +160,7 @@ class Trade(Base, _TradeRow):
     __table_args__ = (
         Index("ix_trades_orderID", "orderID"),
         UniqueConstraint("execID", name="uq_trades_execID"),
+        UniqueConstraint("tradeID", name="uq_trades_tradeID"),
     )
 
 
