@@ -7,6 +7,7 @@ cryptography>=42.0.0
 python-dotenv>=1.0.1
 firebase-admin>=6.5.0
 pydantic-settings>=2.6.0
+httpx>=0.27  # IBKR portfolio balance API client (app/core/portfolio_api.py)
 email-validator>=2.2.0
 alembic>=1.13.0
 tzdata>=2024.1  # zoneinfo IANA data — stdlib zoneinfo has no bundled tz db on Windows/minimal Linux

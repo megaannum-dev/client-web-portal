@@ -17,6 +17,8 @@ import app.models.reports as _models_reports  # noqa: F401 — registers reports
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings
 from app.core.errors import GENERIC_500
+from app.core.portfolio_api import PortfolioApiUnavailable
+from app.core.portfolio_api import health as portfolio_api_health
 from app.libs.access.router import router as access_router
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
@@ -48,6 +50,18 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
             "Fail-closed: firebase_auth_disabled cannot be enabled when APP_ENV=production."
         )
     assert_upload_window_valid()
+    try:
+        status = portfolio_api_health()
+        logger.info(
+            "Portfolio balance API ok: %s accounts, %s samples, recording=%s, stale=%ss",
+            status.get("accounts"),
+            status.get("samples"),
+            status.get("recording"),
+            status.get("stale_seconds"),
+        )
+    except PortfolioApiUnavailable as exc:
+        # ponytail: warn, don't fail closed — the portal still serves everything else
+        logger.warning("Portfolio balance API unreachable at startup: %s", exc)
     logger.info("Database migrations are applied before application startup.")
     scheduler_task = start_scheduler()
     pta_scheduler_task = start_pta_scheduler()

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
 
+    # IBKR portfolio balance API — replaces the writer-less client_portfolios_* tables
+    portfolio_api_url: str | None = "http://192.168.0.155:8000" 
+    portfolio_api_timeout_seconds: float = 5.0
+
     # Bootstrap CLI — pre-seeded Super Admin (BE-20)
     bootstrap_admin_email: str | None = None
     bootstrap_admin_name: str = "Bootstrap Admin"

@@ -47,6 +47,7 @@ services:
       IB_FLEX_TOKEN: ${IB_FLEX_TOKEN:-}
       IB_FLEX_QUERY_ID: ${IB_FLEX_QUERY_ID:-}
       IB_FLEX_CACHE_TTL_SECONDS: ${IB_FLEX_CACHE_TTL_SECONDS:-900}
+      PORTFOLIO_API_URL: ${PORTFOLIO_API_URL:-}
     volumes:
       - ./firebase-client-web-portal.json:/secrets/firebase.json:ro
       - ./crm_filesystem:/app/crm_filesystem
