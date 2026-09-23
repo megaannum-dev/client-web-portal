@@ -14,6 +14,7 @@ Active implementation is chosen by ``settings.ib_flex_transport``
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import time
 from datetime import date
@@ -23,6 +24,8 @@ from typing import Iterator, NamedTuple, Protocol
 from app.core import flex_import
 from app.core.config import get_settings
 from app.core.storage import Bucket, get_storage
+
+logger = logging.getLogger(__name__)
 
 _DATE_LEN = len("YYYYMMDD")
 
@@ -50,12 +53,47 @@ class StoredFetcher:
         self._storage = get_storage(Bucket.IB_FLEX)
 
     def days(self) -> list[date]:
+        """Days IB delivered a statement that actually CONTAINS trade records.
+
+        A present-but-empty statement is deliberately not listed. The file
+        being on disk only means the ingest ran; on a day nothing traded IB
+        still returns a well-formed envelope with an empty <TradeConfirms>
+        body, and listing those made the caller offer -- and default to --
+        days it renders nothing for. 26 of 41 archived days were empty when
+        this changed, the newest among them, so the reconciliation view's
+        default landed on a blank day every time.
+
+        Consequence, accepted deliberately: reconciliation's `covered` set
+        (service.build_view) is built from this list, so an empty statement
+        no longer counts as IB covering that day -- rows other sources have
+        on it stop being reported as missing-on-IB. Checked against live
+        data when this changed: no IB-empty day carried any CRM or PC row
+        (compared in ET, which is the grain PcSource.days uses), so nothing
+        that was actually being reported is suppressed. fetch() still tells
+        the two apart -- empty rows vs FlexUnavailable -- which is where
+        that distinction belongs.
+
+        ponytail: parses every archived file on every call (44ms for 41
+        files, growing by one per trading day). Reuses fetch() rather than
+        sniffing bytes so "has records" has exactly one definition and
+        cannot drift from the parser. Cache or index it if it ever bites.
+        """
         found: set[date] = set()
         for stored in self._storage.list("trade-confirm"):
             stem = stored.filename.rsplit(".", 1)[0]  # "ib_trades_YYYYMMDD"
             digits = stem[-_DATE_LEN:]
-            if digits.isdigit() and len(digits) == _DATE_LEN:
-                found.add(date(int(digits[:4]), int(digits[4:6]), int(digits[6:8])))
+            if not (digits.isdigit() and len(digits) == _DATE_LEN):
+                continue
+            day = date(int(digits[:4]), int(digits[4:6]), int(digits[6:8]))
+            try:
+                rows = self.fetch(day)
+            except Exception:
+                # One unreadable file must not take the whole listing down;
+                # it is unrenderable anyway, so drop it and say so loudly.
+                logger.warning("IB statement for %s is unreadable; skipping", day, exc_info=True)
+                continue
+            if rows.orders or rows.fills:
+                found.add(day)
         return sorted(found, reverse=True)
 
     def fetch(self, day: date) -> FlexRows:
