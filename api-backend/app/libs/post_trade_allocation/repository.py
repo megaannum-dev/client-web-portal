@@ -37,8 +37,14 @@ class PostTradeAllocationRepository:
         self._latest_portfolio_cache: dict[uuid.UUID, Decimal] = {}
 
     # --- Step 1: pick up new orders --------------------------------------
+    # ponytail: the per-order idempotency marker this method used to filter
+    # on is gone (unit A4) -- the runs ledger alone now records which dates
+    # are done. Only the ingested_at cutoff still limits the batch, which
+    # means a re-run over the same period re-processes every order already
+    # seen (see the comment on the caller in service.py:run()). A5 replaces
+    # this whole method with a trade_date floor + gap scan.
     def unallocated_orders(self, *, after: datetime | None = None) -> list[Order]:
-        q = self.db.query(Order).filter(Order.allocated_run_id.is_(None))
+        q = self.db.query(Order)
         if after is not None:
             q = q.filter(Order.ingested_at > after)
         return q.all()
@@ -72,12 +78,10 @@ class PostTradeAllocationRepository:
         trigger: str,
         grand_total: Decimal | None,
         run_by: str | None,
-        settle_date: str | None = None,
     ) -> PostTradeAllocationRun:
         run = PostTradeAllocationRun(
             id=uuid.uuid4(),
             trade_date=trade_date,
-            settle_date=settle_date,
             period_id=period_id,
             status=status,
             trigger=trigger,
@@ -93,14 +97,6 @@ class PostTradeAllocationRepository:
         already include `run_id` (BE-3's cell_rows carry it per-cell)."""
         cells = [PostTradeAllocation(**row) for row in rows]
         self.db.add_all(cells)
-        self.db.flush()
-
-    def mark_orders_allocated(self, order_ids: list[uuid.UUID], run_id: uuid.UUID) -> None:
-        if not order_ids:
-            return
-        self.db.query(Order).filter(Order.id.in_(order_ids)).update(
-            {"allocated_run_id": run_id}, synchronize_session=False
-        )
         self.db.flush()
 
     # --- Step 5: portfolios --------------------------------------------------
