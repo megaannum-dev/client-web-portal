@@ -15,16 +15,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
-from app.libs.post_trade_allocation import scheduler as sched
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.libs.post_trade_allocation import scheduler as sched
 
 
 class _FakeAsyncioNamespace:
@@ -231,18 +230,24 @@ def test_scheduled_job_tick_exception_is_logged_not_raised(monkeypatch, fast_clo
     assert "unexpected error in tick" in caplog.text
 
 
-# --- _run_scheduled(): the no-trade-day empty path (D-10 via the scheduler) -----
+# --- _run_scheduled(): a tick with nothing to allocate --------------------------
 
 
-def test_run_scheduled_no_trade_day_completes_cleanly(monkeypatch, db_session_factory, caplog):
+def test_run_scheduled_with_nothing_to_allocate_completes_cleanly(
+    monkeypatch, db_session_factory, caplog
+):
+    """A tick that finds no source data must be a clean no-op.
+
+    The old contract wrote an EMPTY run dated today on any tick with no
+    orders. Since A5 that is wrong: EMPTY means IB delivered a statement
+    showing no trades, and with no statement at all we cannot say that.
+    run() returns None and the scheduler logs it, writing nothing.
+    """
     from app.models.post_trade_allocation import (
         ClientPortfolio,
         PostTradeAllocation,
         PostTradeAllocationRun,
-        RunStatus,
-        RunTrigger,
     )
-
     from tests.libs.post_trade_allocation.conftest import make_confirmed_period
 
     # Unit 10 split the gate in two: isolate this test to the allocation-run
@@ -264,11 +269,7 @@ def test_run_scheduled_no_trade_day_completes_cleanly(monkeypatch, db_session_fa
     Session = db_session_factory
     db = Session()
     try:
-        runs = db.query(PostTradeAllocationRun).all()
-        assert len(runs) == 1
-        assert runs[0].status == RunStatus.EMPTY.value
-        assert runs[0].trigger == RunTrigger.SCHEDULED.value
-        assert runs[0].grand_total == Decimal("0")
+        assert db.query(PostTradeAllocationRun).count() == 0
         assert db.query(PostTradeAllocation).count() == 0
         assert db.query(ClientPortfolio).count() == 0
     finally:

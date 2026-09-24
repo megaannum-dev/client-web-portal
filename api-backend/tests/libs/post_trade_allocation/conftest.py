@@ -11,7 +11,7 @@ app/schemas/post_trade_allocation.py, and stdlib/pytest — no sibling -db/-fe c
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -20,12 +20,19 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
+from app.core.flex_query import FlexRows, FlexUnavailable
+from app.libs.post_trade_allocation import service as service_module
 from app.models.pc import (
     AllocationModelSnapshot,
     AllocationPeriod,
     Model,
     ModelStatus,
     PeriodStatus,
+)
+from app.models.post_trade_allocation import (
+    PostTradeAllocationRun,
+    RunStatus,
+    RunTrigger,
 )
 from app.models.reconciliation import Order
 from app.models.users import Portal, User
@@ -134,3 +141,100 @@ def make_order(
     session.add(order)
     session.flush()
     return order
+
+
+# --- IB archive double -------------------------------------------------------
+#
+# run() is anchored on the IB flex archive: it only allocates a date whose
+# stored statement carries trade records, and it will not scan past the newest
+# such date. Tests must therefore declare an archive, or run() correctly does
+# nothing. This double replaces StoredFetcher inside the service module.
+
+
+class FakeArchive:
+    """Stands in for StoredFetcher.
+
+    By DEFAULT it mirrors the orders table: every date that has an order is a
+    date IB delivered records for. That keeps the archive from being a thing
+    every test has to think about, while still exercising the real rule that
+    run() never allocates a date its source does not cover.
+
+    Tests that are ABOUT the source declare it explicitly with use_archive():
+    `empty` days are ones IB delivered a statement showing no trades, and a
+    day in neither set was never delivered at all -- fetch() raises
+    FlexUnavailable for it, which is what makes run() mark the date FAILED
+    and retry it on the next scan.
+    """
+
+    session = None
+    record_days = None  # None == derive from the orders table
+    empty_days: set = set()
+
+    @classmethod
+    def _records(cls) -> set:
+        if cls.record_days is not None:
+            return cls.record_days
+        if cls.session is None:
+            return set()
+        return {
+            _as_date(t)
+            for (t,) in cls.session.query(Order.tradeDate).distinct().all()
+            if t
+        }
+
+    def days(self):
+        return sorted(self._records(), reverse=True)
+
+    def fetch(self, day):
+        if day in self._records():
+            return FlexRows(orders=[{"x": 1}], fills=[])
+        if day in self.empty_days:
+            return FlexRows(orders=[], fills=[])
+        raise FlexUnavailable(f"no stored IB statement for {day}")
+
+
+@pytest.fixture(autouse=True)
+def fake_archive(session, monkeypatch):
+    """Autouse so no test can reach the real crm_filesystem/ archive, or the
+    real filesystem at all, through StoredFetcher."""
+    FakeArchive.session = session
+    FakeArchive.record_days = None
+    FakeArchive.empty_days = set()
+    monkeypatch.setattr(service_module, "StoredFetcher", FakeArchive)
+    yield FakeArchive
+    FakeArchive.session = None
+
+
+def _as_date(token: str) -> date:
+    return datetime.strptime(token, "%Y%m%d").date()
+
+
+def use_archive(*, records=None, empty: tuple = ()) -> None:
+    """Pin the archive explicitly, for tests that are about the source itself.
+
+    `records=None` keeps the default (derive from the orders table).
+    """
+    FakeArchive.record_days = None if records is None else {_as_date(t) for t in records}
+    FakeArchive.empty_days = {_as_date(t) for t in empty}
+
+
+def make_floor_run(session, *, trade_date: str, period) -> PostTradeAllocationRun:
+    """Seed one completed session row so the scan floor reaches back this far.
+
+    The floor is MIN(trade_date) in the ledger (D4); on an empty ledger it
+    collapses to the anchor, so a scan covering several dates needs an oldest
+    date already present. This is the ledger's own bootstrap, not a fixture
+    hack -- in production the first run establishes it the same way.
+    """
+    run = PostTradeAllocationRun(
+        id=uuid.uuid4(),
+        trade_date=trade_date,
+        period_id=period.id,
+        status=RunStatus.COMPLETED.value,
+        trigger=RunTrigger.MANUAL.value,
+        grand_total=Decimal("0"),
+        run_by="floor@example.com",
+    )
+    session.add(run)
+    session.flush()
+    return run

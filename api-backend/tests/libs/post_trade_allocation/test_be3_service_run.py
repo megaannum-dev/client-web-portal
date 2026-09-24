@@ -13,22 +13,25 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.libs.post_trade_allocation.service import PostTradeAllocationService
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     PostTradeAllocation,
+    PostTradeAllocationRun,
     RunStatus,
     RunTrigger,
 )
-
 from tests.libs.post_trade_allocation.conftest import (
     make_confirmed_period,
+    make_floor_run,
     make_model,
     make_open_period,
     make_order,
     make_snapshot,
     make_user,
+    use_archive,
 )
 
 
@@ -40,15 +43,78 @@ def service(session):
 # --- D-10: empty run -----------------------------------------------------------
 
 
-def test_run_with_no_unallocated_orders_writes_single_empty_run(session, service):
+def test_run_with_no_source_at_all_returns_none_and_writes_nothing(session, service):
+    """A fresh install, not an error.
+
+    The old contract wrote an EMPTY run dated today whenever there were no
+    orders. That is a claim we cannot make without a statement: EMPTY means
+    "IB says nothing traded", and with no archive we do not know. So run()
+    does nothing and says so by returning None.
+    """
     make_confirmed_period(session)  # period_id is NOT NULL — a run always needs one
+    use_archive(records=())
 
     run = service.run(trigger=RunTrigger.MANUAL, actor="admin@example.com")
+
+    assert run is None
+    assert session.query(PostTradeAllocationRun).count() == 0
+    assert session.query(PostTradeAllocation).count() == 0
+    assert session.query(ClientPortfolio).count() == 0
+
+
+def test_a_delivered_statement_with_no_trades_is_an_empty_run(session, service):
+    """The other half of the same distinction: IB DID deliver, and it showed
+    no trades, so the date is genuinely done and must not be retried."""
+    make_confirmed_period(session)
+    use_archive(records=(), empty=("20260603",))
+
+    run = service._run_one_date(
+        "20260603",
+        period=service.repo.latest_confirmed_period(),
+        trigger=RunTrigger.MANUAL,
+        actor=None,
+    )
 
     assert run.status == RunStatus.EMPTY.value
     assert run.grand_total == Decimal("0")
     assert session.query(PostTradeAllocation).count() == 0
-    assert session.query(ClientPortfolio).count() == 0
+
+
+def test_a_missing_statement_is_a_failed_run_that_comes_back(session, service):
+    """D7: no statement means we do not know what happened, so the date stays
+    pending and the next scan retries it. grand_total is NULL, not zero --
+    zero would be a claim about a day we have no data for."""
+    period = make_confirmed_period(session)
+    use_archive(records=())  # 20260603 delivered nothing at all
+
+    run = service._run_one_date(
+        "20260603", period=period, trigger=RunTrigger.MANUAL, actor=None
+    )
+
+    assert run.status == RunStatus.FAILED.value
+    assert run.grand_total is None
+    assert service._pending_dates("20260603") == ["20260603"]  # retried
+
+
+def test_anchor_is_resolved_once_and_does_not_drift_mid_scan(session, service):
+    """"Must not shift while the process is running": a statement landing
+    during a scan must not extend that scan's own reach."""
+    make_confirmed_period(session)
+    use_archive(records=("20260603",))
+
+    first = service._resolve_anchor()
+    use_archive(records=("20260603", "20260610"))  # archive grows mid-flight
+
+    # _pending_dates is driven by the anchor passed in, never by a re-read.
+    assert first == "20260603"
+    assert service._pending_dates(first) == ["20260603"]
+
+
+def test_empty_archive_resolves_to_no_anchor_rather_than_raising(session, service):
+    """max([]) raises ValueError; a fresh install must not crash on it."""
+    use_archive(records=())
+
+    assert service._resolve_anchor() is None
 
 
 # --- Core positive split --------------------------------------------------------
@@ -213,7 +279,10 @@ def test_run_model_with_no_subscribers_produces_run_but_no_cells(session, servic
 # this gap.
 
 
-def test_run_multiple_model_day_pairs_create_one_run_each(session, service):
+def test_two_models_on_one_day_share_a_single_session_row(session, service):
+    """D5: the ledger is one session row per trading day, so a day on which
+    two models traded nets into one row -- the per-model breakdown lives in
+    post_trade_allocations, which is keyed (run_id, model_id, user_id)."""
     model_a = make_model(session, name="Alpha")
     model_b = make_model(session, name="Beta")
     user = make_user(session)
@@ -221,18 +290,74 @@ def test_run_multiple_model_day_pairs_create_one_run_each(session, service):
     make_snapshot(session, period=period, model=model_a, user=user, multiplier=1)
     make_snapshot(session, period=period, model=model_b, user=user, multiplier=1)
     make_order(session, trade_date="20260603", model="Alpha", proceeds=100)
-    make_order(session, trade_date="20260604", model="Beta", proceeds=200)
+    make_order(session, trade_date="20260603", model="Beta", proceeds=200)
 
     service.run(trigger=RunTrigger.MANUAL, actor=None)
 
-    from app.models.post_trade_allocation import PostTradeAllocationRun
+    runs = session.query(PostTradeAllocationRun).all()
+    assert len(runs) == 1
+    assert runs[0].trade_date == "20260603"
+    assert runs[0].grand_total == Decimal("300")  # signed day total across models
+    assert {c.model_id for c in session.query(PostTradeAllocation).all()} == {
+        model_a.id,
+        model_b.id,
+    }
 
-    runs = (
+
+def test_each_date_gets_its_own_session_row_oldest_first(session, service):
+    """Dates are processed oldest-first: the portfolio balance is a running
+    total, so write order is chain order."""
+    model = make_model(session, name="Zero")
+    user = make_user(session)
+    period = make_confirmed_period(session)
+    make_snapshot(session, period=period, model=model, user=user, multiplier=1)
+    make_order(session, trade_date="20260603", model="Zero", proceeds=100)
+    make_order(session, trade_date="20260604", model="Zero", proceeds=200)
+    make_floor_run(session, trade_date="20260602", period=period)
+
+    assert service._pending_dates("20260604") == ["20260603", "20260604"]
+
+    service.run(trigger=RunTrigger.MANUAL, actor=None)
+
+    rows = (
         session.query(PostTradeAllocationRun)
-        .filter(PostTradeAllocationRun.status == RunStatus.COMPLETED.value)
+        .filter(
+            PostTradeAllocationRun.status == RunStatus.COMPLETED.value,
+            PostTradeAllocationRun.trade_date > "20260602",  # exclude the seeded floor
+        )
+        .order_by(PostTradeAllocationRun.trade_date)
         .all()
     )
-    assert {r.grand_total for r in runs} == {Decimal("100"), Decimal("200")}
+    assert [(r.trade_date, r.grand_total) for r in rows] == [
+        ("20260603", Decimal("100")),
+        ("20260604", Decimal("200")),
+    ]
+
+
+def test_weekends_are_never_scanned(session, service):
+    """D2: ingest runs Mon-Fri, so a weekend with no statement is expected,
+    not a gap. 20260606/07 are a Saturday and Sunday."""
+    period = make_confirmed_period(session)
+    make_floor_run(session, trade_date="20260605", period=period)  # Friday
+
+    assert service._pending_dates("20260608") == ["20260608"]  # Monday only
+
+
+def test_a_date_already_completed_is_not_run_again(session, service):
+    """Idempotency without a per-order marker: the ledger alone decides."""
+    model = make_model(session, name="Zero")
+    user = make_user(session)
+    period = make_confirmed_period(session)
+    make_snapshot(session, period=period, model=model, user=user, multiplier=1)
+    make_order(session, trade_date="20260603", model="Zero", proceeds=100)
+
+    service.run(trigger=RunTrigger.MANUAL, actor=None)
+    cells_after_first = session.query(PostTradeAllocation).count()
+    second = service.run(trigger=RunTrigger.MANUAL, actor=None)
+
+    assert second is None
+    assert session.query(PostTradeAllocationRun).count() == 1
+    assert session.query(PostTradeAllocation).count() == cells_after_first
 
 
 # --- Atomicity / rollback safety --------------------------------------------------
@@ -291,27 +416,45 @@ def test_run_after_rollback_is_safely_retryable(session, service, monkeypatch):
 # --- Period boundary filter -----------------------------------------------------
 
 
-def test_run_excludes_orders_ingested_before_period_confirmed_at(session, service):
-    from datetime import datetime, timedelta, timezone
+def test_dates_below_the_floor_are_never_swept_in(session, service):
+    """The ingested_at > confirmed_at cutoff is gone; the floor replaces it.
 
+    Floor is MIN(trade_date) in the ledger (D4), so history older than the
+    first run it ever did stays untouched -- which is what keeps the 217
+    pre-ledger orders in the live DB from suddenly allocating themselves.
+    """
     model = make_model(session, name="Zero")
     user = make_user(session)
-    confirmed_at = datetime.now(timezone.utc) - timedelta(hours=1)
-    period = make_confirmed_period(session, confirmed_at=confirmed_at)
+    period = make_confirmed_period(session)
     make_snapshot(session, period=period, model=model, user=user, multiplier=1)
-    # ponytail: old order ingested before period confirmation — should be skipped
-    make_order(
-        session, trade_date="20260603", model="Zero", proceeds=100,
-        ingested_at=confirmed_at - timedelta(hours=2),
-    )
-    make_order(
-        session, trade_date="20260603", model="Zero", proceeds=50,
-        ingested_at=confirmed_at + timedelta(minutes=30),
-    )
+    make_order(session, trade_date="20260602", model="Zero", proceeds=999)  # below floor
+    make_order(session, trade_date="20260604", model="Zero", proceeds=50)
+    make_floor_run(session, trade_date="20260603", period=period)
 
-    run = service.run(trigger=RunTrigger.MANUAL, actor=None)
+    assert "20260602" not in service._pending_dates("20260604")
 
-    assert run.grand_total == Decimal("50")
+    service.run(trigger=RunTrigger.MANUAL, actor=None)
+
+    completed = (
+        session.query(PostTradeAllocationRun)
+        .filter(
+            PostTradeAllocationRun.status == RunStatus.COMPLETED.value,
+            PostTradeAllocationRun.trade_date > "20260603",  # exclude the seeded floor
+        )
+        .all()
+    )
+    assert [(r.trade_date, r.grand_total) for r in completed] == [("20260604", Decimal("50"))]
+    # the below-floor date was never even considered
+    assert session.query(PostTradeAllocationRun).filter_by(trade_date="20260602").count() == 0
+
+
+def test_an_empty_ledger_scans_only_the_anchor(session, service):
+    """D4: with no runs at all the floor collapses to the anchor, so a
+    first-ever run covers one date instead of sweeping in all of history."""
+    make_confirmed_period(session)
+    use_archive(records=("20260601", "20260602", "20260603"))
+
+    assert service._pending_dates("20260603") == ["20260603"]
 
 
 # settle_date is gone (unit A4, plan D8) -- post_trade_allocation_runs no
