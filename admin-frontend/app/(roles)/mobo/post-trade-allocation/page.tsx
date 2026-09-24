@@ -27,8 +27,8 @@ import {
   ModelRow,
   PerModelDetail,
   EmptyCard,
-  DateControl,
 } from "@/components/mobo/allocation/Panels";
+import { DateControl } from "@/components/ui/DateControl";
 
 const CARD = "rounded-2xl border border-outline-variant bg-surface-lowest shadow-card";
 
@@ -131,7 +131,7 @@ export default function PostTradeAllocationPage() {
             <>
               <DateControl
                 dateLabel={view === "range" ? `${rangeFrom} – ${rangeTo}` : (pickedDate ?? "Latest")}
-                runs={runs}
+                markedDates={new Set(runs.map((r) => r.date))}
                 onPickDate={(d) => { setPickedDate(d); setView("all"); }}
                 onPickRange={(from, to) => { setRangeFrom(from); setRangeTo(to); setView("range"); }}
               />

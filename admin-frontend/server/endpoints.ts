@@ -74,6 +74,10 @@ export const ENDPOINTS = {
     EOM_COMMENTS: `${REPORTS}/eom-comments`,
     EOM_COMMENT: (reportName: string) => `${REPORTS}/eom-comments/${encodeURIComponent(reportName)}`,
   },
+  IC_NOTES: {
+    LIST:     `/api/ic-notes`,
+    DOWNLOAD: (id: string) => `/api/ic-notes/${id}/download`,
+  },
   ADMIN: {
     STAFF:               `${ADMIN}/staff`,
     STAFF_MEMBER:        (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}`,
