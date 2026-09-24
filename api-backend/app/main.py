@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app.models.access as _models_access  # noqa: F401 — registers access tables with Base.metadata
 import app.models.chat as _models_chat  # noqa: F401 — registers chat tables with Base.metadata
+import app.models.ic_notes as _models_ic_notes  # noqa: F401
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
 import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
 import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
@@ -143,6 +144,7 @@ app.include_router(
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
+app.include_router(ic_notes_router, prefix="/api")  # /api/ic-notes
 app.include_router(chat_router, prefix="/api")  # /api/chat/…, /api/ws/chat
 
 

@@ -25,3 +25,6 @@ class Action(str, enum.Enum):
     ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: acknowledge/decide allotments (write)
     ALLOTMENT_VIEW = "pc:allotment_view"  # BE-22 (C-12) — read-only sibling, see above
     EOM_COMMENT_WRITE = "reports:eom_comment_write"  # PC: write EoM report comments
+    # IC Notes — module ic-notes (BE-2)
+    IC_NOTES_VIEW = "ic_notes:view"
+    IC_NOTES_WRITE = "ic_notes:write"

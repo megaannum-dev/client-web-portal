@@ -16,7 +16,7 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react";
-import { Receipt } from "@/lib/icons";
+import { NotebookText, Receipt } from "@/lib/icons";
 
 export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
 
@@ -40,6 +40,7 @@ export type PageId =
   | "pc.allotment-redemption"
   | "compliance.overview"
   | "compliance.review"
+  | "compliance.ic-notes"
   | "shared.monthly-reports"
   | "admin.enroll-user"
   | "admin.system-config";
@@ -104,6 +105,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/compliance/review",
     label: "Compliance Review",
     icon: ShieldCheck,
+    subgroup: "Compliance",
+  },
+  "compliance.ic-notes": {
+    id: "compliance.ic-notes",
+    path: "/compliance/ic-notes",
+    label: "IC Meeting Notes",
+    icon: NotebookText,
     subgroup: "Compliance",
   },
   "pc.allotment-redemption": {

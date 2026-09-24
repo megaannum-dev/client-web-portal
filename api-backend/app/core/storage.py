@@ -35,6 +35,7 @@ class Bucket(StrEnum):
     STATEMENTS = "statements"  # read-only drop zone, no metadata table
     CHAT = "chat"  # chat_attachments.storage_key
     IB_FLEX = "ib_flex"  # IB Flex statement XML, written by the daily ingest job
+    IC_NOTES = "ic_notes"  # ic_notes.storage_key
 
 
 class StoredFile(NamedTuple):

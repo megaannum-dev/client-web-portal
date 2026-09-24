@@ -31,6 +31,7 @@ const MATRIX_PAGES_FIXTURE: MatrixOut["pages"] = [
   { page_id: "pc.allotment-redemption", group: "Client Management", label: "Allotment & Redemption", path: "/pc/allotment-redemption" },
   { page_id: "compliance.overview", group: "Other", label: "Compliance Overview", path: "/compliance/overview" },
   { page_id: "compliance.review", group: "Compliance", label: "Compliance Review", path: "/compliance/review" },
+  { page_id: "compliance.ic-notes", group: "Compliance", label: "IC Meeting Notes", path: "/compliance/ic-notes" },
   { page_id: "shared.monthly-reports", group: "Trade Management", label: "Monthly Reports (Models)", path: "/monthly-reports" },
   { page_id: "admin.enroll-user", group: "System", label: "Enroll User", path: "/admin/enroll-user" },
   { page_id: "admin.system-config", group: "System", label: "System Config", path: "/admin/system-config" },

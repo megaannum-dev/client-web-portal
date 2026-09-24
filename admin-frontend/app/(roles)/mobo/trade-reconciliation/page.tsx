@@ -39,7 +39,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { MetricStat, SegBar } from "@/components/mobo/Shared";
 import { TabBar } from "@/components/mobo/TabBar";
-import { DateControl } from "@/components/mobo/allocation/Panels";
+import { DateControl } from "@/components/ui/DateControl";
 import { ExceptionBento } from "@/components/mobo/recon/ExceptionBento";
 import { ReconGrid } from "@/components/mobo/recon/ReconGrid";
 import { useExecutions } from "@/hooks/api/useExecutions";
@@ -120,10 +120,7 @@ export default function TradeReconciliationPage() {
   const dayLabel = fmtDayLabel(data?.day ?? null);
   // `data.days` is already "YYYY-MM-DD" — exactly what DateControl speaks — so
   // it maps straight through with no token bridging.
-  const pickerRuns = useMemo(
-    () => (data?.days ?? []).map((d) => ({ date: d, label: d, grandTotal: 0 })),
-    [data?.days],
-  );
+  const markedDates = useMemo(() => new Set(data?.days ?? []), [data?.days]);
 
   // The grid owns search/filter/sort/expansion, so only it knows what is on
   // screen. It hands the export closure up here; the header button fires it.
@@ -158,7 +155,7 @@ export default function TradeReconciliationPage() {
             <>
               <DateControl
                 dateLabel={dayLabel}
-                runs={pickerRuns}
+                markedDates={markedDates}
                 onPickDate={setDay}
                 onPickRange={() => { /* range mode unused here — one day at a time */ }}
               />

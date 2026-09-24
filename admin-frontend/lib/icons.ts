@@ -168,4 +168,6 @@ export {
   Minimize2,
   FileSpreadsheet,
   FileCheck2,
+  // CRM — IC Meeting Notes
+  NotebookText,
 } from "lucide-react";

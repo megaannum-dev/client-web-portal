@@ -47,6 +47,9 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.review": PageMeta(
         "compliance.review", "Compliance", "Compliance Review", "/compliance/review"
     ),
+    "compliance.ic-notes": PageMeta(
+        "compliance.ic-notes", "Compliance", "IC Meeting Notes", "/compliance/ic-notes"
+    ),
     "pc.allotment-redemption": PageMeta(
         "pc.allotment-redemption",
         "Client Management",
@@ -94,7 +97,7 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     ),
 }
 
-PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 16 members
+PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 17 members
 
 
 # (granted at VIEW, ADDED at EDIT). EDIT is a superset: a user at EDIT holds
@@ -151,6 +154,8 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # seed gives PC) grants NOTHING -- no role gains verdict/approve rights from a
     # read grant. COMPLIANCE's board reads arrive via its own `edit` on that page.
     "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
+    # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).
+    "compliance.ic-notes": (fs(Action.IC_NOTES_VIEW), fs(Action.IC_NOTES_WRITE)),
     "compliance.overview": (fs(), fs()),
     # ---- SHARED ----
     # GET /reports/eom-comments is open to any authenticated admin (no view action

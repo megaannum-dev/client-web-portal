@@ -290,7 +290,7 @@ def test_two_models_on_one_day_share_a_single_session_row(session, service):
     make_snapshot(session, period=period, model=model_a, user=user, multiplier=1)
     make_snapshot(session, period=period, model=model_b, user=user, multiplier=1)
     make_order(session, trade_date="20260603", model="Alpha", proceeds=100)
-    make_order(session, trade_date="20260603", model="Beta", proceeds=200)
+    make_order(session, trade_date="20260604", model="Beta", proceeds=200)
 
     service.run(trigger=RunTrigger.MANUAL, actor=None)
 
