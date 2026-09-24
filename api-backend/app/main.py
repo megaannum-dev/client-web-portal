@@ -29,6 +29,7 @@ from app.libs.client_portal.router import router as client_portal_router
 from app.libs.client_portal.service import assert_upload_window_valid
 from app.libs.clients.router import router as clients_router
 from app.libs.ib_ingest.router import router as ib_ingest_router
+from app.libs.ic_notes.router import router as ic_notes_router
 from app.libs.onboarding.router import router as onboarding_router
 from app.libs.onboarding.scheduler import start_scheduler as start_onboarding_scheduler
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
@@ -146,6 +147,7 @@ app.include_router(
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
+app.include_router(ic_notes_router, prefix="/api")  # /api/ic-notes
 app.include_router(chat_router, prefix="/api")  # /api/chat/…, /api/ws/chat
 
 
