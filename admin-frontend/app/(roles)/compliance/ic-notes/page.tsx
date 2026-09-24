@@ -137,6 +137,7 @@ export default function IcMeetingNotesPage() {
             <DateControl
               dateLabel={dateLabel(dateFilter)}
               markedDates={markedDates}
+              triggerClassName="inline-flex items-center gap-2 rounded border border-outline-variant bg-surface-lowest px-3 py-2 text-[13px] text-on-surface hover:bg-surface-container"
               markedLabel="Has notes"
               disableWeekends={false}
               onPickDate={(d) => setDateFilter({ from: d, to: d })}

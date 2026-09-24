@@ -35,6 +35,7 @@ export function DateControl({
   onPickDate,
   onPickRange,
   onClear,
+  triggerClassName,
 }: {
   dateLabel: string;
   markedDates: Set<string>;
@@ -46,6 +47,8 @@ export function DateControl({
   onPickRange: (from: string, to: string) => void;
   /** When provided, renders a "Clear" link that resets the picker to no selection. */
   onClear?: () => void;
+  /** Plain trigger with these classes instead of the secondary Button (to match a toolbar's inputs). */
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [isRange, setIsRange] = useState(false);
@@ -128,9 +131,16 @@ export function DateControl({
 
   return (
     <div className="relative" ref={ref}>
-      <Button variant="secondary" icon={CalendarDays} onClick={() => setOpen((o) => !o)}>
-        {dateLabel}
-      </Button>
+      {triggerClassName ? (
+        <button type="button" className={triggerClassName} onClick={() => setOpen((o) => !o)}>
+          <CalendarDays size={14} strokeWidth={2} className="shrink-0" />
+          {dateLabel}
+        </button>
+      ) : (
+        <Button variant="secondary" icon={CalendarDays} onClick={() => setOpen((o) => !o)}>
+          {dateLabel}
+        </Button>
+      )}
       {open && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-[296px] rounded-md border border-outline-variant bg-white p-3 shadow-overlay">
           {/* range toggle + clear */}
