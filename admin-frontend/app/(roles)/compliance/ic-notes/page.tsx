@@ -14,6 +14,7 @@ import { NoteCard } from "@/components/compliance/ic-notes/NoteCard";
 import { NoteTable } from "@/components/compliance/ic-notes/NoteTable";
 import { UploadDialog } from "@/components/compliance/ic-notes/UploadDialog";
 import { ROLE_LABELS } from "@/components/compliance/ic-notes/Uploader";
+import { hkDayKey } from "@/components/compliance/ic-notes/format";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { useIcNotes } from "@/hooks/api/useIcNotes";
@@ -40,12 +41,6 @@ function saveView(v: ViewMode) {
   }
 }
 
-/** Local YYYY-MM-DD, matching DateControl's own day-key convention. */
-function localKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 type DateFilter = { from: string; to: string } | null;
 
 function dateLabel(filter: DateFilter): string {
@@ -68,7 +63,7 @@ export default function IcMeetingNotesPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const markedDates = useMemo(() => new Set((notes ?? []).map((n) => localKey(n.meeting_at))), [notes]);
+  const markedDates = useMemo(() => new Set((notes ?? []).map((n) => hkDayKey(n.meeting_at))), [notes]);
 
   const filtered = useMemo(() => {
     const all = notes ?? [];
@@ -77,7 +72,7 @@ export default function IcMeetingNotesPage() {
       .filter((n) => {
         if (format !== "all" && extOf(n.filename) !== format) return false;
         if (dateFilter) {
-          const k = localKey(n.meeting_at);
+          const k = hkDayKey(n.meeting_at);
           if (k < dateFilter.from || k > dateFilter.to) return false;
         }
         if (q) {
@@ -107,7 +102,7 @@ export default function IcMeetingNotesPage() {
   if (loading) return <IcNotesSkeleton />;
 
   return (
-    <div className="mx-auto max-w-[1180px] p-8">
+    <div className="mx-auto">
       <PageHeader
         title="IC Meeting Notes"
         subtitle="Investment Committee minutes and notes, shared across roles."

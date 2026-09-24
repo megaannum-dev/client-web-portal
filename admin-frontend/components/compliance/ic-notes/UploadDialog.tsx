@@ -5,7 +5,7 @@ import { Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/pc/Shared";
 import { FormatBadgeBig } from "./FormatBadge";
-import { fmtSize } from "./format";
+import { fmtSize, fmtTime, hkDayKey, HK_OFFSET } from "./format";
 import { ROLE_LABELS } from "./Uploader";
 import type { IcNoteRole } from "@/lib/ic-notes/types";
 
@@ -21,16 +21,9 @@ function titleFromFilename(filename: string): string {
   return base.replace(/[_-]+/g, " ").trim();
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
 function nowDateTime(): { date: string; time: string } {
-  const d = new Date();
-  return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
-  };
+  const now = new Date().toISOString();
+  return { date: hkDayKey(now), time: fmtTime(now) };
 }
 
 export function UploadDialog({
@@ -67,7 +60,7 @@ export function UploadDialog({
     const fd = new FormData();
     fd.append("file", file);
     fd.append("title", title.trim());
-    fd.append("meeting_at", new Date(`${date}T${time}`).toISOString());
+    fd.append("meeting_at", `${date}T${time}:00${HK_OFFSET}`);
     const result = await onSubmit(fd);
     setSubmitting(false);
     if (!result.success) setError(result.error ?? "Upload failed.");
