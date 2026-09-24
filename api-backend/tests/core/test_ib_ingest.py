@@ -1,4 +1,4 @@
-"""Unit tests for app.libs.ib_ingest.service.ingest_day.
+"""Unit tests for app.core.ib_ingest.ingest_day.
 
 Layer isolation: `ib_async` is not installed in this venv (it's an optional,
 lazily-imported dependency of the "live" Flex transport), so it's faked here
@@ -13,7 +13,7 @@ way the real one is: orderID / tradeID) instead of hitting a real DB -- the
 unit under test is ingest_day's fetch/verify/store/ordering logic, which the
 real loader's own test suite doesn't cover.
 
-Run: .venv/Scripts/python.exe -m pytest -q tests/libs/ib_ingest/
+Run: .venv/Scripts/python.exe -m pytest -q tests/core/test_ib_ingest.py
 """
 
 from __future__ import annotations
@@ -26,11 +26,11 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core import flex_query as flex_query_module
+from app.core import ib_ingest as service_module
 from app.core import storage as storage_module
 from app.core.config import Settings
+from app.core.ib_ingest import IngestFailed, MarketStillOpen, ingest_day
 from app.core.storage import Bucket, get_storage
-from app.libs.ib_ingest import service as service_module
-from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
 
 _ET = ZoneInfo("America/New_York")
 

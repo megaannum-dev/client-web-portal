@@ -126,7 +126,7 @@ async def _ingest_window(today: date) -> None:
     others -- and so an ingest failure never blocks the allocation run that
     follows."""
     from app.core.flex_query import FlexUnavailable
-    from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
+    from app.core.ib_ingest import IngestFailed, MarketStillOpen, ingest_day
 
     for day in _ingest_days(today):
         try:

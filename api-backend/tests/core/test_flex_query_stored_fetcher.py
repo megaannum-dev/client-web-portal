@@ -1,7 +1,7 @@
 """StoredFetcher — missing source vs no trade record, and what days() lists.
 
 Storage is redirected to `tmp_path` via `storage_root_ib_flex` (same pattern
-as tests/libs/ib_ingest/test_ingest.py's `_isolate` fixture) -- never the
+as tests/core/test_ib_ingest.py's `_isolate` fixture) -- never the
 real `crm_filesystem/` archive, which is read-only input here at most.
 
 Run: .venv/Scripts/python.exe -m pytest -q tests/core/test_flex_query_stored_fetcher.py

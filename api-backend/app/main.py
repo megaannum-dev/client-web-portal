@@ -27,7 +27,6 @@ from app.libs.chat.router import router as chat_router
 from app.libs.client_portal.router import router as client_portal_router
 from app.libs.client_portal.service import assert_upload_window_valid
 from app.libs.clients.router import router as clients_router
-from app.libs.ib_ingest.router import router as ib_ingest_router
 from app.libs.onboarding.router import router as onboarding_router
 from app.libs.onboarding.scheduler import start_scheduler as start_onboarding_scheduler
 from app.libs.post_trade_allocation.router import router as post_trade_allocation_router
@@ -138,7 +137,6 @@ app.include_router(post_trade_allocation_router, prefix="/api")
 app.include_router(clients_router, prefix="/api")  # /api/rm/…
 app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
-app.include_router(ib_ingest_router, prefix="/api")  # /api/mobo/ib-ingest
 app.include_router(
     onboarding_router, prefix="/api"
 )  # /api/rm|compliance|pc|client onboarding routes

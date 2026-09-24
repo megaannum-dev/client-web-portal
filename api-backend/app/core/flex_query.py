@@ -223,7 +223,7 @@ def _cached_flex_report(  # type: ignore[no-untyped-def]
 def download_day(day: date) -> object:  # -> ib_async.FlexReport, but ib_async is optional
     """Fetch the raw Flex report for exactly one day (`FlexReport.data` holds
     the raw response bytes). Used by the scheduled ingest job, which stores
-    that raw payload verbatim -- see app.libs.ib_ingest.service.ingest_day.
+    that raw payload verbatim -- see app.core.ib_ingest.ingest_day.
 
     Bypasses the TTL cache entirely: `_cached_flex_report` collapses its
     bucket to a constant 0 when `ttl_seconds` is 0, which caches the report

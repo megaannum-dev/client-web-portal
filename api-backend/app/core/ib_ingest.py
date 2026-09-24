@@ -8,8 +8,10 @@ reached the canonical key it would sit there forever and get served to
 reconciliation (`app.core.flex_query.StoredFetcher`) every day after. A failed
 ingest must leave the previous good file untouched.
 
-Does not import from app.libs.post_trade_allocation or any other feature
-package -- only app.core.
+Lives in app/core/ rather than app/libs/: it has no repository layer and
+no HTTP surface of its own -- the scheduler calls ingest_day() directly, and
+nothing else does. It imports only from app.core, which is what made the
+feature-package wrapper it used to sit in pure overhead.
 """
 
 from __future__ import annotations
