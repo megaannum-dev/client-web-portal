@@ -6,16 +6,19 @@ GET-path view assembly (BE-6). Method bodies land in those later units.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.flex_query import FlexUnavailable, StoredFetcher
+from app.core.ib_ingest import archived_days
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
-from app.models.pc import AllocationModelSnapshot, Model
+from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model
 from app.models.post_trade_allocation import (
     PostTradeAllocation,
     PostTradeAllocationRun,
@@ -34,6 +37,8 @@ from app.schemas.post_trade_allocation import (
     PtaRunListOut,
 )
 
+logger = logging.getLogger(__name__)
+
 ZERO = Decimal("0")
 
 
@@ -42,118 +47,265 @@ class PostTradeAllocationService:
         self.db = db
         self.repo = PostTradeAllocationRepository(db)
 
-    def run(self, *, trigger: RunTrigger, actor: str | None) -> PostTradeAllocationRun:
-        """Implements requirement steps 1-5, exactly, in ONE transaction.
+    def run(
+        self, *, trigger: RunTrigger, actor: str | None
+    ) -> PostTradeAllocationRun | None:
+        """Allocate every trading day that still needs it, oldest first.
 
-        D-3 (safety-critical): the net traded amount per (tradeDate, model) is
-        Σ orders.proceeds, SIGNED. Never abs(); never Σ|amount|. A losing day
-        must produce a negative `traded`, which flows unmodified through the
-        pro-rata split into every client's `allocated` and into
-        client_portfolios.amount_in_trade (which can therefore DECREASE).
+        Anchored on trade_date, not on unallocated orders: the runs ledger
+        (one session row per date since 0044) is the sole record of which
+        dates are done, so the scan asks "which weekdays between the floor
+        and the anchor have no run, or a failed one". That makes the ledger
+        consecutive -- a day with no trades gets an EMPTY row rather than
+        silently not existing.
 
-        Corrected during BE-2 implementation (2026-07-14):
-        `post_trade_allocation_runs.period_id` is NOT NULL at the DB layer
-        (DB-1/DB-5) — a run row, empty or not, cannot be written without a
-        resolved period. The split-basis lookup therefore happens FIRST,
-        before the empty-order short-circuit; if no confirmed period exists
-        at all, `run()` raises instead of writing a run with a null
-        period_id. This is a stricter reading of D-5/D-10, not a
-        contradiction — § 2's own precondition already assumes a confirmed
-        period exists in any real environment.
+        Returns the newest run written, or None when there was nothing to do
+        (including a fresh install whose archive is still empty).
+
+        D-3 (safety-critical): the net traded amount per model is
+        SUM(orders.proceeds), SIGNED. Never abs(); never SUM(|amount|). A
+        losing day must produce a negative `traded`, which flows unmodified
+        through the pro-rata split into every client's `allocated` and into
+        their running portfolio balance (which can therefore DECREASE).
         """
-        with self.db.begin_nested():
-            self.repo.reset_portfolio_cache()
-            # --- Step 0: resolve split basis (latest confirmed, D-5) — required ---
-            period = self.repo.latest_confirmed_period()
-            if period is None:
-                raise RuntimeError(
-                    "No confirmed allocation period exists; cannot create a run "
-                    "(post_trade_allocation_runs.period_id is NOT NULL)"
-                )
-            snapshots = self.repo.snapshots_for_period(period.id)
-            by_model: dict[uuid.UUID, list[AllocationModelSnapshot]] = defaultdict(list)
-            for s in snapshots:
-                by_model[s.model_id].append(s)
+        anchor = self._resolve_anchor()
+        if anchor is None:
+            # No source data at all -- a fresh install, not an error. Writing
+            # an EMPTY run for today would assert "nothing traded today",
+            # which is exactly the claim we cannot make without a statement.
+            logger.info("PTA: no archived IB statements; nothing to allocate")
+            return None
 
-            # --- Step 1: pick up new orders ---------------------------------
-            # ponytail: the per-order idempotency marker is gone (unit A4), so
-            # unallocated_orders() no longer excludes previously-processed
-            # orders -- only the ingested_at > confirmed_at cutoff still
-            # limits the batch, which means a second run() call over the
-            # same period re-processes every order already seen. A5 replaces
-            # this with the trade_date floor + gap scan (plan Part 4b-4g),
-            # which restores idempotency without a per-order marker.
-            orders = self.repo.unallocated_orders(after=period.confirmed_at)
-            if not orders:
-                newest_run = self.repo.create_run(
-                    trade_date=datetime.now(timezone.utc).strftime("%Y%m%d"),
-                    period_id=period.id,
-                    status=RunStatus.EMPTY.value,
-                    trigger=trigger.value,
-                    grand_total=ZERO,
-                    run_by=actor,
-                )
-            else:
-                # --- Step 2: aggregate per (tradeDate, model) — SIGNED (D-3) -----
-                agg: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
-                model_acct: dict[str, str | None] = {}
-                orders_by_key: dict[tuple[str, str], list[Order]] = defaultdict(list)
-                default_model_name = get_settings().pta_default_model_name
-                for o in orders:
-                    key = (o.tradeDate or "", (o.model or "").strip() or default_model_name)
-                    agg[key] += o.proceeds or ZERO  # signed — no abs(), no |amount|
-                    model_acct.setdefault(key[1], o.accountId)
-                    orders_by_key[key].append(o)
+        period = self._require_confirmed_period()
+        newest = None
+        for trade_date in self._pending_dates(anchor):
+            run = self._run_one_date(trade_date, period=period, trigger=trigger, actor=actor)
+            if run is not None:
+                newest = run
+        return newest
 
-                newest_run = None
-                # Chronological, NOT agg insertion order. `agg` is keyed
-                # (trade_date, model_name) and populated by iterating
-                # unallocated_orders(), which has no ORDER BY -- so trade-date
-                # groups arrive arbitrarily. That was harmless while each
-                # portfolio row held an independent delta, but
-                # daily_client_portfolios rows hold a RUNNING BALANCE, so the
-                # write order IS the chain order: processing 0814 before 0813
-                # makes 0813's balance chain off 0814's. trade_date is a
-                # YYYYMMDD token, so lexicographic sort is chronological.
-                # It also makes `newest_run` below genuinely the newest.
-                for (trade_date, model_name), traded in sorted(agg.items()):
-                    model = self.repo.model_by_name(model_name)
+    # --- run() helpers -------------------------------------------------------
+
+    def _resolve_anchor(self) -> str | None:
+        """Newest trading day the scan may reach, as YYYYMMDD.
+
+        PTA_ANCHOR_DATE when set, else the newest day the IB flex archive
+        holds a statement for -- so allocation never runs ahead of its source.
+        An EMPTY statement counts: it is positive evidence nothing traded, and
+        _run_one_date writes it an EMPTY row. Anchoring on days-with-records
+        instead (StoredFetcher.days()) left every quiet day after the last
+        trading day un-run until trades next landed, so the ledger stalled.
+        Returns None when neither is available (empty archive, no override);
+        archived_days() is [] then and a bare max([]) would raise.
+
+        Read ONCE per run() and passed down as a parameter, never re-read, so
+        a statement landing mid-scan cannot move the target.
+        """
+        configured = get_settings().pta_anchor_date
+        if configured:
+            return configured
+        days = archived_days()
+        return max(days).strftime("%Y%m%d") if days else None
+
+    def _require_confirmed_period(self) -> AllocationPeriod:
+        """The split basis. post_trade_allocation_runs.period_id is NOT NULL,
+        so no run row of any status can be written without one."""
+        period = self.repo.latest_confirmed_period()
+        if period is None:
+            raise RuntimeError(
+                "No confirmed allocation period exists; cannot create a run "
+                "(post_trade_allocation_runs.period_id is NOT NULL)"
+            )
+        return period
+
+    def _pending_dates(self, anchor: str) -> list[str]:
+        """Weekdays in [floor, anchor] with no run, or a failed one, oldest first.
+
+        Floor is MIN(trade_date) in the ledger, or the anchor itself when the
+        ledger is empty (D4) -- a first-ever run covers one date, it does not
+        sweep in all of history.
+
+        Weekdays only (D2): the ingest job runs Mon-Fri, so a weekend without
+        a statement is expected rather than a gap. Oldest first because the
+        portfolio balance is a running total, so write order is chain order.
+        """
+        floor = self.repo.earliest_run_date() or anchor
+        if floor > anchor:
+            return []
+        status_by_date = self.repo.run_status_by_trade_date()
+        out = []
+        day = datetime.strptime(floor, "%Y%m%d").date()
+        last = datetime.strptime(anchor, "%Y%m%d").date()
+        while day <= last:
+            if day.weekday() < 5:
+                token = day.strftime("%Y%m%d")
+                if status_by_date.get(token) in (None, RunStatus.FAILED.value):
+                    out.append(token)
+            day += timedelta(days=1)
+        return out
+
+    def _run_one_date(
+        self,
+        trade_date: str,
+        *,
+        period: AllocationPeriod,
+        trigger: RunTrigger,
+        actor: str | None,
+    ) -> PostTradeAllocationRun | None:
+        """One date, one transaction.
+
+        Per-date commits matter twice over: a FAILED row must survive to be
+        the retry marker (a rollback would erase the very thing that brings
+        the date back), and one bad date must not undo the dates already
+        allocated earlier in this same scan.
+        """
+        try:
+            with self.db.begin_nested():
+                self.repo.reset_portfolio_cache()
+                self.repo.delete_run_for_date(trade_date)  # clear a prior FAILED marker
+
+                if not self._has_records(trade_date):
+                    status, total = self._no_record_status(trade_date)
                     run = self.repo.create_run(
                         trade_date=trade_date,
                         period_id=period.id,
-                        status=RunStatus.COMPLETED.value,
+                        status=status,
                         trigger=trigger.value,
-                        grand_total=traded,
+                        grand_total=total,
                         run_by=actor,
                     )
-                    if model is None:
-                        # unresolvable model name — logged; no cells, no portfolio delta
-                        newest_run = run
-                        continue
+                    self.db.commit()
+                    return run
 
-                    cells = by_model.get(model.id, [])
-                    units_total = sum((c.multiplier for c in cells), ZERO)
-                    cell_rows, portfolio_deltas = self._split(
-                        traded=traded,
-                        units_total=units_total,
-                        cells=cells,
-                        model=model,
-                        # models.master_ib_account is the source of truth for the
-                        # account a model trades through; the first-order accountId
-                        # is only a fallback while the column is still nullable.
-                        model_acct=model.master_ib_account or model_acct[model_name],
-                        run_id=run.id,
+                orders = self.repo.orders_for_trade_date(trade_date)
+                if not orders:
+                    run = self.repo.create_run(
+                        trade_date=trade_date,
+                        period_id=period.id,
+                        status=RunStatus.EMPTY.value,
+                        trigger=trigger.value,
+                        grand_total=ZERO,
+                        run_by=actor,
                     )
-                    self.repo.write_cells(cell_rows)
+                    self.db.commit()
+                    return run
 
-                    # --- Step 5: update portfolios (signed; D-1/D-3) -------------
-                    self.repo.upsert_portfolio_deltas(portfolio_deltas, run.id, trade_date)
-                    newest_run = run
+                run = self._allocate(
+                    trade_date, orders, period=period, trigger=trigger, actor=actor
+                )
+                self.db.commit()
+                return run
+        except Exception:
+            self.db.rollback()
+            logger.exception("PTA: allocation failed for %s", trade_date)
+            raise
 
-            self.db.commit()
-        assert newest_run is not None
-        self.db.refresh(newest_run)
-        return newest_run
+    def _has_records(self, trade_date: str) -> bool:
+        """Does the IB archive hold trade records for this day?
+
+        days() lists exactly the days whose stored statement carries records,
+        so a date missing from it has nothing to allocate -- either because
+        IB delivered an empty statement or because it delivered none at all.
+        _no_record_status tells those two apart.
+        """
+        day = datetime.strptime(trade_date, "%Y%m%d").date()
+        return day in set(StoredFetcher().days())
+
+    def _no_record_status(self, trade_date: str) -> tuple[str, Decimal | None]:
+        """EMPTY when IB delivered a statement showing no trades; FAILED when
+        it delivered nothing at all.
+
+        This is the whole point of the fetch-layer split: an empty statement
+        is positive evidence that nothing traded, so the date is DONE and
+        must not be retried forever. A missing statement means we do not know
+        what happened, so the date stays pending and comes back next scan
+        (D7). FAILED carries a NULL grand_total -- zero would be a claim.
+        """
+        day = datetime.strptime(trade_date, "%Y%m%d").date()
+        try:
+            StoredFetcher().fetch(day)
+        except FlexUnavailable:
+            return RunStatus.FAILED.value, None
+        return RunStatus.EMPTY.value, ZERO
+
+    def _allocate(
+        self,
+        trade_date: str,
+        orders: list[Order],
+        *,
+        period: AllocationPeriod,
+        trigger: RunTrigger,
+        actor: str | None,
+    ) -> PostTradeAllocationRun:
+        """Write one session row for this date plus its per-model cells."""
+        snapshots = self.repo.snapshots_for_period(period.id)
+        by_model = defaultdict(list)
+        for snap in snapshots:
+            by_model[snap.model_id].append(snap)
+
+        agg, model_acct = self._aggregate(orders)
+        run = self.repo.create_run(
+            trade_date=trade_date,
+            period_id=period.id,
+            status=RunStatus.COMPLETED.value,
+            trigger=trigger.value,
+            grand_total=sum(agg.values(), ZERO),  # signed day total across models
+            run_by=actor,
+        )
+
+        # Accumulated across ALL models before a single write:
+        # daily_client_portfolios is keyed (run_id, user_id), and there is now
+        # one run per DATE, so a client subscribed to two models that both
+        # traded today would collide on a per-model write. Their allocations
+        # net into one balance row for the day, which is what the balance
+        # means anyway.
+        day_deltas: dict = defaultdict(lambda: ZERO)
+        for model_name, traded in sorted(agg.items()):
+            model = self.repo.model_by_name(model_name)
+            if model is None:
+                # Unresolvable model name: the run row still records the
+                # traded amount, but nothing can be split without a model.
+                logger.warning(
+                    "PTA: %s has orders for unknown model %r; no cells written",
+                    trade_date,
+                    model_name,
+                )
+                continue
+            cells = by_model.get(model.id, [])
+            units_total = sum((c.multiplier for c in cells), ZERO)
+            cell_rows, deltas = self._split(
+                traded=traded,
+                units_total=units_total,
+                cells=cells,
+                model=model,
+                # models.master_ib_account is the source of truth for the
+                # account a model trades through; the first-order accountId
+                # is only a fallback while the column is still nullable.
+                model_acct=model.master_ib_account or model_acct[model_name],
+                run_id=run.id,
+            )
+            self.repo.write_cells(cell_rows)
+            for user_id, delta in deltas.items():
+                day_deltas[user_id] += delta  # signed (D-3)
+
+        self.repo.upsert_portfolio_deltas(dict(day_deltas), run.id, trade_date)
+
+        # This date may have been filled BEHIND dates already allocated (a
+        # failed fetch retried once the statement arrived), and the balance is
+        # a running total, so every later row for these users is now stale.
+        self.repo.rechain_balances(set(day_deltas), trade_date)
+        return run
+
+    def _aggregate(self, orders):
+        """Net proceeds per model for one date -- SIGNED (D-3), never abs()."""
+        agg = defaultdict(lambda: ZERO)
+        model_acct = {}
+        default_model_name = get_settings().pta_default_model_name
+        for o in orders:
+            model_name = (o.model or "").strip() or default_model_name
+            agg[model_name] += o.proceeds or ZERO  # signed -- no abs(), no |amount|
+            model_acct.setdefault(model_name, o.accountId)
+        return dict(agg), model_acct
 
     def _split(
         self,

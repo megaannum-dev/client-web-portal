@@ -16,15 +16,16 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
+
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.models.post_trade_allocation import (
     DailyClientPortfolio,
     RunStatus,
     RunTrigger,
 )
-
 from tests.libs.post_trade_allocation.conftest import (
     make_confirmed_period,
+    make_floor_run,
     make_model,
     make_open_period,
     make_order,
@@ -38,44 +39,67 @@ def repo(session):
     return PostTradeAllocationRepository(session)
 
 
-# --- unallocated_orders ------------------------------------------------------
-# ponytail (unit A4): the per-order marker column is gone, so
-# unallocated_orders() no longer excludes previously-processed orders --
-# coverage for that marker filter is retired here, not converted. A5
-# replaces this method with a trade_date floor + gap scan, which is where
-# its idempotency tests belong.
+# --- orders_for_trade_date ---------------------------------------------------
+# unallocated_orders() is gone with the per-order marker and the ingested_at
+# cutoff (units A4/A5). Selection is by trading day now, and idempotency comes
+# from the runs ledger instead -- so the tests that used to cover the marker
+# filter and the cutoff are replaced by the ones below and by the floor/gap
+# coverage in test_be3_service_run.py.
 
 
-def test_unallocated_orders_returns_all_rows(session, repo):
-    order = make_order(session, proceeds=100)
+def test_orders_for_trade_date_returns_that_days_orders(session, repo):
+    wanted = make_order(session, trade_date="20260603", proceeds=100)
+    make_order(session, trade_date="20260604", proceeds=200)
 
-    result = repo.unallocated_orders()
+    result = repo.orders_for_trade_date("20260603")
 
-    assert {o.id for o in result} == {order.id}
-
-
-def test_unallocated_orders_empty_table_returns_empty_list(repo):
-    assert repo.unallocated_orders() == []
+    assert {o.id for o in result} == {wanted.id}
 
 
-def test_unallocated_orders_excludes_ingested_before_cutoff(session, repo):
+def test_orders_for_trade_date_empty_when_nothing_traded(session, repo):
+    make_order(session, trade_date="20260604", proceeds=200)
+
+    assert repo.orders_for_trade_date("20260603") == []
+
+
+def test_orders_for_trade_date_ignores_ingested_at(session, repo):
+    """The cutoff is gone: a day's orders are its orders regardless of when
+    they landed. The ledger decides whether the day runs, not the clock."""
     from datetime import timedelta
 
-    cutoff = datetime.now(timezone.utc)
-    old = make_order(session, proceeds=10, ingested_at=cutoff - timedelta(hours=1))
-    new = make_order(session, proceeds=20, ingested_at=cutoff + timedelta(hours=1))
+    old = make_order(
+        session,
+        trade_date="20260603",
+        proceeds=10,
+        ingested_at=datetime.now(timezone.utc) - timedelta(days=30),
+    )
+    new = make_order(session, trade_date="20260603", proceeds=20)
 
-    result = repo.unallocated_orders(after=cutoff)
-
-    ids = {o.id for o in result}
-    assert new.id in ids
-    assert old.id not in ids
+    assert {o.id for o in repo.orders_for_trade_date("20260603")} == {old.id, new.id}
 
 
-def test_unallocated_orders_no_cutoff_returns_all(session, repo):
-    make_order(session, proceeds=10)
-    make_order(session, proceeds=20)
-    assert len(repo.unallocated_orders(after=None)) == 2
+# --- gap scan support ---------------------------------------------------------
+
+
+def test_earliest_run_date_is_none_on_an_empty_ledger(repo):
+    assert repo.earliest_run_date() is None
+
+
+def test_run_status_by_trade_date_maps_each_date_to_its_status(session, repo):
+    period = make_confirmed_period(session)
+    make_floor_run(session, trade_date="20260603", period=period)
+
+    assert repo.run_status_by_trade_date() == {"20260603": RunStatus.COMPLETED.value}
+    assert repo.earliest_run_date() == "20260603"
+
+
+def test_delete_run_for_date_clears_the_retry_marker(session, repo):
+    period = make_confirmed_period(session)
+    make_floor_run(session, trade_date="20260603", period=period)
+
+    repo.delete_run_for_date("20260603")
+
+    assert repo.run_status_by_trade_date() == {}
 
 
 # --- latest_confirmed_period --------------------------------------------------

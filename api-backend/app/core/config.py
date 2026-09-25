@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"
 
+    # Newest trading day the allocation scan may reach, as YYYYMMDD. Left
+    # unset it resolves to the newest day the IB flex archive holds records
+    # for, so allocation never runs ahead of the source data it allocates.
+    # Set it to pin the scan (e.g. to bootstrap an empty archive). Resolved
+    # once per run() and never re-read, so it cannot drift mid-scan.
+    pta_anchor_date: str | None = None
+
     # IBKR portfolio balance API — replaces the writer-less client_portfolios_* tables
     portfolio_api_url: str | None = "http://192.168.0.155:8000" 
     portfolio_api_timeout_seconds: float = 5.0

@@ -2,7 +2,7 @@
 
 Each source is built lazily (a factory, not an instance) so that a source
 which fails at *construction* time — e.g. IB when the Flex transport is
-misconfigured, see ``app.core.ib_flex.get_fetcher`` — degrades only that
+misconfigured, see ``app.core.flex_query.get_fetcher`` — degrades only that
 source instead of 500ing the whole endpoint. See
 ``app.libs.reconciliation.sources`` for the seam contract.
 
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Callable
 
 from fastapi import HTTPException, status
 
-from app.core.ib_flex import FlexUnavailable, get_fetcher
+from app.core.flex_query import FlexUnavailable, get_fetcher
 from app.libs.reconciliation._reconcile import reconcile
 from app.libs.reconciliation._tree import build_trades
 from app.libs.reconciliation.sources import SourceUnavailable

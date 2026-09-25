@@ -16,7 +16,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import ClassVar, Literal
 
-from app.core.ib_flex import FlexFetcher, FlexUnavailable
+from app.core.flex_query import FlexFetcher, FlexUnavailable
 from app.libs.reconciliation.sources import SourceUnavailable
 from app.libs.reconciliation.sources._transform import (
     descrpt,

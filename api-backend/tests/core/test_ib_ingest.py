@@ -1,8 +1,8 @@
-"""Unit tests for app.libs.ib_ingest.service.ingest_day.
+"""Unit tests for app.core.ib_ingest.ingest_day.
 
 Layer isolation: `ib_async` is not installed in this venv (it's an optional,
 lazily-imported dependency of the "live" Flex transport), so it's faked here
-the same way tests/core/test_ib_flex_live_date.py fakes it -- a
+the same way tests/core/test_flex_query_live_date.py fakes it -- a
 `types.ModuleType` stub with a `FlexReport` class installed into
 `sys.modules["ib_async"]`, and the shared `_download_flex_report` lru_cache
 is never left dirty across tests (bypassed entirely here via
@@ -13,7 +13,7 @@ way the real one is: orderID / tradeID) instead of hitting a real DB -- the
 unit under test is ingest_day's fetch/verify/store/ordering logic, which the
 real loader's own test suite doesn't cover.
 
-Run: .venv/Scripts/python.exe -m pytest -q tests/libs/ib_ingest/
+Run: .venv/Scripts/python.exe -m pytest -q tests/core/test_ib_ingest.py
 """
 
 from __future__ import annotations
@@ -25,12 +25,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.core import ib_flex as ib_flex_module
+from app.core import flex_query as flex_query_module
+from app.core import ib_ingest as service_module
 from app.core import storage as storage_module
 from app.core.config import Settings
+from app.core.ib_ingest import IngestFailed, MarketStillOpen, ingest_day
 from app.core.storage import Bucket, get_storage
-from app.libs.ib_ingest import service as service_module
-from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
 
 _ET = ZoneInfo("America/New_York")
 
@@ -121,19 +121,19 @@ def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         storage_root=str(tmp_path), ib_flex_token="tok", ib_flex_query_id="qid",
     )
     monkeypatch.setattr(storage_module, "get_settings", lambda: settings)
-    monkeypatch.setattr(ib_flex_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(flex_query_module, "get_settings", lambda: settings)
     get_storage.cache_clear()
 
     monkeypatch.setitem(__import__("sys").modules, "ib_async", _stub_ib_async())
     # _flex_date_range imports ib_async.flexreport.FLEXREPORT_URL only when this
     # env var is unset -- ib_async is faked here (no real flexreport submodule),
-    # so pre-seed it the same way tests/core/test_ib_flex_live_date.py does.
+    # so pre-seed it the same way tests/core/test_flex_query_live_date.py does.
     monkeypatch.setenv("IB_FLEXREPORT_URL", "https://example.test/flex?")
     FakeReport.calls = []
     FakeReport.data_to_return = b""
 
     loader = FakeLoader()
-    monkeypatch.setattr(service_module.flex_load, "load", loader)
+    monkeypatch.setattr(service_module.flex_import, "load", loader)
 
     yield loader
 
@@ -206,7 +206,7 @@ def test_stored_fetcher_reads_back_what_was_ingested(_isolate: FakeLoader) -> No
 
     ingest_day(day, now=datetime(2026, 9, 16, 10, 0, tzinfo=_ET))
 
-    rows = ib_flex_module.StoredFetcher().fetch(day)
+    rows = flex_query_module.StoredFetcher().fetch(day)
     assert len(rows.orders) == 1
     assert len(rows.fills) == 1
     assert rows.orders[0]["orderID"] == "111"

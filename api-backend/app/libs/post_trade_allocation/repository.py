@@ -9,7 +9,6 @@ called from the service in BE-3/BE-6.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import func
@@ -37,17 +36,100 @@ class PostTradeAllocationRepository:
         self._latest_portfolio_cache: dict[uuid.UUID, Decimal] = {}
 
     # --- Step 1: pick up new orders --------------------------------------
-    # ponytail: the per-order idempotency marker this method used to filter
-    # on is gone (unit A4) -- the runs ledger alone now records which dates
-    # are done. Only the ingested_at cutoff still limits the batch, which
-    # means a re-run over the same period re-processes every order already
-    # seen (see the comment on the caller in service.py:run()). A5 replaces
-    # this whole method with a trade_date floor + gap scan.
-    def unallocated_orders(self, *, after: datetime | None = None) -> list[Order]:
-        q = self.db.query(Order)
-        if after is not None:
-            q = q.filter(Order.ingested_at > after)
-        return q.all()
+    def orders_for_trade_date(self, trade_date: str) -> list[Order]:
+        """Every order booked on one trading day.
+
+        Replaces the old unallocated_orders(): there is no per-order marker
+        and no ingested_at cutoff any more. Idempotency comes from the runs
+        ledger instead -- a date that already has a non-failed run is simply
+        never handed to run(), so re-reading its orders cannot double-count.
+        """
+        return self.db.query(Order).filter(Order.tradeDate == trade_date).all()
+
+    def run_status_by_trade_date(self) -> dict[str, str]:
+        """{trade_date: status} for every session row, for the gap scan.
+
+        trade_date is unique (migration 0044), so one status per date.
+        """
+        return {
+            r[0]: r[1]
+            for r in self.db.query(
+                PostTradeAllocationRun.trade_date, PostTradeAllocationRun.status
+            ).all()
+        }
+
+    def earliest_run_date(self) -> str | None:
+        """MIN(trade_date) -- the scan floor (D4). None on an empty ledger."""
+        return self.db.query(func.min(PostTradeAllocationRun.trade_date)).scalar()
+
+    def delete_run_for_date(self, trade_date: str) -> None:
+        """Drop a failed date's session row so it can be rewritten.
+
+        A failed row carries no cells and no portfolio rows (see
+        _run_one_date), so this only removes the retry marker itself. The
+        cascade on post_trade_allocations would handle cells anyway.
+        """
+        for run in self.runs_for_trade_date(trade_date):
+            self.db.query(PostTradeAllocation).filter(
+                PostTradeAllocation.run_id == run.id
+            ).delete(synchronize_session=False)
+            self.db.query(DailyClientPortfolio).filter(
+                DailyClientPortfolio.run_id == run.id
+            ).delete(synchronize_session=False)
+            self.db.delete(run)
+        self.db.flush()
+
+    def rechain_balances(self, user_ids: set[uuid.UUID], from_date: str) -> None:
+        """Recompute daily_client_portfolios running balances from `from_date`.
+
+        Needed because a date can be filled BEHIND dates already written: a
+        failed IB fetch leaves a gap that is retried once the statement
+        arrives, by which time later days may already be allocated. The
+        balance is a running total, so inserting into the middle without
+        rechaining leaves every later row understated.
+
+        Walks each affected user's rows in trade_date order and rewrites
+        portfolio_amount as the running sum of that user's allocated cells.
+        """
+        if not user_ids:
+            return
+        for user_id in user_ids:
+            rows = (
+                self.db.query(DailyClientPortfolio)
+                .filter(
+                    DailyClientPortfolio.user_id == user_id,
+                    DailyClientPortfolio.trade_date >= from_date,
+                )
+                .order_by(DailyClientPortfolio.trade_date)
+                .all()
+            )
+            if not rows:
+                continue
+            # Balance carried into from_date: the newest row strictly before it.
+            prior = (
+                self.db.query(DailyClientPortfolio)
+                .filter(
+                    DailyClientPortfolio.user_id == user_id,
+                    DailyClientPortfolio.trade_date < from_date,
+                )
+                .order_by(DailyClientPortfolio.trade_date.desc())
+                .first()
+            )
+            running = prior.portfolio_amount if prior is not None else Decimal("0")
+            for row in rows:
+                delta = (
+                    self.db.query(func.sum(PostTradeAllocation.allocated))
+                    .filter(
+                        PostTradeAllocation.run_id == row.run_id,
+                        PostTradeAllocation.user_id == user_id,
+                    )
+                    .scalar()
+                    or Decimal("0")
+                )
+                running = running + delta  # signed (D-3)
+                row.portfolio_amount = running
+            self._latest_portfolio_cache.pop(user_id, None)
+        self.db.flush()
 
     # --- Step 3: split basis ----------------------------------------------
     def latest_confirmed_period(self) -> AllocationPeriod | None:
@@ -112,10 +194,10 @@ class PostTradeAllocationRepository:
         comment on `_latest_portfolio_cache` in __init__ for why a fresh
         DB query can't disambiguate two rows this same run just wrote.
 
-        ponytail: "newest" is by trade_date, so this assumes runs arrive in
-        roughly trade-date order. Back-dating a run after a later one already
-        landed would chain the old day's delta onto the newer balance. Fix by
-        recomputing that user's tail if back-dated runs ever become real.
+        "newest" is by trade_date, so this assumes runs arrive in trade-date
+        order. Back-dated fills are now routine (a failed IB fetch is retried
+        once the statement lands, behind days already allocated), so callers
+        MUST follow such a write with rechain_balances() -- see _run_one_date.
         """
         if user_id in self._latest_portfolio_cache:
             return self._latest_portfolio_cache[user_id]
@@ -134,9 +216,9 @@ class PostTradeAllocationRepository:
         self, deltas: dict[uuid.UUID, Decimal], run_id: uuid.UUID, trade_date: str
     ) -> None:
         for user_id, delta in deltas.items():
-            # ponytail: run_id is a fresh uuid4 per create_run call (one per
-            # (trade_date, model) group), so (run_id, user_id) can never repeat
-            # within or across calls — plain insert, no upsert-on-conflict needed.
+            # run_id is a fresh uuid4 per create_run call (one per trade_date
+            # since 0044), so (run_id, user_id) can never repeat within or
+            # across calls — plain insert, no upsert-on-conflict needed.
             new_amount = self.latest_portfolio_amount(user_id) + delta  # signed (D-3)
             self.db.add(
                 DailyClientPortfolio(

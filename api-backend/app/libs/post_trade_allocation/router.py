@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -81,25 +81,35 @@ def run_post_trade_allocation(
     service: Annotated[PostTradeAllocationService, Depends(_get_service)],
     actor: Annotated[User, Depends(require_action(Action.POST_TRADE_ALLOCATION_RUN))],
 ) -> object:
-    run = service.run(trigger=RunTrigger.MANUAL, actor=actor.email or actor.firebase_uid)
-    latest = service.get_view(run.trade_date)
+    try:
+        run = service.run(trigger=RunTrigger.MANUAL, actor=actor.email or actor.firebase_uid)
+    except RuntimeError as exc:
+        # No confirmed allocation period: a precondition the operator has to
+        # satisfy, not a server fault. 409 rather than a generic 500.
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+    # run() returns None when the scan found nothing to do -- every date in
+    # range is already allocated, or the IB archive is still empty on a fresh
+    # install. Neither is an error, and POST must never 404 (BE-7), so fall
+    # through to the same synthesized empty view the no-cells case uses.
+    latest = service.get_view(run.trade_date) if run is not None else None
     if latest is None:
-        # get_view() returns None when the run wrote no cells (a genuine
-        # EMPTY-status run with no matching orders) — POST must never 404,
-        # so synthesize the empty view instead (BE-7 invariant).
+        raw_date = (
+            run.trade_date
+            if run is not None
+            else datetime.now(timezone.utc).strftime("%Y%m%d")
+        )
         latest = PostTradeAllocationView(
-            tradeDate=_format_date(run.trade_date),
+            tradeDate=_format_date(raw_date),
             grandTotal=0.0,
             models=[],
         )
-    # ponytail: service.run() only surfaces the newest of possibly several
-    # runs it wrote (one per distinct tradeDate in the batch). newRuns is
-    # built from that single run's own view rather than a second list_runs()
-    # query; widen to a real multi-date list if run() ever returns more.
-    new_runs = [
-        PtaRunListEntryOut(
-            date=latest.tradeDate,
-            grandTotal=latest.grandTotal,
-        )
-    ]
+    # ponytail: run() surfaces only the newest of the several dates a scan can
+    # write, so newRuns reports that one rather than the whole batch. Widen to
+    # a real multi-date list if callers ever need every date a scan touched.
+    new_runs = (
+        []
+        if run is None
+        else [PtaRunListEntryOut(date=latest.tradeDate, grandTotal=latest.grandTotal)]
+    )
     return PtaRunResultOut(newRuns=new_runs, latest=latest)

@@ -35,15 +35,6 @@ PTA_SCHEDULER_DAYS = {
 _WEEKDAY_TOKENS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 _TARGET_H, _TARGET_M = (int(x) for x in PTA_SCHEDULER_TIME.split(":"))
 
-# today, today-1, today-2 in PTA_SCHEDULER_TZ, oldest first. Not a retry
-# mechanism -- it's the mitigation for three overlapping gaps at once: a
-# missed tick or a restart that skipped a day, a transient IB 5xx, and IB
-# amending/correcting confirms overnight (US extended hours run to 20:00 ET,
-# past this job's typical 18:00 pull, so today's own pull is provisional).
-# Re-ingesting is free: flex_load.load dedups on orders.orderID/trades.execID,
-# so re-fetching an already-loaded day inserts zero rows.
-_WINDOW_DAYS = 3
-
 
 def _should_fire(now: datetime, fired_today: str | None) -> bool:
     """True when `now` is on an enabled weekday at/after the target time and
@@ -78,9 +69,49 @@ def _should_fire(now: datetime, fired_today: str | None) -> bool:
     return (now.hour, now.minute) >= (_TARGET_H, _TARGET_M)
 
 
-def _window_days(today: date) -> list[date]:
-    """The `_WINDOW_DAYS` calendar days ending at `today`, oldest first."""
-    return [today - timedelta(days=n) for n in range(_WINDOW_DAYS - 1, -1, -1)]
+def _ingest_days(today: date, failed: set[date] = frozenset()) -> list[date]:
+    """Weekdays with no archived statement, from the newest archived date
+    (exclusive) through `today`, oldest first -- plus `today` itself
+    unconditionally, so an amended statement overwrites the archived file
+    (`save_at` is `os.replace`: atomic and idempotent). Weekends are never
+    gap-filled (D2: expected sessions are weekdays only).
+
+    Replaces the old fixed 3-day window. That window covered three
+    overlapping cases; a gap fill turns out to subsume it: (a) a missed
+    tick/restart and (b) a transient IB 5xx are both better served by
+    gap-filling, which has no 3-day horizon -- a gap however old is still
+    picked up. (c) IB amending confirms overnight was never actually
+    served by re-ingesting a day already on disk: `flex_import.load`
+    dedups, so a stale pre-amendment row survives a re-ingest regardless.
+    The only real benefit of revisiting an already-archived day is
+    refreshing the archived XML itself, which the unconditional `today`
+    re-fetch below preserves.
+
+    `failed` (dates whose PTA run is FAILED) are added too, however old, when
+    their statement file is missing: a FAILED run means allocation found no
+    statement for that date, so fetching it is what lets the allocation run
+    that follows succeed. A FAILED date that already has a file needs no
+    fetch -- the run retries it by itself. FAILED dates older than 365 days
+    are skipped: IB Flex cannot serve them.
+    """
+    from app.core.ib_ingest import archived_days
+
+    days = archived_days()  # [] on a fresh install -- max([]) would raise
+    start = max(days) if days else today
+    have = set(days)
+
+    gap: list[date] = []
+    d = start + timedelta(days=1)
+    while d < today:
+        if d.weekday() < 5 and d not in have:  # Mon-Fri
+            gap.append(d)
+        d += timedelta(days=1)
+    # ponytail: 365 days is IB Flex's lookback as we understand it (unverified); older FAILED dates
+    # would just fail the download every night. Make it a setting if IB's
+    # limit ever changes.
+    horizon = today - timedelta(days=365)
+    gap += (d for d in failed if d not in have and horizon <= d < today)
+    return sorted({*gap, today})
 
 
 async def _scheduled_job() -> None:
@@ -101,13 +132,14 @@ async def _scheduled_job() -> None:
 
 
 async def _ingest_window(today: date) -> None:
-    """Ingest the `_WINDOW_DAYS`-day catch-up window, oldest first, each day
-    in its own try/except so one bad day doesn't stop the others -- and so an
-    ingest failure never blocks the allocation run that follows."""
-    from app.core.ib_flex import FlexUnavailable
-    from app.libs.ib_ingest.service import IngestFailed, MarketStillOpen, ingest_day
+    """Ingest the gap-filled catch-up days (see `_ingest_days`), oldest
+    first, each day in its own try/except so one bad day doesn't stop the
+    others -- and so an ingest failure never blocks the allocation run that
+    follows."""
+    from app.core.flex_query import FlexUnavailable
+    from app.core.ib_ingest import IngestFailed, MarketStillOpen, ingest_day
 
-    for day in _window_days(today):
+    for day in _ingest_days(today, _failed_run_days()):
         try:
             # Synchronous HTTP download + full XML parse + batched inserts --
             # off the event loop or it blocks every API request and the
@@ -125,10 +157,32 @@ async def _ingest_window(today: date) -> None:
             logger.exception("PTA scheduler: unexpected error ingesting %s", day)
 
 
+def _failed_run_days() -> set[date]:
+    """Trade dates whose PTA run is FAILED. Never raises: a DB hiccup here
+    must not stop the regular ingest, it just skips the re-fetch this tick."""
+    from app.core.database import SessionLocal
+    from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
+    from app.models.post_trade_allocation import RunStatus
+
+    db = SessionLocal()
+    try:
+        statuses = PostTradeAllocationRepository(db).run_status_by_trade_date()
+        return {
+            datetime.strptime(t, "%Y%m%d").date()
+            for t, status in statuses.items()
+            if status == RunStatus.FAILED.value
+        }
+    except Exception:
+        logger.exception("PTA scheduler: could not read FAILED runs; skipping their re-fetch")
+        return set()
+    finally:
+        db.close()
+
+
 async def _run_scheduled() -> None:
     # Ingest strictly before the allocation run opens its DB session: the run
     # reads unallocated_orders(after=period.confirmed_at) from `orders`, and
-    # flex_load.load commits its own engine.begin() transaction, so this
+    # flex_import.load commits its own engine.begin() transaction, so this
     # ordering keeps the run's REPEATABLE READ snapshot from ever opening in
     # front of the ingest's commit.
     if IB_INGEST_ENABLED:
@@ -136,6 +190,7 @@ async def _run_scheduled() -> None:
         await _ingest_window(datetime.now(tz=tz).date())
 
     if not PTA_SCHEDULER_ENABLED:
+        logger.info("PTA scheduler: allocation run skipped (PTA_SCHEDULER_ENABLED=false)")
         return
 
     from app.core.database import SessionLocal
@@ -147,10 +202,13 @@ async def _run_scheduled() -> None:
         # Synchronous service call -- off the event loop, same reason as the
         # ingest above. Pre-existing problem, unnoticed only because this run
         # ships disabled by default; fixed here alongside the ingest.
-        await asyncio.to_thread(
+        run = await asyncio.to_thread(
             PostTradeAllocationService(db).run, trigger=RunTrigger.SCHEDULED, actor=None
         )
-        logger.info("PTA scheduler: run completed")
+        if run is None:
+            logger.info("PTA scheduler: nothing to allocate (every date up to the anchor has a run)")
+        else:
+            logger.info("PTA scheduler: run completed (newest trade_date=%s)", run.trade_date)
     except Exception:
         db.rollback()
         logger.exception("PTA scheduler: run failed")

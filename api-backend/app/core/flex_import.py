@@ -1,17 +1,13 @@
-"""Parses IB Flex XML/CSV exports into row buckets split by levelOfDetail.
+"""IB Flex XML/CSV -> row buckets -> deduped DB insert. Parse then load: two
+originally separate modules (``flex_xml.py`` and ``flex_load.py``) that never
+imported each other, concatenated here because they are one pipeline end to
+end.
 
-Handles both Flex query schemas (auto-detected per file):
-  AF  (Activity Flex)       -- 9 columns have different names; aliased to TCF names.
-  TCF (Trade Confirm Flex)  -- column names match the ORM directly.
-
-levelOfDetail routing:
-  ORDER          -> orders          (unique on orderID)
-  EXECUTION      -> trades          (unique on execID)
-  SYMBOL_SUMMARY -> symbol_summaries (dedup on symbol+tradeDate+buySell)
-  ASSET_SUMMARY  (skipped)
-
-Pure parsing only — no DB access. Used by both the CLI importer
-(scripts/import_activity_xml/run.py) and the app's IB source-adapter module.
+Lives in app/core/ (not scripts/) because the Dockerfile copies app/, alembic/,
+alembic.ini but not scripts/ — app code (e.g. a new scheduled ingest job) can't
+import from scripts. The dedup logic here is what makes a re-run idempotent, so
+it's reused from both the CLI importer and any future in-app job rather than
+reimplemented.
 """
 
 from __future__ import annotations
@@ -22,9 +18,27 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from typing import BinaryIO, cast
 
-from sqlalchemy import Table
+from sqlalchemy import Table, select, text
 
+from app.core.database import engine
 from app.models.reconciliation import Order, SymbolSummary, Trade
+
+# --- parse ---------------------------------------------------------------
+#
+# Parses IB Flex XML/CSV exports into row buckets split by levelOfDetail.
+#
+# Handles both Flex query schemas (auto-detected per file):
+#   AF  (Activity Flex)       -- 9 columns have different names; aliased to TCF names.
+#   TCF (Trade Confirm Flex)  -- column names match the ORM directly.
+#
+# levelOfDetail routing:
+#   ORDER          -> orders          (unique on orderID)
+#   EXECUTION      -> trades          (unique on execID)
+#   SYMBOL_SUMMARY -> symbol_summaries (dedup on symbol+tradeDate+buySell)
+#   ASSET_SUMMARY  (skipped)
+#
+# Pure parsing only — no DB access. Used by both the CLI importer
+# (scripts/import_activity_xml/run.py) and the app's IB source-adapter module.
 
 # levelOfDetail values that route to each table
 ORDER_LEVELS = frozenset({"ORDER"})
@@ -238,4 +252,129 @@ def parse_csv(csv_path: str, file_type: str) -> ParseResult:
         order_rows, trade_rows, summary_rows,
         counts,
         orders_unknown, trades_unknown, summaries_unknown,
+    )
+
+
+# --- load ------------------------------------------------------------------
+#
+# Dedup + load logic for IB Flex activity rows into orders/trades/symbol_summaries.
+
+
+def _existing_single(conn, table: Table, col: str) -> set:
+    return {row[0] for row in conn.execute(select(table.c[col]))}
+
+
+def _existing_triple(conn, table: Table, col1: str, col2: str, col3: str) -> set:
+    return {
+        (row[0], row[1], row[2])
+        for row in conn.execute(select(table.c[col1], table.c[col2], table.c[col3]))
+    }
+
+
+# ponytail: no fallback key here anymore. tradeID is populated on every
+# EXECUTION row -- including the BookTrade expiry/assignment rows where
+# execID is empty -- and is unique DB-wide (verified 982/982 distinct, 0
+# NULL), so trades dedup on tradeID alone, same shape as orders on orderID.
+# The 7-column heuristic key + Decimal-normalization helpers that used to
+# live here are gone; don't reintroduce them.
+
+
+def _dedupe_fresh(rows, key_fn, existing_keys: set) -> list:
+    """Keep rows whose key isn't in `existing_keys`, updating it in place.
+
+    Handles both "already in the DB" and "duplicated within this same
+    import call" in one pass — the latter matters for summary_rows, which
+    have no DB unique constraint to fall back on if the in-memory filter
+    misses a dup.
+    """
+    fresh = []
+    for r in rows:
+        key = key_fn(r)
+        if key not in existing_keys:
+            existing_keys.add(key)
+            fresh.append(r)
+    return fresh
+
+
+def load(
+    order_rows: list[dict[str, object]],
+    trade_rows: list[dict[str, object]],
+    summary_rows: list[dict[str, object]],
+    *,
+    mode: str,
+    batch_size: int,
+    no_dedup: bool = False,
+) -> tuple[int, int, int, int, int, int]:
+    """Insert all three row sets in one transaction.
+
+    Deduplication runs inside the transaction before inserting, so rows whose
+    unique key already exists (in the DB, or earlier in this same batch) are
+    skipped rather than raising. FK order: clear symbol_summaries -> trades ->
+    orders (reverse dependency).
+
+    If no_dedup is True, all dedup lookups/filtering are skipped and every
+    parsed row is inserted as-is. DB unique constraints (orders.orderID,
+    trades.tradeID, trades.execID) still apply and will raise IntegrityError
+    if the parsed data itself contains a real duplicate — symbol_summaries
+    rows have no such backstop, so a raw re-import in this mode against a
+    non-empty table WILL create literal duplicates.
+
+    Returns (orders_inserted, orders_skipped, trades_inserted, trades_skipped,
+             summaries_inserted, summaries_skipped).
+    """
+    # Checked before the transaction opens, so a bad batch never starts one.
+    # Fail loud rather than silently collapsing: every row missing a tradeID
+    # keys to the same None, so _dedupe_fresh would keep the first and DISCARD
+    # the rest -- and MySQL permits many NULLs in a unique index, so
+    # uq_trades_tradeID would not catch it either. The old composite fallback
+    # key degraded gracefully here; keying on tradeID alone does not.
+    if not no_dedup and any(not r.get("tradeID") for r in trade_rows):
+        raise ValueError(
+            "trade rows without a tradeID cannot be deduped "
+            "(tradeID is the unique key); refusing to load"
+        )
+
+    with engine.begin() as conn:
+        if mode == "replace":
+            conn.execute(text("DELETE FROM `symbol_summaries`"))
+            conn.execute(text("DELETE FROM `trades`"))
+            conn.execute(text("DELETE FROM `orders`"))
+
+        if no_dedup:
+            fresh_orders = order_rows
+            fresh_trades = trade_rows
+            fresh_summaries = summary_rows
+        else:
+            if mode == "replace":
+                existing_order_ids: set = set()
+                existing_trade_ids: set = set()
+                existing_summary_keys: set = set()
+            else:
+                existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
+                existing_trade_ids = _existing_single(conn, _TRADES_TABLE, "tradeID")
+                existing_summary_keys = _existing_triple(
+                    conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell"
+                )
+
+            fresh_orders = _dedupe_fresh(order_rows, lambda r: r.get("orderID"), existing_order_ids)
+            fresh_trades = _dedupe_fresh(
+                trade_rows, lambda r: r.get("tradeID"), existing_trade_ids
+            )
+            fresh_summaries = _dedupe_fresh(
+                summary_rows,
+                lambda r: (r.get("symbol"), r.get("tradeDate"), r.get("buySell")),
+                existing_summary_keys,
+            )
+
+        for start in range(0, len(fresh_orders), batch_size):
+            conn.execute(_ORDERS_TABLE.insert(), fresh_orders[start : start + batch_size])
+        for start in range(0, len(fresh_trades), batch_size):
+            conn.execute(_TRADES_TABLE.insert(), fresh_trades[start : start + batch_size])
+        for start in range(0, len(fresh_summaries), batch_size):
+            conn.execute(_SUMMARIES_TABLE.insert(), fresh_summaries[start : start + batch_size])
+
+    return (
+        len(fresh_orders), len(order_rows) - len(fresh_orders),
+        len(fresh_trades), len(trade_rows) - len(fresh_trades),
+        len(fresh_summaries), len(summary_rows) - len(fresh_summaries),
     )

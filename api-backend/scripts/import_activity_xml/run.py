@@ -50,13 +50,12 @@ import argparse
 import csv
 from collections import Counter
 
-from app.core.flex_load import load
-from app.core.flex_xml import EXECUTION_LEVELS as _EXECUTION_LEVELS
-from app.core.flex_xml import ORDER_LEVELS as _ORDER_LEVELS
-from app.core.flex_xml import SUMMARY_LEVELS as _SUMMARY_LEVELS
-from app.core.flex_xml import detect_csv_type as _detect_csv_type
-from app.core.flex_xml import detect_type as _detect_type
-from app.core.flex_xml import parse, parse_csv
+from app.core.flex_import import EXECUTION_LEVELS as _EXECUTION_LEVELS
+from app.core.flex_import import ORDER_LEVELS as _ORDER_LEVELS
+from app.core.flex_import import SUMMARY_LEVELS as _SUMMARY_LEVELS
+from app.core.flex_import import detect_csv_type as _detect_csv_type
+from app.core.flex_import import detect_type as _detect_type
+from app.core.flex_import import load, parse, parse_csv
 
 
 def main() -> None:
