@@ -37,6 +37,7 @@ from app.libs.reports.router import router as reports_router
 from app.libs.staff.router import router as staff_router
 from app.libs.trade_models.router import router as trade_models_router
 from app.libs.users.router import router as users_router
+from app.libs.ic_notes.router import router as ic_notes_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
