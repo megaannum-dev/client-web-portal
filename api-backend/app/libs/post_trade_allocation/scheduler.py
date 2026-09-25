@@ -87,9 +87,7 @@ def _ingest_days(today: date) -> list[date]:
     refreshing the archived XML itself, which the unconditional `today`
     re-fetch below preserves.
     """
-    from app.core.flex_query import StoredFetcher
-
-    days = StoredFetcher().days()  # [] on a fresh install -- max([]) would raise
+    days = _archived_days()  # [] on a fresh install -- max([]) would raise
     start = max(days) if days else today
     have = set(days)
 
@@ -101,6 +99,25 @@ def _ingest_days(today: date) -> list[date]:
         d += timedelta(days=1)
     gap.append(today)
     return gap
+
+
+def _archived_days() -> list[date]:
+    """Every day with an archived statement FILE, empty or not.
+
+    Deliberately not `StoredFetcher().days()`: that answers "which days have
+    trades to show" and drops empty statements, so a quiet stretch looked
+    like a gap and was re-downloaded on every run. Here the question is only
+    "did the ingest already fetch this day", which the file itself answers.
+    Filename parse only, no XML read.
+    """
+    from app.core.storage import Bucket, get_storage
+
+    found: list[date] = []
+    for stored in get_storage(Bucket.IB_FLEX).list("trade-confirm"):
+        digits = stored.filename.rsplit(".", 1)[0][-8:]  # "ib_trades_YYYYMMDD"
+        if digits.isdigit() and len(digits) == 8:
+            found.append(date(int(digits[:4]), int(digits[4:6]), int(digits[6:8])))
+    return found
 
 
 async def _scheduled_job() -> None:
