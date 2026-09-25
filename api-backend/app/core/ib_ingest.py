@@ -45,6 +45,24 @@ class IngestFailed(RuntimeError):
     """The Flex response was not a usable statement for `day`."""
 
 
+def archived_days() -> list[date]:
+    """Every day ingest_day has archived a statement FILE for, empty or not.
+
+    Deliberately not `StoredFetcher().days()`: that answers "which days have
+    trades to show" and drops empty statements. Callers here ask "has this
+    day been fetched" (the scheduler's gap fill) or "how far has the source
+    reached" (PTA's anchor), which the file itself answers -- an empty
+    statement is still a delivered one. Filename parse only, no XML read;
+    lives beside ingest_day because it reads back the key ingest_day writes.
+    """
+    found: list[date] = []
+    for stored in get_storage(Bucket.IB_FLEX).list("trade-confirm"):
+        digits = stored.filename.rsplit(".", 1)[0][-8:]  # "ib_trades_YYYYMMDD"
+        if digits.isdigit() and len(digits) == 8:
+            found.append(date(int(digits[:4]), int(digits[4:6]), int(digits[6:8])))
+    return found
+
+
 def _is_fail_envelope(raw: bytes) -> bool:
     """Detect the Flex Web Service's HTTP-200 failure envelope.
 

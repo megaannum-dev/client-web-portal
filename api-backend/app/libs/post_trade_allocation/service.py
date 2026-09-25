@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.flex_query import FlexUnavailable, StoredFetcher
+from app.core.ib_ingest import archived_days
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
 from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model
 from app.models.post_trade_allocation import (
@@ -72,7 +73,7 @@ class PostTradeAllocationService:
             # No source data at all -- a fresh install, not an error. Writing
             # an EMPTY run for today would assert "nothing traded today",
             # which is exactly the claim we cannot make without a statement.
-            logger.info("PTA: no IB statements with records; nothing to allocate")
+            logger.info("PTA: no archived IB statements; nothing to allocate")
             return None
 
         period = self._require_confirmed_period()
@@ -89,9 +90,13 @@ class PostTradeAllocationService:
         """Newest trading day the scan may reach, as YYYYMMDD.
 
         PTA_ANCHOR_DATE when set, else the newest day the IB flex archive
-        holds records for -- so allocation never runs ahead of its source.
+        holds a statement for -- so allocation never runs ahead of its source.
+        An EMPTY statement counts: it is positive evidence nothing traded, and
+        _run_one_date writes it an EMPTY row. Anchoring on days-with-records
+        instead (StoredFetcher.days()) left every quiet day after the last
+        trading day un-run until trades next landed, so the ledger stalled.
         Returns None when neither is available (empty archive, no override);
-        StoredFetcher.days() is [] then and a bare max([]) would raise.
+        archived_days() is [] then and a bare max([]) would raise.
 
         Read ONCE per run() and passed down as a parameter, never re-read, so
         a statement landing mid-scan cannot move the target.
@@ -99,7 +104,7 @@ class PostTradeAllocationService:
         configured = get_settings().pta_anchor_date
         if configured:
             return configured
-        days = StoredFetcher().days()
+        days = archived_days()
         return max(days).strftime("%Y%m%d") if days else None
 
     def _require_confirmed_period(self) -> AllocationPeriod:

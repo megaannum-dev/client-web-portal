@@ -69,7 +69,7 @@ def _should_fire(now: datetime, fired_today: str | None) -> bool:
     return (now.hour, now.minute) >= (_TARGET_H, _TARGET_M)
 
 
-def _ingest_days(today: date) -> list[date]:
+def _ingest_days(today: date, failed: set[date] = frozenset()) -> list[date]:
     """Weekdays with no archived statement, from the newest archived date
     (exclusive) through `today`, oldest first -- plus `today` itself
     unconditionally, so an amended statement overwrites the archived file
@@ -86,8 +86,17 @@ def _ingest_days(today: date) -> list[date]:
     The only real benefit of revisiting an already-archived day is
     refreshing the archived XML itself, which the unconditional `today`
     re-fetch below preserves.
+
+    `failed` (dates whose PTA run is FAILED) are added too, however old, when
+    their statement file is missing: a FAILED run means allocation found no
+    statement for that date, so fetching it is what lets the allocation run
+    that follows succeed. A FAILED date that already has a file needs no
+    fetch -- the run retries it by itself. FAILED dates older than 365 days
+    are skipped: IB Flex cannot serve them.
     """
-    days = _archived_days()  # [] on a fresh install -- max([]) would raise
+    from app.core.ib_ingest import archived_days
+
+    days = archived_days()  # [] on a fresh install -- max([]) would raise
     start = max(days) if days else today
     have = set(days)
 
@@ -97,27 +106,12 @@ def _ingest_days(today: date) -> list[date]:
         if d.weekday() < 5 and d not in have:  # Mon-Fri
             gap.append(d)
         d += timedelta(days=1)
-    gap.append(today)
-    return gap
-
-
-def _archived_days() -> list[date]:
-    """Every day with an archived statement FILE, empty or not.
-
-    Deliberately not `StoredFetcher().days()`: that answers "which days have
-    trades to show" and drops empty statements, so a quiet stretch looked
-    like a gap and was re-downloaded on every run. Here the question is only
-    "did the ingest already fetch this day", which the file itself answers.
-    Filename parse only, no XML read.
-    """
-    from app.core.storage import Bucket, get_storage
-
-    found: list[date] = []
-    for stored in get_storage(Bucket.IB_FLEX).list("trade-confirm"):
-        digits = stored.filename.rsplit(".", 1)[0][-8:]  # "ib_trades_YYYYMMDD"
-        if digits.isdigit() and len(digits) == 8:
-            found.append(date(int(digits[:4]), int(digits[4:6]), int(digits[6:8])))
-    return found
+    # ponytail: 365 days is IB Flex's lookback as we understand it (unverified); older FAILED dates
+    # would just fail the download every night. Make it a setting if IB's
+    # limit ever changes.
+    horizon = today - timedelta(days=365)
+    gap += (d for d in failed if d not in have and horizon <= d < today)
+    return sorted({*gap, today})
 
 
 async def _scheduled_job() -> None:
@@ -145,7 +139,7 @@ async def _ingest_window(today: date) -> None:
     from app.core.flex_query import FlexUnavailable
     from app.core.ib_ingest import IngestFailed, MarketStillOpen, ingest_day
 
-    for day in _ingest_days(today):
+    for day in _ingest_days(today, _failed_run_days()):
         try:
             # Synchronous HTTP download + full XML parse + batched inserts --
             # off the event loop or it blocks every API request and the
@@ -163,6 +157,28 @@ async def _ingest_window(today: date) -> None:
             logger.exception("PTA scheduler: unexpected error ingesting %s", day)
 
 
+def _failed_run_days() -> set[date]:
+    """Trade dates whose PTA run is FAILED. Never raises: a DB hiccup here
+    must not stop the regular ingest, it just skips the re-fetch this tick."""
+    from app.core.database import SessionLocal
+    from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
+    from app.models.post_trade_allocation import RunStatus
+
+    db = SessionLocal()
+    try:
+        statuses = PostTradeAllocationRepository(db).run_status_by_trade_date()
+        return {
+            datetime.strptime(t, "%Y%m%d").date()
+            for t, status in statuses.items()
+            if status == RunStatus.FAILED.value
+        }
+    except Exception:
+        logger.exception("PTA scheduler: could not read FAILED runs; skipping their re-fetch")
+        return set()
+    finally:
+        db.close()
+
+
 async def _run_scheduled() -> None:
     # Ingest strictly before the allocation run opens its DB session: the run
     # reads unallocated_orders(after=period.confirmed_at) from `orders`, and
@@ -174,6 +190,7 @@ async def _run_scheduled() -> None:
         await _ingest_window(datetime.now(tz=tz).date())
 
     if not PTA_SCHEDULER_ENABLED:
+        logger.info("PTA scheduler: allocation run skipped (PTA_SCHEDULER_ENABLED=false)")
         return
 
     from app.core.database import SessionLocal
@@ -185,10 +202,13 @@ async def _run_scheduled() -> None:
         # Synchronous service call -- off the event loop, same reason as the
         # ingest above. Pre-existing problem, unnoticed only because this run
         # ships disabled by default; fixed here alongside the ingest.
-        await asyncio.to_thread(
+        run = await asyncio.to_thread(
             PostTradeAllocationService(db).run, trigger=RunTrigger.SCHEDULED, actor=None
         )
-        logger.info("PTA scheduler: run completed")
+        if run is None:
+            logger.info("PTA scheduler: nothing to allocate (every date up to the anchor has a run)")
+        else:
+            logger.info("PTA scheduler: run completed (newest trade_date=%s)", run.trade_date)
     except Exception:
         db.rollback()
         logger.exception("PTA scheduler: run failed")

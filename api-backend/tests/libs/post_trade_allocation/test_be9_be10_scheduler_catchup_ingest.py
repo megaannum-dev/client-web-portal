@@ -3,9 +3,9 @@ allocation run) of the PTA scheduler, branch pta-revival-live-ib.
 
 Pins the pure decision helpers (`_should_fire`, `_ingest_days`) without
 sleeping, and `_run_scheduled`'s call order without hitting a real DB or
-network. `_ingest_days` reads the archive via `StoredFetcher().days()`, so
-its tests fake `app.core.flex_query.StoredFetcher` rather than touching the
-real filesystem or DB.
+network. `_ingest_days` reads the archive's filenames via
+`ib_ingest.archived_days()`, so its tests fake the `get_storage` it calls
+rather than touching the real filesystem.
 
 Run: .venv/Scripts/python.exe -m pytest -q \
     tests/libs/post_trade_allocation/test_be9_be10_scheduler_catchup_ingest.py
@@ -17,7 +17,7 @@ import asyncio
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from app.core import flex_query
+from app.core import ib_ingest, storage
 from app.libs.post_trade_allocation import scheduler as sched
 
 _TZ = ZoneInfo("America/New_York")
@@ -73,21 +73,29 @@ def test_should_fire_true_on_drift_past_target_minute(monkeypatch):
 # --- Unit 10 (rework): _ingest_days gap fill ---------------------------------
 
 
-def _fake_stored_fetcher(days: list[date]) -> type:
-    """A `StoredFetcher` stand-in whose `.days()` returns a fixed list, so
-    `_ingest_days` is tested without a real filesystem or DB."""
+def _fake_archive(monkeypatch, days: list[date]) -> None:
+    """Fake the IB_FLEX bucket so `list("trade-confirm")` yields one archived
+    file per day (plus a non-statement file that must be ignored)."""
+    files = [
+        storage.StoredFile(
+            key=f"trade-confirm/{d:%Y-%m}/ib_trades_{d:%Y%m%d}.xml",
+            filename=f"ib_trades_{d:%Y%m%d}.xml",
+            size_bytes=813, modified_at=None, category=f"{d:%Y-%m}",
+        )
+        for d in days
+    ] + [storage.StoredFile("trade-confirm/README.txt", "README.txt", 1, None, None)]
 
-    class _Fetcher:
-        def days(self) -> list[date]:
-            return list(days)
+    class _Storage:
+        def list(self, subdir: str) -> list:
+            return list(files)
 
-    return _Fetcher
+    monkeypatch.setattr(ib_ingest, "get_storage", lambda bucket: _Storage())
 
 
 def test_ingest_days_fills_missing_weekday_but_skips_weekends(monkeypatch):
     # Newest archived date is Friday 2026-06-05; today is Wednesday 2026-06-10.
     # Sat 6/6 and Sun 6/7 are not gaps (D2: weekends are never expected).
-    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([date(2026, 6, 5)]))
+    _fake_archive(monkeypatch, [date(2026, 6, 5)])
     today = date(2026, 6, 10)
     assert sched._ingest_days(today) == [
         date(2026, 6, 8),  # Monday, missing -> fetched
@@ -98,16 +106,38 @@ def test_ingest_days_fills_missing_weekday_but_skips_weekends(monkeypatch):
 
 def test_ingest_days_today_always_included_even_if_already_archived(monkeypatch):
     today = date(2026, 6, 10)
-    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([today]))
+    _fake_archive(monkeypatch, [today])
     assert sched._ingest_days(today) == [today]  # no duplicate, still re-fetched
 
 
 def test_ingest_days_empty_archive_returns_just_today(monkeypatch):
-    """Fresh install: StoredFetcher().days() == [] -- max([]) would raise
+    """Fresh install: no archived files -- max([]) would raise
     ValueError if not guarded. No archive means no gap to fill."""
-    monkeypatch.setattr(flex_query, "StoredFetcher", _fake_stored_fetcher([]))
+    _fake_archive(monkeypatch, [])
     today = date(2026, 6, 10)
     assert sched._ingest_days(today) == [today]
+
+
+def test_ingest_days_does_not_refetch_archived_empty_statements(monkeypatch):
+    """The 2026-09-25 regression: 09-16..09-23 were archived but empty, and
+    the gap fill re-downloaded all of them because it asked "which days have
+    trades" instead of "which days have a file". A file is enough."""
+    archived = [date(2026, 9, d) for d in (15, 16, 17, 18, 21, 22, 23)]
+    _fake_archive(monkeypatch, archived)
+    assert sched._ingest_days(date(2026, 9, 24)) == [date(2026, 9, 24)]
+
+
+def test_ingest_days_refetches_failed_run_dates_missing_from_archive(monkeypatch):
+    """A FAILED PTA run means its statement was missing: re-fetch it, however
+    far behind the newest archived day. A FAILED date whose file is already
+    there is skipped -- the allocation run retries it without a fetch."""
+    _fake_archive(monkeypatch, [date(2026, 9, 1), date(2026, 9, 22)])
+    failed = {date(2025, 9, 23), date(2026, 8, 20), date(2026, 9, 1)}  # 2025-09-23: >1y, skipped
+    assert sched._ingest_days(date(2026, 9, 24), failed) == [
+        date(2026, 8, 20),  # FAILED + missing -> fetched, older than the archive's newest
+        date(2026, 9, 23),  # ordinary gap
+        date(2026, 9, 24),  # today
+    ]
 
 
 # --- Unit 10: _run_scheduled ordering ---------------------------------------

@@ -201,6 +201,12 @@ def fake_archive(session, monkeypatch):
     FakeArchive.record_days = None
     FakeArchive.empty_days = set()
     monkeypatch.setattr(service_module, "StoredFetcher", FakeArchive)
+    # Every delivered statement, records or empty -- what the anchor reads.
+    monkeypatch.setattr(
+        service_module,
+        "archived_days",
+        lambda: sorted(FakeArchive._records() | FakeArchive.empty_days),
+    )
     yield FakeArchive
     FakeArchive.session = None
 

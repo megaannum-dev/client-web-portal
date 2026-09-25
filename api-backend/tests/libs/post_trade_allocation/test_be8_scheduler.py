@@ -275,7 +275,8 @@ def test_run_scheduled_with_nothing_to_allocate_completes_cleanly(
     finally:
         db.close()
 
-    assert "PTA scheduler: run completed" in caplog.text
+    assert "PTA scheduler: nothing to allocate" in caplog.text
+    assert "run completed" not in caplog.text
     assert "run failed" not in caplog.text
 
 

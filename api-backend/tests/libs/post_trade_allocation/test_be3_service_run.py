@@ -117,6 +117,16 @@ def test_empty_archive_resolves_to_no_anchor_rather_than_raising(session, servic
     assert service._resolve_anchor() is None
 
 
+def test_anchor_reaches_trailing_empty_statements(session, service):
+    """Quiet days after the last trading day are delivered statements, so the
+    anchor reaches them and they get EMPTY rows the same night -- the ledger
+    must not stall until trades next land."""
+    make_confirmed_period(session)
+    use_archive(records=("20260603",), empty=("20260604", "20260605"))
+
+    assert service._resolve_anchor() == "20260605"
+
+
 # --- Core positive split --------------------------------------------------------
 
 
