@@ -10,7 +10,7 @@ import { ClassTag, VerTag } from "./Tags";
 import { Who } from "./Who";
 import { fmtDate, fmtSize } from "@/components/compliance/ic-notes/format";
 import { useCanEdit } from "@/hooks/usePageAccess";
-import { downloadSopVersionAction, listSopVersionsAction } from "@/app/(roles)/compliance/sop/actions";
+import { listSopVersionsAction } from "@/app/(roles)/compliance/sop/actions";
 import { SOP_CATEGORIES, type SopDocumentDTO, type SopVersionDTO } from "@/lib/sop/types";
 
 export type SopPanelTab = "overview" | "versions";
@@ -50,17 +50,9 @@ export function SopDetailPanel({
     return () => window.removeEventListener("keydown", h);
   }, [confirmOpen, onClose]);
 
-  // Image preview: fetch the latest version's bytes.
-  const [preview, setPreview] = useState<string | null>(null);
-  useEffect(() => {
-    setPreview(null);
-    if (!fmt.image) return;
-    let live = true;
-    void downloadSopVersionAction(sop.id, latest.version_no).then((r) => {
-      if (live && r.success) setPreview(`data:${r.data.contentType};base64,${r.data.base64}`);
-    });
-    return () => { live = false; };
-  }, [sop.id, latest.version_no, fmt.image]);
+  // No eager file fetch: bytes are pulled only when a download button is clicked.
+  // (An image preview used to download here; server actions run one at a time, so it
+  // blocked the Versions tab's metadata call behind the whole file.)
 
   // Versions: lazy, refetched when the count changes.
   const [versions, setVersions] = useState<SopVersionDTO[] | null>(null);
@@ -120,20 +112,13 @@ export function SopDetailPanel({
     >
       {tab === "overview" ? (
         <div className="flex flex-col gap-5 [overflow-wrap:anywhere]">
-          {fmt.image && preview ? (
-            <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-low">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={preview} alt={sop.title} className="block max-h-[260px] w-full object-contain" />
+          <div className="flex items-center gap-3.5 rounded-md border border-outline-variant bg-surface-low p-4">
+            <FormatBadgeBig filename={latest.filename} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-semibold text-on-surface">{latest.filename}</div>
+              <div className="text-[13px] text-secondary">{fmt.image ? "Diagram" : "Document"} · {fmtSize(latest.size_bytes)}</div>
             </div>
-          ) : (
-            <div className="flex items-center gap-3.5 rounded-md border border-outline-variant bg-surface-low p-4">
-              <FormatBadgeBig filename={latest.filename} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[14px] font-semibold text-on-surface">{latest.filename}</div>
-                <div className="text-[13px] text-secondary">{fmt.image ? "Diagram" : "Document"} · {fmtSize(latest.size_bytes)}</div>
-              </div>
-            </div>
-          )}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Fact k="Class">{category}</Fact>
             <Fact k="Current version">v{latest.version_no}</Fact>
