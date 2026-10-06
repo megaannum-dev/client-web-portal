@@ -1,3 +1,14 @@
+# TEMPORARY (~1 month, added 2026-10-06): serve the public website on silverwater-cm.com.
+# Remove this block (and the silverwater-cm.com DNS records) when the period ends.
+silverwater-cm.com {
+	encode zstd gzip
+	reverse_proxy company-website:3000
+}
+
+www.silverwater-cm.com {
+	redir https://silverwater-cm.com{uri}
+}
+
 megaannum-am.com {
 	encode zstd gzip
 	reverse_proxy company-website:3000
