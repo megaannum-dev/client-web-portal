@@ -86,14 +86,18 @@ export function StatCard({ icon: Icon, k, v, vColor }: { icon: LucideIcon; k: st
    DETAIL SHELL + parts (shared by onboarding & redemption panels)
    ============================================================ */
 export function DetailShell({
-  eyebrow, title, meta, statusSlot, onClose, children,
+  eyebrow, title, meta, statusSlot, onClose, children, tabs, footer,
 }: {
-  eyebrow: string;
-  title: string;
-  meta: string;
-  statusSlot: ReactNode;
+  eyebrow?: string;
+  title: ReactNode;
+  meta?: ReactNode;
+  statusSlot?: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  /** Rendered between the header and the scrolling body. */
+  tabs?: ReactNode;
+  /** Pinned below the scrolling body. */
+  footer?: ReactNode;
 }) {
   return (
     <>
@@ -105,9 +109,9 @@ export function DetailShell({
         <div className="flex-none border-b border-outline-variant px-[22px] pb-4 pt-[18px]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className={`mb-1 ${coLabelCls}`}>{eyebrow}</div>
+              {eyebrow && <div className={`mb-1 ${coLabelCls}`}>{eyebrow}</div>}
               <div className="text-[19px] font-bold tracking-[-0.01em]">{title}</div>
-              <div className="mt-1 text-[13px] text-secondary">{meta}</div>
+              {meta && <div className="mt-1 text-[13px] text-secondary">{meta}</div>}
             </div>
             <div className="flex flex-none items-center gap-2.5">
               {statusSlot}
@@ -117,7 +121,9 @@ export function DetailShell({
             </div>
           </div>
         </div>
+        {tabs}
         <div className="flex-1 overflow-y-auto px-[22px] py-5">{children}</div>
+        {footer}
       </div>
     </>
   );
