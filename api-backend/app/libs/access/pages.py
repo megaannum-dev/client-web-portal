@@ -95,9 +95,10 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.overview": PageMeta(
         "compliance.overview", "Other", "Compliance Overview", "/compliance/overview"
     ),
+    "shared.sop": PageMeta("shared.sop", "Other", "SOPs", "/sop"),
 }
 
-PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 17 members
+PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 18 members
 
 
 # (granted at VIEW, ADDED at EDIT). EDIT is a superset: a user at EDIT holds
@@ -162,6 +163,8 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # needed); PUT /reports/eom-comments/{name} is gated by EOM_COMMENT_WRITE, added
     # after this page's own backend (app/libs/reports/) landed.
     "shared.monthly-reports": (fs(), fs(Action.EOM_COMMENT_WRITE)),
+    # /sop GET list/versions/download at VIEW; POST/PATCH/DELETE at EDIT.
+    "shared.sop": (fs(Action.SOP_VIEW), fs(Action.SOP_WRITE)),
     # ---- ADMIN ----
     "admin.enroll-user": (fs(Action.USER_VIEW), fs(Action.USER_WRITE)),
     "admin.system-config": (fs(Action.USER_VIEW), fs(Action.USER_WRITE)),

@@ -28,3 +28,6 @@ class Action(str, enum.Enum):
     # IC Notes — module ic-notes (BE-2)
     IC_NOTES_VIEW = "ic_notes:view"
     IC_NOTES_WRITE = "ic_notes:write"
+    # SOP library — module sop
+    SOP_VIEW = "sop:view"
+    SOP_WRITE = "sop:write"

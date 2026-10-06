@@ -14,6 +14,7 @@ import {
   Wallet,
   Ticket,
   Settings,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { NotebookText, Receipt } from "@/lib/icons";
@@ -43,7 +44,8 @@ export type PageId =
   | "compliance.ic-notes"
   | "shared.monthly-reports"
   | "admin.enroll-user"
-  | "admin.system-config";
+  | "admin.system-config"
+  | "shared.sop";
 
 /** What a `UserOut.grants` map looks like on the client. Absent key === "NONE". */
 export type GrantMap = Partial<Record<PageId, "VIEW" | "EDIT">>;
@@ -191,6 +193,12 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Compliance Overview",
     icon: LayoutDashboardIcon,
     hideFromNav: true,
+  },
+  "shared.sop": {
+    id: "shared.sop",
+    path: "/sop",
+    label: "SOPs",
+    icon: BookOpen,
   },
 };
 
