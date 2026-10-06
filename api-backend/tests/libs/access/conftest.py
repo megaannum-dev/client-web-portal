@@ -66,9 +66,10 @@ PAGE_IDS: frozenset[str] = frozenset(
         "shared.monthly-reports",
         "admin.enroll-user",
         "admin.system-config",
+        "compliance.sop",
     }
 )
-assert len(PAGE_IDS) == 17
+assert len(PAGE_IDS) == 18
 
 # The declared PAGE_META insertion order from impl doc §6 BE-2 (lines 312-328)
 # -- the wire order of MatrixOut.pages (§7.2). Used by BE-2 and BE-8 tests to
@@ -80,6 +81,7 @@ PAGE_META_ORDER: list[str] = [
     "rm.request-tickets",
     "compliance.review",
     "compliance.ic-notes",
+    "compliance.sop",
     "pc.allotment-redemption",
     "pc.allocation-matrix",
     "mobo.post-trade-allocation",
@@ -161,11 +163,17 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("compliance.ic-notes", "ADMIN", "edit"),
     ("admin.enroll-user", "ADMIN", "edit"),
     ("admin.system-config", "ADMIN", "edit"),
+    ("compliance.sop", "RM", "view"),
+    ("compliance.sop", "MOBO", "view"),
+    ("compliance.sop", "PM", "view"),
+    ("compliance.sop", "PC", "view"),
+    ("compliance.sop", "COMPLIANCE", "view"),
+    ("compliance.sop", "ADMIN", "edit"),
 ]
-assert len(PAGE_ACCESS_SEED) == 60
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 35
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 25
-_ROLE_COUNTS = {"RM": 7, "MOBO": 11, "PM": 1, "PC": 11, "COMPLIANCE": 13, "ADMIN": 17}
+assert len(PAGE_ACCESS_SEED) == 66
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 36
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 30
+_ROLE_COUNTS = {"RM": 8, "MOBO": 12, "PM": 2, "PC": 12, "COMPLIANCE": 14, "ADMIN": 18}
 for _role, _n in _ROLE_COUNTS.items():
     assert sum(1 for _, r, _ in PAGE_ACCESS_SEED if r == _role) == _n, _role
 

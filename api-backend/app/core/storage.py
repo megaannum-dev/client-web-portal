@@ -36,6 +36,7 @@ class Bucket(StrEnum):
     CHAT = "chat"  # chat_attachments.storage_key
     IB_FLEX = "ib_flex"  # IB Flex statement XML, written by the daily ingest job
     IC_NOTES = "ic_notes"  # ic_notes.storage_key
+    SOP = "sop"  # sop_versions.storage_key
 
 
 class StoredFile(NamedTuple):
@@ -69,6 +70,10 @@ class FileStorage(Protocol):
 
     def save_at(self, stream: BinaryIO, key: str) -> str:
         """Persist *stream* at exactly *key*, replacing whatever is there."""
+        ...
+
+    def delete(self, storage_key: str) -> None:
+        """Remove the object at *storage_key*. Missing object is not an error."""
         ...
 
 
@@ -125,6 +130,9 @@ class LocalStorage:
 
     def open(self, storage_key: str) -> BinaryIO:
         return self._resolve(storage_key).open("rb")  # caller is responsible for closing
+
+    def delete(self, storage_key: str) -> None:
+        self._resolve(storage_key).unlink(missing_ok=True)
 
     def list(self, subdir: str) -> list[StoredFile]:
         base = self._root / subdir
@@ -183,6 +191,9 @@ class NasStorage:
         raise NotImplementedError("NasStorage is not yet configured")
 
     def save_at(self, stream: BinaryIO, key: str) -> str:
+        raise NotImplementedError("NasStorage is not yet configured")
+
+    def delete(self, storage_key: str) -> None:
         raise NotImplementedError("NasStorage is not yet configured")
 
 

@@ -34,9 +34,10 @@ from app.libs.onboarding.schemas import (
     TransactionDetailRequest,
     VerdictBatchReq,
 )
-from app.libs.onboarding.service import OnboardingService, fix_mojibake_filename
+from app.libs.onboarding.service import OnboardingService
 from app.libs.users.repository import AdminProfileRepository
 from app.models.users import AdminRole, User
+from app.utils.filenames import fix_mojibake_filename
 
 router = APIRouter(tags=["onboarding"])
 

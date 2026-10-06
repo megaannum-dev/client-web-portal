@@ -50,6 +50,7 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.ic-notes": PageMeta(
         "compliance.ic-notes", "Compliance", "IC Meeting Notes", "/compliance/ic-notes"
     ),
+    "compliance.sop": PageMeta("compliance.sop", "Compliance", "SOPs", "/compliance/sop"),
     "pc.allotment-redemption": PageMeta(
         "pc.allotment-redemption",
         "Client Management",
@@ -97,7 +98,7 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     ),
 }
 
-PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 17 members
+PAGE_IDS: Final[frozenset[str]] = frozenset(PAGE_META)  # 18 members
 
 
 # (granted at VIEW, ADDED at EDIT). EDIT is a superset: a user at EDIT holds
@@ -156,6 +157,8 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
     # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).
     "compliance.ic-notes": (fs(Action.IC_NOTES_VIEW), fs(Action.IC_NOTES_WRITE)),
+    # /sop GET list/versions/download at VIEW; POST/PATCH/DELETE at EDIT.
+    "compliance.sop": (fs(Action.SOP_VIEW), fs(Action.SOP_WRITE)),
     "compliance.overview": (fs(), fs()),
     # ---- SHARED ----
     # GET /reports/eom-comments is open to any authenticated admin (no view action

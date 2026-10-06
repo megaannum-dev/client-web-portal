@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     storage_root_chat: str | None = None  # default: {storage_root}/chat
     storage_root_ib_flex: str | None = None  # default: {storage_root}/ib_flex
     storage_root_ic_notes: str | None = None  # default: {storage_root}/ic_notes
+    storage_root_sop: str | None = None  # default: {storage_root}/sop
 
     # Post-trade allocation — orders with no model name are attributed to this model
     pta_default_model_name: str = "Zero"

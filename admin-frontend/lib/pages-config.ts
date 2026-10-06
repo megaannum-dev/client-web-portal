@@ -14,6 +14,7 @@ import {
   Wallet,
   Ticket,
   Settings,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { NotebookText, Receipt } from "@/lib/icons";
@@ -41,6 +42,7 @@ export type PageId =
   | "compliance.overview"
   | "compliance.review"
   | "compliance.ic-notes"
+  | "compliance.sop"
   | "shared.monthly-reports"
   | "admin.enroll-user"
   | "admin.system-config";
@@ -112,6 +114,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/compliance/ic-notes",
     label: "IC Meeting Notes",
     icon: NotebookText,
+    subgroup: "Compliance",
+  },
+  "compliance.sop": {
+    id: "compliance.sop",
+    path: "/compliance/sop",
+    label: "SOPs",
+    icon: BookOpen,
     subgroup: "Compliance",
   },
   "pc.allotment-redemption": {

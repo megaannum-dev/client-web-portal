@@ -13,9 +13,9 @@ from app.core.storage import Bucket, get_storage
 from app.libs.access.repository import AccessRepository
 from app.libs.ic_notes.repository import IcNotesRepository
 from app.libs.ic_notes.schemas import IcNoteDTO
-from app.libs.onboarding.service import fix_mojibake_filename
 from app.models.ic_notes import IcNote
 from app.models.users import User
+from app.utils.filenames import fix_mojibake_filename
 
 # Same feature-local-tunable convention as CHAT_MAX_UPLOAD_BYTES (chat/service.py:25).
 IC_NOTES_MAX_UPLOAD_BYTES = int(os.getenv("IC_NOTES_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))

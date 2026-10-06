@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import app.models.access as _models_access  # noqa: F401 — registers access tables with Base.metadata
 import app.models.chat as _models_chat  # noqa: F401 — registers chat tables with Base.metadata
 import app.models.ic_notes as _models_ic_notes  # noqa: F401
+import app.models.sop as _models_sop  # noqa: F401
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
 import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
 import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
@@ -38,6 +39,7 @@ from app.libs.staff.router import router as staff_router
 from app.libs.trade_models.router import router as trade_models_router
 from app.libs.users.router import router as users_router
 from app.libs.ic_notes.router import router as ic_notes_router
+from app.libs.sop.router import router as sop_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -146,6 +148,7 @@ app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/ticket
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments
 app.include_router(ic_notes_router, prefix="/api")  # /api/ic-notes
+app.include_router(sop_router, prefix="/api")  # /api/sop
 app.include_router(chat_router, prefix="/api")  # /api/chat/…, /api/ws/chat
 
 
