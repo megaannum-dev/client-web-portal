@@ -78,6 +78,13 @@ export const ENDPOINTS = {
     LIST:     `/api/ic-notes`,
     DOWNLOAD: (id: string) => `/api/ic-notes/${id}/download`,
   },
+  SOP: {
+    LIST:     `/api/sop`,
+    ONE:      (id: string) => `/api/sop/${id}`,
+    VERSIONS: (id: string) => `/api/sop/${id}/versions`,
+    VERSION:  (id: string, v: number) => `/api/sop/${id}/versions/${v}`,
+    DOWNLOAD: (id: string, v: number) => `/api/sop/${id}/versions/${v}/download`,
+  },
   ADMIN: {
     STAFF:               `${ADMIN}/staff`,
     STAFF_MEMBER:        (uid: string) => `${ADMIN}/staff/${encodeURIComponent(uid)}`,

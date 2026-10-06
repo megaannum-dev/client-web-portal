@@ -50,7 +50,9 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.ic-notes": PageMeta(
         "compliance.ic-notes", "Compliance", "IC Meeting Notes", "/compliance/ic-notes"
     ),
-    "compliance.sop": PageMeta("compliance.sop", "Compliance", "SOPs", "/compliance/sop"),
+    "compliance.sop": PageMeta(
+        "compliance.sop", "Compliance", "SOP Documents", "/compliance/sop"
+    ),
     "pc.allotment-redemption": PageMeta(
         "pc.allotment-redemption",
         "Client Management",

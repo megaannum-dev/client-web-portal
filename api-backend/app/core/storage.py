@@ -132,7 +132,16 @@ class LocalStorage:
         return self._resolve(storage_key).open("rb")  # caller is responsible for closing
 
     def delete(self, storage_key: str) -> None:
-        self._resolve(storage_key).unlink(missing_ok=True)
+        target = self._resolve(storage_key)
+        target.unlink(missing_ok=True)
+        # Prune the now-empty parent dir (e.g. a deleted SOP's per-doc subdir) so
+        # deletes don't leave empty folders behind. Never the bucket root itself.
+        parent = target.parent
+        if parent != self._root.resolve():
+            try:
+                parent.rmdir()  # only succeeds when empty
+            except OSError:
+                pass  # not empty (sibling versions remain) or already gone
 
     def list(self, subdir: str) -> list[StoredFile]:
         base = self._root / subdir

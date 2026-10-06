@@ -65,6 +65,9 @@ export async function apiClient<T>(
       const { error, code } = await parseErrorEnvelope(res);
       return { success: false, error, code };
     }
+    // 204 No Content (backend DELETEs) has an empty body; res.json() would throw and
+    // be misreported as NETWORK_ERROR even though the call succeeded.
+    if (res.status === 204) return { success: true, data: undefined as T };
     return { success: true, data: (await res.json()) as T };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Network error", code: "NETWORK_ERROR" };

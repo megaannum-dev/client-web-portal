@@ -14,7 +14,7 @@ import {
   Wallet,
   Ticket,
   Settings,
-  BookOpen,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { NotebookText, Receipt } from "@/lib/icons";
@@ -119,8 +119,8 @@ export const PAGES: Record<PageId, PageDef> = {
   "compliance.sop": {
     id: "compliance.sop",
     path: "/compliance/sop",
-    label: "SOPs",
-    icon: BookOpen,
+    label: "SOP Documents",
+    icon: FolderOpen,
     subgroup: "Compliance",
   },
   "pc.allotment-redemption": {

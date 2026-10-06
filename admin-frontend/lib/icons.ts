@@ -170,4 +170,6 @@ export {
   FileCheck2,
   // CRM — IC Meeting Notes
   NotebookText,
+  // CRM — SOP Documents
+  FileUp,
 } from "lucide-react";
