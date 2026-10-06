@@ -61,7 +61,9 @@ export function SopUploadDialog({
       fd.append("category", category);
     }
     fd.append("change_note", note.trim() || "Initial release.");
-    const result = await onSubmit(fd);
+    // A rejected server action (e.g. body over the size limit) throws rather than
+    // returning {success:false}; without the catch the dialog sticks on "Uploading…".
+    const result = await onSubmit(fd).catch(() => ({ success: false, error: "Upload failed. Please try again." }));
     setSubmitting(false);
     if (!result.success) setError(result.error ?? "Upload failed.");
     else onClose();
