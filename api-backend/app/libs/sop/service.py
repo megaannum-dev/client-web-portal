@@ -147,6 +147,9 @@ class SopService:
     def list(self, category: SopCategory | None) -> list[SopDocumentDTO]:
         return [_doc_dto(d) for d in self.repo.list_docs(category)]
 
+    def get(self, sop_id: uuid.UUID) -> SopDocumentDTO:
+        return _doc_dto(self._doc(sop_id))
+
     def create(
         self,
         file: UploadFile,

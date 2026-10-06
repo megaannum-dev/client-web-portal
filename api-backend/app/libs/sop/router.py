@@ -57,7 +57,12 @@ def add_version(
     return svc.add_version(sop_id, file, change_note, actor=user)
 
 
-@router.patch("/{sop_id}", response_model=SopDocumentDTO)
+@router.get("/{sop_id}", response_model=SopDocumentDTO)
+def get_sop(sop_id: uuid.UUID, svc: Svc, _: Viewer) -> SopDocumentDTO:
+    return svc.get(sop_id)
+
+
+@router.patch("/{sop_id}",response_model=SopDocumentDTO)
 def update_sop(sop_id: uuid.UUID, body: SopUpdate, svc: Svc, user: Writer) -> SopDocumentDTO:
     return svc.update(sop_id, body, actor=user)
 
