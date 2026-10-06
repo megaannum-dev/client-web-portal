@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, FileUp, Trash2 } from "@/lib/icons";
+import { Download, FileUp, Loader2, Trash2 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { DetailShell, coLabelCls } from "@/components/compliance/Shared";
 import { FormatBadge, FormatBadgeBig, sopFormat } from "./FormatBadge";
@@ -31,7 +31,7 @@ export function SopDetailPanel({
   tab: SopPanelTab;
   onTab: (t: SopPanelTab) => void;
   onClose: () => void;
-  onDownload: (v: SopVersionDTO) => void;
+  onDownload: (v: SopVersionDTO) => Promise<unknown>;
   onUpload: () => void;
   onDeleteSop: () => void;
   onDeleteVersion: (v: SopVersionDTO, versions: SopVersionDTO[]) => void;
@@ -53,6 +53,11 @@ export function SopDetailPanel({
   // No eager file fetch: bytes are pulled only when a download button is clicked.
   // (An image preview used to download here; server actions run one at a time, so it
   // blocked the Versions tab's metadata call behind the whole file.)
+  const [footerBusy, setFooterBusy] = useState(false);
+  const downloadLatest = () => {
+    setFooterBusy(true);
+    void Promise.resolve(onDownload(latest)).finally(() => setFooterBusy(false));
+  };
 
   // Versions: lazy, refetched when the count changes.
   const [versions, setVersions] = useState<SopVersionDTO[] | null>(null);
@@ -106,7 +111,15 @@ export function SopDetailPanel({
             </button>
           )}
           {canWrite && <Button variant="secondary" icon={FileUp} onClick={onUpload}>New version</Button>}
-          <Button icon={Download} onClick={() => onDownload(latest)}>Download</Button>
+          <Button
+            icon={footerBusy ? Loader2 : Download}
+            onClick={downloadLatest}
+            disabled={footerBusy}
+            aria-busy={footerBusy}
+            className={footerBusy ? "[&>svg]:animate-spin" : undefined}
+          >
+            Download
+          </Button>
         </div>
       }
     >

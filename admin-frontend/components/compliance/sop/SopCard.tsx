@@ -8,7 +8,7 @@ import type { SopDocumentDTO } from "@/lib/sop/types";
 export interface SopRowHandlers {
   onOpen: (id: string, tab: "overview" | "versions") => void;
   onUpload: (sop: SopDocumentDTO) => void;
-  onDownload: (sop: SopDocumentDTO) => void;
+  onDownload: (sop: SopDocumentDTO) => Promise<unknown>;
   onDelete: (sop: SopDocumentDTO) => void;
   openId?: string | null;
 }

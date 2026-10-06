@@ -71,12 +71,14 @@ export default function SopDocumentsPage() {
   );
   const panelSop = panel ? (sops ?? []).find((s) => s.id === panel.id) : undefined;
 
-  const doDownload = (sop: SopDocumentDTO, v: SopVersionDTO = sop.latest) => {
-    void downloadSopVersionAction(sop.id, v.version_no).then((r) => {
-      if (!r.success) return toast.error(`Download failed: ${r.error}`);
-      saveBase64File(v.filename, r.data.contentType, r.data.base64);
-    });
-  };
+  // Returned promise drives the clicked button's spinner; rejection (dropped action) is toasted too.
+  const doDownload = (sop: SopDocumentDTO, v: SopVersionDTO = sop.latest) =>
+    downloadSopVersionAction(sop.id, v.version_no)
+      .then((r) => {
+        if (!r.success) return void toast.error(`Download failed: ${r.error}`);
+        saveBase64File(v.filename, r.data.contentType, r.data.base64);
+      })
+      .catch(() => void toast.error("Download failed. Please try again."));
 
   /** Run a mutation; toast + report failure, refetch on success. */
   const mutate = async (run: () => Promise<{ success: boolean; error?: string }>) => {
