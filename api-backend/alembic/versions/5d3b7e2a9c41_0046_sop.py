@@ -6,8 +6,8 @@ Create Date: 2026-10-06 00:00:00.000000
 
 Adds sop_documents (one row per SOP: title + category) and sop_versions
 (one row per uploaded file version; FK ON DELETE CASCADE, UNIQUE
-(sop_id, version_no), storage_key UNIQUE) for the shared.sop page.
-Seeds page_access for shared.sop: ADMIN 'edit'; RM/MOBO/PM/PC/COMPLIANCE
+(sop_id, version_no), storage_key UNIQUE) for the compliance.sop page.
+Seeds page_access for compliance.sop: ADMIN 'edit'; RM/MOBO/PM/PC/COMPLIANCE
 'view'.
 """
 
@@ -80,23 +80,23 @@ def upgrade() -> None:
     )
     op.create_index("ix_sop_versions_sop_id", "sop_versions", ["sop_id"])
 
-    # --- page_access seed — shared.sop ---------------------------------------
+    # --- page_access seed — compliance.sop ---------------------------------------
     op.execute(
         """
         INSERT INTO page_access (page_id, role, level) VALUES
-          ('shared.sop', 'ADMIN',      'edit'),
-          ('shared.sop', 'RM',         'view'),
-          ('shared.sop', 'MOBO',       'view'),
-          ('shared.sop', 'PM',         'view'),
-          ('shared.sop', 'PC',         'view'),
-          ('shared.sop', 'COMPLIANCE', 'view')
+          ('compliance.sop', 'ADMIN',      'edit'),
+          ('compliance.sop', 'RM',         'view'),
+          ('compliance.sop', 'MOBO',       'view'),
+          ('compliance.sop', 'PM',         'view'),
+          ('compliance.sop', 'PC',         'view'),
+          ('compliance.sop', 'COMPLIANCE', 'view')
         """
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.execute("DELETE FROM page_access WHERE page_id = 'shared.sop'")
+    op.execute("DELETE FROM page_access WHERE page_id = 'compliance.sop'")
     op.drop_index("ix_sop_versions_sop_id", table_name="sop_versions")
     op.drop_table("sop_versions")
     op.drop_index("ix_sop_documents_category", table_name="sop_documents")

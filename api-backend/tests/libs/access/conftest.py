@@ -66,7 +66,7 @@ PAGE_IDS: frozenset[str] = frozenset(
         "shared.monthly-reports",
         "admin.enroll-user",
         "admin.system-config",
-        "shared.sop",
+        "compliance.sop",
     }
 )
 assert len(PAGE_IDS) == 18
@@ -81,6 +81,7 @@ PAGE_META_ORDER: list[str] = [
     "rm.request-tickets",
     "compliance.review",
     "compliance.ic-notes",
+    "compliance.sop",
     "pc.allotment-redemption",
     "pc.allocation-matrix",
     "mobo.post-trade-allocation",
@@ -92,7 +93,6 @@ PAGE_META_ORDER: list[str] = [
     "admin.system-config",
     "mobo.recon-overview",
     "compliance.overview",
-    "shared.sop",
 ]
 assert set(PAGE_META_ORDER) == PAGE_IDS
 
@@ -163,12 +163,12 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("compliance.ic-notes", "ADMIN", "edit"),
     ("admin.enroll-user", "ADMIN", "edit"),
     ("admin.system-config", "ADMIN", "edit"),
-    ("shared.sop", "RM", "view"),
-    ("shared.sop", "MOBO", "view"),
-    ("shared.sop", "PM", "view"),
-    ("shared.sop", "PC", "view"),
-    ("shared.sop", "COMPLIANCE", "view"),
-    ("shared.sop", "ADMIN", "edit"),
+    ("compliance.sop", "RM", "view"),
+    ("compliance.sop", "MOBO", "view"),
+    ("compliance.sop", "PM", "view"),
+    ("compliance.sop", "PC", "view"),
+    ("compliance.sop", "COMPLIANCE", "view"),
+    ("compliance.sop", "ADMIN", "edit"),
 ]
 assert len(PAGE_ACCESS_SEED) == 66
 assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 36

@@ -42,10 +42,10 @@ export type PageId =
   | "compliance.overview"
   | "compliance.review"
   | "compliance.ic-notes"
+  | "compliance.sop"
   | "shared.monthly-reports"
   | "admin.enroll-user"
-  | "admin.system-config"
-  | "shared.sop";
+  | "admin.system-config";
 
 /** What a `UserOut.grants` map looks like on the client. Absent key === "NONE". */
 export type GrantMap = Partial<Record<PageId, "VIEW" | "EDIT">>;
@@ -114,6 +114,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/compliance/ic-notes",
     label: "IC Meeting Notes",
     icon: NotebookText,
+    subgroup: "Compliance",
+  },
+  "compliance.sop": {
+    id: "compliance.sop",
+    path: "/compliance/sop",
+    label: "SOPs",
+    icon: BookOpen,
     subgroup: "Compliance",
   },
   "pc.allotment-redemption": {
@@ -193,12 +200,6 @@ export const PAGES: Record<PageId, PageDef> = {
     label: "Compliance Overview",
     icon: LayoutDashboardIcon,
     hideFromNav: true,
-  },
-  "shared.sop": {
-    id: "shared.sop",
-    path: "/sop",
-    label: "SOPs",
-    icon: BookOpen,
   },
 };
 
