@@ -24,6 +24,7 @@ export interface UseChatDocuments {
   error: string | null;
   hasMore: boolean;
   loadMore: () => void;
+  retry: () => void;
 }
 
 export function useChatDocuments(filters: ChatDocumentFilters): UseChatDocuments {
@@ -72,11 +73,18 @@ export function useChatDocuments(filters: ChatDocumentFilters): UseChatDocuments
   useEffect(() => { void run(null); }, [key, run]);
 
   const loadMore = useCallback(() => {
-    if (inFlight.current || !cursor) return;
+    // While errored, stay put: otherwise the page's observer re-fires at once and the failure loops.
+    if (inFlight.current || !cursor || error) return;
+    void run(cursor);
+  }, [cursor, error, run]);
+
+  // Explicit user retry; run() clears the error. A failed first page has no cursor, so reload it.
+  const retry = useCallback(() => {
+    if (inFlight.current) return;
     void run(cursor);
   }, [cursor, run]);
 
-  return { docs, total, loading, loadingMore, error, hasMore: cursor != null, loadMore };
+  return { docs, total, loading, loadingMore, error, hasMore: cursor != null, loadMore, retry };
 }
 
 export function useChatDocumentSenders(): { senders: ChatDocumentSender[]; loading: boolean; error: string | null } {

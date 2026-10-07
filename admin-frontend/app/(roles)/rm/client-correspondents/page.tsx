@@ -32,7 +32,7 @@ export default function ClientCorrespondentsPage() {
   }, []);
 
   const query = useMemo(() => toQuery({ ...ui, q: debouncedQ }, new Date()), [ui, debouncedQ]);
-  const { docs, total, loading, loadingMore, error, hasMore, loadMore } = useChatDocuments(query);
+  const { docs, total, loading, loadingMore, error, hasMore, loadMore, retry } = useChatDocuments(query);
   const { senders } = useChatDocumentSenders();
 
   // Infinite scroll: sentinel under the table, rooted on the scrolling <main>.
@@ -96,7 +96,12 @@ export default function ClientCorrespondentsPage() {
           </div>
         )}
 
-        {error && <div className="px-5 py-3 text-[13px] text-error">{error}</div>}
+        {error && (
+          <div className="flex items-center gap-3 px-5 py-3 text-[13px] text-error">
+            {error}
+            <button type="button" onClick={retry} className="font-semibold underline">Retry</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 size={22} className="animate-spin text-secondary" /></div>

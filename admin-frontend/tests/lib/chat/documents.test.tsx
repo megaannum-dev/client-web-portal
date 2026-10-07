@@ -63,6 +63,23 @@ describe("useChatDocuments", () => {
     expect(result.current.total).toBe(1);
   });
 
+  it("does not retry a failed loadMore on its own; retry does", async () => {
+    fetchMock
+      .mockResolvedValueOnce(page(["1"], "c1"))
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce(page(["2"], null));
+    const { result } = renderHook(() => useChatDocuments({ view: "all" }));
+    await waitFor(() => expect(result.current.docs).toHaveLength(1));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.error).toBe("boom"));
+    act(() => result.current.loadMore());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.docs.map((d) => d.id)).toEqual(["1", "2"]));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.error).toBeNull();
+  });
+
   it("drops a stale response from old filters", async () => {
     let resolveOld!: (r: Response) => void;
     fetchMock
