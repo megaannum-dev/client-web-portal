@@ -121,6 +121,22 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it("keeps children mounted during a background grant refresh (backendSyncing with a profile)", async () => {
+    mockUsePathname.mockReturnValue("/pc/model-management");
+    mockUseAuth.mockReturnValue({
+      portalUser: { role: "PC", grants: { "pc.model-management": "EDIT" } },
+      loading: false,
+      backendSyncing: true,
+    });
+    const { RoleGuard } = await import("@/components/auth/RoleGuard");
+    render(
+      <RoleGuard prefix="/pc">
+        <div data-testid="protected-children">protected</div>
+      </RoleGuard>,
+    );
+    expect(screen.getByTestId("protected-children")).toBeInTheDocument();
+  });
+
   it("negative: for a known page the grants omit, renders <NoAccess> and does NOT redirect", async () => {
     await renderGuard(
       { role: "PC", grants: {} },
