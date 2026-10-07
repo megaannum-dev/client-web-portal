@@ -2,25 +2,31 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
-import { ChevronDown, Search, X } from "@/lib/icons";
-import { Checkbox } from "@/components/admin/Shared";
+import type { LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarDays, Check, ChevronDown, History, Search, UserRound, X } from "@/lib/icons";
 import type { ChatDocumentSender } from "@/lib/api/chat";
-import { INITIAL_UI, type CorrespondentsUi, type DatePreset } from "./toQuery";
+import { localIso } from "@/lib/chat/adapter";
+import { INITIAL_UI, fmtShared, type CorrespondentsUi, type DatePreset } from "./toQuery";
 
-const VIEWS: { id: CorrespondentsUi["view"]; label: string }[] = [
-  { id: "all", label: "Recent" },
-  { id: "in", label: "Received" },
-  { id: "out", label: "Sent" },
+const VIEWS: { id: CorrespondentsUi["view"]; label: string; icon: LucideIcon }[] = [
+  { id: "all", label: "Recent", icon: History },
+  { id: "in", label: "Received", icon: ArrowDownLeft },
+  { id: "out", label: "Sent", icon: ArrowUpRight },
 ];
 const PRESETS: { id: DatePreset; label: string }[] = [
   { id: "any", label: "Any time" },
   { id: "7", label: "Last 7 days" },
   { id: "30", label: "Last 30 days" },
   { id: "90", label: "Last 90 days" },
-  { id: "custom", label: "Custom range" },
+  { id: "custom", label: "Custom range…" },
 ];
 
-function Popover({ label, active, children }: { label: string; active: boolean; children: ReactNode }) {
+const ROW = "flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-[13px] hover:bg-surface-container";
+const DATE_INPUT = "rounded border border-outline-variant bg-white px-2.5 py-[7px] text-[13px] font-normal normal-case tracking-normal text-on-surface";
+
+function Pill({ icon: Icon, label, value, active, width, onClear, children }: {
+  icon: LucideIcon; label: string; value: string | null; active: boolean; width: string; onClear: () => void; children: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,16 +41,29 @@ function Popover({ label, active, children }: { label: string; active: boolean; 
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={clsx(
-          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
-          active ? "border-primary bg-primary/10 text-primary" : "border-outline-variant bg-surface-lowest text-on-surface hover:bg-surface-container",
+          "inline-flex items-center gap-2 rounded-full border py-[7px] pl-3.5 pr-3 text-[13px] font-semibold transition-all duration-150",
+          active || open ? "border-primary" : "border-outline-variant",
+          active ? "bg-primary-fixed text-primary" : "bg-white text-secondary hover:bg-surface-low",
         )}
       >
-        {label}
-        <ChevronDown size={14} strokeWidth={2} />
+        <Icon size={15} strokeWidth={2} />
+        <span>{label}{value && <b>: {value}</b>}</span>
+        {active ? (
+          <span
+            role="button"
+            aria-label={`Clear ${label}`}
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="inline-flex"
+          >
+            <X size={14} strokeWidth={2} />
+          </span>
+        ) : (
+          <ChevronDown size={14} strokeWidth={2} />
+        )}
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1.5 w-64 rounded-md border border-outline-variant bg-surface-lowest p-3 shadow-card">
-          {children}
+        <div className={clsx("absolute left-0 top-full z-40 pt-1.5", width)}>
+          <div className="rounded-md border border-outline-variant bg-white p-1.5 shadow-overlay">{children}</div>
         </div>
       )}
     </div>
@@ -52,103 +71,130 @@ function Popover({ label, active, children }: { label: string; active: boolean; 
 }
 
 export function CorrespondentsToolbar({
-  ui, setUi, senders,
+  ui, setUi, senders, meUid,
 }: {
   ui: CorrespondentsUi;
   setUi: (patch: Partial<CorrespondentsUi>) => void;
   senders: ChatDocumentSender[];
+  meUid: string | null;
 }) {
   const [senderQ, setSenderQ] = useState("");
-  const dateLabel = PRESETS.find((p) => p.id === ui.preset)?.label ?? "Date";
+  const today = localIso(new Date());
   const needle = senderQ.toLowerCase();
-  const shown = senders.filter((s) => `${s.name} ${s.client_name}`.toLowerCase().includes(needle));
+  const sorted = [...senders].sort((a, b) =>
+    Number(b.uid === meUid) - Number(a.uid === meUid) || a.name.localeCompare(b.name));
+  const shown = sorted.filter((s) => `${s.name} ${s.client_name}`.toLowerCase().includes(needle));
   const dirty = ui.view !== "all" || ui.preset !== "any" || ui.senders.length > 0 || !!ui.q;
+
+  let dateValue: string | null = null;
+  if (ui.preset === "custom") {
+    const f = (d: string) => (d ? fmtShared(`${d}T12:00:00`) : "…");
+    dateValue = `${f(ui.from)} – ${f(ui.to)}`;
+  } else if (ui.preset !== "any") {
+    dateValue = PRESETS.find((p) => p.id === ui.preset)!.label;
+  }
+  const picked = senders.find((s) => s.uid === ui.senders[0]);
+  const senderValue = ui.senders.length === 0 ? null
+    : ui.senders.length === 1 && picked ? (picked.uid === meUid ? "You" : picked.name) : `${ui.senders.length} selected`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant px-5 py-3.5">
-      {VIEWS.map((v) => (
-        <button
-          key={v.id}
-          type="button"
-          onClick={() => setUi({ view: v.id })}
-          className={clsx(
-            "rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-            ui.view === v.id ? "border-primary bg-primary text-primary-foreground" : "border-outline-variant bg-surface-lowest text-secondary hover:bg-surface-container",
-          )}
-        >
-          {v.label}
-        </button>
-      ))}
-      <span className="mx-1 h-5 w-px bg-outline-variant" />
+      {/* ponytail: prototype sets row-reverse here; plain order keeps Recent first. */}
+      <div className="flex gap-3">
+        {VIEWS.map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setUi({ view: v.id })}
+            className={clsx(
+              "inline-flex items-center gap-[7px] rounded-full border px-3.5 py-[7px] text-[13px] font-semibold transition-colors",
+              ui.view === v.id ? "border-primary bg-primary text-white" : "border-outline-variant bg-white text-secondary",
+            )}
+          >
+            <v.icon size={15} strokeWidth={2} />
+            {v.label}
+          </button>
+        ))}
+      </div>
+      <span className="mx-1.5 h-[22px] w-px bg-outline-variant" />
 
-      <Popover label={ui.preset === "any" ? "Date" : dateLabel} active={ui.preset !== "any"}>
-        <div className="flex flex-col gap-0.5">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setUi({ preset: p.id })}
-              className={clsx("rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-surface-container", ui.preset === p.id && "bg-surface-container font-semibold")}
-            >
+      <Pill icon={CalendarDays} label="Date" value={dateValue} active={ui.preset !== "any"} width="w-[250px]"
+        onClear={() => setUi({ preset: "any", from: "", to: "" })}>
+        {PRESETS.map((p) => {
+          const on = ui.preset === p.id;
+          return (
+            <button key={p.id} type="button" onClick={() => setUi({ preset: p.id })}
+              className={clsx(ROW, on ? "font-semibold text-on-surface" : "font-medium text-secondary")}>
+              <span className={clsx("flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px]", on ? "border-primary" : "border-outline")}>
+                {on && <span className="h-2 w-2 rounded-full bg-primary" />}
+              </span>
               {p.label}
             </button>
-          ))}
-        </div>
+          );
+        })}
         {ui.preset === "custom" && (
-          <div className="mt-2 flex flex-col gap-2 border-t border-outline-variant pt-2.5 text-[12px] text-secondary">
-            <label className="flex items-center justify-between gap-2">From
-              <input type="date" value={ui.from} max={ui.to || undefined} onChange={(e) => setUi({ from: e.target.value })}
-                className="rounded border border-outline-variant px-2 py-1 text-[13px] text-on-surface" />
+          <div className="mt-1 grid grid-cols-2 gap-2 border-t border-outline-variant px-2.5 pb-1.5 pt-2">
+            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">From
+              <input type="date" value={ui.from} max={ui.to || today} onChange={(e) => setUi({ from: e.target.value })} className={DATE_INPUT} />
             </label>
-            <label className="flex items-center justify-between gap-2">To
-              <input type="date" value={ui.to} min={ui.from || undefined} onChange={(e) => setUi({ to: e.target.value })}
-                className="rounded border border-outline-variant px-2 py-1 text-[13px] text-on-surface" />
+            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">To
+              <input type="date" value={ui.to} min={ui.from || undefined} max={today} onChange={(e) => setUi({ to: e.target.value })} className={DATE_INPUT} />
             </label>
           </div>
         )}
-      </Popover>
+      </Pill>
 
-      <Popover label={ui.senders.length ? `Sender · ${ui.senders.length}` : "Sender"} active={ui.senders.length > 0}>
-        <input
-          value={senderQ}
-          onChange={(e) => setSenderQ(e.target.value)}
-          placeholder="Search senders"
-          className="mb-2 w-full rounded border border-outline-variant px-2.5 py-1.5 text-[13px] outline-none focus:border-primary"
-        />
-        <div className="flex max-h-56 flex-col gap-2 overflow-y-auto">
-          {shown.map((s) => (
-            <Checkbox
-              key={s.uid}
-              on={ui.senders.includes(s.uid)}
-              onChange={(on) => setUi({ senders: on ? [...ui.senders, s.uid] : ui.senders.filter((u) => u !== s.uid) })}
-            >
-              {s.name} <span className="text-secondary">· {s.client_name}</span>
-            </Checkbox>
-          ))}
+      <Pill icon={UserRound} label="Sender" value={senderValue} active={ui.senders.length > 0} width="w-[280px]"
+        onClear={() => setUi({ senders: [] })}>
+        <label className="mx-0.5 mb-1.5 mt-0.5 flex items-center gap-2 rounded border border-outline-variant px-2.5 py-1.5">
+          <Search size={14} strokeWidth={2} className="text-secondary" />
+          <input
+            autoFocus
+            value={senderQ}
+            onChange={(e) => setSenderQ(e.target.value)}
+            placeholder="Find a sender…"
+            aria-label="Find a sender"
+            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+          />
+        </label>
+        <div className="max-h-[260px] overflow-y-auto">
+          {shown.map((s) => {
+            const on = ui.senders.includes(s.uid);
+            return (
+              <button key={s.uid} type="button"
+                onClick={() => setUi({ senders: on ? ui.senders.filter((u) => u !== s.uid) : [...ui.senders, s.uid] })}
+                className={clsx(ROW, on ? "font-semibold text-on-surface" : "font-medium text-secondary")}>
+                <span className={clsx("flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-white", on ? "bg-primary" : "border-[1.5px] border-outline bg-white")}>
+                  {on && <Check size={11} strokeWidth={3} />}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{s.uid === meUid ? `You (${s.name})` : s.name}</span>
+                {s.uid !== meUid && <span className="text-[11px] font-normal text-secondary">{s.client_name}</span>}
+              </button>
+            );
+          })}
           {shown.length === 0 && <div className="py-2 text-center text-[13px] text-secondary">No senders</div>}
         </div>
-      </Popover>
+      </Pill>
 
       {dirty && (
         <button
           type="button"
           onClick={() => { setSenderQ(""); setUi({ ...INITIAL_UI, sort: ui.sort }); }}
-          className="text-[13px] font-semibold text-primary hover:underline"
+          className="px-1 py-1.5 text-[13px] font-semibold text-primary"
         >
           Clear all
         </button>
       )}
 
-      <label className="ml-auto flex w-full items-center gap-2 rounded-md border border-outline-variant bg-white px-3 py-1.5 focus-within:border-primary sm:w-64">
-        <Search size={15} strokeWidth={2} className="text-secondary" />
+      <label className="ml-auto flex w-[240px] items-center gap-2 rounded border border-outline-variant bg-white px-3 py-[7px] focus-within:border-primary focus-within:shadow-[var(--focus-ring)]">
+        <Search size={14} strokeWidth={2} className="text-secondary" />
         <input
           value={ui.q}
           onChange={(e) => setUi({ q: e.target.value })}
-          placeholder="Search documents"
-          aria-label="Search documents"
+          placeholder="Filter by keyword"
+          aria-label="Filter by keyword"
           className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
         />
-        {ui.q && <button type="button" aria-label="Clear search" onClick={() => setUi({ q: "" })}><X size={14} /></button>}
       </label>
     </div>
   );

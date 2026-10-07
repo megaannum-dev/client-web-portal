@@ -72,8 +72,6 @@ export default function ClientCorrespondentsPage() {
   const show = (d: ChatDocumentDTO) =>
     openRoom({ id: d.client_id, name: d.client_name, assignedRm: d.rm_name ?? undefined }, { focusAttachmentId: d.id });
 
-  const filtered = ui.view !== "all" || ui.preset !== "any" || ui.senders.length > 0 || !!debouncedQ;
-
   return (
     <div className="mx-auto">
       <div className="mb-7">
@@ -84,15 +82,15 @@ export default function ClientCorrespondentsPage() {
       </div>
 
       <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
-        <CorrespondentsToolbar ui={ui} setUi={setUi} senders={senders} />
+        <CorrespondentsToolbar ui={ui} setUi={setUi} senders={senders} meUid={portalUser?.firebase_uid ?? null} />
 
         {selected.size > 0 && (
-          <div className="flex items-center gap-3 border-b border-outline-variant bg-primary/5 px-5 py-2.5 text-[13px]">
-            <span className="font-semibold">{selected.size} selected</span>
-            <Button icon={Download} onClick={bulkDownload} disabled={bulkBusy}>
+          <div className="flex items-center gap-3 border-b border-outline-variant bg-primary-fixed px-5 py-2.5 text-[13px]">
+            <span className="font-bold text-primary">{selected.size} selected</span>
+            <Button variant="ghost" icon={Download} onClick={bulkDownload} disabled={bulkBusy}>
               {bulkBusy ? "Downloading…" : "Download"}
             </Button>
-            <button type="button" onClick={() => setSelected(new Set())} className="font-semibold text-primary hover:underline">
+            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto font-semibold text-secondary">
               Clear selection
             </button>
           </div>
@@ -113,7 +111,6 @@ export default function ClientCorrespondentsPage() {
             meUid={portalUser?.firebase_uid ?? null}
             onDownload={download}
             onShow={show}
-            filtered={filtered}
           />
         )}
 
@@ -122,7 +119,7 @@ export default function ClientCorrespondentsPage() {
           <div className="flex justify-center py-3"><Loader2 size={18} className="animate-spin text-secondary" /></div>
         )}
 
-        <footer className="border-t border-outline-variant px-5 py-3 text-[12.5px] text-secondary">
+        <footer className="border-t border-outline-variant px-5 py-3 text-xs text-secondary">
           Showing {docs.length} of {total} documents
         </footer>
       </section>

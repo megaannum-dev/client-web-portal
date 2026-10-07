@@ -172,4 +172,11 @@ export {
   NotebookText,
   // CRM — SOP Documents
   FileUp,
+  // RM — Client Correspondents
+  ArrowDownLeft,
+  ArrowUp,
+  FilePenLine,
+  FileImage,
+  FileArchive,
+  FolderSearch,
 } from "lucide-react";

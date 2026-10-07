@@ -46,7 +46,7 @@ describe("Client Correspondents page", () => {
   it("empty state", async () => {
     m.docs.mockReturnValue(state([]));
     await renderPage();
-    expect(screen.getByText("No documents found")).toBeInTheDocument();
+    expect(screen.getByText("No documents match these filters.")).toBeInTheDocument();
     expect(screen.getByText("Showing 0 of 0 documents")).toBeInTheDocument();
   });
 
