@@ -16,6 +16,7 @@ import asyncio
 import uuid
 from datetime import datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -114,7 +115,8 @@ def download_attachment(
     return StreamingResponse(
         stream,
         media_type=content_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        # RFC 5987 `filename*` -- a non-latin-1 name in a plain `filename=` 500s in Starlette.
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
     )
 
 
