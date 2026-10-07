@@ -81,7 +81,7 @@ export default function ClientCorrespondentsPage() {
         />
       </div>
 
-      <section className="overflow-hidden rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
+      <section className="rounded-lg border border-outline-variant bg-surface-lowest shadow-card">
         <CorrespondentsToolbar ui={ui} setUi={setUi} senders={senders} meUid={portalUser?.firebase_uid ?? null} />
 
         {selected.size > 0 && (
