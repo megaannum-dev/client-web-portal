@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime
-from typing import Annotated
+from datetime import date, datetime
+from typing import Annotated, Literal
 from urllib.parse import quote
 
 from fastapi import (
@@ -24,6 +24,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
@@ -34,7 +35,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_db
-from app.libs.auth.deps import get_current_user
+from app.libs.auth.actions import Action
+from app.libs.auth.deps import get_current_user, require_action
 from app.libs.auth.status import assert_can_authenticate
 from app.libs.chat.realtime import (
     MAX_LIFETIME,
@@ -44,7 +46,8 @@ from app.libs.chat.realtime import (
     park,
     pop_ticket,
 )
-from app.libs.chat.schemas import ChatMessageDTO
+from app.libs.chat.repository import DocumentFilters
+from app.libs.chat.schemas import ChatDocumentPage, ChatDocumentSenderDTO, ChatMessageDTO
 from app.libs.chat.service import ChatService
 from app.libs.users.repository import UserRepository
 from app.models.users import User
@@ -100,6 +103,33 @@ async def post_message(
         to_uids=to_uids,
     )
     return dto
+
+
+@router.get("/chat/documents", response_model=ChatDocumentPage)
+def list_documents(
+    svc: Annotated[ChatService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    view: Literal["all", "in", "out"] = "all",
+    sender: Annotated[list[str] | None, Query()] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    q: str | None = None,
+    sort: Literal["asc", "desc"] = "desc",
+    cursor: str | None = None,
+    limit: int = Query(50, ge=1, le=50),
+) -> ChatDocumentPage:
+    f = DocumentFilters(
+        view=view, senders=sender or [], date_from=date_from, date_to=date_to, q=q or None
+    )
+    return svc.documents(user, f, sort=sort, cursor=cursor, limit=limit)
+
+
+@router.get("/chat/documents/senders", response_model=list[ChatDocumentSenderDTO])
+def list_document_senders(
+    svc: Annotated[ChatService, Depends(_service)],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+) -> list[ChatDocumentSenderDTO]:
+    return svc.document_senders(user)
 
 
 @router.get("/chat/attachments/{attachment_id}")

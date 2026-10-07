@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime
-from typing import BinaryIO
+from typing import BinaryIO, Literal
 
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -12,8 +12,16 @@ from sqlalchemy.orm import Session
 from app.core.storage import Bucket, client_folder, get_storage
 from app.libs.access.resolver import actions_for
 from app.libs.auth.actions import Action
-from app.libs.chat.repository import ChatRepository
-from app.libs.chat.schemas import ChatMessageDTO, sender_role
+from app.libs.chat.repository import ChatRepository, DocumentFilters
+from app.libs.chat.schemas import (
+    ChatDocumentDTO,
+    ChatDocumentPage,
+    ChatDocumentSenderDTO,
+    ChatMessageDTO,
+    decode_cursor,
+    encode_cursor,
+    sender_role,
+)
 from app.libs.users.repository import UserRepository
 from app.models.users import AdminRole, ClientProfile, Portal, User
 
@@ -132,6 +140,48 @@ class ChatService:
             )
             for msg, uid, name, is_staff in self.repo.history(client_id, since=since, limit=capped)
         ]
+
+    def _documents_scope(self, user: User) -> str | None:
+        """uid whose rooms are listed; None = every room (ADMIN view-all)."""
+        profile = user.admin_profile if user.portal == Portal.ADMIN else None
+        if profile is not None and profile.role == AdminRole.ADMIN:
+            return None
+        return user.firebase_uid
+
+    def documents(
+        self,
+        user: User,
+        filters: DocumentFilters,
+        *,
+        sort: Literal["asc", "desc"],
+        cursor: str | None,
+        limit: int,
+    ) -> ChatDocumentPage:
+        decoded = decode_cursor(cursor) if cursor else None
+        rows, has_more, total = self.repo.documents(
+            self._documents_scope(user), filters, sort=sort, cursor=decoded, limit=limit
+        )
+        items = [ChatDocumentDTO.from_row(r) for r in rows]
+        next_cursor = encode_cursor(items[-1].created_at, items[-1].id) if has_more else None
+        return ChatDocumentPage(items=items, next_cursor=next_cursor, total=total)
+
+    def document_senders(self, user: User) -> list[ChatDocumentSenderDTO]:
+        # ponytail: a staff member's role is per-room; collapsed to one value here
+        # (rm if they are the RM of any in-scope room, else assistant if ARM, else rm).
+        out: dict[str, ChatDocumentSenderDTO] = {}
+        for uid, name, is_staff, is_arm, room_name in self.repo.senders(
+            self._documents_scope(user)
+        ):
+            cur = out.get(uid)
+            if not is_staff:
+                out[uid] = ChatDocumentSenderDTO(
+                    uid=uid, name=name, role="client", client_name=room_name
+                )
+            elif cur is None or (cur.role == "assistant" and not is_arm):
+                out[uid] = ChatDocumentSenderDTO(
+                    uid=uid, name=name, role="assistant" if is_arm else "rm", client_name=None
+                )
+        return sorted(out.values(), key=lambda d: (d.name or "").lower())
 
     # ---------- Write ----------
     def send(
