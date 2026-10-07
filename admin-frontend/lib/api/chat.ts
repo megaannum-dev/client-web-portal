@@ -144,3 +144,74 @@ export async function downloadAttachment(
     token ? { Authorization: `Bearer ${token}` } : undefined,
   );
 }
+
+// --- Client Correspondents: cross-room document listing -------------------
+
+export interface ChatDocumentDTO {
+  id: string; // attachment id; download via downloadAttachment
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string; // ISO
+  message_id: string;
+  client_id: string; // room key
+  client_name: string;
+  sender_uid: string;
+  sender_name: string;
+  sender_role: SenderRole;
+  rm_name: string | null;
+  arm_name: string | null;
+}
+
+export interface ChatDocumentPage {
+  items: ChatDocumentDTO[];
+  next_cursor: string | null;
+  total: number;
+}
+
+export interface ChatDocumentSender {
+  uid: string;
+  name: string;
+  role: SenderRole;
+  client_name: string;
+}
+
+export interface ChatDocumentParams {
+  view?: "all" | "in" | "out";
+  sender?: string[];
+  date_from?: string;
+  date_to?: string;
+  q?: string;
+  sort?: "asc" | "desc";
+  cursor?: string | null;
+  limit?: number;
+}
+
+/** GET /api/chat/documents — empty/undefined params are omitted; `sender` repeats. */
+export async function fetchChatDocuments(
+  token: string | null,
+  params: ChatDocumentParams = {},
+): Promise<ChatDocumentPage> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (k === "sender") for (const uid of (v as string[] | undefined) ?? []) qs.append("sender", uid);
+    else if (v != null && v !== "") qs.set(k, String(v));
+  }
+  const q = qs.toString();
+  const path = `/api/chat/documents${q ? `?${q}` : ""}`;
+  const res = await fetch(`${getApiBase()}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(await chatError(res, `GET ${path}`));
+  return (await res.json()) as ChatDocumentPage;
+}
+
+/** GET /api/chat/documents/senders — every distinct sender in scope. */
+export async function fetchChatDocumentSenders(token: string | null): Promise<ChatDocumentSender[]> {
+  const path = "/api/chat/documents/senders";
+  const res = await fetch(`${getApiBase()}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(await chatError(res, `GET ${path}`));
+  return (await res.json()) as ChatDocumentSender[];
+}
