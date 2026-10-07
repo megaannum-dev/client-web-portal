@@ -8,10 +8,11 @@ import type { ChatDocumentSender } from "@/lib/api/chat";
 import { localIso } from "@/lib/chat/adapter";
 import { INITIAL_UI, fmtShared, type CorrespondentsUi, type DatePreset } from "./toQuery";
 
+// Visual order = prototype's [Recent, Received, Sent] under row-reverse.
 const VIEWS: { id: CorrespondentsUi["view"]; label: string; icon: LucideIcon }[] = [
-  { id: "all", label: "Recent", icon: History },
-  { id: "in", label: "Received", icon: ArrowDownLeft },
   { id: "out", label: "Sent", icon: ArrowUpRight },
+  { id: "in", label: "Received", icon: ArrowDownLeft },
+  { id: "all", label: "Recent", icon: History },
 ];
 const PRESETS: { id: DatePreset; label: string }[] = [
   { id: "any", label: "Any time" },
@@ -99,7 +100,6 @@ export function CorrespondentsToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant px-5 py-3.5">
-      {/* ponytail: prototype sets row-reverse here; plain order keeps Recent first. */}
       <div className="flex gap-3">
         {VIEWS.map((v) => (
           <button

@@ -20,3 +20,11 @@ describe("Sender popover", () => {
     expect(screen.queryByText("Rita RM")).toBeNull();
   });
 });
+
+describe("View pills", () => {
+  it("render Sent, Received, Recent left to right", () => {
+    render(<CorrespondentsToolbar ui={INITIAL_UI} setUi={vi.fn()} senders={[]} meUid={null} />);
+    const labels = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(labels.slice(0, 3)).toEqual(["Sent", "Received", "Recent"]);
+  });
+});
