@@ -129,7 +129,22 @@ def test_attachment_download_is_forced_not_inline(world):
     att_id = resp.json()["attachments"][0]["id"]
     dl = tc.get(f"/api/chat/attachments/{att_id}")
     assert dl.status_code == 200
-    assert dl.headers["content-disposition"] == 'attachment; filename="spec.pdf"'
+    assert dl.headers["content-disposition"] == "attachment; filename*=UTF-8''spec.pdf"
+
+
+def test_attachment_download_non_latin1_filename(world):
+    tc, _, client_user = world
+    resp = tc.post(
+        "/api/chat/messages",
+        data={"client_id": str(client_user.id)},
+        files=[("files", ("報告.pdf", b"pdf-bytes", "application/pdf"))],
+    )
+    att_id = resp.json()["attachments"][0]["id"]
+    dl = tc.get(f"/api/chat/attachments/{att_id}")
+    assert dl.status_code == 200
+    assert dl.headers["content-disposition"] == (
+        "attachment; filename*=UTF-8''%E5%A0%B1%E5%91%8A.pdf"
+    )
 
 
 def test_history_route(world):

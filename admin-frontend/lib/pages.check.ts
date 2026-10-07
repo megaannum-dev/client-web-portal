@@ -22,6 +22,7 @@ const MATRIX_PAGES_FIXTURE: MatrixOut["pages"] = [
   { page_id: "rm.onboarding-renewal", group: "Client Management", label: "Onboarding & Renewal", path: "/rm/onboarding-renewal" },
   { page_id: "rm.model-subscription", group: "Client Management", label: "Model Subscription", path: "/rm/model-subscription" },
   { page_id: "rm.request-tickets", group: "Client Management", label: "Request Tickets", path: "/rm/requests" },
+  { page_id: "rm.client-correspondents", group: "Client Management", label: "Client Correspondents", path: "/rm/client-correspondents" },
   { page_id: "mobo.recon-overview", group: "Other", label: "Reconciliation Overview", path: "/mobo/recon-overview" },
   { page_id: "mobo.trade-reconciliation", group: "Trade Management", label: "Trade Reconciliation", path: "/mobo/trade-reconciliation" },
   { page_id: "mobo.commission-tracking", group: "Trade Management", label: "Commission Tracking", path: "/mobo/commission-tracking" },

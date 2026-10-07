@@ -189,3 +189,32 @@ describe("invariants", () => {
     expect(screen.getByText("Alex Thompson · Client Room")).toBeInTheDocument();
   });
 });
+
+describe("focusAttachmentId", () => {
+  const days = [{
+    iso: "2026-01-02", label: "Jan 2",
+    messages: [{
+      id: "m1", role: "rm", createdAt: "2026-01-02T10:00:00Z", time: "10:00", body: null, own: false, name: "Sarah Mitchell",
+      attachments: [{ id: "att-1", name: "a.pdf", kind: "file-text", size: "1 KB" }],
+    }],
+  }] as unknown as import("@/components/rm/chat/types").ChatDay[];
+
+  it("rings the attachment, consumes the focus, then clears the ring", () => {
+    vi.useFakeTimers();
+    const consumed = vi.fn();
+    render(<ChatRoomPanel participants={PARTICIPANTS} messages={days} focusAttachmentId="att-1" onFocusConsumed={consumed} onClose={vi.fn()} />);
+    const el = document.querySelector('[data-attachment-id="att-1"]') as HTMLElement;
+    expect(el.className).toContain("ring-primary");
+    expect(consumed).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(3000);
+    expect(el.className).not.toContain("ring-primary");
+    vi.useRealTimers();
+  });
+
+  it("does nothing when the id is not in the thread", () => {
+    const consumed = vi.fn();
+    render(<ChatRoomPanel participants={PARTICIPANTS} messages={days} focusAttachmentId="nope" onFocusConsumed={consumed} onClose={vi.fn()} />);
+    expect(consumed).not.toHaveBeenCalled();
+    expect(document.querySelector(".ring-primary")).toBeNull();
+  });
+});

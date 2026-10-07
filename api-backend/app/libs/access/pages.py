@@ -44,6 +44,12 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "rm.request-tickets": PageMeta(
         "rm.request-tickets", "Client Management", "Request Tickets", "/rm/requests"
     ),
+    "rm.client-correspondents": PageMeta(
+        "rm.client-correspondents",
+        "Client Management",
+        "Client Correspondents",
+        "/rm/client-correspondents",
+    ),
     "compliance.review": PageMeta(
         "compliance.review", "Compliance", "Compliance Review", "/compliance/review"
     ),
@@ -131,6 +137,7 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     "rm.model-subscription": (fs(Action.CLIENT_VIEW), fs()),
     # /rm/tickets, /rm/tickets/{ref}, POST /rm/tickets/{ref}/status — all CLIENT_VIEW.
     "rm.request-tickets": (fs(Action.CLIENT_VIEW), fs()),
+    "rm.client-correspondents": (fs(Action.CLIENT_VIEW), fs()),
     # ---- MOBO ----
     "mobo.recon-overview": (fs(Action.RECON_VIEW), fs()),
     "mobo.trade-reconciliation": (fs(Action.RECON_VIEW), fs()),

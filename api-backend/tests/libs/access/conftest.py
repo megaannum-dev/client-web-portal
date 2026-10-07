@@ -53,6 +53,7 @@ PAGE_IDS: frozenset[str] = frozenset(
         "rm.onboarding-renewal",
         "rm.model-subscription",
         "rm.request-tickets",
+        "rm.client-correspondents",
         "mobo.recon-overview",
         "mobo.trade-reconciliation",
         "mobo.commission-tracking",
@@ -69,7 +70,7 @@ PAGE_IDS: frozenset[str] = frozenset(
         "compliance.sop",
     }
 )
-assert len(PAGE_IDS) == 18
+assert len(PAGE_IDS) == 19
 
 # The declared PAGE_META insertion order from impl doc §6 BE-2 (lines 312-328)
 # -- the wire order of MatrixOut.pages (§7.2). Used by BE-2 and BE-8 tests to
@@ -79,6 +80,7 @@ PAGE_META_ORDER: list[str] = [
     "rm.onboarding-renewal",
     "rm.model-subscription",
     "rm.request-tickets",
+    "rm.client-correspondents",
     "compliance.review",
     "compliance.ic-notes",
     "compliance.sop",
@@ -117,6 +119,8 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("rm.model-subscription", "ADMIN", "edit"),
     ("rm.request-tickets", "RM", "edit"),
     ("rm.request-tickets", "ADMIN", "edit"),
+    ("rm.client-correspondents", "RM", "edit"),
+    ("rm.client-correspondents", "ADMIN", "edit"),
     ("shared.monthly-reports", "RM", "view"),
     ("shared.monthly-reports", "MOBO", "view"),
     ("shared.monthly-reports", "PC", "edit"),
@@ -170,10 +174,10 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("compliance.sop", "COMPLIANCE", "view"),
     ("compliance.sop", "ADMIN", "edit"),
 ]
-assert len(PAGE_ACCESS_SEED) == 66
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 36
+assert len(PAGE_ACCESS_SEED) == 68
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 38
 assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 30
-_ROLE_COUNTS = {"RM": 8, "MOBO": 12, "PM": 2, "PC": 12, "COMPLIANCE": 14, "ADMIN": 18}
+_ROLE_COUNTS = {"RM": 9, "MOBO": 12, "PM": 2, "PC": 12, "COMPLIANCE": 14, "ADMIN": 19}
 for _role, _n in _ROLE_COUNTS.items():
     assert sum(1 for _, r, _ in PAGE_ACCESS_SEED if r == _role) == _n, _role
 

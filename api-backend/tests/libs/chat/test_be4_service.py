@@ -357,3 +357,32 @@ def test_inherited_messages_keep_their_original_author_not_the_successor(session
     # The seat, unlike the identity, IS live: the old ARM holds no seat now, so
     # the message falls back to the RM seat rather than claiming Nadia's.
     assert msg.sender_role == "rm"
+
+
+# ---------- 10. ADMIN view-all (reads only) ----------
+def test_admin_can_read_and_download_but_not_send_in_a_room_it_is_not_in(session, storage):
+    svc, rm, arm, client = _world(session)
+    session.add(PageAccess(page_id="rm.client-info", role=AdminRole.ADMIN, level=AccessLevel.EDIT))
+    session.commit()
+    dto, _ = svc.send(rm, client.id, body="hi", files=[_file()])
+    admin = make_admin(session, AdminRole.ADMIN, name="Boss")
+
+    assert [m.id for m in svc.history(admin, client.id, since=None, limit=50)] == [dto.id]
+    _, filename, _ = svc.attachment_stream(admin, dto.attachments[0].id)
+    assert filename == "a.txt"
+    with pytest.raises(HTTPException) as e:
+        svc.send(admin, client.id, body="x", files=[])
+    assert e.value.status_code == 404
+
+
+def test_non_admin_non_member_still_gets_404_on_reads(session, storage):
+    svc, rm, arm, client = _world(session)
+    dto, _ = svc.send(rm, client.id, body="hi", files=[_file()])
+    other = make_admin(session, AdminRole.COMPLIANCE, name="Nosy")
+    for call in (
+        lambda: svc.history(other, client.id, since=None, limit=50),
+        lambda: svc.attachment_stream(other, dto.attachments[0].id),
+    ):
+        with pytest.raises(HTTPException) as e:
+            call()
+        assert e.value.status_code == 404

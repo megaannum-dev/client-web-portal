@@ -31,6 +31,7 @@ export type PageId =
   | "rm.onboarding-renewal"
   | "rm.model-subscription"
   | "rm.request-tickets"
+  | "rm.client-correspondents"
   | "mobo.recon-overview"
   | "mobo.trade-reconciliation"
   | "mobo.post-trade-allocation"
@@ -100,6 +101,13 @@ export const PAGES: Record<PageId, PageDef> = {
     path: "/rm/requests",
     label: "Request Tickets",
     icon: Ticket,
+    subgroup: "Client Management",
+  },
+  "rm.client-correspondents": {
+    id: "rm.client-correspondents",
+    path: "/rm/client-correspondents",
+    label: "Client Correspondents",
+    icon: FolderOpen,
     subgroup: "Client Management",
   },
   "compliance.review": {

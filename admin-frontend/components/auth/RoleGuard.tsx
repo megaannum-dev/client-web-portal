@@ -46,7 +46,10 @@ export function RoleGuard({
     }
   }, [shouldRedirect, redirectTo, router]);
 
-  if (isLoading || portalUser == null) {
+  // Spinner only until the first profile arrives. AuthGuard re-syncs grants on
+  // every navigation; swapping in a spinner then would unmount the page (and
+  // the RM chat provider), refetching everything and closing open rooms.
+  if (loading || portalUser == null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
         <div className="size-6 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
