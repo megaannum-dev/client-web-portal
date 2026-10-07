@@ -5,7 +5,7 @@ import { Download, FileUp, Loader2, Trash2 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { DetailShell, coLabelCls } from "@/components/compliance/Shared";
 import { FormatBadge, FormatBadgeBig, sopFormat } from "./FormatBadge";
-import { SopIconBtn } from "./SopActions";
+import { AsyncIconButton } from "@/components/ui/AsyncIconButton";
 import { ClassTag, VerTag } from "./Tags";
 import { Who } from "./Who";
 import { fmtDate, fmtSize } from "@/components/compliance/ic-notes/format";
@@ -167,8 +167,8 @@ export function SopDetailPanel({
                 <div className="text-[12.5px] text-secondary">{fmtDate(v.uploaded_at)} · {v.uploaded_by_name} · {fmtSize(v.size_bytes)}</div>
               </div>
               <div className="flex flex-none gap-2">
-                <SopIconBtn icon={Download} title={`Download v${v.version_no}`} onClick={() => onDownload(v)} />
-                {canWrite && <SopIconBtn icon={Trash2} title={`Delete v${v.version_no}`} danger onClick={() => onDeleteVersion(v, versions)} />}
+                <AsyncIconButton icon={Download} title={`Download v${v.version_no}`} onClick={() => onDownload(v)} />
+                {canWrite && <AsyncIconButton icon={Trash2} title={`Delete v${v.version_no}`} danger onClick={() => onDeleteVersion(v, versions)} />}
               </div>
             </div>
           ))}
