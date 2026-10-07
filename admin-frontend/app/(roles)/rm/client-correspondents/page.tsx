@@ -25,10 +25,10 @@ export default function ClientCorrespondentsPage() {
     return () => clearTimeout(t);
   }, [ui.q]);
 
-  // Any filter change resets selection (the list resets to page 1 too).
+  // Any filter or sort change resets selection (the list resets to page 1 too).
   const setUi = useCallback((patch: Partial<CorrespondentsUi>) => {
     setUiState((s) => ({ ...s, ...patch }));
-    if (Object.keys(patch).some((k) => k !== "sort")) setSelected(new Set());
+    setSelected(new Set());
   }, []);
 
   const query = useMemo(() => toQuery({ ...ui, q: debouncedQ }, new Date()), [ui, debouncedQ]);

@@ -67,6 +67,15 @@ describe("Client Correspondents page", () => {
     expect(m.loadMore).toHaveBeenCalledTimes(1);
   });
 
+  it("sort change clears the selection", async () => {
+    m.docs.mockReturnValue(state([doc("a")]));
+    await renderPage();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select a.pdf" }));
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Date shared/i }));
+    expect(screen.queryByText("1 selected")).toBeNull();
+  });
+
   it("Show in group chat opens the room focused on the attachment", async () => {
     m.docs.mockReturnValue(state([doc("a")]));
     await renderPage();
