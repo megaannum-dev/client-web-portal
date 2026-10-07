@@ -9,19 +9,24 @@ by construction.
 
 from __future__ import annotations
 
+import base64
 import uuid
 from datetime import datetime
 from typing import Literal
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from app.models.chat import ChatMessage
+from app.models.chat import ChatAttachment, ChatMessage
 from app.models.users import ClientProfile
 
 # Who a message is FROM, as the chat UI needs to know it: the fill of the
 # sender's avatar, which side of the thread the bubble sits on, and the role
 # caption under the name. Three values because the room has three seats.
 SenderRole = Literal["client", "rm", "assistant"]
+
+# (attachment, room profile, sender uid, sender name, sender is staff, rm name, arm name)
+DocumentRow = tuple[ChatAttachment, ClientProfile, str, str | None, bool, str | None, str | None]
 
 
 def sender_role(*, is_staff: bool, sender_uid: str, profile: ClientProfile) -> SenderRole:
@@ -117,3 +122,69 @@ class ChatMessageDTO(BaseModel):
             ],
             created_at=msg.created_at,
         )
+
+
+class ChatDocumentDTO(BaseModel):
+    """One attachment, flattened with its room and sender -- the RM
+    "Client Correspondents" row. Download via `GET /chat/attachments/{id}`."""
+
+    id: uuid.UUID  # chat_attachments.id
+    filename: str
+    content_type: str | None
+    size_bytes: int | None
+    created_at: datetime  # chat_attachments.created_at
+    message_id: uuid.UUID
+    client_id: uuid.UUID  # the room key
+    client_name: str
+    sender_uid: str
+    sender_name: str | None
+    sender_role: SenderRole
+    rm_name: str | None
+    arm_name: str | None
+
+    @classmethod
+    def from_row(cls, row: "DocumentRow") -> "ChatDocumentDTO":
+        att, room, sender_uid, sender_name, is_staff, rm_name, arm_name = row
+        return cls(
+            id=att.id,
+            filename=att.filename,
+            content_type=att.content_type,
+            size_bytes=att.size_bytes,
+            created_at=att.created_at,
+            message_id=att.message_id,
+            client_id=room.user_id,
+            client_name=room.name,
+            sender_uid=sender_uid,
+            sender_name=sender_name,
+            sender_role=sender_role(is_staff=bool(is_staff), sender_uid=sender_uid, profile=room),
+            rm_name=rm_name,
+            arm_name=arm_name,
+        )
+
+
+class ChatDocumentPage(BaseModel):
+    items: list[ChatDocumentDTO]
+    next_cursor: str | None
+    total: int  # same filters, no cursor
+
+
+class ChatDocumentSenderDTO(BaseModel):
+    uid: str
+    name: str | None
+    role: SenderRole
+    client_name: str | None  # a client's own room; None for staff (they span rooms)
+
+
+def encode_cursor(created_at: datetime, att_id: uuid.UUID) -> str:
+    raw = f"{created_at.isoformat()}|{att_id}"
+    return base64.urlsafe_b64encode(raw.encode()).decode()
+
+
+def decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    """Opaque `<created_at iso>|<attachment uuid>`; anything else is a 422."""
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+        ts, _, att_id = raw.partition("|")
+        return datetime.fromisoformat(ts), uuid.UUID(att_id)
+    except (ValueError, UnicodeError) as exc:  # binascii.Error is a ValueError
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Malformed cursor") from exc
