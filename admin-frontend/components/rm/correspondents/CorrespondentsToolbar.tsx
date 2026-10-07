@@ -82,8 +82,8 @@ export function CorrespondentsToolbar({
   const today = localIso(new Date());
   const needle = senderQ.toLowerCase();
   const sorted = [...senders].sort((a, b) =>
-    Number(b.uid === meUid) - Number(a.uid === meUid) || a.name.localeCompare(b.name));
-  const shown = sorted.filter((s) => `${s.name} ${s.client_name}`.toLowerCase().includes(needle));
+    Number(b.uid === meUid) - Number(a.uid === meUid) || (a.name ?? "").localeCompare(b.name ?? ""));
+  const shown = sorted.filter((s) => [s.name, s.client_name].filter(Boolean).join(" ").toLowerCase().includes(needle));
   const dirty = ui.view !== "all" || ui.preset !== "any" || ui.senders.length > 0 || !!ui.q;
 
   let dateValue: string | null = null;
@@ -95,7 +95,7 @@ export function CorrespondentsToolbar({
   }
   const picked = senders.find((s) => s.uid === ui.senders[0]);
   const senderValue = ui.senders.length === 0 ? null
-    : ui.senders.length === 1 && picked ? (picked.uid === meUid ? "You" : picked.name) : `${ui.senders.length} selected`;
+    : ui.senders.length === 1 && picked ? (picked.uid === meUid ? "You" : picked.name ?? picked.uid) : `${ui.senders.length} selected`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant px-5 py-3.5">
@@ -167,8 +167,8 @@ export function CorrespondentsToolbar({
                 <span className={clsx("flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-white", on ? "bg-primary" : "border-[1.5px] border-outline bg-white")}>
                   {on && <Check size={11} strokeWidth={3} />}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{s.uid === meUid ? `You (${s.name})` : s.name}</span>
-                {s.uid !== meUid && <span className="text-[11px] font-normal text-secondary">{s.client_name}</span>}
+                <span className="min-w-0 flex-1 truncate">{s.uid === meUid ? `You (${s.name ?? s.uid})` : s.name ?? s.uid}</span>
+                {s.uid !== meUid && s.client_name && <span className="text-[11px] font-normal text-secondary">{s.client_name}</span>}
               </button>
             );
           })}

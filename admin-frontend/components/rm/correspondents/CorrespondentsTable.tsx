@@ -125,7 +125,7 @@ export function CorrespondentsTable({
                       {initialsOf(d.sender_name)}
                     </span>
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-on-surface">{me ? "You" : d.sender_name}</div>
+                      <div className="truncate font-semibold text-on-surface">{me ? "You" : d.sender_name ?? d.sender_uid}</div>
                       <div className="text-xs text-secondary">{ROLE_LABEL[d.sender_role]}</div>
                     </div>
                   </div>

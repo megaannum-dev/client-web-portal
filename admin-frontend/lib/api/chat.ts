@@ -157,7 +157,7 @@ export interface ChatDocumentDTO {
   client_id: string; // room key
   client_name: string;
   sender_uid: string;
-  sender_name: string;
+  sender_name: string | null;
   sender_role: SenderRole;
   rm_name: string | null;
   arm_name: string | null;
@@ -171,9 +171,9 @@ export interface ChatDocumentPage {
 
 export interface ChatDocumentSender {
   uid: string;
-  name: string;
+  name: string | null;
   role: SenderRole;
-  client_name: string;
+  client_name: string | null; // null for staff
 }
 
 export interface ChatDocumentParams {
