@@ -1,12 +1,9 @@
 import { localIso } from "@/lib/chat/adapter";
 import type { ChatDocumentParams } from "@/lib/api/chat";
 
-export type DatePreset = "any" | "7" | "30" | "90" | "custom";
-
 export interface CorrespondentsUi {
   view: "all" | "in" | "out"; // Recent | Received | Sent
-  preset: DatePreset;
-  from: string; // yyyy-mm-dd, custom only
+  from: string; // yyyy-mm-dd, "" = open
   to: string;
   senders: string[];
   q: string;
@@ -14,24 +11,18 @@ export interface CorrespondentsUi {
 }
 
 export const INITIAL_UI: CorrespondentsUi = {
-  view: "all", preset: "any", from: "", to: "", senders: [], q: "", sort: "desc",
+  view: "all", from: "", to: "", senders: [], q: "", sort: "desc",
 };
 
-/** UI state -> API params. Presets become a date_from here so the server only sees a range. */
-export function toQuery(ui: CorrespondentsUi, today: Date): Omit<ChatDocumentParams, "cursor"> {
+/** UI state -> API params. */
+export function toQuery(ui: CorrespondentsUi): Omit<ChatDocumentParams, "cursor"> {
   const p: Omit<ChatDocumentParams, "cursor"> = { sort: ui.sort };
   if (ui.view !== "all") p.view = ui.view;
   if (ui.senders.length) p.sender = ui.senders;
   const q = ui.q.trim();
   if (q) p.q = q;
-  if (ui.preset === "7" || ui.preset === "30" || ui.preset === "90") {
-    const d = new Date(today);
-    d.setDate(d.getDate() - Number(ui.preset));
-    p.date_from = localIso(d);
-  } else if (ui.preset === "custom") {
-    if (ui.from) p.date_from = ui.from;
-    if (ui.to) p.date_to = ui.to;
-  }
+  if (ui.from) p.date_from = ui.from;
+  if (ui.to) p.date_to = ui.to;
   return p;
 }
 

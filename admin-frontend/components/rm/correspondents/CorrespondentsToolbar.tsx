@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
-import { ArrowDownLeft, ArrowUpRight, CalendarDays, Check, ChevronDown, History, Search, UserRound, X } from "@/lib/icons";
+import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, History, Search, UserRound, X } from "@/lib/icons";
 import type { ChatDocumentSender } from "@/lib/api/chat";
-import { localIso } from "@/lib/chat/adapter";
-import { INITIAL_UI, fmtShared, type CorrespondentsUi, type DatePreset } from "./toQuery";
+import { DateControl } from "@/components/ui/DateControl";
+import { INITIAL_UI, fmtShared, type CorrespondentsUi } from "./toQuery";
 
 // Visual order = prototype's [Recent, Received, Sent] under row-reverse.
 const VIEWS: { id: CorrespondentsUi["view"]; label: string; icon: LucideIcon }[] = [
@@ -14,16 +14,9 @@ const VIEWS: { id: CorrespondentsUi["view"]; label: string; icon: LucideIcon }[]
   { id: "in", label: "Received", icon: ArrowDownLeft },
   { id: "all", label: "Recent", icon: History },
 ];
-const PRESETS: { id: DatePreset; label: string }[] = [
-  { id: "any", label: "Any time" },
-  { id: "7", label: "Last 7 days" },
-  { id: "30", label: "Last 30 days" },
-  { id: "90", label: "Last 90 days" },
-  { id: "custom", label: "Custom range…" },
-];
 
+const NO_MARKS = new Set<string>(); // no per-day data source
 const ROW = "flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-[13px] hover:bg-surface-container";
-const DATE_INPUT = "rounded border border-outline-variant bg-white px-2.5 py-[7px] text-[13px] font-normal normal-case tracking-normal text-on-surface";
 
 function Pill({ icon: Icon, label, value, active, width, onClear, children }: {
   icon: LucideIcon; label: string; value: string | null; active: boolean; width: string; onClear: () => void; children: ReactNode;
@@ -80,20 +73,15 @@ export function CorrespondentsToolbar({
   meUid: string | null;
 }) {
   const [senderQ, setSenderQ] = useState("");
-  const today = localIso(new Date());
   const needle = senderQ.toLowerCase();
   const sorted = [...senders].sort((a, b) =>
     Number(b.uid === meUid) - Number(a.uid === meUid) || (a.name ?? "").localeCompare(b.name ?? ""));
   const shown = sorted.filter((s) => [s.name, s.client_name].filter(Boolean).join(" ").toLowerCase().includes(needle));
-  const dirty = ui.view !== "all" || ui.preset !== "any" || ui.senders.length > 0 || !!ui.q;
 
-  let dateValue: string | null = null;
-  if (ui.preset === "custom") {
-    const f = (d: string) => (d ? fmtShared(`${d}T12:00:00`) : "…");
-    dateValue = `${f(ui.from)} – ${f(ui.to)}`;
-  } else if (ui.preset !== "any") {
-    dateValue = PRESETS.find((p) => p.id === ui.preset)!.label;
-  }
+  const dateActive = !!(ui.from || ui.to);
+  const dirty = ui.view !== "all" || dateActive || ui.senders.length > 0 || !!ui.q;
+  const f = (d: string) => fmtShared(`${d}T12:00:00`);
+  const dateLabel = !dateActive ? "Any time" : ui.from === ui.to ? f(ui.from) : `${f(ui.from)} – ${f(ui.to)}`;
   const picked = senders.find((s) => s.uid === ui.senders[0]);
   const senderValue = ui.senders.length === 0 ? null
     : ui.senders.length === 1 && picked ? (picked.uid === meUid ? "You" : picked.name ?? picked.uid) : `${ui.senders.length} selected`;
@@ -118,31 +106,18 @@ export function CorrespondentsToolbar({
       </div>
       <span className="mx-1.5 h-[22px] w-px bg-outline-variant" />
 
-      <Pill icon={CalendarDays} label="Date" value={dateValue} active={ui.preset !== "any"} width="w-[250px]"
-        onClear={() => setUi({ preset: "any", from: "", to: "" })}>
-        {PRESETS.map((p) => {
-          const on = ui.preset === p.id;
-          return (
-            <button key={p.id} type="button" onClick={() => setUi({ preset: p.id })}
-              className={clsx(ROW, on ? "font-semibold text-on-surface" : "font-medium text-secondary")}>
-              <span className={clsx("flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px]", on ? "border-primary" : "border-outline")}>
-                {on && <span className="h-2 w-2 rounded-full bg-primary" />}
-              </span>
-              {p.label}
-            </button>
-          );
-        })}
-        {ui.preset === "custom" && (
-          <div className="mt-1 grid grid-cols-2 gap-2 border-t border-outline-variant px-2.5 pb-1.5 pt-2">
-            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">From
-              <input type="date" value={ui.from} max={ui.to || today} onChange={(e) => setUi({ from: e.target.value })} className={DATE_INPUT} />
-            </label>
-            <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">To
-              <input type="date" value={ui.to} min={ui.from || undefined} max={today} onChange={(e) => setUi({ to: e.target.value })} className={DATE_INPUT} />
-            </label>
-          </div>
+      <DateControl
+        dateLabel={dateLabel}
+        markedDates={NO_MARKS}
+        disableWeekends={false}
+        onPickDate={(d) => setUi({ from: d, to: d })}
+        onPickRange={(from, to) => setUi({ from, to })}
+        onClear={() => setUi({ from: "", to: "" })}
+        triggerClassName={clsx(
+          "inline-flex items-center gap-2 rounded-full border py-[7px] pl-3.5 pr-3.5 text-[13px] font-semibold transition-all duration-150",
+          dateActive ? "border-primary bg-primary-fixed text-primary" : "border-outline-variant bg-white text-secondary hover:bg-surface-low",
         )}
-      </Pill>
+      />
 
       <Pill icon={UserRound} label="Sender" value={senderValue} active={ui.senders.length > 0} width="w-[280px]"
         onClear={() => setUi({ senders: [] })}>

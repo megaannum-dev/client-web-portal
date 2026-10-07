@@ -31,7 +31,7 @@ export default function ClientCorrespondentsPage() {
     setSelected(new Set());
   }, []);
 
-  const query = useMemo(() => toQuery({ ...ui, q: debouncedQ }, new Date()), [ui, debouncedQ]);
+  const query = useMemo(() => toQuery({ ...ui, q: debouncedQ }), [ui, debouncedQ]);
   const { docs, total, loading, loadingMore, error, hasMore, loadMore, retry } = useChatDocuments(query);
   const { senders } = useChatDocumentSenders();
 

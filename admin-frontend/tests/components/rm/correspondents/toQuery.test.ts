@@ -5,18 +5,15 @@ const today = new Date(2026, 9, 7, 12); // 7 Oct 2026, local
 
 describe("toQuery", () => {
   it("omits empty values and view=all", () => {
-    expect(toQuery(INITIAL_UI, today)).toEqual({ sort: "desc" });
+    expect(toQuery(INITIAL_UI)).toEqual({ sort: "desc" });
   });
-  it.each([["7", "2026-09-30"], ["30", "2026-09-07"], ["90", "2026-07-09"]] as const)(
-    "preset %s -> date_from", (preset, from) => {
-      expect(toQuery({ ...INITIAL_UI, preset }, today).date_from).toBe(from);
-    });
-  it("custom range passes from/to, dropping blanks", () => {
-    expect(toQuery({ ...INITIAL_UI, preset: "custom", from: "2026-01-01", to: "" }, today))
-      .toEqual({ sort: "desc", date_from: "2026-01-01" });
+  it("passes from/to, dropping blanks", () => {
+    expect(toQuery({ ...INITIAL_UI, from: "2026-01-01", to: "" })).toEqual({ sort: "desc", date_from: "2026-01-01" });
+    expect(toQuery({ ...INITIAL_UI, from: "2026-01-01", to: "2026-01-31" }))
+      .toEqual({ sort: "desc", date_from: "2026-01-01", date_to: "2026-01-31" });
   });
   it("passes view, senders, trimmed q and sort", () => {
-    expect(toQuery({ ...INITIAL_UI, view: "in", senders: ["a", "b"], q: " x ", sort: "asc" }, today))
+    expect(toQuery({ ...INITIAL_UI, view: "in", senders: ["a", "b"], q: " x ", sort: "asc" }))
       .toEqual({ sort: "asc", view: "in", sender: ["a", "b"], q: "x" });
   });
 });
