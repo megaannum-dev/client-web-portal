@@ -38,6 +38,7 @@ export function AttachmentRow({
   return (
     <button
       type="button"
+      data-attachment-id={attachment.id}
       onClick={onClick}
       className={clsx(
         "group flex w-full items-center gap-[9px] rounded px-2.5 py-2 text-left transition-colors duration-150",

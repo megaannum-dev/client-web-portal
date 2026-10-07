@@ -45,7 +45,8 @@ function participantsFor(client: RoomClient): Participant[] {
 type FrameHandler = (frame: NewMessageFrame) => void;
 
 interface ChatRoomContextValue {
-  openRoom: (client: RoomClient) => void;
+  /** `focusAttachmentId` scrolls to and flashes that attachment once the thread loads. */
+  openRoom: (client: RoomClient, opts?: { focusAttachmentId?: string }) => void;
   closeRoom: () => void;
   /** Register a listener for pushes. Returns its unsubscribe. Frames arrive for
    *  every thread this RM is in, so listeners must filter on client_id. */
@@ -67,6 +68,7 @@ const ChatRoomContext = createContext<ChatRoomContextValue>({
 
 export function ChatRoomProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<RoomClient | null>(null);
+  const [focusAttachmentId, setFocusAttachmentId] = useState<string | null>(null);
   // Latched, never cleared: the socket outlives any single room (see header).
   const [everOpened, setEverOpened] = useState(false);
 
@@ -86,9 +88,10 @@ export function ChatRoomProvider({ children }: { children: ReactNode }) {
 
   const { status: socketStatus } = useChatSocket({ enabled: everOpened, onFrame });
 
-  const openRoom = useCallback((c: RoomClient) => {
+  const openRoom = useCallback((c: RoomClient, opts?: { focusAttachmentId?: string }) => {
     setEverOpened(true);
     setClient(c);
+    setFocusAttachmentId(opts?.focusAttachmentId ?? null);
   }, []);
   const closeRoom = useCallback(() => setClient(null), []);
 
@@ -111,6 +114,8 @@ export function ChatRoomProvider({ children }: { children: ReactNode }) {
           subscribe={subscribe}
           socketOpen={socketStatus === "open"}
           onClose={closeRoom}
+          focusAttachmentId={focusAttachmentId}
+          onFocusConsumed={() => setFocusAttachmentId(null)}
         />
       )}
     </ChatRoomContext.Provider>
@@ -125,11 +130,15 @@ function OpenRoom({
   subscribe,
   socketOpen,
   onClose,
+  focusAttachmentId,
+  onFocusConsumed,
 }: {
   client: RoomClient;
   subscribe: (handler: FrameHandler) => () => void;
   socketOpen: boolean;
   onClose: () => void;
+  focusAttachmentId: string | null;
+  onFocusConsumed: () => void;
 }) {
   const { days, sending, send } = useChatThread({
     clientId: client.id,
@@ -143,6 +152,8 @@ function OpenRoom({
       sending={sending}
       onSend={(body, files) => void send(body, files)}
       onClose={onClose}
+      focusAttachmentId={focusAttachmentId}
+      onFocusConsumed={onFocusConsumed}
     />
   );
 }

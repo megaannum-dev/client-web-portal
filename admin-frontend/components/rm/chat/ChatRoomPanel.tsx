@@ -57,6 +57,10 @@ export interface ChatRoomPanelProps {
   onSend?: (body: string, files: File[]) => void;
   /** True while that POST is in flight; disables only the send button. */
   sending?: boolean;
+  /** Attachment to scroll to + flash once it is in `messages`. Silently ignored if never found. */
+  focusAttachmentId?: string | null;
+  /** Called once the focus has been applied, so the caller clears it. */
+  onFocusConsumed?: () => void;
   onClose: () => void;
 }
 
@@ -67,7 +71,7 @@ const STAGED_ICON = {
 } as const;
 
 export function ChatRoomPanel({
-  participants, messages = [], onSend = () => {}, sending = false, onClose,
+  participants, messages = [], onSend = () => {}, sending = false, focusAttachmentId = null, onFocusConsumed, onClose,
 }: ChatRoomPanelProps) {
   const [root, setRoot] = useState<Element | null>(null);
   useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
@@ -110,6 +114,24 @@ export function ChatRoomPanel({
     requestAnimationFrame(scrollToEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-link: once the target attachment is rendered, put it ~1/3 down the
+  // thread and ring it for 3s. Not found (outside the loaded window) = no-op.
+  useEffect(() => {
+    if (!focusAttachmentId) return;
+    const thread = threadRef.current;
+    const target = thread?.querySelector<HTMLElement>(`[data-attachment-id="${CSS.escape(focusAttachmentId)}"]`);
+    if (!thread || !target) return;
+    const top = target.getBoundingClientRect().top - thread.getBoundingClientRect().top + thread.scrollTop;
+    thread.scrollTop = Math.max(0, top - thread.clientHeight / 3);
+    const ring = ["ring-2", "ring-primary", "ring-offset-2"];
+    target.classList.add(...ring);
+    onFocusConsumed?.();
+    // Deliberately not cleaned up on re-run: consuming the focus re-runs this
+    // effect, and that must not cancel the timer that removes the ring.
+    setTimeout(() => target.classList.remove(...ring), 3000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusAttachmentId, messages, root]);
 
   function handleThreadScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
