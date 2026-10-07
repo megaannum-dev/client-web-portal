@@ -15,7 +15,7 @@ from app.libs.auth.actions import Action
 from app.libs.chat.repository import ChatRepository
 from app.libs.chat.schemas import ChatMessageDTO, sender_role
 from app.libs.users.repository import UserRepository
-from app.models.users import ClientProfile, Portal, User
+from app.models.users import AdminRole, ClientProfile, Portal, User
 
 # Feature-local tunables off bare os.getenv, not Settings fields -- same
 # convention as CLIENT_UPLOAD_WINDOW_DAYS (client_portal/service.py:76).
@@ -31,7 +31,9 @@ class ChatService:
         self.repo = ChatRepository(db)
 
     # ---------- The gate ----------
-    def _require_member(self, client_id: uuid.UUID, user: User) -> ClientProfile:
+    def _require_member(
+        self, client_id: uuid.UUID, user: User, *, allow_admin: bool = False
+    ) -> ClientProfile:
         """Live membership. Nothing cached, nothing snapshotted (see the
         app/models/chat.py docstring): reassigning a client's RM instantly
         moves the whole thread.
@@ -42,11 +44,12 @@ class ChatService:
         Returns the profile: callers need assigned_rm_uid / asst_rm_uid for the
         WebSocket fan-out list, so the row is not thrown away.
 
-        ADMIN and COMPLIANCE get NO special visibility in v1. Two conflicting
+        ADMIN gets read-only view-all, and only where the caller passes
+        `allow_admin=True` (history, attachment download); sending stays
+        members-only. COMPLIANCE gets no special visibility. Two conflicting
         full-visibility role sets already exist (clients/repository.py:20 has
         {ADMIN, COMPLIANCE}, client_portal/service.py:58 has {ADMIN}); a third
-        would be worse than none. v2 supervision should EXTEND
-        client_portal/service.py:58's set rather than add another.
+        would be worse than none.
         """
         profile = self.repo.client_profile(client_id)
         if profile is None:
@@ -57,6 +60,10 @@ class ChatService:
             # ID asymmetry is deliberate: client_profiles.assigned_rm_uid /
             # asst_rm_uid hold users.firebase_uid strings, not users.id.
             allowed = self.repo.is_rm_or_arm(client_id, user.firebase_uid)
+            # ponytail: ADMIN-only view-all; widen to a role set if COMPLIANCE needs it
+            if allow_admin and not allowed:
+                profile_ = user.admin_profile
+                allowed = profile_ is not None and profile_.role == AdminRole.ADMIN
         if not allowed:
             # Scoped 404, never 403 -- a 403 would leak the thread's (and the
             # client's) existence to a caller who should not know it exists.
@@ -112,7 +119,7 @@ class ChatService:
         client_id = self.resolve_client_id(user, client_id)
         # The gate's profile is reused for the role derivation -- the same row,
         # read once, so naming the seats costs no extra query.
-        profile = self._require_member(client_id, user)
+        profile = self._require_member(client_id, user, allow_admin=True)
         self._require_action(user, Action.CLIENT_VIEW)
         # A `limit` straight off the query string is a trust boundary too.
         capped = max(1, min(limit, CHAT_HISTORY_MAX_LIMIT))
@@ -233,7 +240,7 @@ class ChatService:
         if row is None:
             raise HTTPException(404, "Unknown attachment")
         att, owner_client_id = row
-        self._require_member(owner_client_id, user)
+        self._require_member(owner_client_id, user, allow_admin=True)
         self._require_action(user, Action.CLIENT_VIEW)
         return (
             get_storage(Bucket.CHAT).open(att.storage_key),
