@@ -72,7 +72,7 @@ export default function ClientCorrespondentsPage() {
   });
   const toggleAll = (on: boolean) => setSelected(on ? new Set(docs.map((d) => d.id)) : new Set());
   const show = (d: ChatDocumentDTO) =>
-    openRoom({ id: d.client_id, name: d.client_name, assignedRm: d.rm_name ?? undefined }, { focusAttachmentId: d.id });
+    openRoom({ id: d.client_id, name: d.client_name, assignedRm: d.rm_name ?? undefined, rmUid: d.rm_uid, armUid: d.arm_uid }, { focusAttachmentId: d.id });
 
   return (
     <div className="mx-auto">

@@ -57,6 +57,9 @@ export interface ChatRoomPanelProps {
   onSend?: (body: string, files: File[]) => void;
   /** True while that POST is in flight; disables only the send button. */
   sending?: boolean;
+  /** False when the caller isn't this room's RM/ARM (e.g. ADMIN reading
+   *  view-all) -- the composer becomes read-only. Defaults true. */
+  canSend?: boolean;
   /** Attachment to scroll to + flash once it is in `messages`. Silently ignored if never found. */
   focusAttachmentId?: string | null;
   /** Called once the focus has been applied, so the caller clears it. */
@@ -71,7 +74,7 @@ const STAGED_ICON = {
 } as const;
 
 export function ChatRoomPanel({
-  participants, messages = [], onSend = () => {}, sending = false, focusAttachmentId = null, onFocusConsumed, onClose,
+  participants, messages = [], onSend = () => {}, sending = false, canSend = true, focusAttachmentId = null, onFocusConsumed, onClose,
 }: ChatRoomPanelProps) {
   const [root, setRoot] = useState<Element | null>(null);
   useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
@@ -375,7 +378,7 @@ export function ChatRoomPanel({
           )}
 
           {/* Composer */}
-          {canEdit ? (
+          {canEdit && canSend ? (
             <div
               className={clsx(
                 "flex flex-shrink-0 items-start gap-2.5 border-t border-outline-variant",
@@ -464,7 +467,11 @@ export function ChatRoomPanel({
             /* View/Edit Gate Function */
             <div className="flex flex-shrink-0 items-center gap-2 border-t border-outline-variant px-5 py-3.5 text-[12.5px] text-secondary">
               <Eye size={14} strokeWidth={1.75} />
-              <span>View access — you can read this room but not post.</span>
+              <span>
+                {canEdit
+                  ? "You're not in this room — only its RM and assistant RM can post."
+                  : "View access — you can read this room but not post."}
+              </span>
             </div>
           )}
         </div>

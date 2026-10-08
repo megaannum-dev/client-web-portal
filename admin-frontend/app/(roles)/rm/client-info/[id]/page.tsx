@@ -221,7 +221,7 @@ export default function ClientDetailPage() {
           {canEdit && (
             <ChatRoomButton
               label="Client Room"
-              onClick={() => openRoom({ id: data.id, name: data.name, assignedRm: data.assignedRm })}
+              onClick={() => openRoom({ id: data.id, name: data.name, assignedRm: data.assignedRm, rmUid: data.rmUid, armUid: data.armUid })}
             />
           )}
           {/* View/Edit Gate Function */}

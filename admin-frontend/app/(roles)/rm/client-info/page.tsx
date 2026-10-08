@@ -434,7 +434,7 @@ export default function RmDashboardPage() {
                           {canEdit && (
                             <ChatRoomButton
                               size={28}
-                              onClick={() => openRoom({ id: r.id, name: r.name, assignedRm: r.assignedRm })}
+                              onClick={() => openRoom({ id: r.id, name: r.name, assignedRm: r.assignedRm, rmUid: r.rmUid, armUid: r.armUid })}
                             />
                           )}
                           <ChevronRight size={16} strokeWidth={2} />

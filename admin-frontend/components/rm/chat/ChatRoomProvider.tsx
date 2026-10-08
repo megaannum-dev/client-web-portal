@@ -23,6 +23,7 @@ import { ChatRoomPanel } from "./ChatRoomPanel";
 import type { Participant } from "./types";
 import { useChatSocket, type ChatSocketStatus } from "@/lib/chat/useChatSocket";
 import type { NewMessageFrame } from "@/lib/api/chat";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useChatThread } from "@/lib/chat/useChatThread";
 
 /** The minimal client shape either entry point (client-book row, client
@@ -34,6 +35,10 @@ export interface RoomClient {
   id: string;
   name: string | null;
   assignedRm?: string | null;
+  /** Room-member uids. Only these two may post; anyone else (ADMIN's
+   *  view-all included) gets a read-only composer. Matches send's server gate. */
+  rmUid?: string | null;
+  armUid?: string | null;
 }
 
 function participantsFor(client: RoomClient): Participant[] {
@@ -145,8 +150,11 @@ function OpenRoom({
     subscribe,
     socketOpen,
   });
+  const meUid = useAuth().portalUser?.firebase_uid;
+  const canSend = meUid != null && (meUid === client.rmUid || meUid === client.armUid);
   return (
     <ChatRoomPanel
+      canSend={canSend}
       participants={participantsFor(client)}
       messages={days}
       sending={sending}

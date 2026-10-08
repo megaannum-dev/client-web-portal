@@ -48,6 +48,9 @@ class ClientRow:
     communication_preferences: str | None
     gift_hospitality_preferences: str | None
     relationship_notes: str | None
+    # raw room-member uids -- FE enables the Client Room composer only for these
+    assigned_rm_uid: str | None = None
+    asst_rm_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,8 @@ class ClientRepository:
                 ClientProfile.communication_preferences,
                 ClientProfile.gift_hospitality_preferences,
                 ClientProfile.relationship_notes,
+                ClientProfile.assigned_rm_uid,
+                ClientProfile.asst_rm_uid,
             )
             .outerjoin(RM, RM.firebase_uid == ClientProfile.assigned_rm_uid)
             .outerjoin(RMProfile, RMProfile.user_id == RM.id)
@@ -244,4 +249,6 @@ class ClientRepository:
             communication_preferences=r.communication_preferences,
             gift_hospitality_preferences=r.gift_hospitality_preferences,
             relationship_notes=r.relationship_notes,
+            assigned_rm_uid=r.assigned_rm_uid,
+            asst_rm_uid=r.asst_rm_uid,
         )
