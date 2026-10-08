@@ -35,6 +35,8 @@ export interface ClientListItemDTO {
   communication_preferences?: string | null;
   gift_hospitality_preferences?: string | null;
   relationship_notes?: string | null;
+  assigned_rm_uid?: string | null; // raw room-member uids, for the Client Room composer
+  asst_rm_uid?: string | null;
 }
 
 /** Partial-update body for PATCH /api/rm/clients/{client_id} -- any subset of
@@ -86,6 +88,8 @@ export interface ClientRow {
   communicationPreferences: string | null;
   giftHospitalityPreferences: string | null;
   relationshipNotes: string | null;
+  rmUid: string | null;
+  armUid: string | null;
 }
 
 export function dtoToRow(d: ClientListItemDTO): ClientRow {
@@ -115,6 +119,8 @@ export function dtoToRow(d: ClientListItemDTO): ClientRow {
     communicationPreferences: d.communication_preferences ?? null,
     giftHospitalityPreferences: d.gift_hospitality_preferences ?? null,
     relationshipNotes: d.relationship_notes ?? null,
+    rmUid: d.assigned_rm_uid ?? null,
+    armUid: d.asst_rm_uid ?? null,
   };
 }
 

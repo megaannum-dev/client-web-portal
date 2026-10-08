@@ -15,6 +15,7 @@ import {
   Ticket,
   Settings,
   FolderOpen,
+  FileUser,
   type LucideIcon,
 } from "lucide-react";
 import { NotebookText, Receipt } from "@/lib/icons";
@@ -107,7 +108,7 @@ export const PAGES: Record<PageId, PageDef> = {
     id: "rm.client-correspondents",
     path: "/rm/client-correspondents",
     label: "Client Correspondents",
-    icon: FolderOpen,
+    icon: FileUser,
     subgroup: "Client Management",
   },
   "compliance.review": {

@@ -161,6 +161,8 @@ export interface ChatDocumentDTO {
   sender_role: SenderRole;
   rm_name: string | null;
   arm_name: string | null;
+  rm_uid?: string | null;
+  arm_uid?: string | null;
 }
 
 export interface ChatDocumentPage {

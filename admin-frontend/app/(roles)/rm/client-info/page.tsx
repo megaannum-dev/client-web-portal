@@ -431,10 +431,12 @@ export default function RmDashboardPage() {
                       </td>
                       <td className="border-t border-outline-variant px-3.5 py-[13px] text-right text-secondary group-hover:text-primary">
                         <div className="ml-auto flex items-center justify-end gap-2">
-                          <ChatRoomButton
-                            size={28}
-                            onClick={() => openRoom({ id: r.id, name: r.name, assignedRm: r.assignedRm })}
-                          />
+                          {canEdit && (
+                            <ChatRoomButton
+                              size={28}
+                              onClick={() => openRoom({ id: r.id, name: r.name, assignedRm: r.assignedRm, rmUid: r.rmUid, armUid: r.armUid })}
+                            />
+                          )}
                           <ChevronRight size={16} strokeWidth={2} />
                         </div>
                       </td>

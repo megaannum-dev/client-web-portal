@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useChatRoom } from "@/components/rm/chat/ChatRoomProvider";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { CorrespondentsToolbar } from "@/components/rm/correspondents/CorrespondentsToolbar";
 import { CorrespondentsTable } from "@/components/rm/correspondents/CorrespondentsTable";
 import { INITIAL_UI, toQuery, type CorrespondentsUi } from "@/components/rm/correspondents/toQuery";
@@ -15,6 +16,7 @@ import { useChatDocumentSenders, useChatDocuments } from "@/lib/chat/useChatDocu
 export default function ClientCorrespondentsPage() {
   const { portalUser, getIdToken } = useAuth();
   const { openRoom } = useChatRoom();
+  const canEdit = useCanEdit("rm.client-correspondents");
   const [ui, setUiState] = useState<CorrespondentsUi>(INITIAL_UI);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -70,7 +72,7 @@ export default function ClientCorrespondentsPage() {
   });
   const toggleAll = (on: boolean) => setSelected(on ? new Set(docs.map((d) => d.id)) : new Set());
   const show = (d: ChatDocumentDTO) =>
-    openRoom({ id: d.client_id, name: d.client_name, assignedRm: d.rm_name ?? undefined }, { focusAttachmentId: d.id });
+    openRoom({ id: d.client_id, name: d.client_name, assignedRm: d.rm_name ?? undefined, rmUid: d.rm_uid, armUid: d.arm_uid }, { focusAttachmentId: d.id });
 
   return (
     <div className="mx-auto">
@@ -115,7 +117,7 @@ export default function ClientCorrespondentsPage() {
             onSort={() => setUi({ sort: ui.sort === "desc" ? "asc" : "desc" })}
             meUid={portalUser?.firebase_uid ?? null}
             onDownload={download}
-            onShow={show}
+            onShow={canEdit ? show : undefined}
           />
         )}
 

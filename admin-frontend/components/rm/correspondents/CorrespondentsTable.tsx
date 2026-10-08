@@ -59,7 +59,7 @@ export function CorrespondentsTable({
   onSort: () => void;
   meUid: string | null;
   onDownload: (d: ChatDocumentDTO) => Promise<unknown>;
-  onShow: (d: ChatDocumentDTO) => void;
+  onShow?: (d: ChatDocumentDTO) => void; // omitted for view-only users
 }) {
   const allOn = docs.length > 0 && docs.every((d) => selected.has(d.id));
   const anySel = selected.size > 0;
@@ -153,7 +153,7 @@ export function CorrespondentsTable({
                 <td className={TD}>
                   <div className="inline-flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                     <AsyncIconButton round icon={Download} title="Download" onClick={() => onDownload(d)} />
-                    <AsyncIconButton round icon={MessagesSquare} title="Show in group chat" onClick={() => onShow(d)} />
+                    {onShow && <AsyncIconButton round icon={MessagesSquare} title="Show in group chat" onClick={() => onShow(d)} />}
                   </div>
                 </td>
               </tr>

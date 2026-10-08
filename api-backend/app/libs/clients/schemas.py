@@ -42,6 +42,8 @@ class ClientListItemOut(BaseModel):
     communication_preferences: str | None = None
     gift_hospitality_preferences: str | None = None
     relationship_notes: str | None = None
+    assigned_rm_uid: str | None = None  # raw room-member uids, for the Client Room composer
+    asst_rm_uid: str | None = None
     subscriptions: list[SubscriptionOut] = []  # only populated on the single-client route
 
     cash_deposit: Decimal | None = None

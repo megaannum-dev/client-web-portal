@@ -216,13 +216,14 @@ export default function ClientDetailPage() {
             <p className="mt-1 text-[14px] text-secondary">Discretionary mandate · Client since {since} · RM: {data.assignedRm ?? "Unassigned"}</p>
           </div>
         </div>
-        {/* Opening the Client Room is a read action too — not gated behind canEdit,
-            unlike Edit profile / New Subscription below. */}
         <div className="flex gap-3">
-          <ChatRoomButton
-            label="Client Room"
-            onClick={() => openRoom({ id: data.id, name: data.name, assignedRm: data.assignedRm })}
-          />
+          {/* Client Room hidden for view-only users, same gate as Edit profile below. */}
+          {canEdit && (
+            <ChatRoomButton
+              label="Client Room"
+              onClick={() => openRoom({ id: data.id, name: data.name, assignedRm: data.assignedRm, rmUid: data.rmUid, armUid: data.armUid })}
+            />
+          )}
           {/* View/Edit Gate Function */}
           {canEdit && (
             <>

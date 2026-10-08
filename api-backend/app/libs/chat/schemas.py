@@ -141,6 +141,8 @@ class ChatDocumentDTO(BaseModel):
     sender_role: SenderRole
     rm_name: str | None
     arm_name: str | None
+    rm_uid: str | None = None  # room members -- FE enables the composer only for these
+    arm_uid: str | None = None
 
     @classmethod
     def from_row(cls, row: "DocumentRow") -> "ChatDocumentDTO":
@@ -159,6 +161,8 @@ class ChatDocumentDTO(BaseModel):
             sender_role=sender_role(is_staff=bool(is_staff), sender_uid=sender_uid, profile=room),
             rm_name=rm_name,
             arm_name=arm_name,
+            rm_uid=room.assigned_rm_uid,
+            arm_uid=room.asst_rm_uid,
         )
 
 
