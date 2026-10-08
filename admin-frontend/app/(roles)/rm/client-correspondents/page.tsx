@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useChatRoom } from "@/components/rm/chat/ChatRoomProvider";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { CorrespondentsToolbar } from "@/components/rm/correspondents/CorrespondentsToolbar";
 import { CorrespondentsTable } from "@/components/rm/correspondents/CorrespondentsTable";
 import { INITIAL_UI, toQuery, type CorrespondentsUi } from "@/components/rm/correspondents/toQuery";
@@ -15,6 +16,7 @@ import { useChatDocumentSenders, useChatDocuments } from "@/lib/chat/useChatDocu
 export default function ClientCorrespondentsPage() {
   const { portalUser, getIdToken } = useAuth();
   const { openRoom } = useChatRoom();
+  const canEdit = useCanEdit("rm.client-correspondents");
   const [ui, setUiState] = useState<CorrespondentsUi>(INITIAL_UI);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -115,7 +117,7 @@ export default function ClientCorrespondentsPage() {
             onSort={() => setUi({ sort: ui.sort === "desc" ? "asc" : "desc" })}
             meUid={portalUser?.firebase_uid ?? null}
             onDownload={download}
-            onShow={show}
+            onShow={canEdit ? show : undefined}
           />
         )}
 

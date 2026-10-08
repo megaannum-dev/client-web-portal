@@ -3,8 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ChatDocumentDTO } from "@/lib/api/chat";
 
 const m = vi.hoisted(() => ({
-  docs: vi.fn(), senders: vi.fn(), openRoom: vi.fn(), loadMore: vi.fn(),
+  docs: vi.fn(), senders: vi.fn(), openRoom: vi.fn(), loadMore: vi.fn(), canEdit: true,
 }));
+vi.mock("@/hooks/usePageAccess", () => ({ useCanEdit: () => m.canEdit }));
 vi.mock("@/lib/chat/useChatDocuments", () => ({
   useChatDocuments: (...a: unknown[]) => m.docs(...a),
   useChatDocumentSenders: () => m.senders(),
@@ -84,5 +85,14 @@ describe("Client Correspondents page", () => {
       { id: "c1", name: "Acme Ltd", assignedRm: "Rita RM" },
       { focusAttachmentId: "a" },
     );
+  });
+
+  it("hides Show in group chat for view-only users", async () => {
+    m.canEdit = false;
+    m.docs.mockReturnValue(state([doc("a")]));
+    await renderPage();
+    expect(screen.queryByTitle("Show in group chat")).toBeNull();
+    expect(screen.getByTitle("Download")).toBeTruthy();
+    m.canEdit = true;
   });
 });
