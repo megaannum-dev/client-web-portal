@@ -179,4 +179,5 @@ export {
   FileImage,
   FileArchive,
   FolderSearch,
+  FileUser
 } from "lucide-react";
