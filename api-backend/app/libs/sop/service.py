@@ -1,4 +1,4 @@
-﻿# api-backend/app/libs/sop/service.py
+# api-backend/app/libs/sop/service.py
 from __future__ import annotations
 
 import calendar
