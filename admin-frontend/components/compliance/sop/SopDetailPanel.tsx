@@ -11,6 +11,7 @@ import { Who } from "./Who";
 import { fmtDate, fmtSize } from "@/components/compliance/ic-notes/format";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { listSopVersionsAction } from "@/app/(roles)/compliance/sop/actions";
+import type { Win } from "@/lib/sop/schedule";
 import { SOP_CATEGORIES, type SopDocumentDTO, type SopVersionDTO } from "@/lib/sop/types";
 
 export type SopPanelTab = "overview" | "versions";
@@ -35,6 +36,7 @@ export function SopDetailPanel({
   onUpload: () => void;
   onDeleteSop: () => void;
   onDeleteVersion: (v: SopVersionDTO, versions: SopVersionDTO[]) => void;
+  onSaveWin?: (win: Win | null) => Promise<{ success: boolean; error?: string }>;
   /** Escape belongs to the confirm dialog while it is open. */
   confirmOpen?: boolean;
 }) {

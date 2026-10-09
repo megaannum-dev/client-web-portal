@@ -7,6 +7,7 @@ import { Modal } from "@/components/pc/Shared";
 import { FormatBadgeBig } from "./FormatBadge";
 import { SOP_ROLE_LABELS } from "./roles";
 import { fmtSize } from "@/components/compliance/ic-notes/format";
+import { PERIODIC, defWin, toWire, winValid, type Win } from "@/lib/sop/schedule";
 import { SOP_ACCEPT, SOP_CATEGORIES, SOP_FORMATS, extOf, type SopCategory, type SopDocumentDTO } from "@/lib/sop/types";
 
 const LABEL = "text-[12px] font-semibold uppercase tracking-[0.05em] text-secondary";
@@ -32,6 +33,7 @@ export function SopUploadDialog({
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<SopCategory>(defaultCategory);
+  const [win, setWin] = useState<Win | null>(defWin(defaultCategory));
   const [note, setNote] = useState("");
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export function SopUploadDialog({
     if (!file) return setError("Choose a file to upload.");
     if (!isVersion && !title.trim()) return setError("Enter a title.");
     if (isVersion && !note.trim()) return setError("Describe what changed in this version.");
+    if (!isVersion && PERIODIC.includes(category) && !winValid(category, win)) return setError("The interval must end after it starts.");
     setError(null);
     setSubmitting(true);
     const fd = new FormData();
@@ -59,6 +62,9 @@ export function SopUploadDialog({
     if (!isVersion) {
       fd.append("title", title.trim());
       fd.append("category", category);
+      const w = toWire(category, win);
+      if (w.starts_at != null) fd.append("starts_at", w.starts_at);
+      if (w.ends_at != null) fd.append("ends_at", w.ends_at);
     }
     fd.append("change_note", note.trim() || "Initial release.");
     // A rejected server action (e.g. body over the size limit) throws rather than
@@ -140,7 +146,7 @@ export function SopUploadDialog({
                     key={c.key}
                     type="button"
                     aria-pressed={category === c.key}
-                    onClick={() => setCategory(c.key)}
+                    onClick={() => { setCategory(c.key); setWin(defWin(c.key)); }}
                     className={`h-[34px] cursor-pointer rounded-full px-4 text-[13px] font-semibold transition-all duration-150 ${category === c.key ? "bg-primary text-white" : "bg-surface-container text-on-surface"}`}
                   >
                     {c.label}
@@ -148,6 +154,7 @@ export function SopUploadDialog({
                 ))}
               </div>
             </div>
+            {/* schedule field */}
           </>
         )}
 

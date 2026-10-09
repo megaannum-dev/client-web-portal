@@ -20,10 +20,11 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { useSops } from "@/hooks/api/useSops";
 import {
-  addSopVersionAction, createSopAction, deleteSopAction, deleteSopVersionAction, downloadSopVersionAction,
+  addSopVersionAction, createSopAction, deleteSopAction, deleteSopVersionAction, downloadSopVersionAction, updateSopAction,
 } from "./actions";
 import { SOP_CATEGORIES, type SopDocumentDTO, type SopVersionDTO } from "@/lib/sop/types";
 import { saveBase64File } from "@/lib/download";
+import { toWire, type Win } from "@/lib/sop/schedule";
 
 const TAB_KEY = "sop-tab";
 const VIEW_KEY = "sop-view";
@@ -92,6 +93,8 @@ export default function SopDocumentsPage() {
     const target = upload?.target;
     return mutate(() => (target ? addSopVersionAction(target.id, fd) : createSopAction(fd)));
   };
+
+  const saveWin = (sop: SopDocumentDTO, win: Win | null) => mutate(() => updateSopAction(sop.id, toWire(sop.category, win)));
 
   const doConfirm = async () => {
     if (!confirm) return;
@@ -168,6 +171,7 @@ export default function SopDocumentsPage() {
           onUpload={() => setUpload({ target: panelSop })}
           onDeleteSop={() => setConfirm({ sop: panelSop })}
           onDeleteVersion={(v, versions) => setConfirm({ sop: panelSop, version: v.version_no, versions })}
+          onSaveWin={(win) => saveWin(panelSop, win)}
           confirmOpen={!!confirm}
         />
       )}
