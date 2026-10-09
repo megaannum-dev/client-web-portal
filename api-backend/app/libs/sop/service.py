@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from datetime import time
 from typing import BinaryIO
 
 from fastapi import HTTPException, UploadFile, status
@@ -41,6 +42,70 @@ _EXT_CONTENT_TYPES = {
     ".gif": "image/gif",
     ".webp": "image/webp",
 }
+
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def _resolve_day(day: int, days_in_month: int) -> int:
+    """Concrete day-of-month: 31 in Feb -> 28/29; -1 = last day; -31 in a 30-day month -> 1."""
+    return min(day, days_in_month) if day > 0 else max(1, days_in_month + day + 1)
+
+
+def _point(category: SopCategory, v: str) -> str:
+    """Canonical form of one starts_at/ends_at value for `category`. Raises 422."""
+    try:
+        if category == SopCategory.DAILY:
+            h, sep, m = v.partition(":")
+            return time.fromisoformat(f"{h.zfill(2)}{sep}{m}").strftime("%H:%M")
+        if category == SopCategory.WEEKLY:
+            if v.lower() in _WEEKDAYS:
+                return v.lower()
+        elif (n := int(v)) and -31 <= n <= 31:
+            return str(n)
+    except ValueError:
+        pass
+    expected = {
+        SopCategory.DAILY: "HH:MM",
+        SopCategory.WEEKLY: "a weekday name",
+        SopCategory.MONTHLY: "a day of month 1..31 or -31..-1",
+    }[category]
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        f"Invalid value '{v}' for {category.value} SOP: expected {expected}",
+    )
+
+
+def _schedule(
+    category: SopCategory, starts_at: str | None, ends_at: str | None
+) -> tuple[str | None, str | None]:
+    """Validate + canonicalise (starts_at, ends_at); blank == None. Raises 422."""
+    s, e = ((v or "").strip() or None for v in (starts_at, ends_at))
+    if category == SopCategory.AD_HOC:
+        if s or e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "ad_hoc SOPs take no starts_at/ends_at"
+            )
+        return None, None
+    if s is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"starts_at is required for {category.value} SOPs"
+        )
+    s = _point(category, s)
+    if e is None:
+        return s, None
+    e = _point(category, e)
+    if s == e:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "ends_at equals starts_at; omit ends_at for a stamp"
+        )
+    if category == SopCategory.MONTHLY:
+        for length in (28, 29, 30, 31):
+            if _resolve_day(int(s), length) >= _resolve_day(int(e), length):
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"ends_at falls on or before starts_at in a {length}-day month",
+                )
+    return s, e  # daily/weekly may wrap around (22:00 -> 02:00, friday -> monday)
 
 
 def _not_found() -> HTTPException:
