@@ -5,6 +5,7 @@ import { Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/pc/Shared";
 import { FormatBadgeBig } from "./FormatBadge";
+import { SopWindowField } from "./SopWindowField";
 import { SOP_ROLE_LABELS } from "./roles";
 import { fmtSize } from "@/components/compliance/ic-notes/format";
 import { PERIODIC, defWin, toWire, winValid, type Win } from "@/lib/sop/schedule";
@@ -154,7 +155,7 @@ export function SopUploadDialog({
                 ))}
               </div>
             </div>
-            {/* schedule field */}
+            {PERIODIC.includes(category) && win && <SopWindowField key={category} category={category} win={win} onChange={setWin} />}
           </>
         )}
 
