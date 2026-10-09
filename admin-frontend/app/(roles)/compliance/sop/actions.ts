@@ -11,7 +11,7 @@ import {
   deleteSopVersion as _deleteSopVersion,
   type APIResult,
 } from "@/server/sop";
-import type { SopCategory, SopDocumentDTO, SopVersionDTO } from "@/lib/sop/types";
+import type { SopDocumentDTO, SopUpdateBody, SopVersionDTO } from "@/lib/sop/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -54,7 +54,7 @@ export async function addSopVersionAction(id: string, formData: FormData): Promi
   }
 }
 
-export async function updateSopAction(id: string, body: { title?: string; category?: SopCategory }): Promise<APIResult<SopDocumentDTO>> {
+export async function updateSopAction(id: string, body: SopUpdateBody): Promise<APIResult<SopDocumentDTO>> {
   try {
     logger.log("🔄 updateSop...");
     const response = await _updateSop(id, body);

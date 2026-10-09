@@ -30,6 +30,20 @@ export interface SopDocumentDTO {
   updated_at: string;
   latest: SopVersionDTO;
   version_count: number;
+  // Schedule within the category's period (daily "HH:MM", weekly "monday".., monthly "1".."31"/"-1".."-31").
+  // Both set = interval, starts only = stamp, both null = ad hoc/unset.
+  starts_at: string | null;
+  ends_at: string | null;
+  effective_starts_day: number | null;
+  effective_ends_day: number | null;
+}
+
+/** PATCH body: omitted key = unchanged, explicit null = clear. */
+export interface SopUpdateBody {
+  title?: string;
+  category?: SopCategory;
+  starts_at?: string | null;
+  ends_at?: string | null;
 }
 
 export const SOP_CATEGORIES: { key: SopCategory; label: string; bg: string; fg: string }[] = [
