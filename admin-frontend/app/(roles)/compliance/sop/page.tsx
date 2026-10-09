@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SopCard } from "@/components/compliance/sop/SopCard";
 import { SopTable } from "@/components/compliance/sop/SopTable";
+import { SopTimeline } from "@/components/compliance/sop/SopTimeline";
 import { SopTabs, SopViewToggle, type SopTabValue, type SopView } from "@/components/compliance/sop/SopTabs";
 import { SopDetailPanel, type SopPanelTab } from "@/components/compliance/sop/SopDetailPanel";
 import { SopUploadDialog } from "@/components/compliance/sop/SopUploadDialog";
@@ -24,7 +25,7 @@ import {
 } from "./actions";
 import { SOP_CATEGORIES, type SopDocumentDTO, type SopVersionDTO } from "@/lib/sop/types";
 import { saveBase64File } from "@/lib/download";
-import { toWire, type Win } from "@/lib/sop/schedule";
+import { PERIODIC, toWire, type Win } from "@/lib/sop/schedule";
 
 const TAB_KEY = "sop-tab";
 const VIEW_KEY = "sop-view";
@@ -144,6 +145,10 @@ export default function SopDocumentsPage() {
                 <SopTabs value={tab} onChange={changeTab} />
                 <SopViewToggle value={view} onChange={changeView} />
               </div>
+
+              {tab !== "all" && PERIODIC.includes(tab) && filtered.length > 0 && (
+                <SopTimeline category={tab} sops={filtered} openId={panel?.id} onOpen={(id) => setPanel({ id, tab: "overview" })} />
+              )}
 
               {filtered.length === 0 ? (
                 <div className="mt-5 rounded-lg border border-outline-variant bg-surface-lowest px-5 py-16 text-center text-[13.5px] text-secondary">
