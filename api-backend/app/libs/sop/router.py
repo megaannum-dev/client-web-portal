@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -29,9 +30,22 @@ Viewer = Annotated[User, Depends(require_action(Action.SOP_VIEW))]
 Writer = Annotated[User, Depends(require_action(Action.SOP_WRITE))]
 
 
+Month = Annotated[str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
+
+
+def _ym(month: str | None) -> tuple[int, int]:
+    if month is None:
+        today = date.today()
+        return today.year, today.month
+    y, m = month.split("-")
+    return int(y), int(m)
+
+
 @router.get("", response_model=list[SopDocumentDTO])
-def list_sops(svc: Svc, _: Viewer, category: SopCategory | None = None) -> list[SopDocumentDTO]:
-    return svc.list(category)
+def list_sops(
+    svc: Svc, _: Viewer, category: SopCategory | None = None, month: Month = None
+) -> list[SopDocumentDTO]:
+    return svc.list(category, *_ym(month))
 
 
 @router.post("", response_model=SopDocumentDTO, status_code=201)
@@ -42,8 +56,12 @@ def create_sop(
     title: str = Form(...),
     category: SopCategory = Form(...),
     change_note: str | None = Form(None),
+    starts_at: str | None = Form(None),
+    ends_at: str | None = Form(None),
 ) -> SopDocumentDTO:
-    return svc.create(file, title, category, change_note, actor=user)
+    return svc.create(
+        file, title, category, change_note, actor=user, starts_at=starts_at, ends_at=ends_at
+    )
 
 
 @router.post("/{sop_id}/versions", response_model=SopVersionDTO, status_code=201)
@@ -58,8 +76,8 @@ def add_version(
 
 
 @router.get("/{sop_id}", response_model=SopDocumentDTO)
-def get_sop(sop_id: uuid.UUID, svc: Svc, _: Viewer) -> SopDocumentDTO:
-    return svc.get(sop_id)
+def get_sop(sop_id: uuid.UUID, svc: Svc, _: Viewer, month: Month = None) -> SopDocumentDTO:
+    return svc.get(sop_id, *_ym(month))
 
 
 @router.patch("/{sop_id}",response_model=SopDocumentDTO)

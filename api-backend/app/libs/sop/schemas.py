@@ -36,8 +36,16 @@ class SopDocumentDTO(BaseModel):
     updated_at: datetime
     latest: SopVersionDTO
     version_count: int
+    starts_at: str | None
+    ends_at: str | None
+    # Monthly only: the concrete day-of-month in the requested month ("-1" = last day).
+    effective_starts_day: int | None
+    effective_ends_day: int | None
 
 
 class SopUpdate(BaseModel):
     title: str | None = None
     category: SopCategory | None = None
+    # Omitted = unchanged; explicit null = clear (see model_fields_set).
+    starts_at: str | None = None
+    ends_at: str | None = None
