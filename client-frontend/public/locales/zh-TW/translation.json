@@ -59,6 +59,7 @@
   "fab": {
     "quick_actions": "快速操作",
     "close_quick_actions": "關閉快速操作",
+    "messaging": "訊息",
     "common_query_faq": "常見問題集",
     "download_latest_eom": "下載最新月結報告",
     "raise_ticket": "提出申請"

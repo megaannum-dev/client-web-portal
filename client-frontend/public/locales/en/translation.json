@@ -59,6 +59,7 @@
   "fab": {
     "quick_actions": "Quick actions",
     "close_quick_actions": "Close quick actions",
+    "messaging": "Messages",
     "common_query_faq": "Common Query FAQ",
     "download_latest_eom": "Download Latest EoM Report",
     "raise_ticket": "Raise a Ticket"
