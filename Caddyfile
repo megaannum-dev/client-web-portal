@@ -9,14 +9,20 @@ www.silverwater-cm.com {
 	redir https://silverwater-cm.com{uri}
 }
 
-megaannum-am.com {
-	encode zstd gzip
-	reverse_proxy company-website:3000
-}
-
-www.megaannum-am.com {
-	redir https://megaannum-am.com{uri}
-}
+# TEMPORARILY DISABLED (2026-10-12): the public website for megaannum-am.com and
+# www.megaannum-am.com is forwarded to https://silverwater-cm.com (domain
+# forwarding in Hostinger). The crm, clientportal, api and cms subdomains below
+# are NOT affected. Uncomment these two blocks (and remove the Hostinger
+# forwarding) to switch the public website back to megaannum-am.com.
+#
+# megaannum-am.com {
+# 	encode zstd gzip
+# 	reverse_proxy company-website:3000
+# }
+#
+# www.megaannum-am.com {
+# 	redir https://megaannum-am.com{uri}
+# }
 
 crm.megaannum-am.com {
 	encode zstd gzip
