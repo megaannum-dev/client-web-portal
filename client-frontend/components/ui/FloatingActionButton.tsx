@@ -1,25 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
-import { Plus, Ticket, Download, HelpCircle } from "@/lib/icons";
+import { Plus, Ticket, Download, HelpCircle, MessagesSquare } from "@/lib/icons";
 import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { downloadDocument } from "@/lib/api/documents";
 import { useDocuments } from "@/lib/hooks/useDocuments";
 
-type ActionId = "ticket" | "download" | "faq";
+type ActionId = "messaging" | "ticket" | "download" | "faq";
 
 const SPEED_DIAL_ACTIONS: {
   id: ActionId;
   Icon: LucideIcon;
   labelKey: string;
 }[] = [
-  { id: "faq",      Icon: HelpCircle, labelKey: "fab.common_query_faq"     },
-  { id: "download", Icon: Download,   labelKey: "fab.download_latest_eom"  },
-  { id: "ticket",   Icon: Ticket,     labelKey: "fab.raise_ticket"         },
+  { id: "messaging", Icon: MessagesSquare, labelKey: "fab.messaging"           },
+  { id: "faq",       Icon: HelpCircle,     labelKey: "fab.common_query_faq"    },
+  { id: "download",  Icon: Download,       labelKey: "fab.download_latest_eom" },
+  { id: "ticket",    Icon: Ticket,         labelKey: "fab.raise_ticket"        },
 ];
 
 export function FloatingActionButton() {
@@ -30,6 +31,7 @@ export function FloatingActionButton() {
   const { data: statements } = useDocuments("statements");
   const latest = statements[0]; // server-sorted, newest first
   const pathname = usePathname();
+  const router = useRouter();
 
   // The FAB's send button would sit on top of the composer's own send
   // button on /messaging — the design hides the FAB there too (fabRootStyle,
@@ -53,7 +55,10 @@ export function FloatingActionButton() {
   }
 
   function handleAction(id: ActionId) {
-    if (id === "ticket") {
+    if (id === "messaging") {
+      router.push("/messaging");
+      setExpanded(false);
+    } else if (id === "ticket") {
       setTicketOpen(true);
       setExpanded(false);
     } else if (id === "download") {

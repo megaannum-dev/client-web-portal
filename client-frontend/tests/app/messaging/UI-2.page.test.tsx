@@ -1,10 +1,10 @@
 // 021 UI-2 — /messaging page: room header + empty state + composer render;
-// nav exposes /messaging third; the FAB is absent there and present
-// elsewhere; the participant stack is driven off the array (2 or 3 entries,
+// the sidebar no longer lists /messaging — it is reached from the FAB, which
+// is absent there and present elsewhere; the participant stack is driven off the array (2 or 3 entries,
 // never a fixed 3 — plan §5); both translation.json files carry the same
 // `messaging`/`nav.messaging` keys.
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,7 +14,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/overview" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/overview", useRouter: () => ({ push: vi.fn() }) }));
 
 // The page derives its participant stack from the same two hooks the header
 // already uses on every page (plan §5): the signed-in client plus their
@@ -62,18 +62,19 @@ describe("UI-2 /messaging page", () => {
   });
 });
 
-describe("UI-2 SidebarNav exposes /messaging third, after /portfolio", () => {
-  it("nav order is overview, portfolios, messaging, profile, ...", () => {
+describe("UI-2 SidebarNav no longer lists /messaging", () => {
+  it("nav order is overview, portfolios, profile, ... with no /messaging link", () => {
     render(<SidebarNav isOpen />);
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(links.slice(0, 4)).toEqual(["/overview", "/portfolio", "/messaging", "/profile"]);
+    expect(links.slice(0, 3)).toEqual(["/overview", "/portfolio", "/profile"]);
+    expect(links).not.toContain("/messaging");
   });
 });
 
 describe("UI-2 FloatingActionButton hides on /messaging", () => {
   it("is present on /overview and absent on /messaging", async () => {
     vi.resetModules();
-    vi.doMock("next/navigation", () => ({ usePathname: () => "/overview" }));
+    vi.doMock("next/navigation", () => ({ usePathname: () => "/overview", useRouter: () => ({ push: vi.fn() }) }));
     vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
     vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
     vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
@@ -84,7 +85,7 @@ describe("UI-2 FloatingActionButton hides on /messaging", () => {
     expect(overviewContainer.querySelector("button")).toBeTruthy();
 
     vi.resetModules();
-    vi.doMock("next/navigation", () => ({ usePathname: () => "/messaging" }));
+    vi.doMock("next/navigation", () => ({ usePathname: () => "/messaging", useRouter: () => ({ push: vi.fn() }) }));
     vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
     vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
     vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
@@ -93,6 +94,22 @@ describe("UI-2 FloatingActionButton hides on /messaging", () => {
     const { FloatingActionButton: FabOnMessaging } = await import("@/components/ui/FloatingActionButton");
     const { container: messagingContainer } = render(<FabOnMessaging />);
     expect(messagingContainer.querySelector("button")).toBeFalsy();
+  });
+
+  it("the messaging speed-dial action navigates to /messaging", async () => {
+    const push = vi.fn();
+    vi.resetModules();
+    vi.doMock("next/navigation", () => ({ usePathname: () => "/overview", useRouter: () => ({ push }) }));
+    vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
+    vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
+    vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
+    vi.doMock("@/components/ui/RaiseTicketModal", () => ({ RaiseTicketModal: () => null }));
+
+    const { FloatingActionButton } = await import("@/components/ui/FloatingActionButton");
+    render(<FloatingActionButton />);
+    fireEvent.click(screen.getByRole("button", { name: "fab.quick_actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "fab.messaging" }));
+    expect(push).toHaveBeenCalledWith("/messaging");
   });
 });
 
