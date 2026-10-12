@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import { apiClient, apiClientFormData, parseErrorEnvelope, type APIResult } from "@/server/api-client";
 import { ENDPOINTS } from "@/server/endpoints";
-import type { SopCategory, SopDocumentDTO, SopVersionDTO } from "@/lib/sop/types";
+import type { SopDocumentDTO, SopUpdateBody, SopVersionDTO } from "@/lib/sop/types";
 
 export type { APIResult };
 
@@ -21,7 +21,7 @@ export async function addSopVersion(id: string, formData: FormData): Promise<API
 
 export async function updateSop(
   id: string,
-  body: { title?: string; category?: SopCategory },
+  body: SopUpdateBody,
 ): Promise<APIResult<SopDocumentDTO>> {
   return apiClient<SopDocumentDTO>(ENDPOINTS.SOP.ONE(id), { method: "PATCH", body: JSON.stringify(body) });
 }

@@ -3,6 +3,8 @@ import { ClassTag, VerTag } from "./Tags";
 import { SopActions } from "./SopActions";
 import { Who } from "./Who";
 import { fmtDate, fmtSize } from "@/components/compliance/ic-notes/format";
+import { Clock } from "@/lib/icons";
+import { fmtWin, hasEom, runsNote, toWin } from "@/lib/sop/schedule";
 import type { SopDocumentDTO } from "@/lib/sop/types";
 
 export interface SopRowHandlers {
@@ -27,6 +29,7 @@ export function sopActionsFor(sop: SopDocumentDTO, h: SopRowHandlers) {
 
 export function SopCard({ sop, ...h }: { sop: SopDocumentDTO } & SopRowHandlers) {
   const l = sop.latest;
+  const win = toWin(sop.category, sop.starts_at, sop.ends_at);
   return (
     <article
       onClick={() => h.onOpen(sop.id, "overview")}
@@ -38,6 +41,12 @@ export function SopCard({ sop, ...h }: { sop: SopDocumentDTO } & SopRowHandlers)
           <div className="flex flex-wrap gap-1.5"><ClassTag category={sop.category} /><VerTag version={l.version_no} /></div>
           <h3 className="text-[16px] font-semibold leading-[22px] text-on-surface">{sop.title}</h3>
           <div className="text-[13px] text-secondary">Updated {fmtDate(l.uploaded_at)} · {fmtSize(l.size_bytes)}</div>
+          {win && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-on-surface">
+              <Clock size={14} strokeWidth={2} className="text-secondary" />{fmtWin(sop.category, win)}
+              {sop.category === "monthly" && hasEom(win) && <span className="font-normal text-secondary">· {runsNote(win)}</span>}
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-auto flex items-end justify-between gap-3 border-t border-outline-variant pt-3.5">

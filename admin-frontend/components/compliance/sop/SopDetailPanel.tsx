@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, FileUp, Loader2, Trash2 } from "@/lib/icons";
+import { Check, Clock, Download, FileUp, Loader2, Pencil, Trash2 } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { DetailShell, coLabelCls } from "@/components/compliance/Shared";
 import { FormatBadge, FormatBadgeBig, sopFormat } from "./FormatBadge";
 import { AsyncIconButton } from "@/components/ui/AsyncIconButton";
 import { ClassTag, VerTag } from "./Tags";
 import { Who } from "./Who";
+import { SopWindowField } from "./SopWindowField";
 import { fmtDate, fmtSize } from "@/components/compliance/ic-notes/format";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { listSopVersionsAction } from "@/app/(roles)/compliance/sop/actions";
+import { PERIODIC, defWin, fmtWin, hasEom, isPoint, runsNote, toWin, winValid, type Win } from "@/lib/sop/schedule";
 import { SOP_CATEGORIES, type SopDocumentDTO, type SopVersionDTO } from "@/lib/sop/types";
 
 export type SopPanelTab = "overview" | "versions";
@@ -24,8 +26,50 @@ function Fact({ k, children }: { k: string; children: ReactNode }) {
   );
 }
 
+/** Schedule read view; writers get an inline interval/stamp editor. */
+function SopWindowEdit({ sop, canWrite, onSave }: {
+  sop: SopDocumentDTO;
+  canWrite: boolean;
+  onSave?: (win: Win | null) => Promise<{ success: boolean; error?: string }>;
+}) {
+  const win = toWin(sop.category, sop.starts_at, sop.ends_at);
+  const [edit, setEdit] = useState<Win | null>(null);
+  const [saving, setSaving] = useState(false);
+  if (edit) {
+    const save = async () => {
+      if (!onSave || !winValid(sop.category, edit)) return;
+      setSaving(true);
+      const r = await onSave(edit);
+      setSaving(false);
+      if (r.success) setEdit(null);
+    };
+    return (
+      <div className="flex flex-col gap-3.5 rounded-md border border-outline-variant bg-surface-low p-4">
+        <SopWindowField category={sop.category} win={edit} onChange={setEdit} />
+        <div className="flex justify-end gap-2.5">
+          <Button variant="secondary" onClick={() => setEdit(null)} disabled={saving}>Cancel</Button>
+          <Button icon={saving ? Loader2 : Check} onClick={save} disabled={saving} className={saving ? "[&>svg]:animate-spin" : undefined}>Save</Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Fact k={isPoint(win) ? (sop.category === "daily" ? "Timestamp" : "Day stamp") : "Time interval"}>
+        <span className="inline-flex items-center gap-1.5 font-semibold">
+          <Clock size={14} strokeWidth={2} className="text-secondary" />{fmtWin(sop.category, win) ?? "Not set"}
+        </span>
+        {sop.category === "monthly" && win && hasEom(win) && (
+          <div className="mt-0.5 text-[12.5px] text-secondary">{runsNote(win)} this month</div>
+        )}
+      </Fact>
+      {canWrite && onSave && <AsyncIconButton icon={Pencil} title="Edit time interval" onClick={() => setEdit(win ?? defWin(sop.category))} />}
+    </div>
+  );
+}
+
 export function SopDetailPanel({
-  sop, tab, onTab, onClose, onDownload, onUpload, onDeleteSop, onDeleteVersion, confirmOpen,
+  sop, tab, onTab, onClose, onDownload, onUpload, onDeleteSop, onDeleteVersion, onSaveWin, confirmOpen,
 }: {
   sop: SopDocumentDTO;
   tab: SopPanelTab;
@@ -35,6 +79,7 @@ export function SopDetailPanel({
   onUpload: () => void;
   onDeleteSop: () => void;
   onDeleteVersion: (v: SopVersionDTO, versions: SopVersionDTO[]) => void;
+  onSaveWin?: (win: Win | null) => Promise<{ success: boolean; error?: string }>;
   /** Escape belongs to the confirm dialog while it is open. */
   confirmOpen?: boolean;
 }) {
@@ -132,6 +177,7 @@ export function SopDetailPanel({
               <div className="text-[13px] text-secondary">{fmt.image ? "Diagram" : "Document"} · {fmtSize(latest.size_bytes)}</div>
             </div>
           </div>
+          {PERIODIC.includes(sop.category) && <SopWindowEdit key={sop.id} sop={sop} canWrite={canWrite} onSave={onSaveWin} />}
           <div className="grid grid-cols-2 gap-4">
             <Fact k="Class">{category}</Fact>
             <Fact k="Current version">v{latest.version_no}</Fact>

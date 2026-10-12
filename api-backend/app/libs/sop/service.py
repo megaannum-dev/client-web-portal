@@ -1,9 +1,11 @@
 # api-backend/app/libs/sop/service.py
 from __future__ import annotations
 
+import calendar
 import logging
 import os
 import uuid
+from datetime import date, time
 from typing import BinaryIO
 
 from fastapi import HTTPException, UploadFile, status
@@ -42,6 +44,70 @@ _EXT_CONTENT_TYPES = {
     ".webp": "image/webp",
 }
 
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def _resolve_day(day: int, days_in_month: int) -> int:
+    """Concrete day-of-month: 31 in Feb -> 28/29; -1 = last day; -31 in a 30-day month -> 1."""
+    return min(day, days_in_month) if day > 0 else max(1, days_in_month + day + 1)
+
+
+def _point(category: SopCategory, v: str) -> str:
+    """Canonical form of one starts_at/ends_at value for `category`. Raises 422."""
+    try:
+        if category == SopCategory.DAILY:
+            h, sep, m = v.partition(":")
+            return time.fromisoformat(f"{h.zfill(2)}{sep}{m}").strftime("%H:%M")
+        if category == SopCategory.WEEKLY:
+            if v.lower() in _WEEKDAYS:
+                return v.lower()
+        elif (n := int(v)) and -31 <= n <= 31:
+            return str(n)
+    except ValueError:
+        pass
+    expected = {
+        SopCategory.DAILY: "HH:MM",
+        SopCategory.WEEKLY: "a weekday name",
+        SopCategory.MONTHLY: "a day of month 1..31 or -31..-1",
+    }[category]
+    raise HTTPException(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        f"Invalid value '{v}' for {category.value} SOP: expected {expected}",
+    )
+
+
+def _schedule(
+    category: SopCategory, starts_at: str | None, ends_at: str | None
+) -> tuple[str | None, str | None]:
+    """Validate + canonicalise (starts_at, ends_at); blank == None. Raises 422."""
+    s, e = ((v or "").strip() or None for v in (starts_at, ends_at))
+    if category == SopCategory.AD_HOC:
+        if s or e:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "ad_hoc SOPs take no starts_at/ends_at"
+            )
+        return None, None
+    if s is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"starts_at is required for {category.value} SOPs"
+        )
+    s = _point(category, s)
+    if e is None:
+        return s, None
+    e = _point(category, e)
+    if s == e:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "ends_at equals starts_at; omit ends_at for a stamp"
+        )
+    if category == SopCategory.MONTHLY:
+        for length in (28, 29, 30, 31):
+            if _resolve_day(int(s), length) >= _resolve_day(int(e), length):
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"ends_at falls on or before starts_at in a {length}-day month",
+                )
+    return s, e  # daily/weekly may wrap around (22:00 -> 02:00, friday -> monday)
+
 
 def _not_found() -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, "Unknown SOP")
@@ -71,7 +137,14 @@ def _validate(file: UploadFile) -> tuple[str, str, int]:
     return filename, content_type, size
 
 
-def _doc_dto(doc: SopDocument) -> SopDocumentDTO:
+def _doc_dto(doc: SopDocument, year: int, month: int) -> SopDocumentDTO:
+    effective: list[int | None] = [None, None]
+    if doc.category == SopCategory.MONTHLY.value:  # legacy rows may have NULL starts_at
+        length = calendar.monthrange(year, month)[1]
+        effective = [
+            _resolve_day(int(v), length) if v is not None else None
+            for v in (doc.starts_at, doc.ends_at)
+        ]
     return SopDocumentDTO(
         id=doc.id,
         title=doc.title,
@@ -82,6 +155,10 @@ def _doc_dto(doc: SopDocument) -> SopDocumentDTO:
         updated_at=doc.updated_at,
         latest=SopVersionDTO.model_validate(doc.versions[0]),  # ordered version_no desc
         version_count=len(doc.versions),
+        starts_at=doc.starts_at,
+        ends_at=doc.ends_at,
+        effective_starts_day=effective[0],
+        effective_ends_day=effective[1],
     )
 
 
@@ -144,11 +221,11 @@ class SopService:
             except Exception:
                 logger.exception("Failed to delete SOP file %s", key)
 
-    def list(self, category: SopCategory | None) -> list[SopDocumentDTO]:
-        return [_doc_dto(d) for d in self.repo.list_docs(category)]
+    def list(self, category: SopCategory | None, year: int, month: int) -> list[SopDocumentDTO]:
+        return [_doc_dto(d, year, month) for d in self.repo.list_docs(category)]
 
-    def get(self, sop_id: uuid.UUID) -> SopDocumentDTO:
-        return _doc_dto(self._doc(sop_id))
+    def get(self, sop_id: uuid.UUID, year: int, month: int) -> SopDocumentDTO:
+        return _doc_dto(self._doc(sop_id), year, month)
 
     def create(
         self,
@@ -157,16 +234,21 @@ class SopService:
         category: SopCategory,
         change_note: str | None,
         actor: User,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
     ) -> SopDocumentDTO:
         title = title.strip()
         if not title:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "title is required")
+        starts_at, ends_at = _schedule(category, starts_at, ends_at)  # before the file is stored
         sop_id = uuid.uuid4()
         version = self._new_version(sop_id, 1, file, change_note, actor)
         doc = SopDocument(
             id=sop_id,
             title=title,
             category=category.value,
+            starts_at=starts_at,
+            ends_at=ends_at,
             created_by_uid=actor.firebase_uid,
             created_by_name=actor.name or "",
         )
@@ -175,7 +257,8 @@ class SopService:
         self._audit(actor, "sop.created", f"{title} ({version.filename})")
         self.db.commit()
         self.db.refresh(doc)
-        return _doc_dto(doc)
+        today = date.today()
+        return _doc_dto(doc, today.year, today.month)
 
     def add_version(
         self, sop_id: uuid.UUID, file: UploadFile, change_note: str | None, actor: User
@@ -205,13 +288,23 @@ class SopService:
             if not title:
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "title is required")
             doc.title = title
-        if body.category is not None:
-            doc.category = body.category.value
+        fields = body.model_fields_set
+        if fields & {"category", "starts_at", "ends_at"}:
+            category = body.category or SopCategory(doc.category)  # null category = unchanged
+            starts = body.starts_at if "starts_at" in fields else doc.starts_at
+            ends = body.ends_at if "ends_at" in fields else doc.ends_at
+            doc.starts_at, doc.ends_at = _schedule(category, starts, ends)
+            doc.category = category.value
         doc.updated_at = func.now()
-        self._audit(actor, "sop.updated", f"{doc.title} ({doc.category})")
+        self._audit(
+            actor,
+            "sop.updated",
+            f"{doc.title} ({doc.category} {doc.starts_at or '-'}→{doc.ends_at or '-'})",
+        )
         self.db.commit()
         self.db.refresh(doc)
-        return _doc_dto(doc)
+        today = date.today()
+        return _doc_dto(doc, today.year, today.month)
 
     def versions(self, sop_id: uuid.UUID) -> list[SopVersionDTO]:
         return [SopVersionDTO.model_validate(v) for v in self._doc(sop_id).versions]
