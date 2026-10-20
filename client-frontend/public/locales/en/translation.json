@@ -269,6 +269,9 @@
     "yesterday": "Yesterday",
     "composer_placeholder": "Message {{names}}…",
     "composer_placeholder_empty": "Message your advisory team…",
+    "close": "Close chat",
+    "maximize": "Expand to full page",
+    "restore": "Shrink to window",
     "calendar": {
       "prev_month": "Previous month",
       "next_month": "Next month",

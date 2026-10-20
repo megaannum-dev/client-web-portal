@@ -223,3 +223,35 @@ body {
   .dot-success       { @apply bg-success; }
   .dot-caution       { @apply bg-caution; }
 }
+
+/* ── Chat popup "genie" open — the window pours up out of the FAB ─────────── */
+/* Origin is the FAB's centre, which sits 38px in from the popup's right edge
+   and 54px below its bottom edge (see ChatPopup's bottom-[124px] note).
+   The clip-path is a trapezoid whose narrow bottom stays pinned over the FAB
+   while the top flares out — the funnel that reads as "coming out of" it.
+   No fill-mode: once done, clip-path drops so the shadow isn't clipped. */
+@keyframes genie-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.12, 0.04);
+    clip-path: polygon(30% 0, 100% 0, calc(100% - 30px) 100%, calc(100% - 46px) 100%);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(0.7, 0.8);
+    clip-path: polygon(8% 0, 100% 0, calc(100% - 18px) 100%, calc(100% - 64px) 100%);
+  }
+  100% {
+    transform: none;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+.animate-genie-in {
+  transform-origin: calc(100% - 38px) calc(100% + 54px);
+  animation: genie-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-genie-in { animation: none; }
+}

@@ -270,6 +270,9 @@
     "yesterday": "昨天",
     "composer_placeholder": "傳送訊息給 {{names}}…",
     "composer_placeholder_empty": "傳送訊息給您的顧問團隊…",
+    "close": "關閉對話",
+    "maximize": "展開至全頁",
+    "restore": "縮小為視窗",
     "calendar": {
       "prev_month": "上個月",
       "next_month": "下個月",
