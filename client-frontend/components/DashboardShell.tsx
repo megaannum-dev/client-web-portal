@@ -60,7 +60,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <Header />
         <main className="flex-1 p-8">{children}</main>
       </div>
-      <FloatingActionButton />
+      <FloatingActionButton sidebarWidth={open ? width : COLLAPSED_GUTTER} />
     </>
   );
 }

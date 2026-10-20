@@ -16,6 +16,8 @@ import {
   FileText,
   FileSpreadsheet,
   FileCheck2,
+  Maximize2,
+  Minimize2,
 } from "@/lib/icons";
 import { MessageBubble } from "./MessageBubble";
 import { AttachmentRow } from "./AttachmentRow";
@@ -83,6 +85,9 @@ export function AdvisoryRoom({
   participants = [],
   onSend = () => {},
   sending = false,
+  onClose,
+  maximized = false,
+  onToggleMaximize,
 }: {
   messages?: ChatDay[];
   participants?: Participant[];
@@ -91,6 +96,12 @@ export function AdvisoryRoom({
   onSend?: (body: string, files: File[]) => void;
   /** True while that POST is in flight; disables only the send button. */
   sending?: boolean;
+  /** When set, a close button ends the header (the room is hosted in ChatPopup). */
+  onClose?: () => void;
+  /** Whether ChatPopup is filling the page; picks the maximize/restore icon. */
+  maximized?: boolean;
+  /** When set, a maximize/restore button sits before the close button. */
+  onToggleMaximize?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState("");
@@ -205,8 +216,8 @@ export function AdvisoryRoom({
         </div>
 
         <div className="min-w-0">
-          <h2 className="m-0 text-base leading-tight font-bold text-on-surface">{t("messaging.title")}</h2>
-          <p className="mt-[3px] mb-0 text-xs text-secondary">{caption}</p>
+          <h2 className="m-0 text-base leading-tight font-bold text-on-surface truncate">{t("messaging.title")}</h2>
+          <p className="mt-[3px] mb-0 text-xs text-secondary truncate">{caption}</p>
         </div>
 
         <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -233,6 +244,26 @@ export function AdvisoryRoom({
             <Paperclip size={16} strokeWidth={1.75} />
             <span>{allDocs.length}</span>
           </button>
+          {onToggleMaximize && (
+            <button
+              type="button"
+              onClick={onToggleMaximize}
+              aria-label={t(maximized ? "messaging.restore" : "messaging.maximize")}
+              className="inline-flex items-center justify-center size-8 rounded-full border-none cursor-pointer bg-surface-container text-secondary hover:text-on-surface transition-colors duration-150"
+            >
+              {maximized ? <Minimize2 size={16} strokeWidth={1.75} /> : <Maximize2 size={16} strokeWidth={1.75} />}
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("messaging.close")}
+              className="inline-flex items-center justify-center size-8 rounded-full border-none cursor-pointer bg-surface-container text-secondary hover:text-on-surface transition-colors duration-150"
+            >
+              <X size={16} strokeWidth={1.75} />
+            </button>
+          )}
         </div>
 
         {calOpen && (
@@ -360,14 +391,15 @@ export function AdvisoryRoom({
           </div>
         </div>
 
-        {/* Shared documents aside */}
+        {/* Shared documents aside — slides over the thread rather than
+            squeezing it, since the popup can be narrower than thread + aside. */}
         <aside
           className={[
-            "flex-none overflow-hidden flex flex-col min-h-0 bg-surface-lowest transition-[width] duration-[250ms] ease-in-out",
-            docsOpen ? "w-[300px] border-l border-outline-variant" : "w-0",
+            "absolute inset-y-0 right-0 z-[4] max-w-full overflow-hidden flex flex-col min-h-0 bg-surface-lowest transition-[width] duration-[250ms] ease-in-out",
+            docsOpen ? "w-[300px] border-l border-outline-variant shadow-overlay" : "w-0",
           ].join(" ")}
         >
-          <div className="w-[300px] flex-1 min-h-0 flex flex-col">
+          <div className="w-[300px] max-w-full flex-1 min-h-0 flex flex-col">
             <div className="flex items-center justify-between gap-2 pt-3 pr-2 pb-2.5 pl-3.5 border-b border-outline-variant">
               <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">
                 {t("messaging.shared_documents", { count: allDocs.length })}

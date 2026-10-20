@@ -1,6 +1,7 @@
-// 021 UI-2 — /messaging page: room header + empty state + composer render;
-// the sidebar no longer lists /messaging — it is reached from the FAB, which
-// is absent there and present elsewhere; the participant stack is driven off the array (2 or 3 entries,
+// 021 UI-2 — the Advisory Room popup: room header + empty state + composer
+// render; there is no /messaging page and the sidebar does not list it — the
+// room opens only from the FAB, which stays put while it is open so the other
+// quick actions remain reachable; the participant stack is driven off the array (2 or 3 entries,
 // never a fixed 3 — plan §5); both translation.json files carry the same
 // `messaging`/`nav.messaging` keys.
 import { describe, expect, it, vi } from "vitest";
@@ -32,13 +33,13 @@ vi.mock("@/lib/hooks/useProfile", () => ({
   }),
 }));
 
-import MessagingPage from "@/app/(dashboard)/messaging/page";
+import { ChatPopup } from "@/components/messaging/ChatPopup";
 import { AdvisoryRoom } from "@/components/messaging/AdvisoryRoom";
 import { SidebarNav } from "@/components/sidebar/SidebarNav";
 
-describe("UI-2 /messaging page", () => {
+describe("UI-2 ChatPopup", () => {
   it("renders the room header, the empty state and the composer", () => {
-    render(<MessagingPage />);
+    render(<ChatPopup onClose={() => {}} />);
     expect(screen.getByText("messaging.title")).toBeInTheDocument();
     expect(screen.getByText("messaging.empty_state")).toBeInTheDocument();
     // With a staff participant present the named variant is used, carrying
@@ -49,7 +50,7 @@ describe("UI-2 /messaging page", () => {
   });
 
   it("renders the two-party stack: the client and their assigned RM, no fabricated ARM", () => {
-    render(<MessagingPage />);
+    render(<ChatPopup onClose={() => {}} />);
     // initials only, since the caption is the one place names surface
     expect(screen.getByText("AT")).toBeInTheDocument();
     expect(screen.getByText("SM")).toBeInTheDocument();
@@ -57,8 +58,53 @@ describe("UI-2 /messaging page", () => {
   });
 
   it('"Jump to latest" never appears — an empty thread cannot overflow', () => {
-    render(<MessagingPage />);
+    render(<ChatPopup onClose={() => {}} />);
     expect(screen.queryByText("messaging.jump_to_latest")).not.toBeInTheDocument();
+  });
+
+  it("the close button calls onClose", () => {
+    const onClose = vi.fn();
+    render(<ChatPopup onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "messaging.close" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("maximize fills the area beside the sidebar; restore brings the window back", () => {
+    render(<ChatPopup sidebarWidth={256} onClose={() => {}} />);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.style.top).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "messaging.maximize" }));
+    expect(dialog.style.left).toBe("280px");
+    expect(dialog.style.top).toBe("24px");
+
+    fireEvent.click(screen.getByRole("button", { name: "messaging.restore" }));
+    expect(dialog.style.top).toBe("");
+    expect(dialog.style.left).toBe("");
+  });
+
+  it("dragging an edge while maximized drops back to a window that can only shrink", () => {
+    render(<ChatPopup sidebarWidth={256} onClose={() => {}} />);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "messaging.maximize" }));
+
+    // Handles stay available while maximized.
+    const handles = dialog.querySelectorAll(":scope > [aria-hidden]");
+    expect(handles.length).toBe(3);
+
+    // jsdom has no layout, so give the maximized box a measured size:
+    // 1024x768 viewport - (256 sidebar + 24 + 32) = 712 wide, 768 - 148 = 620 tall.
+    dialog.getBoundingClientRect = () => ({ width: 712, height: 620 }) as DOMRect;
+    fireEvent.pointerDown(handles[1], { clientX: 400, clientY: 300 }); // left edge
+    expect(screen.getByRole("button", { name: "messaging.maximize" })).toBeInTheDocument();
+
+    // Dragging outward past the boundary is clamped to the maximized size.
+    fireEvent.pointerMove(document, { clientX: 100, clientY: 300 });
+    expect(dialog.style.width).toBe("712px");
+    // Dragging inward shrinks it.
+    fireEvent.pointerMove(document, { clientX: 500, clientY: 300 });
+    expect(dialog.style.width).toBe("612px");
+    fireEvent.pointerUp(document);
   });
 });
 
@@ -71,45 +117,35 @@ describe("UI-2 SidebarNav no longer lists /messaging", () => {
   });
 });
 
-describe("UI-2 FloatingActionButton hides on /messaging", () => {
-  it("is present on /overview and absent on /messaging", async () => {
+describe("UI-2 FloatingActionButton opens the chat popup", () => {
+  it("the messaging action opens the popup alongside the FAB, and close removes it", async () => {
     vi.resetModules();
-    vi.doMock("next/navigation", () => ({ usePathname: () => "/overview", useRouter: () => ({ push: vi.fn() }) }));
-    vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
     vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
     vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
     vi.doMock("@/components/ui/RaiseTicketModal", () => ({ RaiseTicketModal: () => null }));
-
-    const { FloatingActionButton: FabOnOverview } = await import("@/components/ui/FloatingActionButton");
-    const { container: overviewContainer } = render(<FabOnOverview />);
-    expect(overviewContainer.querySelector("button")).toBeTruthy();
-
-    vi.resetModules();
-    vi.doMock("next/navigation", () => ({ usePathname: () => "/messaging", useRouter: () => ({ push: vi.fn() }) }));
-    vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
-    vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
-    vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
-    vi.doMock("@/components/ui/RaiseTicketModal", () => ({ RaiseTicketModal: () => null }));
-
-    const { FloatingActionButton: FabOnMessaging } = await import("@/components/ui/FloatingActionButton");
-    const { container: messagingContainer } = render(<FabOnMessaging />);
-    expect(messagingContainer.querySelector("button")).toBeFalsy();
-  });
-
-  it("the messaging speed-dial action navigates to /messaging", async () => {
-    const push = vi.fn();
-    vi.resetModules();
-    vi.doMock("next/navigation", () => ({ usePathname: () => "/overview", useRouter: () => ({ push }) }));
-    vi.doMock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ getIdToken: vi.fn() }) }));
-    vi.doMock("@/lib/hooks/useDocuments", () => ({ useDocuments: () => ({ data: [], loading: false, error: null }) }));
-    vi.doMock("@/lib/api/documents", () => ({ downloadDocument: vi.fn() }));
-    vi.doMock("@/components/ui/RaiseTicketModal", () => ({ RaiseTicketModal: () => null }));
+    vi.doMock("@/components/messaging/ChatPopup", () => ({
+      ChatPopup: ({ onClose }: { onClose: () => void }) => (
+        <div role="dialog">
+          <button type="button" onClick={onClose}>close-chat</button>
+        </div>
+      ),
+    }));
 
     const { FloatingActionButton } = await import("@/components/ui/FloatingActionButton");
     render(<FloatingActionButton />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "fab.quick_actions" }));
     fireEvent.click(screen.getByRole("button", { name: "fab.messaging" }));
-    expect(push).toHaveBeenCalledWith("/messaging");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // The FAB stays, and its other actions still open while chatting.
+    fireEvent.click(screen.getByRole("button", { name: "fab.quick_actions" }));
+    expect(screen.getByRole("button", { name: "fab.raise_ticket" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "fab.close_quick_actions" }));
+
+    fireEvent.click(screen.getByText("close-chat"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "fab.quick_actions" })).toBeInTheDocument();
   });
 });
 

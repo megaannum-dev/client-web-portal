@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { Plus, Ticket, Download, HelpCircle, MessagesSquare } from "@/lib/icons";
 import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
+import { ChatPopup } from "@/components/messaging/ChatPopup";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { downloadDocument } from "@/lib/api/documents";
 import { useDocuments } from "@/lib/hooks/useDocuments";
@@ -23,20 +23,14 @@ const SPEED_DIAL_ACTIONS: {
   { id: "ticket",    Icon: Ticket,         labelKey: "fab.raise_ticket"        },
 ];
 
-export function FloatingActionButton() {
+export function FloatingActionButton({ sidebarWidth = 0 }: { sidebarWidth?: number }) {
   const [expanded, setExpanded]     = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [chatOpen, setChatOpen]     = useState(false);
   const { t } = useTranslation();
   const { getIdToken } = useAuth();
   const { data: statements } = useDocuments("statements");
   const latest = statements[0]; // server-sorted, newest first
-  const pathname = usePathname();
-  const router = useRouter();
-
-  // The FAB's send button would sit on top of the composer's own send
-  // button on /messaging — the design hides the FAB there too (fabRootStyle,
-  // client-messaging.txt lines 424-427).
-  if (pathname === "/messaging") return null;
 
   async function handleDownloadLatest() {
     if (!latest) return;
@@ -56,7 +50,7 @@ export function FloatingActionButton() {
 
   function handleAction(id: ActionId) {
     if (id === "messaging") {
-      router.push("/messaging");
+      setChatOpen(true);
       setExpanded(false);
     } else if (id === "ticket") {
       setTicketOpen(true);
@@ -74,6 +68,11 @@ export function FloatingActionButton() {
 
   return (
     <>
+      {/* Sits above the FAB, not over it, so the quick actions stay reachable
+          while chatting. Rendered before the backdrop so a click on the chat
+          also closes an open speed dial. */}
+      {chatOpen && <ChatPopup sidebarWidth={sidebarWidth} onClose={() => setChatOpen(false)} />}
+
       {/* Click-away backdrop */}
       {expanded && (
         <div className="fixed inset-0 z-40" onClick={() => setExpanded(false)} />
@@ -164,7 +163,7 @@ export function FloatingActionButton() {
               type="button"
               aria-label={expanded ? t("fab.close_quick_actions") : t("fab.quick_actions")}
               onClick={() => setExpanded((v) => !v)}
-              className="size-14 rounded-full flex items-center justify-center bg-primary text-white shadow-overlay cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-200"
+              className="size-14 rounded-full flex items-center justify-center bg-surface-lowest text-primary shadow-[0_0_16px_rgba(0,0,0,0.12)] cursor-pointer hover:bg-surface-low active:scale-95 transition-all duration-200"
             >
               <Plus
                 size={24}
