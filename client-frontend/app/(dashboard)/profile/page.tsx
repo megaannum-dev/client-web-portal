@@ -480,9 +480,10 @@ export default function ProfilePage() {
         {saveError && (
           <p className="text-body-sm text-error px-1 -mt-1">{saveError}</p>
         )}
-        <div className="flex gap-10 items-start">
+        {/* Avatar sits above the fields when narrow, beside them from md up. */}
+        <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-center md:items-start">
           {/* Avatar */}
-          <div className="flex flex-col items-center gap-2 shrink-0 mx-20">
+          <div className="flex flex-col items-center gap-2 shrink-0 md:mx-20">
             <div className="size-24 rounded-full overflow-hidden shadow-card">
               <div className="size-full bg-gradient-to-br from-yellow-200 via-green-300 to-teal-600 flex items-center justify-center">
                 <span className="text-headline-md font-bold text-white/80 select-none">
@@ -496,7 +497,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Fields grid */}
-          <div className="flex flex-1 flex-col gap-4 min-w-0">
+          <div className="flex flex-1 flex-col gap-4 min-w-0 w-full">
 
             {/* Full Name — editable */}
             {editing ? (
@@ -505,7 +506,7 @@ export default function ProfilePage() {
               <ProfileField label={t("profile.full_name")} value={profile?.name ?? "—"} />
             )}
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Phone — read-only (managed in Settings) */}
               <ReadOnlyField label={t("profile.phone_number")} value={profile?.phone ?? "—"}
                 note={editing ? (
@@ -524,7 +525,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {editing ? (
                 <EditableField label={t("profile.occupation")} value={draft.occupation} onChange={(v) => patchDraft("occupation", v)} />
               ) : (
@@ -534,7 +535,7 @@ export default function ProfilePage() {
               <ReadOnlyField label={t("profile.date_of_birth")} value={dob} />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {editing ? (
                 <>
                   <EditableField label={t("profile.residential_address")}   value={draft.address}               onChange={(v) => patchDraft("address", v)} />
@@ -556,7 +557,7 @@ export default function ProfilePage() {
         title={t("profile.account_balance")}
         action={<EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />}
       >
-        <div className="grid grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           <BalanceItem label={t("profile.total_portfolio_value")} value={totalValueLabel}  censored={censored} />
           <BalanceItem label={t("profile.total_cash_value")}      value={cashBalanceLabel} censored={censored} />
         </div>

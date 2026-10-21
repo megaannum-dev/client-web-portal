@@ -65,8 +65,8 @@ export default function LegalReportsPage() {
               <p className="text-label-md font-bold uppercase tracking-[0.08em] text-secondary mb-3">
                 {CATEGORY_KEYS[category] ? t(CATEGORY_KEYS[category]) : category}
               </p>
-              <div className="border border-outline-variant rounded-lg overflow-hidden">
-                <table className="w-full text-left border-collapse table-fixed">
+              <div className="border border-outline-variant rounded-lg overflow-x-auto">
+                <table className="w-full min-w-[600px] text-left border-collapse table-fixed">
                   <colgroup>
                     <col className="w-[20%]" />
                     <col className="w-[60%]" />

@@ -174,15 +174,18 @@ function ModelTable({ columns, gridTemplate, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-surface-lowest border border-outline-variant rounded-lg overflow-hidden">
-      <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: gridTemplate }}>
-        {columns.map((h) => (
-          <div key={h} className="px-5 py-3 text-label-md font-semibold uppercase tracking-[0.05em] text-secondary flex items-center">
-            {h}
-          </div>
-        ))}
+    // Scrolls sideways when narrow rather than crushing the columns together.
+    <div className="bg-surface-lowest border border-outline-variant rounded-lg overflow-x-auto">
+      <div className="min-w-[840px]">
+        <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: gridTemplate }}>
+          {columns.map((h) => (
+            <div key={h} className="px-5 py-3 text-label-md font-semibold uppercase tracking-[0.05em] text-secondary flex items-center">
+              {h}
+            </div>
+          ))}
+        </div>
+        {children}
       </div>
-      {children}
     </div>
   );
 }
@@ -290,7 +293,7 @@ export default function PortfolioPage() {
           <EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard
             label={t("portfolio.total_value")}
             value={mask(portfolio ? formatMoney(portfolio.total_value) : "—")}
@@ -330,8 +333,8 @@ export default function PortfolioPage() {
       <section>
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.portfolio_insights")}</h2>
 
-        <div className="grid grid-cols-[1fr_320px] gap-4">
-          <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          <div className="flex flex-col gap-4 min-w-0">
             <ChartCard title={t("portfolio.return_loss_performance")}>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={barChartData} barCategoryGap="35%" margin={{ top: 36, right: 16, left: -20, bottom: 0 }}>
@@ -484,11 +487,11 @@ export default function PortfolioPage() {
 
       {/* ── Ticket History ────────────────────────────────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
           <h2 className="text-headline-md font-semibold text-on-surface">{t("portfolio.ticket_history")}</h2>
 
           {/* Search */}
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search size={14} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary pointer-events-none" />
             <input
               type="search"
@@ -501,6 +504,9 @@ export default function PortfolioPage() {
         </div>
 
         <div className="bg-surface-lowest border border-outline-variant rounded-lg overflow-hidden">
+          {/* Header + rows scroll sideways when narrow; pagination stays put. */}
+          <div className="overflow-x-auto">
+          <div className="min-w-[840px]">
           {/* Header */}
           <div className="grid bg-surface-container border-b border-outline-variant" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
             {[
@@ -534,9 +540,11 @@ export default function PortfolioPage() {
               </div>
             ))
           )}
+          </div>
+          </div>
 
           {/* Pagination footer */}
-          <div className="px-6 py-4 bg-surface-container border-t border-outline-variant flex items-center justify-between">
+          <div className="px-6 py-4 bg-surface-container border-t border-outline-variant flex flex-wrap items-center justify-between gap-3">
             <span className="text-label-md text-secondary">
               {filtered.length === 0
                 ? t("portfolio.no_results")
