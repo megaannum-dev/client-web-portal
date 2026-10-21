@@ -24,6 +24,7 @@ import { AttachmentRow } from "./AttachmentRow";
 import { attachmentKind, formatBytes } from "@/lib/chat/adapter";
 import { useAttachmentDownload } from "@/lib/chat/useAttachmentDownload";
 import { DayJumpCalendar } from "./DayJumpCalendar";
+import { isNewMessage } from "./bubbleAnimation";
 import type { ChatDay, Participant } from "./types";
 
 // ponytail: design literals with no token equivalent (plan §2) — same
@@ -114,6 +115,8 @@ export function AdvisoryRoom({
   const [atLatest, setAtLatest] = useState(true);
   const threadRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Messages older than this are history and don't pop in (see isNewMessage).
+  const mountedAt = useRef(Date.now());
 
   const recordedIsos = new Set(messages.map((d) => d.iso));
   const allDocs = messages
@@ -300,7 +303,7 @@ export function AdvisoryRoom({
                     <span className={["flex-1 h-px bg-outline-variant", jumpedTo === day.iso ? "opacity-90" : "opacity-55"].join(" ")} />
                   </div>
                   {day.msgs.map((m) => (
-                    <MessageBubble key={m.id} message={m} onDownload={download} />
+                    <MessageBubble key={m.id} message={m} onDownload={download} animate={isNewMessage(m, mountedAt.current)} />
                   ))}
                 </div>
               ))

@@ -64,6 +64,122 @@
     "download_latest_eom": "Download Latest EoM Report",
     "raise_ticket": "Raise a Ticket"
   },
+  "faq": {
+    "title": "Common Questions",
+    "subtitle": "Quick answers about using your client portal",
+    "search_placeholder": "Search questions…",
+    "no_results": "No questions match your search.",
+    "close": "Close FAQ",
+    "still_need_help": "Still need help?",
+    "message_team": "Message your advisory team",
+    "back": "Back",
+    "sections": {
+      "account": "Account & Settings",
+      "portfolio": "Portfolio & Balances",
+      "requests": "Requests",
+      "documents": "Documents & Reports",
+      "kyc": "KYC & Verification",
+      "support": "Messages & Notifications"
+    },
+    "items": {
+      "change_contact": {
+        "q": "How do I change my email address or phone number?",
+        "a": "Go to Settings → Account and Safety, then choose Change Email or Change Phone Number."
+      },
+      "two_factor": {
+        "q": "How do I turn on two-factor authentication?",
+        "a": "Go to Settings → Account and Safety → Two-Factor Authentication. It adds an extra layer of security when you sign in."
+      },
+      "preferences": {
+        "q": "Can I change the language or switch to dark mode?",
+        "a": "Yes. Go to Settings → Preferences to choose English or 繁體中文, and Light, Dark or System theme. You can also switch the theme from the top bar."
+      },
+      "suspicious_activity": {
+        "q": "I see activity I don't recognise. What should I do?",
+        "a": "Change your password straight away and message your Relationship Manager so they can review your account."
+      },
+      "balance_terms": {
+        "q": "What do Total Portfolio Value, Cash Balance and Amount in Trade mean?",
+        "a": "Total Portfolio Value is everything in your account. Cash Balance is uninvested cash. Amount in Trade is what is currently invested in models."
+      },
+      "hidden_balances": {
+        "q": "Why are my balances shown as ********?",
+        "a": "They are hidden for privacy. Click the eye icon next to the section title to show or hide them."
+      },
+      "models": {
+        "q": "What are Subscribed Models and Recommended Models?",
+        "a": "Subscribed Models are the investment models you currently hold. Recommended Models are models your advisory team suggests, which you can apply for with an Allotment request."
+      },
+      "data_updates": {
+        "q": "How often is my portfolio data updated?",
+        "a": "Portfolio figures are refreshed regularly. If something looks out of date, message your Relationship Manager."
+      },
+      "invest": {
+        "q": "How do I invest in a model?",
+        "a": "Raise an Allotment ticket: click the + button at the bottom right → Raise a Ticket, or use the Portfolio page. Choose the model, the amount and your funding source."
+      },
+      "withdraw": {
+        "q": "How do I withdraw from a model?",
+        "a": "Raise a Redemption ticket and choose Partial Redemption or Redeem All."
+      },
+      "redemption_time": {
+        "q": "How long does a redemption take?",
+        "a": "Redemptions typically take 2–3 business days to process."
+      },
+      "minimum": {
+        "q": "Is there a minimum investment?",
+        "a": "Yes. Each model shows its Minimum Allotment when you select it in the ticket form."
+      },
+      "statuses": {
+        "q": "What do the ticket statuses mean?",
+        "a": "New: received. In Progress: being processed. Resolved: completed. Declined: not approved — your Relationship Manager will explain why."
+      },
+      "track": {
+        "q": "Where can I check the status of my requests?",
+        "a": "See Recent Request Status on the Overview page, or the full, searchable Ticket History on the Portfolio page."
+      },
+      "cancel": {
+        "q": "Can I cancel or change a ticket after submitting it?",
+        "a": "Message your Relationship Manager as soon as possible with the ticket ID, and they will help you."
+      },
+      "monthly": {
+        "q": "Where can I find my monthly statements?",
+        "a": "Open Monthly Reports in the sidebar. To grab the newest one quickly, use + → Download Latest EoM Report."
+      },
+      "legal": {
+        "q": "What is in Legal Reports?",
+        "a": "Legal agreements, fund documents and compliance references relating to your investments."
+      },
+      "what_kyc": {
+        "q": "What is KYC and why do I need to renew it?",
+        "a": "KYC (Know Your Customer) is a regulatory check that verifies your identity. It needs to be renewed every year."
+      },
+      "upload_kyc": {
+        "q": "How do I upload or renew my KYC documents?",
+        "a": "Go to Profile → Document Verification → Upload KYC and upload a valid government ID."
+      },
+      "kyc_time": {
+        "q": "How long does KYC verification take?",
+        "a": "Usually 1–3 business days. The status shows Processing until the review is complete."
+      },
+      "contact_rm": {
+        "q": "How do I contact my Relationship Manager?",
+        "a": "Click the + button at the bottom right → Messages to chat with your advisory team."
+      },
+      "send_files": {
+        "q": "Can I send documents in the chat?",
+        "a": "Yes. Use the paperclip button next to the message box. Every file shared in the chat is listed under the paperclip counter at the top."
+      },
+      "events_page": {
+        "q": "What appears on the Events page?",
+        "a": "Market news, account notifications and updates on your requests. Use the filter to show one type at a time."
+      },
+      "notification_settings": {
+        "q": "How do I choose which notifications I receive?",
+        "a": "Go to Settings → Notifications and switch Email, Push or SMS alerts on or off."
+      }
+    }
+  },
   "auth": {
     "login": {
       "brand_name": "AlphaTrade",
@@ -272,6 +388,21 @@
     "close": "Close chat",
     "maximize": "Expand to full page",
     "restore": "Shrink to window",
+    "assistant": {
+      "name": "Help Assistant",
+      "subtitle": "Quick answers before connecting you with your RM",
+      "start_over": "Start over",
+      "ask_topic": "Hi! What would you like help with? Choose a topic below.",
+      "ask_question": "Here are common questions about {{topic}}. Which one is closest to yours?",
+      "ask_resolved": "Did this answer your question?",
+      "glad": "Great, glad that helped! Is there anything else?",
+      "handoff": "No problem — I'll connect you with your Relationship Manager.",
+      "not_listed": "My question isn't listed",
+      "solved": "Yes, that solved it",
+      "contact_rm": "No, I want to contact my RM",
+      "connecting": "Connecting you now…",
+      "your_team": "Your advisory team"
+    },
     "calendar": {
       "prev_month": "Previous month",
       "next_month": "Next month",

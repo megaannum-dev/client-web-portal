@@ -252,6 +252,25 @@ body {
   animation: genie-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* ── Chat bubble "send" — new messages pop up iMessage-style ──────────────── */
+/* Grows from the bubble's own side (bottom-right for the client, bottom-left
+   for the other party) with a small springy overshoot. `both` keeps a
+   delayed bubble hidden until its turn. */
+@keyframes bubble-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.85); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+
+.animate-bubble-in-own,
+.animate-bubble-in-other {
+  animation: bubble-in 340ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-bubble-in-own   { transform-origin: bottom right; }
+.animate-bubble-in-other { transform-origin: bottom left; }
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-genie-in { animation: none; }
+  .animate-genie-in,
+  .animate-bubble-in-own,
+  .animate-bubble-in-other { animation: none; }
 }

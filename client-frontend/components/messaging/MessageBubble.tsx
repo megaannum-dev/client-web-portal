@@ -3,6 +3,7 @@
 
 import { useTranslation } from "react-i18next";
 import { AttachmentRow } from "./AttachmentRow";
+import { bubbleInClass } from "./bubbleAnimation";
 import type { ChatAttachment, ChatMessage } from "./types";
 
 // ponytail: design literals with no token equivalent (plan §2/§123) — the
@@ -37,8 +38,11 @@ const ROLE_LABEL_KEY: Partial<Record<ChatMessage["role"], string>> = {
 export function MessageBubble({
   message,
   onDownload,
+  animate = false,
 }: {
   message: ChatMessage;
+  /** Pop in iMessage-style — for messages that arrive while the room is open. */
+  animate?: boolean;
   /** Download one attachment. A prop, not a hook call: this component stays
    *  presentational so it renders in a test with no AuthProvider. */
   onDownload?: (attachment: ChatAttachment) => void;
@@ -49,7 +53,7 @@ export function MessageBubble({
   const meta = mine ? message.time : `${t(ROLE_LABEL_KEY[message.role] ?? "")} · ${message.time}`;
 
   return (
-    <div className={["flex gap-2.5 items-start", mine ? "flex-row-reverse" : "flex-row"].join(" ")}>
+    <div className={["flex gap-2.5 items-start", mine ? "flex-row-reverse" : "flex-row", bubbleInClass(animate, mine)].join(" ")}>
       <span
         className={[
           "size-[30px] rounded-full inline-flex items-center justify-center text-[11px] font-bold flex-none",

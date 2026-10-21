@@ -1,10 +1,11 @@
-// 021 UI-2 — the Advisory Room popup: room header + empty state + composer
-// render; there is no /messaging page and the sidebar does not list it — the
+// 021 UI-2 — the Advisory Room popup: once the client has been handed to
+// their RM (help-assistant session "connected"), room header + empty state +
+// composer render; there is no /messaging page and the sidebar does not list it — the
 // room opens only from the FAB, which stays put while it is open so the other
 // quick actions remain reachable; the participant stack is driven off the array (2 or 3 entries,
 // never a fixed 3 — plan §5); both translation.json files carry the same
 // `messaging`/`nav.messaging` keys.
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
@@ -37,8 +38,16 @@ import { ChatPopup } from "@/components/messaging/ChatPopup";
 import { AdvisoryRoom } from "@/components/messaging/AdvisoryRoom";
 import { SidebarNav } from "@/components/sidebar/SidebarNav";
 
+// The mocked user has no uid, so the session lives under the anonymous key.
+function seedConnected() {
+  localStorage.setItem("help-assistant:anonymous", JSON.stringify({ log: [], stage: "connected", topic: null }));
+}
+
+beforeEach(() => localStorage.clear());
+
 describe("UI-2 ChatPopup", () => {
   it("renders the room header, the empty state and the composer", () => {
+    seedConnected();
     render(<ChatPopup onClose={() => {}} />);
     expect(screen.getByText("messaging.title")).toBeInTheDocument();
     expect(screen.getByText("messaging.empty_state")).toBeInTheDocument();
@@ -50,6 +59,7 @@ describe("UI-2 ChatPopup", () => {
   });
 
   it("renders the two-party stack: the client and their assigned RM, no fabricated ARM", () => {
+    seedConnected();
     render(<ChatPopup onClose={() => {}} />);
     // initials only, since the caption is the one place names surface
     expect(screen.getByText("AT")).toBeInTheDocument();
@@ -58,6 +68,7 @@ describe("UI-2 ChatPopup", () => {
   });
 
   it('"Jump to latest" never appears — an empty thread cannot overflow', () => {
+    seedConnected();
     render(<ChatPopup onClose={() => {}} />);
     expect(screen.queryByText("messaging.jump_to_latest")).not.toBeInTheDocument();
   });
