@@ -203,11 +203,11 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 
 function SectionHeader({ title, linkLabel, linkHref }: { title: string; linkLabel: string; linkHref: string }) {
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
       <h2 className="text-headline-md font-semibold text-on-surface">{title}</h2>
       <Link
         href={linkHref}
-        className="flex items-center gap-0.5 text-label-md font-semibold uppercase tracking-[0.05em] text-primary hover:opacity-80 transition-opacity"
+        className="flex items-center gap-0.5 whitespace-nowrap text-label-md font-semibold uppercase tracking-[0.05em] text-primary hover:opacity-80 transition-opacity"
       >
         {linkLabel}
         <ChevronRight size={13} strokeWidth={2.5} />
@@ -241,11 +241,11 @@ export default function OverviewPage() {
       {/* ── Hero Banner ───────────────────────────────────────────────────── */}
       <HeroBanner />
 
-      {/* ── Main section: left 2/3 + right 1/3 ──────────────────────────── */}
-      <div className="grid grid-cols-[2.5fr_minmax(300px,1fr)] gap-6 items-stretch">
+      {/* ── Main section: left 2/3 + right 1/3; stacked below xl ────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-[2.5fr_minmax(300px,1fr)] gap-6 items-stretch">
 
         {/* LEFT ─────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-8 min-w-0">
 
           {/* Account Summary */}
           <div>
@@ -253,7 +253,7 @@ export default function OverviewPage() {
               <h2 className="text-headline-md font-semibold text-on-surface">{t("overview.account_summary")}</h2>
               <EyeToggle censored={censored} onToggle={() => setCensored((v) => !v)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <StatCard
                 label={t("overview.total_portfolio_value")}
                 value={portfolio ? mask(`$${portfolio.total_value.toFixed(2)}`) : "—"}
@@ -275,8 +275,9 @@ export default function OverviewPage() {
           {/* Recent Request Status */}
           <div>
             <SectionHeader title={t("overview.recent_request_status")} linkLabel={t("overview.view_all_requests")} linkHref="/portfolio" />
-            <div className="border border-outline-variant rounded-lg overflow-hidden">
-              <table className="w-full table-fixed">
+            {/* Scrolls sideways when narrow rather than crushing six columns together. */}
+            <div className="border border-outline-variant rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[720px] table-fixed">
                 <thead className="bg-surface-container">
                   <tr>
                     {[

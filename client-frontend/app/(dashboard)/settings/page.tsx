@@ -224,8 +224,8 @@ function NotificationsPanel() {
       <SubHeader icon={Bell} title={t("settings.notifications_title")} />
       <div className="flex flex-col divide-y divide-outline-variant">
         {items.map(({ key, label, desc }) => (
-          <div key={key} className="flex items-center justify-between py-4">
-            <div className="flex flex-col gap-0.5">
+          <div key={key} className="flex items-center justify-between gap-4 py-4">
+            <div className="flex flex-col gap-0.5 min-w-0">
               <span className="text-body-sm font-bold text-on-surface">{label}</span>
               <span className="text-label-md text-secondary">{desc}</span>
             </div>
@@ -271,7 +271,7 @@ function PreferencesPanel() {
           <select
             value={activeLang ?? ""}
             onChange={(e) => setLanguage(e.target.value as Language)}
-            className="h-11 px-4 rounded border border-outline-variant bg-surface-container text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-shadow w-64"
+            className="h-11 px-4 rounded border border-outline-variant bg-surface-container text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-shadow w-full sm:w-64"
           >
             {LANGUAGES.map((lng) => (
               <option key={lng} value={lng}>{LANGUAGE_LABELS[lng]}</option>
@@ -325,10 +325,11 @@ export default function SettingsPage() {
         subtitle={t("settings.subtitle")}
       />
 
-      <div className="flex gap-8 items-start">
+      {/* Tabs sit above the panel when narrow, as a left column from md up. */}
+      <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-stretch md:items-start">
 
         {/* Left tab nav */}
-        <nav className="w-56 flex flex-col gap-1 shrink-0" aria-label={t("settings.navigation")}>
+        <nav className="w-full md:w-56 flex flex-col gap-1 shrink-0" aria-label={t("settings.navigation")}>
           {TABS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}

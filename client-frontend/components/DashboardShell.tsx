@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeftOpen } from "@/lib/icons";
 import { useResizable } from "@/lib/hooks/useResizable";
@@ -11,6 +12,7 @@ const DEFAULT_WIDTH    = 256;
 const MIN_WIDTH        = 180;
 const MAX_WIDTH        = 360;
 const COLLAPSED_GUTTER = 32;
+const NARROW_BREAKPOINT = 768; // Tailwind md
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { open, setOpen, width, isDragging, handleResizeStart } = useResizable(
@@ -19,6 +21,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     MAX_WIDTH,
   );
   const { t } = useTranslation();
+
+  // On narrow screens the sidebar would eat most of the width, so start it
+  // collapsed there and fold it away when the window shrinks past md.
+  useEffect(() => {
+    const narrow = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT - 1}px)`);
+    if (narrow.matches) setOpen(false);
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) setOpen(false); };
+    narrow.addEventListener("change", onChange);
+    return () => narrow.removeEventListener("change", onChange);
+  }, [setOpen]);
 
   return (
     <>
@@ -58,7 +70,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         style={{ paddingLeft: open ? width : COLLAPSED_GUTTER }}
       >
         <Header />
-        <main className="flex-1 p-8">{children}</main>
+        <main className="flex-1 min-w-0 p-4 sm:p-8">{children}</main>
       </div>
       <FloatingActionButton sidebarWidth={open ? width : COLLAPSED_GUTTER} />
     </>

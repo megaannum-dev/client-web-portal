@@ -163,7 +163,7 @@ export function FloatingActionButton({ sidebarWidth = 0 }: { sidebarWidth?: numb
               type="button"
               aria-label={expanded ? t("fab.close_quick_actions") : t("fab.quick_actions")}
               onClick={() => setExpanded((v) => !v)}
-              className="size-14 rounded-full flex items-center justify-center bg-surface-lowest text-primary shadow-[0_0_16px_rgba(0,0,0,0.12)] cursor-pointer hover:bg-surface-low active:scale-95 transition-all duration-200"
+              className="size-14 rounded-full flex items-center justify-center bg-surface-lowest text-primary shadow-[0_0_16px_rgba(0,0,0,0.12)] dark:border dark:border-outline-variant cursor-pointer hover:bg-surface-low active:scale-95 transition-all duration-200"
             >
               <Plus
                 size={24}

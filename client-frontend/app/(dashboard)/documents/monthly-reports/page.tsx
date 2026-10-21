@@ -61,14 +61,14 @@ export default function MonthlyReportsPage() {
       />
 
       <section>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
           <h2 className="text-headline-md font-semibold text-on-surface">
             {t("monthly_reports.section_title")}
           </h2>
         </div>
 
-        <div className="border border-outline-variant rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse table-fixed">
+        <div className="border border-outline-variant rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left border-collapse table-fixed">
             <colgroup>
               <col className="w-[30%]" />
               <col className="w-[30%]" />
@@ -127,7 +127,7 @@ export default function MonthlyReportsPage() {
 
         {/* ── Pagination ─────────────────────────────────────────────────────── */}
         {statements.length > 0 && (
-          <div className="flex items-center justify-between mt-4 px-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 px-1">
             <span className="text-body-sm text-secondary">
               {t("monthly_reports.showing", {
                 from:  (currentPage - 1) * PAGE_SIZE + 1,

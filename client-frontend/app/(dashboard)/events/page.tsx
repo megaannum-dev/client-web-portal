@@ -120,7 +120,7 @@ export default function EventsPage() {
                 <p className="text-body-sm text-secondary leading-relaxed mb-4">
                   {item.description}
                 </p>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     className={clsx(
