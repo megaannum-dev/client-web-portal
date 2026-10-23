@@ -50,9 +50,12 @@ export function AssistantBubble({
         className={[
           "py-2.5 px-3.5 text-[13.5px] leading-[1.5]",
           children ? "max-w-[85%] flex flex-col gap-2.5" : "max-w-[80%]",
+          // The sharp corner points at the avatar, which sits at the bottom
+          // of the row (items-end): bottom-right for the client, bottom-left
+          // for the assistant.
           mine
-            ? "rounded-[14px_4px_14px_14px] bg-primary text-primary-foreground"
-            : "rounded-[4px_14px_14px_14px] bg-surface-lowest text-on-surface border border-outline-variant",
+            ? "rounded-[14px_14px_4px_14px] bg-primary text-primary-foreground"
+            : "rounded-[14px_14px_14px_4px] bg-surface-lowest text-on-surface border border-outline-variant",
         ].join(" ")}
       >
         <span className="whitespace-pre-line">{entryText(entry, faq)}</span>
