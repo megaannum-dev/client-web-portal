@@ -1,5 +1,5 @@
 {
-  "version": "db9476fae29f",
+  "version": "cfbd26ca9eaf",
   "sections": [
     {
       "key": "t1",
@@ -229,6 +229,28 @@
           "a": "可以。您可以附加圖片及 PDF 檔案，每個檔案上限為 10 MB。"
         }
       }
+    }
+  },
+  "assistant": {
+    "en": {
+      "ask_topic": "Hi! What would you like help with? Choose a topic below.",
+      "ask_question": "Here are common questions about {{topic}}. Which one is closest to yours?",
+      "ask_resolved": "Did this answer your question?",
+      "solved": "Yes, that solved it",
+      "contact_rm": "No, I want to contact my RM",
+      "glad": "Great, glad that helped! Is there anything else?",
+      "not_listed": "My question isn't listed",
+      "handoff": "No problem — I'll connect you with your Relationship Manager."
+    },
+    "zh-TW": {
+      "ask_topic": "您好！請問需要甚麼協助？請在下方選擇一個主題。",
+      "ask_question": "以下是關於「{{topic}}」的常見問題，哪一個最接近您的問題？",
+      "ask_resolved": "這個解答有幫助到您嗎？",
+      "solved": "是，問題已解決",
+      "contact_rm": "否，我想聯絡我的客戶關係經理",
+      "glad": "太好了，很高興能幫到您！還有其他問題嗎？",
+      "not_listed": "我的問題不在列表中",
+      "handoff": "沒問題，我會為您聯繫您的客戶關係經理。"
     }
   }
 }

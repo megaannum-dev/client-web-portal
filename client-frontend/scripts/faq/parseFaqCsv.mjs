@@ -103,3 +103,58 @@ export function parseFaqCsv(source, file = "faq.csv") {
   return { sections, text };
 }
 
+// ── The help assistant's script (content/faq/assistant.csv) ────────────────
+//
+//   key | where_it_appears | text_en | text_zh
+//
+// One row per line the assistant says or offers. `where_it_appears` is a note
+// for the editor and is ignored. Every key below must be present exactly once.
+
+export const ASSISTANT_KEYS = [
+  "ask_topic", "ask_question", "ask_resolved", "solved", "contact_rm", "glad", "not_listed", "handoff",
+];
+// Placeholders a line must keep, filled in by the app.
+const REQUIRED_PLACEHOLDERS = { ask_question: ["{{topic}}"] };
+
+/**
+ * @param {string} source  CSV text
+ * @param {string} file    name used in error messages
+ * @returns {Record<string, Record<string, string>>}  { en: { ask_topic: "…" }, "zh-TW": { … } }
+ */
+export function parseAssistantCsv(source, file = "assistant.csv") {
+  if (source.includes("�")) {
+    throw new FaqFormatError(file, 0, 'contains garbled characters — save it as "CSV UTF-8" (Excel) or download from Google Sheets as CSV');
+  }
+  const [header, ...body] = parseCsv(source);
+  const names = (header ?? []).map((h) => h.trim());
+  const needed = ["key", "text_en", "text_zh"];
+  const missing = needed.filter((c) => !names.includes(c));
+  if (missing.length) throw new FaqFormatError(file, 1, `missing column(s): ${missing.join(", ")}`);
+  const col = Object.fromEntries(needed.map((c) => [c, names.indexOf(c)]));
+
+  const script = { en: {}, "zh-TW": {} };
+  const seenAt = {};
+  body.forEach((cells, i) => {
+    const row = i + 2;
+    if (cells.every((c) => c.trim() === "")) return;
+    const get = (c) => (cells[col[c]] ?? "").replace(/\r\n?/g, "\n").trim();
+    const key = get("key");
+    if (!ASSISTANT_KEYS.includes(key)) {
+      throw new FaqFormatError(file, row, `unknown key "${key}" — keys must be: ${ASSISTANT_KEYS.join(", ")}`);
+    }
+    if (seenAt[key]) throw new FaqFormatError(file, row, `key "${key}" already used in row ${seenAt[key]}`);
+    seenAt[key] = row;
+    for (const [lang, c] of [["en", "text_en"], ["zh-TW", "text_zh"]]) {
+      const text = get(c);
+      if (!text) throw new FaqFormatError(file, row, `empty cell: ${c}`);
+      for (const p of REQUIRED_PLACEHOLDERS[key] ?? []) {
+        if (!text.includes(p)) throw new FaqFormatError(file, row, `${c} must contain ${p}`);
+      }
+      script[lang][key] = text;
+    }
+  });
+
+  const absent = ASSISTANT_KEYS.filter((k) => !seenAt[k]);
+  if (absent.length) throw new FaqFormatError(file, 0, `missing row(s) for: ${absent.join(", ")}`);
+  return script;
+}

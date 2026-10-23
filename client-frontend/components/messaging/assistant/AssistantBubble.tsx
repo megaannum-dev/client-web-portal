@@ -1,27 +1,21 @@
 "use client";
 
-import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import type { FaqText } from "@/components/faq/faqContent";
 import { useFaqText } from "@/components/faq/useFaqText";
 import { Bot } from "@/lib/icons";
 import { bubbleInClass } from "../bubbleAnimation";
 import type { Entry } from "./assistantFlow";
 
-/** The display text for one transcript entry, in the current language. */
-export function entryText(entry: Entry, t: TFunction, faq: FaqText): string {
+/** The display text for one transcript entry, in the current language — all of
+ *  it from the FAQ content (faq.csv + assistant.csv), none from translation.json. */
+export function entryText(entry: Entry, faq: FaqText): string {
   switch (entry.kind) {
-    case "ask_topic":    return t("messaging.assistant.ask_topic");
-    case "ask_question": return t("messaging.assistant.ask_question", { topic: faq.section(entry.topic) });
+    case "ask_question": return faq.script("ask_question", { topic: faq.section(entry.topic) });
     case "answer":       return faq.answer(entry.item);
-    case "ask_resolved": return t("messaging.assistant.ask_resolved");
-    case "glad":         return t("messaging.assistant.glad");
-    case "handoff":      return t("messaging.assistant.handoff");
     case "topic":        return faq.section(entry.topic);
     case "question":     return faq.question(entry.item);
-    case "not_listed":   return t("messaging.assistant.not_listed");
-    case "solved":       return t("messaging.assistant.solved");
-    case "contact_rm":   return t("messaging.assistant.contact_rm");
+    // The rest are fixed assistant lines (ask_topic, glad, solved, …).
+    default:             return faq.script(entry.kind);
   }
 }
 
@@ -40,7 +34,6 @@ export function AssistantBubble({
   /** Hold the pop so the assistant "replies" after the client's bubble. */
   delayMs?: number;
 }) {
-  const { t } = useTranslation();
   const faq = useFaqText();
   const mine = entry.from === "user";
   return (
@@ -62,7 +55,7 @@ export function AssistantBubble({
             : "rounded-[4px_14px_14px_14px] bg-surface-lowest text-on-surface border border-outline-variant",
         ].join(" ")}
       >
-        <span className="whitespace-pre-line">{entryText(entry, t, faq)}</span>
+        <span className="whitespace-pre-line">{entryText(entry, faq)}</span>
         {children}
       </div>
     </div>

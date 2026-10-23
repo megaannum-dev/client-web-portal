@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => ({
 
 import { FAQ_SECTIONS, FAQ_VERSION, faqText, filterFaq } from "@/components/faq/faqContent";
 import { FaqPopup } from "@/components/faq/FaqPopup";
-import { parseCsv, parseFaqCsv } from "@/scripts/faq/parseFaqCsv.mjs";
+import { ASSISTANT_KEYS, parseAssistantCsv, parseCsv, parseFaqCsv } from "@/scripts/faq/parseFaqCsv.mjs";
 
 const root = path.resolve(__dirname, "../../..");
 const en = faqText("en");
@@ -65,11 +65,39 @@ describe("parseFaqCsv", () => {
   });
 });
 
+describe("parseAssistantCsv", () => {
+  const rows = (over: Record<string, string> = {}) =>
+    ["key,where_it_appears,text_en,text_zh"]
+      .concat(
+        ASSISTANT_KEYS.map((k) => {
+          const en = over[k] ?? (k === "ask_question" ? "About {{topic}}?" : `${k} en`);
+          return `${k},note,${en},${k === "ask_question" ? "關於{{topic}}？" : `${k} zh`}`;
+        }),
+      )
+      .join("\n");
+
+  it("reads every line in both languages and ignores the note column", () => {
+    const script = parseAssistantCsv(rows());
+    expect(script.en.glad).toBe("glad en");
+    expect(script["zh-TW"].ask_question).toBe("關於{{topic}}？");
+  });
+
+  it.each([
+    ["a line that drops {{topic}}", rows({ ask_question: "About it?" }), /row 3: text_en must contain \{\{topic\}\}/],
+    ["an unknown key", rows() + "\ngreeting,note,Hi,你好", /unknown key "greeting"/],
+    ["a duplicate key", rows() + "\nglad,note,Again,再次", /key "glad" already used in row/],
+    ["a missing line", rows().split("\n").filter((l) => !l.startsWith("handoff")).join("\n"), /missing row\(s\) for: handoff/],
+  ])("rejects %s", (_, csv, message) => {
+    expect(() => parseAssistantCsv(csv)).toThrow(message);
+  });
+});
+
 describe("FAQ content files", () => {
-  it("components/faq/faq.generated.json is up to date with content/faq/faq.csv (run `npm run faq`)", () => {
-    const fromCsv = parseFaqCsv(fs.readFileSync(path.join(root, "content/faq/faq.csv"), "utf8"), "faq.csv");
+  it("components/faq/faq.generated.json is up to date with content/faq/*.csv (run `npm run faq`)", () => {
+    const read = (f: string) => fs.readFileSync(path.join(root, "content/faq", f), "utf8");
+    const fromCsv = { ...parseFaqCsv(read("faq.csv"), "faq.csv"), assistant: parseAssistantCsv(read("assistant.csv"), "assistant.csv") };
     const generated = JSON.parse(fs.readFileSync(path.join(root, "components/faq/faq.generated.json"), "utf8"));
-    expect({ sections: generated.sections, text: generated.text }).toEqual(fromCsv);
+    expect({ sections: generated.sections, text: generated.text, assistant: generated.assistant }).toEqual(fromCsv);
     expect(FAQ_VERSION).toBe(generated.version);
   });
 

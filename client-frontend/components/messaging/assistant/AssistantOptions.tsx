@@ -1,6 +1,5 @@
 "use client";
 
-import { useTranslation } from "react-i18next";
 import { ChevronRight } from "@/lib/icons";
 import { FAQ_SECTIONS } from "@/components/faq/faqContent";
 import { useFaqText } from "@/components/faq/useFaqText";
@@ -26,7 +25,6 @@ function Option({ label, muted, onClick }: { label: string; muted?: boolean; onC
 
 /** The replies offered for the current round, listed inside the prompt's bubble. */
 export function AssistantOptions({ session, onPick }: { session: Session; onPick: (choice: Choice) => void }) {
-  const { t } = useTranslation();
   const faq = useFaqText();
 
   let options: { key: string; label: string; muted?: boolean; choice: Choice }[] = [];
@@ -35,12 +33,12 @@ export function AssistantOptions({ session, onPick }: { session: Session; onPick
   } else if (session.stage === "question") {
     options = [
       ...questionsFor(session.topic).map((item) => ({ key: item, label: faq.question(item), choice: { type: "question", item } as Choice })),
-      { key: "not_listed", label: t("messaging.assistant.not_listed"), muted: true, choice: { type: "not_listed" } },
+      { key: "not_listed", label: faq.script("not_listed"), muted: true, choice: { type: "not_listed" } },
     ];
   } else if (session.stage === "resolved") {
     options = [
-      { key: "solved", label: t("messaging.assistant.solved"), choice: { type: "solved" } },
-      { key: "contact_rm", label: t("messaging.assistant.contact_rm"), choice: { type: "contact_rm" } },
+      { key: "solved", label: faq.script("solved"), choice: { type: "solved" } },
+      { key: "contact_rm", label: faq.script("contact_rm"), choice: { type: "contact_rm" } },
     ];
   }
 

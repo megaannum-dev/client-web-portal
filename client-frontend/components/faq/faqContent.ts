@@ -12,10 +12,16 @@ export interface FaqSection {
   items: string[];
 }
 
+/** The help assistant's lines, from content/faq/assistant.csv. */
+export type AssistantLine =
+  | "ask_topic" | "ask_question" | "ask_resolved" | "solved" | "contact_rm" | "glad" | "not_listed" | "handoff";
+
 export interface FaqText {
   section: (key: string) => string;
   question: (item: string) => string;
   answer: (item: string) => string;
+  /** An assistant line, with {{name}} placeholders filled from `vars`. */
+  script: (line: AssistantLine, vars?: Record<string, string>) => string;
 }
 
 interface LangText {
@@ -24,6 +30,7 @@ interface LangText {
 }
 
 const TEXT = generated.text as Record<string, LangText>;
+const SCRIPT = generated.assistant as Record<string, Record<string, string>>;
 
 /** Changes whenever the content does — see useAssistantSession. */
 export const FAQ_VERSION: string = generated.version;
@@ -32,11 +39,15 @@ export const FAQ_SECTIONS: FaqSection[] = generated.sections;
 
 /** Text lookups for `language` ("zh-TW", "en", …), falling back to English. */
 export function faqText(language: string): FaqText {
-  const lang = TEXT[language] ?? TEXT[language.split("-")[0]] ?? TEXT.en;
+  const code = TEXT[language] ? language : TEXT[language.split("-")[0]] ? language.split("-")[0] : "en";
+  const lang = TEXT[code];
+  const script = SCRIPT[code] ?? SCRIPT.en;
   return {
     section: (key) => lang.sections[key] ?? TEXT.en.sections[key] ?? "",
     question: (item) => lang.items[item]?.q ?? TEXT.en.items[item]?.q ?? "",
     answer: (item) => lang.items[item]?.a ?? TEXT.en.items[item]?.a ?? "",
+    script: (line, vars = {}) =>
+      (script[line] ?? SCRIPT.en[line] ?? "").replace(/\{\{(\w+)\}\}/g, (m, name: string) => vars[name] ?? m),
   };
 }
 

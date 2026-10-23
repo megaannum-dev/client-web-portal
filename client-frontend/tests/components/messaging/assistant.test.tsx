@@ -68,7 +68,7 @@ describe("ChatPopup help-assistant flow", () => {
   function walkToRm() {
     fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
     fireEvent.click(screen.getByRole("button", { name: en.question(ITEM) }));
-    fireEvent.click(screen.getByRole("button", { name: "messaging.assistant.contact_rm" }));
+    fireEvent.click(screen.getByRole("button", { name: en.script("contact_rm") }));
   }
 
   it("starts with the assistant, shows the user's picks as bubbles, then connects to the named RM", () => {
@@ -82,7 +82,7 @@ describe("ChatPopup help-assistant flow", () => {
     fireEvent.click(screen.getByRole("button", { name: en.question(ITEM) }));
     expect(screen.getByText(flat(en.answer(ITEM)))).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "messaging.assistant.contact_rm" }));
+    fireEvent.click(screen.getByRole("button", { name: en.script("contact_rm") }));
     expect(screen.getByText("Sarah Mitchell")).toBeInTheDocument();
     expect(screen.getByText("SM")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("messaging.assistant.connecting");
@@ -124,12 +124,12 @@ describe("bubble send animation", () => {
       JSON.stringify({ log: [{ from: "bot", kind: "ask_topic" }], stage: "topic", topic: null, faqVersion: FAQ_VERSION }),
     );
     render(<ChatPopup onClose={() => {}} />);
-    const greeting = screen.getByText("messaging.assistant.ask_topic").closest("[class*='flex gap-2.5']")!;
+    const greeting = screen.getByText(en.script("ask_topic")).closest("[class*='flex gap-2.5']")!;
     expect(greeting.className).not.toContain("animate-bubble-in");
 
     fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
     const pick = screen.getByText(en.section(TOPIC), { selector: "span" }).closest("[class*='flex gap-2.5']") as HTMLElement;
-    const reply = screen.getByText("messaging.assistant.ask_question").closest("[class*='flex gap-2.5']") as HTMLElement;
+    const reply = screen.getByText(en.script("ask_question", { topic: en.section(TOPIC) })).closest("[class*='flex gap-2.5']") as HTMLElement;
     expect(pick.className).toContain("animate-bubble-in-own");
     expect(reply.className).toContain("animate-bubble-in-other");
     expect(pick.style.animationDelay).toBe("");
@@ -164,7 +164,7 @@ describe("FAQ version change", () => {
     const first = render(<ChatPopup onClose={() => {}} />);
     // Back at round 1: the topic choices, not the stale yes/no.
     expect(screen.getByRole("button", { name: en.section(TOPIC) })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "messaging.assistant.solved" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.script("solved") })).not.toBeInTheDocument();
     first.unmount();
 
     localStorage.setItem("help-assistant:u1", JSON.stringify({ ...old, stage: "connected" }));
