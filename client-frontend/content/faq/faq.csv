@@ -1,0 +1,27 @@
+﻿topic_en,topic_zh,question_en,question_zh,answer_en,answer_zh
+Portfolio,投資組合,Where can I see my current holdings?,在哪裏可以查看我目前的持倉？,"Open the Portfolio page from the side menu. It lists every fund you hold, with units, latest price and market value.",從側邊選單打開「投資組合」頁面，即可查看您持有的每隻基金，包括單位數目、最新價格及市值。
+Portfolio,投資組合,How often is my portfolio value updated?,我的投資組合價值多久更新一次？,"Values are updated once every business day, after each fund publishes its net asset value (NAV).
+On weekends and public holidays you will see the last business day's value.","每個營業日於各基金公佈資產淨值（NAV）後更新一次。
+在週末及公眾假期，您會看到上一個營業日的價值。"
+Portfolio,投資組合,Why does my portfolio value differ from my monthly report?,為甚麼我的投資組合價值與月結單上的不同？,"The monthly report shows values as of the last business day of the month, while the Portfolio page shows the latest available prices.",月結單顯示的是該月最後一個營業日的價值，而「投資組合」頁面顯示的是最新可用價格。
+Portfolio,投資組合,Can I see my portfolio in a different currency?,可以用其他貨幣查看投資組合嗎？,"Yes. Use the currency selector at the top of the Portfolio page to switch between HKD, USD and your fund's base currency.",可以。使用「投資組合」頁面頂部的貨幣選擇器，即可在港元、美元及基金的基本貨幣之間切換。
+Allotment & Redemption,認購與贖回,How do I raise an allotment request?,如何提交認購申請？,"Go to Requests → New Request, choose ""Allotment"", select the fund and enter the amount. Review the summary, then submit.",前往「申請 → 新申請」，選擇「認購」，再選擇基金並輸入金額。核對摘要後提交即可。
+Allotment & Redemption,認購與贖回,How do I redeem part of my holding?,如何贖回部分持倉？,"Go to Requests → New Request and choose ""Redemption"". You can redeem by number of units or by amount.",前往「申請 → 新申請」並選擇「贖回」。您可以按單位數目或按金額贖回。
+Allotment & Redemption,認購與贖回,What is the dealing cut-off time?,交易截止時間是甚麼時候？,"Requests received before 4:00 p.m. Hong Kong time on a dealing day are processed that day. Later requests are processed on the next dealing day.",於交易日香港時間下午四時前收到的申請會在當日處理，之後收到的申請會在下一個交易日處理。
+Allotment & Redemption,認購與贖回,Can I cancel a request after submitting it?,提交申請後可以取消嗎？,"Yes, as long as its status is still ""Pending"". Open the request and tap Cancel Request.","可以，只要申請狀態仍為「處理中」。打開該申請，然後按「取消申請」即可。"
+Allotment & Redemption,認購與贖回,When will I receive my redemption proceeds?,何時會收到贖回款項？,"Proceeds are usually paid to your registered bank account within 5 business days after the dealing day.
+The exact timing depends on the fund's settlement cycle.","款項一般會在交易日後五個營業日內存入您登記的銀行戶口。
+實際時間視乎基金的結算週期。"
+Monthly Reports,月結單,Where can I download my monthly report?,在哪裏可以下載月結單？,"Go to Reports, choose the month, then tap Download. Reports are provided as PDF files.",前往「報告」，選擇月份，然後按「下載」。報告以 PDF 格式提供。
+Monthly Reports,月結單,When is the monthly report available?,月結單何時可供查閱？,The report for each month is usually available by the 10th business day of the following month.,每月的月結單一般會在下個月的第十個營業日前提供。
+Monthly Reports,月結單,How far back can I access past reports?,可以查閱多久以前的報告？,"You can access reports from the past 7 years. For older reports, please message your Relationship Manager.",您可以查閱過去七年的報告。如需更早的報告，請傳送訊息給您的客戶關係經理。
+Monthly Reports,月結單,The PDF won't open. What should I do?,PDF 無法打開，該怎麼辦？,"Make sure you have a PDF reader installed, then try downloading the file again. If it still won't open, message your Relationship Manager.",請確認已安裝 PDF 閱讀器，然後重新下載檔案。如仍無法打開，請傳送訊息給您的客戶關係經理。
+KYC Documents,客戶身份資料（KYC）,Why do I need to renew my KYC documents?,為甚麼需要更新 KYC 文件？,Regulations require us to keep your identity and address records up to date. We will remind you before your documents expire.,根據監管規定，我們須保持您的身份及地址紀錄為最新。文件到期前，我們會提醒您。
+KYC Documents,客戶身份資料（KYC）,Which documents do I need to upload?,需要上載哪些文件？,"Usually a valid ID or passport and a proof of address issued within the last 3 months, such as a utility bill or bank statement.",一般需要有效的身份證或護照，以及近三個月內發出的住址證明，例如水電費單或銀行月結單。
+KYC Documents,客戶身份資料（KYC）,How do I upload my renewed documents?,如何上載更新後的文件？,"Go to Settings → KYC Documents, tap Upload next to the document, and choose a photo or PDF file.",前往「設定 → KYC 文件」，在相關文件旁按「上載」，然後選擇相片或 PDF 檔案。
+KYC Documents,客戶身份資料（KYC）,What happens if my KYC documents expire?,如果 KYC 文件過期會怎樣？,"New allotment requests will be put on hold until your documents are renewed.
+Your existing holdings are not affected.","在您更新文件前，新的認購申請將會暫停處理。
+您現有的持倉不受影響。"
+Messaging your RM,聯絡客戶關係經理,How do I message my Relationship Manager?,如何傳送訊息給客戶關係經理？,"Tap the chat button at the bottom right of any page, then choose ""Talk to my RM"".",在任何頁面按右下角的對話按鈕，然後選擇「聯絡我的客戶關係經理」。
+Messaging your RM,聯絡客戶關係經理,How quickly will my RM reply?,客戶關係經理多快會回覆？,Your RM usually replies within one business day. You will get a notification when a new message arrives.,客戶關係經理一般會在一個營業日內回覆。收到新訊息時，您會收到通知。
+Messaging your RM,聯絡客戶關係經理,Can I send attachments in a message?,可以在訊息中附加檔案嗎？,"Yes. You can attach images and PDF files up to 10 MB each.",可以。您可以附加圖片及 PDF 檔案，每個檔案上限為 10 MB。

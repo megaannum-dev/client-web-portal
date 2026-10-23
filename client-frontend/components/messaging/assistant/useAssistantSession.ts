@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { FAQ_VERSION } from "@/components/faq/faqContent";
 import { START, choose, type Choice, type Session } from "./assistantFlow";
+
+// Stored alongside the session: the transcript holds positional FAQ ids
+// (t1q2), which point at different questions once the FAQ CSV changes.
+interface Stored extends Session {
+  faqVersion?: string;
+}
 
 // localStorage, not cookies: cookies cap at ~4KB and ride along on every
 // request to the server, while this transcript is browser-only state.
@@ -13,8 +20,14 @@ function storageKey(uid: string | null): string {
 function load(key: string): Session {
   try {
     const raw = window.localStorage.getItem(key);
-    const parsed = raw ? (JSON.parse(raw) as Session) : null;
-    return parsed && Array.isArray(parsed.log) && parsed.stage ? parsed : START;
+    const parsed = raw ? (JSON.parse(raw) as Stored) : null;
+    if (!parsed || !Array.isArray(parsed.log) || !parsed.stage) return START;
+    if (parsed.faqVersion !== FAQ_VERSION) {
+      // FAQ content changed since this was saved: drop the transcript, but a
+      // client already handed to their RM stays in the RM room.
+      return parsed.stage === "connected" ? { log: [], stage: "connected", topic: null } : START;
+    }
+    return { log: parsed.log, stage: parsed.stage, topic: parsed.topic };
   } catch {
     return START;
   }
@@ -22,7 +35,8 @@ function load(key: string): Session {
 
 function save(key: string, session: Session) {
   try {
-    window.localStorage.setItem(key, JSON.stringify(session));
+    const stored: Stored = { ...session, faqVersion: FAQ_VERSION };
+    window.localStorage.setItem(key, JSON.stringify(stored));
   } catch {
     // Storage blocked (private mode etc.) — the session just won't persist.
   }

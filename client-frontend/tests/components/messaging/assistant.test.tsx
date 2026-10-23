@@ -20,7 +20,17 @@ vi.mock("@/components/messaging/RmRoom", () => ({
 }));
 
 import { START, choose } from "@/components/messaging/assistant/assistantFlow";
+import { FAQ_SECTIONS, FAQ_VERSION, faqText } from "@/components/faq/faqContent";
 import { ChatPopup, CONNECTING_MS } from "@/components/messaging/ChatPopup";
+
+// Real content from content/faq/*.md — any topic and one of its questions.
+const en = faqText("en");
+const TOPIC = FAQ_SECTIONS[0].key;
+const ITEM = FAQ_SECTIONS[0].items[1];
+
+// Testing Library collapses whitespace in the page's text but not in the
+// string searched for, so multi-paragraph answers are matched collapsed too.
+const flat = (s: string) => s.replace(/\s+/g, " ").trim();
 
 describe("assistantFlow.choose", () => {
   it("topic → question → contact RM ends connected, with every step in the log", () => {
@@ -56,8 +66,8 @@ describe("ChatPopup help-assistant flow", () => {
   afterEach(() => vi.useRealTimers());
 
   function walkToRm() {
-    fireEvent.click(screen.getByRole("button", { name: "faq.sections.kyc" }));
-    fireEvent.click(screen.getByRole("button", { name: "faq.items.kyc_time.q" }));
+    fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
+    fireEvent.click(screen.getByRole("button", { name: en.question(ITEM) }));
     fireEvent.click(screen.getByRole("button", { name: "messaging.assistant.contact_rm" }));
   }
 
@@ -66,11 +76,11 @@ describe("ChatPopup help-assistant flow", () => {
     expect(screen.getByText("messaging.assistant.name")).toBeInTheDocument();
     expect(screen.queryByText(/rm-room/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "faq.sections.kyc" }));
+    fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
     // The pick is echoed into the transcript as the client's bubble.
-    expect(screen.getByText("faq.sections.kyc", { selector: "span" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "faq.items.kyc_time.q" }));
-    expect(screen.getByText("faq.items.kyc_time.a")).toBeInTheDocument();
+    expect(screen.getByText(en.section(TOPIC), { selector: "span" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: en.question(ITEM) }));
+    expect(screen.getByText(flat(en.answer(ITEM)))).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "messaging.assistant.contact_rm" }));
     expect(screen.getByText("Sarah Mitchell")).toBeInTheDocument();
@@ -93,15 +103,15 @@ describe("ChatPopup help-assistant flow", () => {
 
   it("keeps the transcript across reopening, and start over clears it", () => {
     const first = render(<ChatPopup onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "faq.sections.kyc" }));
+    fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
     first.unmount();
 
     render(<ChatPopup onClose={() => {}} />);
-    expect(screen.getByRole("button", { name: "faq.items.kyc_time.q" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.question(ITEM) })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "messaging.assistant.start_over" }));
-    expect(screen.queryByRole("button", { name: "faq.items.kyc_time.q" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "faq.sections.kyc" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: en.question(ITEM) })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: en.section(TOPIC) })).toBeInTheDocument();
   });
 });
 
@@ -111,14 +121,14 @@ describe("bubble send animation", () => {
   it("a restored transcript appears still; new entries pop in, the assistant's replies after the client's", () => {
     localStorage.setItem(
       "help-assistant:u1",
-      JSON.stringify({ log: [{ from: "bot", kind: "ask_topic" }], stage: "topic", topic: null }),
+      JSON.stringify({ log: [{ from: "bot", kind: "ask_topic" }], stage: "topic", topic: null, faqVersion: FAQ_VERSION }),
     );
     render(<ChatPopup onClose={() => {}} />);
     const greeting = screen.getByText("messaging.assistant.ask_topic").closest("[class*='flex gap-2.5']")!;
     expect(greeting.className).not.toContain("animate-bubble-in");
 
-    fireEvent.click(screen.getByRole("button", { name: "faq.sections.kyc" }));
-    const pick = screen.getByText("faq.sections.kyc", { selector: "span" }).closest("[class*='flex gap-2.5']") as HTMLElement;
+    fireEvent.click(screen.getByRole("button", { name: en.section(TOPIC) }));
+    const pick = screen.getByText(en.section(TOPIC), { selector: "span" }).closest("[class*='flex gap-2.5']") as HTMLElement;
     const reply = screen.getByText("messaging.assistant.ask_question").closest("[class*='flex gap-2.5']") as HTMLElement;
     expect(pick.className).toContain("animate-bubble-in-own");
     expect(reply.className).toContain("animate-bubble-in-other");
@@ -142,5 +152,23 @@ describe("isNewMessage", () => {
     const { isNewMessage } = await import("@/components/messaging/bubbleAnimation");
     expect(isNewMessage(msg({ own: true, id: "temp:123" }), mountedAt)).toBe(true);
     expect(isNewMessage(msg({ own: true, id: "srv-9" }), mountedAt)).toBe(false);
+  });
+});
+
+describe("FAQ version change", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("drops a transcript saved against older FAQ content, but keeps a client in the RM room", () => {
+    const old = { stage: "resolved", topic: null, faqVersion: "older", log: [{ from: "bot", kind: "ask_topic" }, { from: "user", kind: "topic", topic: TOPIC }] };
+    localStorage.setItem("help-assistant:u1", JSON.stringify(old));
+    const first = render(<ChatPopup onClose={() => {}} />);
+    // Back at round 1: the topic choices, not the stale yes/no.
+    expect(screen.getByRole("button", { name: en.section(TOPIC) })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "messaging.assistant.solved" })).not.toBeInTheDocument();
+    first.unmount();
+
+    localStorage.setItem("help-assistant:u1", JSON.stringify({ ...old, stage: "connected" }));
+    render(<ChatPopup onClose={() => {}} />);
+    expect(screen.getByText("rm-room:Sarah Mitchell")).toBeInTheDocument();
   });
 });

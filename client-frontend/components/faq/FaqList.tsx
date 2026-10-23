@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Search } from "@/lib/icons";
 import { FaqQuestionRow } from "./FaqQuestionRow";
 import type { FaqSection } from "./faqContent";
+import { useFaqText } from "./useFaqText";
 
 /** The FAQ list page: search box, then the (already filtered) questions by topic. */
 export function FaqList({
@@ -18,6 +19,7 @@ export function FaqList({
   onOpen: (section: string, item: string) => void;
 }) {
   const { t } = useTranslation();
+  const faq = useFaqText();
   return (
     <>
       <div className="px-6 pt-4 pb-2">
@@ -40,12 +42,12 @@ export function FaqList({
           sections.map((section) => (
             <section key={section.key} className="pt-3">
               <h3 className="text-[11px] font-bold uppercase tracking-[0.05em] text-on-surface">
-                {t(`faq.sections.${section.key}`)}
+                {faq.section(section.key)}
               </h3>
               {section.items.map((item) => (
                 <FaqQuestionRow
                   key={item}
-                  question={t(`faq.items.${item}.q`)}
+                  question={faq.question(item)}
                   onOpen={() => onOpen(section.key, item)}
                 />
               ))}

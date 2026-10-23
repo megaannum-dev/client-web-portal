@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import { ChevronRight } from "@/lib/icons";
 import { FAQ_SECTIONS } from "@/components/faq/faqContent";
+import { useFaqText } from "@/components/faq/useFaqText";
 import { questionsFor, type Choice, type Session } from "./assistantFlow";
 
 // One choice row inside the assistant's bubble.
@@ -26,13 +27,14 @@ function Option({ label, muted, onClick }: { label: string; muted?: boolean; onC
 /** The replies offered for the current round, listed inside the prompt's bubble. */
 export function AssistantOptions({ session, onPick }: { session: Session; onPick: (choice: Choice) => void }) {
   const { t } = useTranslation();
+  const faq = useFaqText();
 
   let options: { key: string; label: string; muted?: boolean; choice: Choice }[] = [];
   if (session.stage === "topic") {
-    options = FAQ_SECTIONS.map((s) => ({ key: s.key, label: t(`faq.sections.${s.key}`), choice: { type: "topic", topic: s.key } }));
+    options = FAQ_SECTIONS.map((s) => ({ key: s.key, label: faq.section(s.key), choice: { type: "topic", topic: s.key } }));
   } else if (session.stage === "question") {
     options = [
-      ...questionsFor(session.topic).map((item) => ({ key: item, label: t(`faq.items.${item}.q`), choice: { type: "question", item } as Choice })),
+      ...questionsFor(session.topic).map((item) => ({ key: item, label: faq.question(item), choice: { type: "question", item } as Choice })),
       { key: "not_listed", label: t("messaging.assistant.not_listed"), muted: true, choice: { type: "not_listed" } },
     ];
   } else if (session.stage === "resolved") {

@@ -1,0 +1,234 @@
+{
+  "version": "db9476fae29f",
+  "sections": [
+    {
+      "key": "t1",
+      "items": [
+        "t1q1",
+        "t1q2",
+        "t1q3",
+        "t1q4"
+      ]
+    },
+    {
+      "key": "t2",
+      "items": [
+        "t2q1",
+        "t2q2",
+        "t2q3",
+        "t2q4",
+        "t2q5"
+      ]
+    },
+    {
+      "key": "t3",
+      "items": [
+        "t3q1",
+        "t3q2",
+        "t3q3",
+        "t3q4"
+      ]
+    },
+    {
+      "key": "t4",
+      "items": [
+        "t4q1",
+        "t4q2",
+        "t4q3",
+        "t4q4"
+      ]
+    },
+    {
+      "key": "t5",
+      "items": [
+        "t5q1",
+        "t5q2",
+        "t5q3"
+      ]
+    }
+  ],
+  "text": {
+    "en": {
+      "sections": {
+        "t1": "Portfolio",
+        "t2": "Allotment & Redemption",
+        "t3": "Monthly Reports",
+        "t4": "KYC Documents",
+        "t5": "Messaging your RM"
+      },
+      "items": {
+        "t1q1": {
+          "q": "Where can I see my current holdings?",
+          "a": "Open the Portfolio page from the side menu. It lists every fund you hold, with units, latest price and market value."
+        },
+        "t1q2": {
+          "q": "How often is my portfolio value updated?",
+          "a": "Values are updated once every business day, after each fund publishes its net asset value (NAV).\nOn weekends and public holidays you will see the last business day's value."
+        },
+        "t1q3": {
+          "q": "Why does my portfolio value differ from my monthly report?",
+          "a": "The monthly report shows values as of the last business day of the month, while the Portfolio page shows the latest available prices."
+        },
+        "t1q4": {
+          "q": "Can I see my portfolio in a different currency?",
+          "a": "Yes. Use the currency selector at the top of the Portfolio page to switch between HKD, USD and your fund's base currency."
+        },
+        "t2q1": {
+          "q": "How do I raise an allotment request?",
+          "a": "Go to Requests → New Request, choose \"Allotment\", select the fund and enter the amount. Review the summary, then submit."
+        },
+        "t2q2": {
+          "q": "How do I redeem part of my holding?",
+          "a": "Go to Requests → New Request and choose \"Redemption\". You can redeem by number of units or by amount."
+        },
+        "t2q3": {
+          "q": "What is the dealing cut-off time?",
+          "a": "Requests received before 4:00 p.m. Hong Kong time on a dealing day are processed that day. Later requests are processed on the next dealing day."
+        },
+        "t2q4": {
+          "q": "Can I cancel a request after submitting it?",
+          "a": "Yes, as long as its status is still \"Pending\". Open the request and tap Cancel Request."
+        },
+        "t2q5": {
+          "q": "When will I receive my redemption proceeds?",
+          "a": "Proceeds are usually paid to your registered bank account within 5 business days after the dealing day.\nThe exact timing depends on the fund's settlement cycle."
+        },
+        "t3q1": {
+          "q": "Where can I download my monthly report?",
+          "a": "Go to Reports, choose the month, then tap Download. Reports are provided as PDF files."
+        },
+        "t3q2": {
+          "q": "When is the monthly report available?",
+          "a": "The report for each month is usually available by the 10th business day of the following month."
+        },
+        "t3q3": {
+          "q": "How far back can I access past reports?",
+          "a": "You can access reports from the past 7 years. For older reports, please message your Relationship Manager."
+        },
+        "t3q4": {
+          "q": "The PDF won't open. What should I do?",
+          "a": "Make sure you have a PDF reader installed, then try downloading the file again. If it still won't open, message your Relationship Manager."
+        },
+        "t4q1": {
+          "q": "Why do I need to renew my KYC documents?",
+          "a": "Regulations require us to keep your identity and address records up to date. We will remind you before your documents expire."
+        },
+        "t4q2": {
+          "q": "Which documents do I need to upload?",
+          "a": "Usually a valid ID or passport and a proof of address issued within the last 3 months, such as a utility bill or bank statement."
+        },
+        "t4q3": {
+          "q": "How do I upload my renewed documents?",
+          "a": "Go to Settings → KYC Documents, tap Upload next to the document, and choose a photo or PDF file."
+        },
+        "t4q4": {
+          "q": "What happens if my KYC documents expire?",
+          "a": "New allotment requests will be put on hold until your documents are renewed.\nYour existing holdings are not affected."
+        },
+        "t5q1": {
+          "q": "How do I message my Relationship Manager?",
+          "a": "Tap the chat button at the bottom right of any page, then choose \"Talk to my RM\"."
+        },
+        "t5q2": {
+          "q": "How quickly will my RM reply?",
+          "a": "Your RM usually replies within one business day. You will get a notification when a new message arrives."
+        },
+        "t5q3": {
+          "q": "Can I send attachments in a message?",
+          "a": "Yes. You can attach images and PDF files up to 10 MB each."
+        }
+      }
+    },
+    "zh-TW": {
+      "sections": {
+        "t1": "投資組合",
+        "t2": "認購與贖回",
+        "t3": "月結單",
+        "t4": "客戶身份資料（KYC）",
+        "t5": "聯絡客戶關係經理"
+      },
+      "items": {
+        "t1q1": {
+          "q": "在哪裏可以查看我目前的持倉？",
+          "a": "從側邊選單打開「投資組合」頁面，即可查看您持有的每隻基金，包括單位數目、最新價格及市值。"
+        },
+        "t1q2": {
+          "q": "我的投資組合價值多久更新一次？",
+          "a": "每個營業日於各基金公佈資產淨值（NAV）後更新一次。\n在週末及公眾假期，您會看到上一個營業日的價值。"
+        },
+        "t1q3": {
+          "q": "為甚麼我的投資組合價值與月結單上的不同？",
+          "a": "月結單顯示的是該月最後一個營業日的價值，而「投資組合」頁面顯示的是最新可用價格。"
+        },
+        "t1q4": {
+          "q": "可以用其他貨幣查看投資組合嗎？",
+          "a": "可以。使用「投資組合」頁面頂部的貨幣選擇器，即可在港元、美元及基金的基本貨幣之間切換。"
+        },
+        "t2q1": {
+          "q": "如何提交認購申請？",
+          "a": "前往「申請 → 新申請」，選擇「認購」，再選擇基金並輸入金額。核對摘要後提交即可。"
+        },
+        "t2q2": {
+          "q": "如何贖回部分持倉？",
+          "a": "前往「申請 → 新申請」並選擇「贖回」。您可以按單位數目或按金額贖回。"
+        },
+        "t2q3": {
+          "q": "交易截止時間是甚麼時候？",
+          "a": "於交易日香港時間下午四時前收到的申請會在當日處理，之後收到的申請會在下一個交易日處理。"
+        },
+        "t2q4": {
+          "q": "提交申請後可以取消嗎？",
+          "a": "可以，只要申請狀態仍為「處理中」。打開該申請，然後按「取消申請」即可。"
+        },
+        "t2q5": {
+          "q": "何時會收到贖回款項？",
+          "a": "款項一般會在交易日後五個營業日內存入您登記的銀行戶口。\n實際時間視乎基金的結算週期。"
+        },
+        "t3q1": {
+          "q": "在哪裏可以下載月結單？",
+          "a": "前往「報告」，選擇月份，然後按「下載」。報告以 PDF 格式提供。"
+        },
+        "t3q2": {
+          "q": "月結單何時可供查閱？",
+          "a": "每月的月結單一般會在下個月的第十個營業日前提供。"
+        },
+        "t3q3": {
+          "q": "可以查閱多久以前的報告？",
+          "a": "您可以查閱過去七年的報告。如需更早的報告，請傳送訊息給您的客戶關係經理。"
+        },
+        "t3q4": {
+          "q": "PDF 無法打開，該怎麼辦？",
+          "a": "請確認已安裝 PDF 閱讀器，然後重新下載檔案。如仍無法打開，請傳送訊息給您的客戶關係經理。"
+        },
+        "t4q1": {
+          "q": "為甚麼需要更新 KYC 文件？",
+          "a": "根據監管規定，我們須保持您的身份及地址紀錄為最新。文件到期前，我們會提醒您。"
+        },
+        "t4q2": {
+          "q": "需要上載哪些文件？",
+          "a": "一般需要有效的身份證或護照，以及近三個月內發出的住址證明，例如水電費單或銀行月結單。"
+        },
+        "t4q3": {
+          "q": "如何上載更新後的文件？",
+          "a": "前往「設定 → KYC 文件」，在相關文件旁按「上載」，然後選擇相片或 PDF 檔案。"
+        },
+        "t4q4": {
+          "q": "如果 KYC 文件過期會怎樣？",
+          "a": "在您更新文件前，新的認購申請將會暫停處理。\n您現有的持倉不受影響。"
+        },
+        "t5q1": {
+          "q": "如何傳送訊息給客戶關係經理？",
+          "a": "在任何頁面按右下角的對話按鈕，然後選擇「聯絡我的客戶關係經理」。"
+        },
+        "t5q2": {
+          "q": "客戶關係經理多快會回覆？",
+          "a": "客戶關係經理一般會在一個營業日內回覆。收到新訊息時，您會收到通知。"
+        },
+        "t5q3": {
+          "q": "可以在訊息中附加檔案嗎？",
+          "a": "可以。您可以附加圖片及 PDF 檔案，每個檔案上限為 10 MB。"
+        }
+      }
+    }
+  }
+}

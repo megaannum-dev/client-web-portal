@@ -8,6 +8,7 @@ import { PanelHeader } from "@/components/ui/PanelHeader";
 import { FaqList } from "./FaqList";
 import { FaqAnswerView } from "./FaqAnswerView";
 import { FAQ_SECTIONS, filterFaq } from "./faqContent";
+import { useFaqText } from "./useFaqText";
 
 // The list and answer pages sit side by side and slide horizontally.
 // `invisible` takes the off-screen page out of the tab order / a11y tree;
@@ -37,7 +38,8 @@ export function FaqPopup({
   // page keeps its text while it slides out instead of going blank.
   const [showing, setShowing] = useState(false);
   const [answer, setAnswer] = useState<OpenQuestion | null>(null);
-  const sections = filterFaq(FAQ_SECTIONS, query, t);
+  const faq = useFaqText();
+  const sections = filterFaq(FAQ_SECTIONS, query, faq);
 
   function openQuestion(q: OpenQuestion) {
     setAnswer(q);
@@ -77,9 +79,9 @@ export function FaqPopup({
             <div className={[PAGE, showing ? "translate-x-0" : "translate-x-full invisible"].join(" ")}>
               {answer && (
                 <FaqAnswerView
-                  section={t(`faq.sections.${answer.section}`)}
-                  question={t(`faq.items.${answer.item}.q`)}
-                  answer={t(`faq.items.${answer.item}.a`)}
+                  section={faq.section(answer.section)}
+                  question={faq.question(answer.item)}
+                  answer={faq.answer(answer.item)}
                   onBack={() => setShowing(false)}
                 />
               )}

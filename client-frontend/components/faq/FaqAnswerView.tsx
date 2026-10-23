@@ -30,7 +30,8 @@ export function FaqAnswerView({
         <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-on-surface">{section}</span>
         <h3 className="m-0 text-base leading-snug font-bold text-secondary">{question}</h3>
       </div>
-      <p className="m-0 text-body-sm text-on-surface leading-relaxed">{answer}</p>
+      {/* pre-line: keeps line breaks typed inside the answer's spreadsheet cell */}
+      <p className="m-0 text-body-sm text-on-surface leading-relaxed whitespace-pre-line">{answer}</p>
     </div>
   );
 }

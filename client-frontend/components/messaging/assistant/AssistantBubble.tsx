@@ -2,21 +2,23 @@
 
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import type { FaqText } from "@/components/faq/faqContent";
+import { useFaqText } from "@/components/faq/useFaqText";
 import { Bot } from "@/lib/icons";
 import { bubbleInClass } from "../bubbleAnimation";
 import type { Entry } from "./assistantFlow";
 
 /** The display text for one transcript entry, in the current language. */
-export function entryText(entry: Entry, t: TFunction): string {
+export function entryText(entry: Entry, t: TFunction, faq: FaqText): string {
   switch (entry.kind) {
     case "ask_topic":    return t("messaging.assistant.ask_topic");
-    case "ask_question": return t("messaging.assistant.ask_question", { topic: t(`faq.sections.${entry.topic}`) });
-    case "answer":       return t(`faq.items.${entry.item}.a`);
+    case "ask_question": return t("messaging.assistant.ask_question", { topic: faq.section(entry.topic) });
+    case "answer":       return faq.answer(entry.item);
     case "ask_resolved": return t("messaging.assistant.ask_resolved");
     case "glad":         return t("messaging.assistant.glad");
     case "handoff":      return t("messaging.assistant.handoff");
-    case "topic":        return t(`faq.sections.${entry.topic}`);
-    case "question":     return t(`faq.items.${entry.item}.q`);
+    case "topic":        return faq.section(entry.topic);
+    case "question":     return faq.question(entry.item);
     case "not_listed":   return t("messaging.assistant.not_listed");
     case "solved":       return t("messaging.assistant.solved");
     case "contact_rm":   return t("messaging.assistant.contact_rm");
@@ -39,6 +41,7 @@ export function AssistantBubble({
   delayMs?: number;
 }) {
   const { t } = useTranslation();
+  const faq = useFaqText();
   const mine = entry.from === "user";
   return (
     <div
@@ -59,7 +62,7 @@ export function AssistantBubble({
             : "rounded-[4px_14px_14px_14px] bg-surface-lowest text-on-surface border border-outline-variant",
         ].join(" ")}
       >
-        <span>{entryText(entry, t)}</span>
+        <span className="whitespace-pre-line">{entryText(entry, t, faq)}</span>
         {children}
       </div>
     </div>
