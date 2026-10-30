@@ -67,7 +67,7 @@ function LoginForm() {
         </p>
       )}
 
-      {(formError || (user && backendSyncError)) && (
+      {(formError || backendSyncError) && (
         <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
           {formError ?? backendSyncError}
         </p>

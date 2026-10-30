@@ -79,23 +79,26 @@ describe("admin-frontend AuthProvider FE-5", () => {
     vi.clearAllMocks();
   });
 
-  it("signs Firebase out and sets a distinct message on a 403 from postBackendLogin", async () => {
-    postBackendLoginMock.mockRejectedValue(new BackendAuthError("no account", 403));
-    renderProvider();
-    await waitFor(() => expect(authStateCallbacks.length).toBe(1));
+  it.each([401, 403])(
+    "signs Firebase out and sets a distinct message on a %s from postBackendLogin",
+    async (status: number) => {
+      postBackendLoginMock.mockRejectedValue(new BackendAuthError("no account", status));
+      renderProvider();
+      await waitFor(() => expect(authStateCallbacks.length).toBe(1));
 
-    await act(async () => {
-      await authStateCallbacks[0](fakeUser);
-    });
+      await act(async () => {
+        await authStateCallbacks[0](fakeUser);
+      });
 
-    expect(signOutMock).toHaveBeenCalledTimes(1);
-    expect(ctx?.backendSyncError).toBe(
-      "No internal account found for this login, or your account is suspended."
-    );
-    expect(ctx?.portalUser).toBeNull();
-  });
+      expect(signOutMock).toHaveBeenCalledTimes(1);
+      expect(ctx?.backendSyncError).toBe(
+        "No internal account found for this login, or your account is disabled. Contact your RM."
+      );
+      expect(ctx?.portalUser).toBeNull();
+    }
+  );
 
-  it("does not sign out and sets a generic message for a non-403 error", async () => {
+  it("does not sign out and sets a generic message for a non-401/403 error", async () => {
     postBackendLoginMock.mockRejectedValue(new Error("network blip"));
     renderProvider();
     await waitFor(() => expect(authStateCallbacks.length).toBe(1));

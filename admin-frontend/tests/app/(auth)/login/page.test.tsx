@@ -48,9 +48,16 @@ describe("admin-frontend login page FE-6", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not render the backend error banner when there is no user and no form error", () => {
-    useAuthMock.mockReturnValue(baseAuth({ backendSyncError: "stale error from a prior session" }));
+  it("renders the backend error banner after Firebase has been signed out", () => {
+    useAuthMock.mockReturnValue(
+      baseAuth({
+        user: null,
+        backendSyncError: "No internal account found for this login, or your account is disabled. Contact your RM.",
+      })
+    );
     render(<LoginPage />);
-    expect(screen.queryByText("stale error from a prior session")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No internal account found for this login, or your account is disabled. Contact your RM.")
+    ).toBeInTheDocument();
   });
 });

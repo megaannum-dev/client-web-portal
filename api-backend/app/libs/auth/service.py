@@ -44,7 +44,7 @@ def login_and_bind(
             settings,
         )
 
-    assert_can_authenticate(existing, db)  # DB-layer seam, § 7 — 403 if not active
+    assert_can_authenticate(existing, db)  # DB-layer seam, § 7 — 401 if not active
     existing.last_sign_in_at = datetime.utcnow()  # C-7 / DB B-4
     db.commit()
     return existing

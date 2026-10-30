@@ -39,7 +39,7 @@ export class BackendAuthError extends Error {
   }
 }
 
-/** Bind-only — 403 means "no internal account staged for this uid, or account disabled". */
+/** Bind-only — 401/403 mean "no internal account staged for this uid, or account disabled". */
 export async function postBackendLogin(idToken: string | null): Promise<PortalUser> {
   const base = getApiBase();
   const res = await fetch(`${base}/api/auth/admin/login`, {

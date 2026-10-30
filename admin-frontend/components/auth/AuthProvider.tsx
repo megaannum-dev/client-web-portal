@@ -71,13 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         if (!cancelled) {
-          if (err instanceof BackendAuthError && err.status === 403) {
-            setBackendSyncError("No internal account found for this login, or your account is suspended.");
+          if (err instanceof BackendAuthError && [401, 403].includes(err.status)) {
+            // No account staged for this uid, or account disabled — do not leave
+            // the user Firebase-signed-in but backend-rejected.
             try {
               await signOut(auth);
             } catch {
               /* noop */
             }
+            setBackendSyncError(
+              "No internal account found for this login, or your account is disabled. Contact your RM."
+            );
           } else {
             setBackendSyncError(err instanceof Error ? err.message : "Could not sync with API");
           }
