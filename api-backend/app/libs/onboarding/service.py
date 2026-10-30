@@ -112,7 +112,9 @@ class OnboardingService:
         if not source_ticket_ref:
             return
         ticket = self.db.query(ClientTicket).filter_by(reference=source_ticket_ref).one_or_none()
-        if ticket is None:
+        # scoped 404 (same message as unknown): a ticket belonging to another
+        # client must not be linkable, nor distinguishable from a missing one
+        if ticket is None or ticket.user_id != allotment.user_id:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, f"Unknown ticket reference: {source_ticket_ref}"
             )

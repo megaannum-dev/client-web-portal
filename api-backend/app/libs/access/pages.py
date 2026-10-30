@@ -132,10 +132,12 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     "rm.onboarding-renewal": (
         fs(Action.ONBOARDING_VIEW, Action.MODEL_VIEW), fs(Action.ONBOARDING_WRITE)
     ),
-    # /rm/subscriptions*, /rm/allotment, /rm/redemption, /rm/…/transaction-detail
-    # are ALL guarded by CLIENT_VIEW — reads and writes alike. No write sibling exists.
+    # /rm/subscriptions* and GET /rm/…/transaction-detail are CLIENT_VIEW; the writes
+    # (POST /rm/allotment, /rm/redemption, /rm/…/transaction-detail) are CLIENT_WRITE,
+    # held via rm.client-info's edit grant. Either way the caller only reaches clients
+    # in their own book (assigned_rm_uid; ADMIN sees all) -- others 404.
     "rm.model-subscription": (fs(Action.CLIENT_VIEW), fs()),
-    # /rm/tickets, /rm/tickets/{ref}, POST /rm/tickets/{ref}/status — all CLIENT_VIEW.
+    # /rm/tickets, /rm/tickets/{ref} — CLIENT_VIEW; POST /rm/tickets/{ref}/status is CLIENT_WRITE.
     "rm.request-tickets": (fs(Action.CLIENT_VIEW), fs()),
     "rm.client-correspondents": (fs(Action.CLIENT_VIEW), fs()),
     # ---- MOBO ----

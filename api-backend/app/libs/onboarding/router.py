@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import require_action
+from app.libs.clients.repository import ClientRepository
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.onboarding.schemas import (
     AllotRdmptDTO,
@@ -44,6 +45,41 @@ router = APIRouter(tags=["onboarding"])
 
 def _service(db: Annotated[Session, Depends(get_db)]) -> OnboardingService:
     return OnboardingService(db)
+
+
+def _get_subscriptions_caller_role(
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    db: Annotated[Session, Depends(get_db)],
+) -> AdminRole:
+    """A small local role-lookup dependency, mirroring clients/router.py's own
+    _get_caller_role (that function is underscore-private to its module; rather
+    than import a private name across packages, this router keeps its own copy
+    of the same 3-line lookup -- one small extra query rather than changing a
+    shared dependency's shape)."""
+    profile = AdminProfileRepository(db).get_by_user_id(user.id)
+    return AdminRole(profile.role)  # type: ignore[union-attr]
+
+
+def _require_visible_client(
+    db: Session, role: AdminRole, rm_uid: str, client_id: uuid.UUID
+) -> None:
+    """Scoped 404, not 403 -- a non-visible client is indistinguishable from an
+    unknown one (same stance as the clients router and _require_rm_visible_ticket).
+    Visibility is the D-4 book rule: ADMIN sees all, everyone else only the
+    clients whose client_profiles.assigned_rm_uid is theirs."""
+    if ClientRepository(db).get_profile_for_update(role, rm_uid, client_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+
+
+def _require_visible_allotment(
+    svc: OnboardingService, db: Session, role: AdminRole, rm_uid: str, allotment_id: uuid.UUID
+) -> None:
+    """Resolves the allotment's client, then applies the same book check. An
+    unknown allotment keeps the service's own 404 message."""
+    allotment = svc.repo.get_allotment(allotment_id)
+    if allotment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment/redemption")
+    _require_visible_client(db, role, rm_uid, allotment.user_id)
 
 
 # ---- RM ---------------------------------------------------------------
@@ -92,7 +128,9 @@ def get_board(
 def get_onboarding_by_client(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> OnboardingDTO:
     """Registered before /rm/onboardings/{onboarding_id} -- same registration-order
     reason as rm-options/doc-specs above ("by-client" would otherwise be swallowed
@@ -102,6 +140,7 @@ def get_onboarding_by_client(
     client-info detail page's read-only KYC & Documents card (same reasoning as
     get_client_events_rm below): a user with client-info access but no onboarding
     grant still needs to see this client's document status."""
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     return svc.detail_by_client(client_id)
 
 
@@ -109,11 +148,14 @@ def get_onboarding_by_client(
 def get_client_events_rm(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> list[ClientEventDTO]:
     """Thin re-exposure of the existing client_events(user_id) -- client_id IS
     the user_id. Gated by CLIENT_VIEW (same action GET /rm/clients/{id}
     already requires), not the client's own token."""
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     return svc.client_events(client_id)
 
 
@@ -121,8 +163,11 @@ def get_client_events_rm(
 def get_client_contact_logs(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> list[ContactLogEntryDTO]:
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     return svc.list_contact_logs(client_id)
 
 
@@ -135,6 +180,8 @@ async def create_client_contact_log(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
     topic: Annotated[str, Form()],
     channel: Annotated[str, Form()],
     occurred_at: Annotated[datetime, Form()],
@@ -144,6 +191,7 @@ async def create_client_contact_log(
     follow_up: Annotated[str | None, Form()] = None,
     file: UploadFile | None = File(None),
 ) -> ContactLogEntryDTO:
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     return svc.create_contact_log(
         client_id,
         caller_uid=user.firebase_uid,
@@ -163,8 +211,11 @@ def download_contact_log_attachment(
     client_id: uuid.UUID,
     log_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     stream, filename, content_type = svc.download_contact_log_attachment(client_id, log_id)
     return StreamingResponse(
         stream,
@@ -243,19 +294,6 @@ def download_all_documents(
     )
 
 
-def _get_subscriptions_caller_role(
-    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
-    db: Annotated[Session, Depends(get_db)],
-) -> AdminRole:
-    """A small local role-lookup dependency, mirroring clients/router.py's own
-    _get_caller_role (that function is underscore-private to its module; rather
-    than import a private name across packages, this router keeps its own copy
-    of the same 3-line lookup -- one small extra query rather than changing a
-    shared dependency's shape)."""
-    profile = AdminProfileRepository(db).get_by_user_id(user.id)
-    return AdminRole(profile.role)  # type: ignore[union-attr]
-
-
 @router.get("/rm/subscriptions", response_model=list[ClientSubscriptionsDTO])
 def list_subscriptions(
     svc: Annotated[OnboardingService, Depends(_service)],
@@ -269,8 +307,11 @@ def list_subscriptions(
 def list_client_allotments(
     client_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> list[AllotRdmptDTO]:
+    _require_visible_client(db, role, user.firebase_uid, client_id)
     return svc.client_allotments(client_id)
 
 
@@ -278,8 +319,11 @@ def list_client_allotments(
 def submit_allotment(
     req: SubmitAllotmentReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
+    _require_visible_client(db, role, user.firebase_uid, req.client_id)
     return svc.submit_allotment(req)
 
 
@@ -287,8 +331,11 @@ def submit_allotment(
 def submit_redemption(
     req: SubmitRedemptionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
+    _require_visible_client(db, role, user.firebase_uid, req.client_id)
     return svc.submit_redemption(req)
 
 
@@ -302,7 +349,10 @@ def file_transaction_detail(
     req: TransactionDetailRequest,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> TransactionDetailDTO:
+    _require_visible_allotment(svc, db, role, user.firebase_uid, allotment_id)
     return svc.file_transaction_detail(allotment_id, req, filed_by=user.firebase_uid)
 
 
@@ -313,8 +363,11 @@ def file_transaction_detail(
 def get_transaction_detail(
     allotment_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> TransactionDetailDTO:
+    _require_visible_allotment(svc, db, role, user.firebase_uid, allotment_id)
     return svc.get_transaction_detail(allotment_id)
 
 

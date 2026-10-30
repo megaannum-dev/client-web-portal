@@ -38,6 +38,7 @@ from app.libs.onboarding.service import OnboardingService
 from app.main import app
 from app.models.users import AdminProfile, AdminRole
 from tests.conftest import make_admin_stub
+from tests.libs.onboarding.conftest import make_allotment, make_client, make_model
 
 
 def _stub_dto(**overrides) -> TransactionDetailDTO:
@@ -102,6 +103,17 @@ def admin_client(db_factory):
         app.dependency_overrides.clear()
 
 
+def _own_allotment_id(db_factory, stub_user) -> uuid.UUID:
+    """An allotment of a client in the calling RM's own book -- both routes 404
+    for an allotment whose client the caller is not assigned to (D03)."""
+    db = db_factory()
+    try:
+        client = make_client(db, assigned_rm_uid=stub_user.firebase_uid)
+        return make_allotment(db, client, make_model(db)).id
+    finally:
+        db.close()
+
+
 def _post_body() -> dict:
     return {
         "bank_account": "123-456-789",
@@ -116,10 +128,12 @@ def _post_body() -> dict:
 # --- Positive: each route reaches its service method, returns the pinned DTO --------
 
 
-def test_file_transaction_detail_reaches_service_and_returns_201(admin_client, monkeypatch):
+def test_file_transaction_detail_reaches_service_and_returns_201(
+    admin_client, db_factory, monkeypatch
+):
     http, stub_user, _set_role = admin_client
     captured: dict = {}
-    allotment_id = uuid.uuid4()
+    allotment_id = _own_allotment_id(db_factory, stub_user)
 
     def _fake_file(self, aid, req, *, filed_by):
         captured["allotment_id"] = aid
@@ -144,10 +158,12 @@ def test_file_transaction_detail_reaches_service_and_returns_201(admin_client, m
     assert captured["req"].currency == "USD"
 
 
-def test_get_transaction_detail_reaches_service_and_returns_200(admin_client, monkeypatch):
-    http, _stub_user, _set_role = admin_client
+def test_get_transaction_detail_reaches_service_and_returns_200(
+    admin_client, db_factory, monkeypatch
+):
+    http, stub_user, _set_role = admin_client
     captured: dict = {}
-    allotment_id = uuid.uuid4()
+    allotment_id = _own_allotment_id(db_factory, stub_user)
 
     def _fake_get(self, aid):
         captured["allotment_id"] = aid
