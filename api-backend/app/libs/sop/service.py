@@ -20,6 +20,7 @@ from app.libs.sop.schemas import SopDocumentDTO, SopUpdate, SopVersionDTO
 from app.models.sop import SopCategory, SopDocument, SopVersion
 from app.models.users import User
 from app.utils.filenames import fix_mojibake_filename
+from app.utils.uploads import validate_upload
 
 logger = logging.getLogger(__name__)
 
@@ -116,24 +117,9 @@ def _not_found() -> HTTPException:
 def _validate(file: UploadFile) -> tuple[str, str, int]:
     """-> (filename, content_type, size). Raises 415/422/413."""
     filename = fix_mojibake_filename(file.filename) or "sop"
-    ext = os.path.splitext(filename)[1].lower()
-    content_type = _EXT_CONTENT_TYPES.get(ext)
-    if content_type is None:
-        raise HTTPException(
-            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            f"Unsupported file type '{ext or filename}' -- expected one of "
-            f"{'/'.join(sorted(_EXT_CONTENT_TYPES))}",
-        )
-    file.file.seek(0, 2)
-    size = file.file.tell()
-    file.file.seek(0)
-    if size == 0:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "File is empty")
-    if size > SOP_MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            f"File exceeds the {SOP_MAX_UPLOAD_BYTES} byte upload budget",
-        )
+    content_type, size = validate_upload(
+        filename, file.file, types=_EXT_CONTENT_TYPES, max_bytes=SOP_MAX_UPLOAD_BYTES
+    )
     return filename, content_type, size
 
 

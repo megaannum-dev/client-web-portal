@@ -93,9 +93,11 @@ class LocalStorage:
         subdir: str | None = None,
     ) -> str:
         # Build a unique key so we never overwrite on re-upload.
-        key_body = f"{uuid.uuid4().hex}_{suggested_name}"
+        # .name drops any directory part of the caller-supplied name; _resolve is
+        # the backstop for a hostile `subdir`.
+        key_body = f"{uuid.uuid4().hex}_{Path(suggested_name).name}"
         key = f"{subdir}/{key_body}" if subdir else key_body
-        dest = self._root / key
+        dest = self._resolve(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("wb") as fh:
             fh.write(stream.read())

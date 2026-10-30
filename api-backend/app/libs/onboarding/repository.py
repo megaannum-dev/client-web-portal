@@ -291,11 +291,13 @@ class OnboardingRepository:
         storage_key: str,
         filename: str,
         content_type: str | None,
+        size_bytes: int,
         uploaded_by: str,
     ) -> None:
         doc.storage_key = storage_key
         doc.filename = filename
         doc.content_type = content_type
+        doc.size_bytes = size_bytes
         doc.status = DocStatus.UPLOADED
         doc.version_no = (doc.version_no or 0) + 1
         doc.uploaded_by = uploaded_by
