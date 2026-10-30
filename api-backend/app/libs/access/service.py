@@ -273,10 +273,12 @@ class AccessService:
             raise HTTPException(409, "Failed to revoke override") from exc
 
     # --- audit (BE-11) ---
-    def list_audit(self, *, limit: int, before: datetime | None) -> list[AuditOut]:
-        """Newest-first, keyset-paged on `before` (repo does `at < before`, so a
-        row exactly at the boundary is excluded -- pages never overlap even with
-        a concurrent insert). `actor_name` NULL (actor deleted) is never
+    def list_audit(
+        self, *, limit: int, before: datetime | None, before_id: uuid.UUID | None = None
+    ) -> list[AuditOut]:
+        """Newest-first, keyset-paged on `before` + `before_id` (the last row seen), so
+        pages neither overlap nor skip rows sharing a second. `before` alone still
+        means `at < before`. `actor_name` NULL (actor deleted) is never
         serialised as JSON null -- falls back to a display string."""
         return [
             AuditOut(
@@ -286,5 +288,5 @@ class AccessService:
                 event=row.event,
                 detail=row.detail,
             )
-            for row in self.repo.list_audit(limit=limit, before=before)
+            for row in self.repo.list_audit(limit=limit, before=before, before_id=before_id)
         ]

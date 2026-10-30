@@ -72,5 +72,6 @@ def list_audit(
     _: Annotated[User, Depends(require_action(Action.USER_VIEW))],
     limit: int = Query(50, ge=1, le=200),
     before: datetime | None = Query(None),
+    before_id: uuid.UUID | None = Query(None),
 ) -> list[AuditOut]:
-    return service.list_audit(limit=limit, before=before)
+    return service.list_audit(limit=limit, before=before, before_id=before_id)

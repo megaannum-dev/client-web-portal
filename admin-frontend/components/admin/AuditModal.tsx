@@ -46,7 +46,7 @@ export function AuditModal({ onClose }: { onClose: () => void }) {
       busy.current = true;
       setLoading(true);
       try {
-        const result = await getAudit({ limit: PAGE, before: last.at });
+        const result = await getAudit({ limit: PAGE, before: last.at, before_id: last.id });
         if (!result.success) throw new Error(result.error);
         // The first page also snapshots the store's newest rows: a later refresh shifts that
         // window, and the rows it drops must stay on screen, not fall into a gap.

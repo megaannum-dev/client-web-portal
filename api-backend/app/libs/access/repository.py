@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.models.access import (
@@ -198,9 +198,22 @@ class AccessRepository:
         self.db.flush()
         return row
 
-    def list_audit(self, *, limit: int, before: datetime | None) -> list[AdminAuditEvent]:
-        """ORDER BY at DESC, keyset-paged on `at < before`. Uses INDEX (at)."""
-        query = self.db.query(AdminAuditEvent).order_by(AdminAuditEvent.at.desc())
-        if before is not None:
+    def list_audit(
+        self, *, limit: int, before: datetime | None, before_id: uuid.UUID | None = None
+    ) -> list[AdminAuditEvent]:
+        """ORDER BY at DESC, id DESC, keyset-paged on `(at, id) < (before, before_id)`.
+        `at` is a whole-second DATETIME on MariaDB, so `at < before` alone would skip
+        rows sharing a second with the page's last row. Uses INDEX (at)."""
+        query = self.db.query(AdminAuditEvent).order_by(
+            AdminAuditEvent.at.desc(), AdminAuditEvent.id.desc()
+        )
+        if before is not None and before_id is not None:
+            query = query.filter(
+                or_(
+                    AdminAuditEvent.at < before,
+                    and_(AdminAuditEvent.at == before, AdminAuditEvent.id < before_id),
+                )
+            )
+        elif before is not None:
             query = query.filter(AdminAuditEvent.at < before)
         return query.limit(limit).all()

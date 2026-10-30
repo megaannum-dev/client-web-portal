@@ -142,7 +142,7 @@ export async function revokeOverride(id: string): Promise<APIResult<void>> {
   }
 }
 
-export async function getAudit(params?: { limit?: number; before?: string }): Promise<APIResult<AuditOut[]>> {
+export async function getAudit(params?: { limit?: number; before?: string; before_id?: string }): Promise<APIResult<AuditOut[]>> {
   try {
     logger.json("🔄 Fetching admin audit with params:", params);
     const response = await _getAudit(params);

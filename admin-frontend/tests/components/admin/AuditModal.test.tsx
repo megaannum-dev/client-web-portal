@@ -62,7 +62,7 @@ describe("AuditModal lazy paging", () => {
     await sentinelVisible();
 
     expect(getAudit).toHaveBeenCalledTimes(1);
-    expect(getAudit).toHaveBeenCalledWith({ limit: 50, before: row(49).at });
+    expect(getAudit).toHaveBeenCalledWith({ limit: 50, before: row(49).at, before_id: row(49).id });
     expect(await screen.findByText("detail-52")).toBeTruthy();
     expect(screen.getByText("detail-0")).toBeTruthy();
   });
@@ -90,7 +90,7 @@ describe("AuditModal lazy paging", () => {
     await sentinelVisible();
 
     expect(getAudit).toHaveBeenCalledTimes(2);
-    expect(getAudit).toHaveBeenLastCalledWith({ limit: 50, before: row(99).at });
+    expect(getAudit).toHaveBeenLastCalledWith({ limit: 50, before: row(99).at, before_id: row(99).id });
   });
 
   it("does not load at all when the store holds less than a full page", async () => {
