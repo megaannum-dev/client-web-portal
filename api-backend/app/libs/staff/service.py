@@ -350,6 +350,8 @@ class StaffService:
             moved_tickets = self.repo.reassign_open_tickets(from_uid=uid, to_uid=receiver_uid)
             if patch.status == "DEACTIVATED":
                 change_desc = f"Deactivated {target_label}"
+                if patch.role is not None and patch.role != role_before:
+                    change_desc += f" · role {role_before.value}→{patch.role.value}"
             else:
                 change_desc = f"{target_label} {role_before.value} → {patch.role.value}"  # type: ignore[union-attr]
             # ONE row: the handover row carries the extras (reason, contact edits)
