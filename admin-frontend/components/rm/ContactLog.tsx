@@ -23,7 +23,7 @@ import {
   Plus, ChevronRight, Paperclip, FileText, Phone, Video, Users, Mail, MessageCircle, Check, X,
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
-import type { ContactLogEntryDTO } from "@/lib/onboarding/types";
+import { CONTACT_LOG_ACCEPT, type ContactLogEntryDTO } from "@/lib/onboarding/types";
 
 type DownloadAttachmentResult = {
   success: boolean; error?: string; filename?: string; contentType?: string; base64?: string;
@@ -272,7 +272,7 @@ function NewContactLogModal({
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-outline bg-surface-low px-3 py-4 text-[13px] font-semibold text-secondary">
                 <Paperclip size={15} strokeWidth={2} />
                 Attach a document — meeting notes, statement, signed instruction
-                <input type="file" className="hidden" onChange={onFile} />
+                <input type="file" accept={CONTACT_LOG_ACCEPT} className="hidden" onChange={onFile} />
               </label>
             )
           )}

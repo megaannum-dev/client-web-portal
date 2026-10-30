@@ -17,6 +17,7 @@
 
 import { Fragment, useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import clsx from "clsx";
+import { toast } from "sonner";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import { UserRoundPlus, Check, File, Upload, Info, Lock, TriangleAlert } from "@/lib/icons";
@@ -24,7 +25,7 @@ import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import { useModels } from "@/hooks/api/useModels";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFeePercent, parseFeePercent } from "@/lib/fee";
-import type { DocSpecDTO, RmOptionDTO } from "@/lib/onboarding/types";
+import { KYC_ACCEPT, type DocSpecDTO, type RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
@@ -195,10 +196,23 @@ export function OnboardingModal({
       // Client record exists now — push every doc staged in step 3 for real.
       const failures: string[] = [];
       for (const [docType, file] of Object.entries(docs)) {
-        const r = await uploadDocument(result.id!, docType, file);
-        if (!r.success) failures.push(docSpecs.find((s) => s.doc_type === docType)?.label ?? docType);
+        const label = docSpecs.find((s) => s.doc_type === docType)?.label ?? docType;
+        // Caught per document: the client record exists by now, so a thrown upload (e.g. over
+        // the server-action body limit) must not reach the outer catch and invite a re-submit.
+        try {
+          const r = await uploadDocument(result.id!, docType, file);
+          if (!r.success) failures.push(`${label}: ${r.error ?? "Upload failed"}`);
+        } catch (err) {
+          failures.push(`${label}: ${err instanceof Error ? err.message : "Upload failed"}`);
+        }
       }
-      if (failures.length) alert(`Client created, but these documents failed to upload — add them from the KYC panel: ${failures.join(", ")}`);
+      if (failures.length) {
+        toast.error("Client created, but these documents failed to upload — add them from the KYC panel", {
+          description: failures.join("\n"),
+          classNames: { description: "whitespace-pre-line" },
+          duration: Infinity, // the RM needs time to note which documents to re-add
+        });
+      }
       onClose();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Invalid fee value");
@@ -468,7 +482,7 @@ export function OnboardingModal({
                     <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded border border-outline px-3 py-1.5 text-[12.5px] font-semibold text-secondary">
                       <Upload size={13} strokeWidth={2} />
                       Upload
-                      <input type="file" className="hidden" onChange={onDoc(spec.doc_type)} />
+                      <input type="file" accept={KYC_ACCEPT} className="hidden" onChange={onDoc(spec.doc_type)} />
                     </label>
                   )}
                 </div>
