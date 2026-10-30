@@ -113,7 +113,8 @@ async def validation_exception_handler(
 ) -> JSONResponse:
     """Flatten Pydantic's list-of-objects into a one-line string; keep the raw
     list under `errors` for any client that wants field-level detail."""
-    errors = jsonable_encoder(exc.errors())
+    # Drop `input`: it echoes the submitted value (passwords included).
+    errors = jsonable_encoder([{k: v for k, v in e.items() if k != "input"} for e in exc.errors()])
     first = errors[0] if errors else None
     if first is not None:
         loc = ".".join(str(p) for p in first.get("loc", [])[1:]) or "request"

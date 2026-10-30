@@ -47,12 +47,13 @@ export async function getStaff(): Promise<APIResult<StaffOut[]>> {
 
 export async function enrollStaff(body: StaffEnrollIn): Promise<APIResult<StaffCreatedOut>> {
   try {
-    logger.json("🔄 Enrolling staff with body:", body);
+    logger.json("🔄 Enrolling staff:", { email: body.email, role: body.role });
     const response = await _enrollStaff(body);
-    logger.json("✅ Enroll staff response:", response);
+    // generated_password must never reach the logs.
+    logger.json("✅ Enroll staff response:", response.success ? { uid: response.data.firebase_uid } : response);
     return response;
   } catch (error) {
-    console.error("❌ Error enrolling staff:", { error, body });
+    console.error("❌ Error enrolling staff:", { error });
     return toErrorResult(error);
   }
 }
