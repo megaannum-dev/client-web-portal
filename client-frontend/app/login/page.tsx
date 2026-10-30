@@ -13,7 +13,11 @@ function LoginForm() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/overview";
+  const raw = searchParams.get("next") ?? "";
+  // Internal paths only (no "//host", "/\host" or absolute URLs). The control-char
+  // check is needed because browsers strip tab, CR and LF before parsing, so
+  // "/<TAB>/evil.com" would otherwise become "//evil.com".
+  const next = /^\/(?![\/\\])/.test(raw) && !/[\x00-\x1f\x7f]/.test(raw) ? raw : "/overview";
 
   const {
     user,

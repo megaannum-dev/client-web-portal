@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const replaceMock = vi.fn();
+let nextParam: string | null = null;
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: replaceMock }),
+  useSearchParams: () => ({ get: () => nextParam }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -44,6 +47,8 @@ async function submitLoginForm() {
 describe("login page FE-3", () => {
   beforeEach(() => {
     mockUseAuth.mockReset();
+    replaceMock.mockReset();
+    nextParam = null;
   });
 
   it("renders AuthProvider's backendSyncError verbatim in the error banner", () => {
@@ -100,5 +105,22 @@ describe("login page FE-3", () => {
     expect(
       screen.queryByText("No account found for this login, or your account is disabled. Contact your RM.")
     ).not.toBeInTheDocument();
+  });
+
+  it.each(["//evil.com", "/\\evil.com", "https://evil.com", "/\t/evil.com"])(
+    "ignores the external ?next=%j and redirects to the default",
+    (bad) => {
+      nextParam = bad;
+      mockUseAuth.mockReturnValue(baseAuth({ user: { uid: "u1" }, portalUser: { id: "p1" } }));
+      render(<LoginPage />);
+      expect(replaceMock).toHaveBeenCalledWith("/overview");
+    }
+  );
+
+  it("keeps an internal ?next= path", () => {
+    nextParam = "/some/path";
+    mockUseAuth.mockReturnValue(baseAuth({ user: { uid: "u1" }, portalUser: { id: "p1" } }));
+    render(<LoginPage />);
+    expect(replaceMock).toHaveBeenCalledWith("/some/path");
   });
 });

@@ -9,7 +9,11 @@ import { formatFirebaseAuthError } from "@/lib/firebase-auth-errors";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  const raw = searchParams.get("next") ?? "";
+  // Internal paths only (no "//host", "/\host" or absolute URLs). The control-char
+  // check is needed because browsers strip tab, CR and LF before parsing, so
+  // "/<TAB>/evil.com" would otherwise become "//evil.com".
+  const next = /^\/(?![\/\\])/.test(raw) && !/[\x00-\x1f\x7f]/.test(raw) ? raw : "/";
 
   const {
     user,
