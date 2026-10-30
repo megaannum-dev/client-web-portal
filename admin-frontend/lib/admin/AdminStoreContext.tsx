@@ -201,9 +201,15 @@ export function AdminStoreProvider({
   }, []);
 
   const refreshAudit = useCallback(async () => {
-    const result = await getAudit({ limit: 50 });
-    if (result.success) setAudit(result.data);
-    else toast.error(result.error);
+    // Never throws: callers run this AFTER a successful write, and a failed audit
+    // re-read (even a rejected server-action call) must not turn that into a failure.
+    try {
+      const result = await getAudit({ limit: 50 });
+      if (result.success) setAudit(result.data);
+      else toast.error(result.error);
+    } catch {
+      toast.error("Could not refresh the audit log");
+    }
   }, []);
 
   const publish = useCallback(
@@ -238,21 +244,23 @@ export function AdminStoreProvider({
     const result = await grantOverride(body);
     if (result.success) {
       setOverrides((l) => [...l, result.data]);
+      await refreshAudit();
       return true;
     }
     toast.error(result.error);
     return false;
-  }, []);
+  }, [refreshAudit]);
 
   const revokeOverride = useCallback(async (id: string): Promise<boolean> => {
     const result = await revokeOverrideAction(id);
     if (result.success) {
       setOverrides((l) => l.filter((o) => o.id !== id));
+      await refreshAudit();
       return true;
     }
     toast.error(result.error);
     return false;
-  }, []);
+  }, [refreshAudit]);
 
   const enroll = useCallback(async (body: StaffEnrollIn): Promise<StaffCreatedOut | null> => {
     const result = await enrollStaff(body);
@@ -268,29 +276,34 @@ export function AdminStoreProvider({
           client_count: null, open_ticket_count: null,
         },
       ]);
+      await refreshAudit();
       return created;
     }
     toast.error(result.error);
     return null;
-  }, []);
+  }, [refreshAudit]);
 
   const updateStaff = useCallback(async (uid: string, body: StaffUpdateIn): Promise<boolean> => {
     const result = await updateStaffAction(uid, body);
     if (result.success) {
       const updated = result.data;
       setStaff((l) => l.map((u) => (u.firebase_uid === uid ? updated : u)));
+      await refreshAudit();
       return true;
     }
     toast.error(result.error);
     return false;
-  }, []);
+  }, [refreshAudit]);
 
   const sendLink = useCallback(async (uid: string): Promise<boolean> => {
     const result = await sendSetPasswordLink(uid);
-    if (result.success) return result.data.link_sent;
+    if (result.success) {
+      await refreshAudit();
+      return result.data.link_sent;
+    }
     toast.error(result.error);
     return false;
-  }, []);
+  }, [refreshAudit]);
 
   const value: AdminStore = {
     staff, overrides, audit, pages, roles, published, totalPages: pages.length, loadError,

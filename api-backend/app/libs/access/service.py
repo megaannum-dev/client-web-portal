@@ -116,7 +116,8 @@ class AccessService:
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="access.published",
-                detail=f"{len(body.changes)} cell(s) published",
+                detail=f"{len(body.changes)} cell(s) published"
+                + (f" · {body.note}" if body.note else ""),
             )
             self.repo.db.commit()
         except Exception as exc:
@@ -228,7 +229,11 @@ class AccessService:
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="override.granted",
-                detail=f"granted {body.level.value} on {body.page_id} to {grantee}",
+                detail=(
+                    f"granted {body.level.value} on {body.page_id} to {grantee}"
+                    f" · reason: {body.reason}"
+                    f" · expires {body.expires_at.date().isoformat() if body.expires_at else 'never'}"
+                ),
             )
             self.repo.db.commit()
         except Exception as exc:
@@ -252,12 +257,15 @@ class AccessService:
             raise HTTPException(404, "Unknown override")
 
         try:
+            # Same grantee label as grant_override; read before the row is deleted.
+            owner = self.repo.db.query(User).filter(User.id == override.user_id).one_or_none()
+            grantee = (owner.name or owner.firebase_uid) if owner is not None else "(deleted user)"
             self.repo.delete_override(override)
             self.repo.insert_audit(
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="override.revoked",
-                detail=f"revoked override on {override.page_id}",
+                detail=f"revoked override on {override.page_id} from {grantee}",
             )
             self.repo.db.commit()
         except Exception as exc:

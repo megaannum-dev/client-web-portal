@@ -38,6 +38,7 @@ class StaffUpdatePatch(Protocol):
     name: str | None
     phone_number: str | None
     email: str | None
+    deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
 
@@ -312,6 +313,26 @@ class StaffService:
                 raise HTTPException(409, block)
             self._assert_valid_receiver(receiver_uid, from_uid=uid)
 
+        # Audit fragments, built from the before-values and ACTUAL changes only (a
+        # no-op write adds nothing). `state` = role/status, `contact` = name/phone/
+        # email; a handover row already says role/deactivation in its own words.
+        state: list[str] = []
+        contact: list[str] = []
+        reason = patch.deactivate_reason if is_disabling else None
+        reactivated = patch.status == "ACTIVE" and user.status != AccountStatus.ACTIVE
+        if patch.role is not None and patch.role != role_before:
+            state.append(f"role {role_before.value}→{patch.role.value}")
+        if is_disabling:
+            state.append(f"deactivated (reason: {reason})" if reason else "deactivated")
+        elif reactivated:
+            state.append("reactivated")
+        if patch.name is not None and patch.name != profile.name:
+            contact.append(f"name {profile.name or '(none)'}→{patch.name}")
+        if patch.phone_number is not None and patch.phone_number != profile.phone_number:
+            contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
+        if patch.email is not None and patch.email != user.email:
+            contact.append(f"email {user.email or '(none)'}→{patch.email}")
+
         if patch.role is not None:
             profile.role = patch.role
         if patch.status is not None:
@@ -331,14 +352,33 @@ class StaffService:
                 change_desc = f"Deactivated {target_label}"
             else:
                 change_desc = f"{target_label} {role_before.value} → {patch.role.value}"  # type: ignore[union-attr]
+            # ONE row: the handover row carries the extras (reason, contact edits)
+            # instead of a second row, which would tie on `at` (now() is the txn start).
+            extras = ([f"reason: {reason}"] if reason else []) + contact
             AccessRepository(self.repo.db).insert_audit(
                 actor_uid=actor.firebase_uid if actor is not None else None,
                 actor_name=actor.name if actor is not None else None,
                 event="staff.book_handover",
-                detail=(
-                    f"{change_desc} · book of {moved_clients} clients + "
-                    f"{moved_tickets} open tickets → {receiver_uid}"
+                detail=" · ".join(
+                    [
+                        f"{change_desc} · book of {moved_clients} clients + "
+                        f"{moved_tickets} open tickets → {receiver_uid}",
+                        *extras,
+                    ]
                 ),
+            )
+        elif state or contact:
+            AccessRepository(self.repo.db).insert_audit(
+                actor_uid=actor.firebase_uid if actor is not None else None,
+                actor_name=actor.name if actor is not None else None,
+                event=(
+                    "staff.deactivated"
+                    if is_disabling
+                    else "staff.reactivated"
+                    if reactivated
+                    else "staff.updated"
+                ),
+                detail=f"{target_label}: {'; '.join(state + contact)}",
             )
 
         self.repo.db.commit()
