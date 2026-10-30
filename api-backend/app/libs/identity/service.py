@@ -35,10 +35,11 @@ class FirebaseIdentityService:
         return user.uid
 
     def set_password(self, uid: str, password: str) -> None:
-        """Sets a Firebase Auth identity's password directly. Used only when
-        `ensure_identity` adopts a pre-existing (orphaned) identity during staff
-        enrollment, so the adopted account ends up with the password this
-        enrollment generated."""
+        """Sets a Firebase Auth identity's password directly. Called by staff
+        enrollment, AFTER its DB commit, on an identity `ensure_identity` adopted
+        (a true orphan: no `users` row), so the adopted account ends up with the
+        password this enrollment generated. Never call it on an identity that has
+        a `users` row: Firebase cannot restore the old password."""
         if self._settings.firebase_auth_disabled:
             return  # nothing real to update for a synthetic uid
         _init_firebase(self._settings)
@@ -103,14 +104,14 @@ class FirebaseIdentityService:
         from "this request adopted someone else's" -- an adopted identity must
         NEVER be deleted on compensation (Risk A1).
 
-        When `password` is given (staff enrollment), the adopted branch also
-        sets it via `set_password`, so an adopted orphan ends up with exactly
-        the password this enrollment generated -- same end state as the create
-        branch. Other callers pass no password and this is unchanged.
+        `password` is used only when a NEW identity is created. The adopted
+        branch never touches the existing identity's credential: the adopted
+        identity may belong to a live account, and Firebase cannot restore an
+        overwritten password. The caller must confirm the uid has no `users`
+        row (409 otherwise), commit, and only then call `set_password` if it
+        wants the adopted orphan to carry its generated password.
         """
         existing_uid = self.get_user_by_email(email)
         if existing_uid is not None:
-            if password is not None:
-                self.set_password(existing_uid, password)
             return existing_uid, False
         return self.create_user(email, password), True

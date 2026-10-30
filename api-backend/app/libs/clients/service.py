@@ -56,7 +56,8 @@ class ClientService:
         **profile_fields: str | None,
     ) -> tuple[User, str]:
         """Onboards a new client: assert_is_rm runs BEFORE any Firebase call (no
-        identity/DB side effects if the target isn't an RM); ensure_identity then
+        identity/DB side effects if the target isn't an RM); ensure_identity (409 if
+        it adopts an identity that already has a users row) then
         create_with_profile + a single commit (§ 3.1 txn boundary owned here).
         Compensation (delete_user) fires iff `created is True` (Risk A1) -- an
         adopted identity is NEVER deleted on rollback."""
@@ -66,6 +67,12 @@ class ClientService:
             self.assert_is_rm(asst_rm_uid)
 
         uid, created = identity.ensure_identity(email)
+        # An adopted identity must be a true orphan; one with a users row is a live account.
+        if not created and UserRepository(self.repo.db).get_by_firebase_uid(uid) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists",
+            )
         try:
             self.repo.create_with_profile(
                 user_id=uuid.uuid4(),

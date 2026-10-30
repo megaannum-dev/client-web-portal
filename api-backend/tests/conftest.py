@@ -90,6 +90,7 @@ class FakeIdentityService:
         self.ensure_identity_calls: list[str] = []
         self.create_user_calls: list[str] = []
         self.delete_user_calls: list[str] = []
+        self.set_password_calls: list[tuple[str, str]] = []
         self.generate_set_password_link_calls: list[str] = []
 
     def fail_next_ensure(self, exc: Exception) -> None:
@@ -110,6 +111,9 @@ class FakeIdentityService:
         self._existing[email] = uid
         self.create_user_calls.append(email)
         return uid, True
+
+    def set_password(self, uid: str, password: str) -> None:
+        self.set_password_calls.append((uid, password))
 
     def delete_user(self, uid: str) -> None:
         self.delete_user_calls.append(uid)

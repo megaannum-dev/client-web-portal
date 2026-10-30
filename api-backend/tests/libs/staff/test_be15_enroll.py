@@ -18,6 +18,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.libs.staff.repository import StaffRepository
@@ -175,7 +176,63 @@ def test_enroll_commit_fail_on_adopted_identity_never_calls_delete(session):
             )
 
     assert identity.delete_user_calls == []
+    assert identity.set_password_calls == []  # commit failed -> credential untouched
     assert session.query(User).count() == 0
+
+
+def test_enroll_refuses_409_when_the_identity_already_has_a_users_row(session):
+    """D02: an email whose Firebase identity is linked to a live users row must
+    never be adopted -- Firebase can't restore an overwritten password."""
+    existing = make_admin_user(session, role=AdminRole.RM, email="taken@example.com")
+    identity = FakeIdentityService(existing={"taken@example.com": existing.firebase_uid})
+    service = StaffService(session)
+
+    with patch("app.libs.staff.service.set_portal_claims") as claim_mock:
+        with pytest.raises(HTTPException) as exc_info:
+            service.enroll(
+                caller_uid="super-admin-uid", caller_name="Super Admin",
+                email="taken@example.com", name="Taker", role=AdminRole.RM,
+                phone_number=None, department=None, start_date=None, address=None,
+                overrides=[], notify=False, password="Sup3rSecret!1",
+                identity=identity, settings=Settings(),
+            )
+
+    assert exc_info.value.status_code == 409
+    assert identity.set_password_calls == []
+    assert identity.delete_user_calls == []
+    claim_mock.assert_not_called()
+    assert session.query(User).count() == 1  # only the seeded row
+
+
+def test_enroll_adopted_orphan_gets_its_password_only_after_the_commit(session):
+    """A true orphan (identity with no users row) is adopted, and the generated
+    password is applied strictly AFTER the DB commit succeeds."""
+    order: list = []
+    identity = FakeIdentityService(existing={"orphan@example.com": "orphan-uid"})
+    identity.set_password = lambda uid, pw: order.append(("set_password", uid, pw))
+    real_commit = session.commit
+
+    def _commit():
+        order.append("commit")
+        real_commit()
+
+    service = StaffService(session)
+    with patch("app.libs.staff.service.set_portal_claims"),          patch.object(session, "commit", side_effect=_commit):
+        user, _sent, _count, _pw = service.enroll(
+            caller_uid="super-admin-uid", caller_name="Super Admin",
+            email="orphan@example.com", name="Orphan", role=AdminRole.RM,
+            phone_number=None, department=None, start_date=None, address=None,
+            overrides=[], notify=False, password="Sup3rSecret!1",
+            identity=identity, settings=Settings(),
+        )
+
+    assert user.firebase_uid == "orphan-uid"
+    assert order == ["commit", ("set_password", "orphan-uid", "Sup3rSecret!1")]
+
+
+def test_enroll_newly_created_identity_never_calls_set_password(session):
+    _service, identity, _claims, _user, _invite = _enroll(session, role=AdminRole.RM)
+    assert identity.set_password_calls == []  # create_user already carried the password
 
 
 # --- StaffService.enroll: invariants -------------------------------------------------

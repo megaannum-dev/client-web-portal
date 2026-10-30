@@ -221,13 +221,14 @@ class FakeStaffIdentityService:
         self.ensure_identity_calls.append(email)
         existing_uid = self._existing.get(email)
         if existing_uid is not None:
-            if password is not None:
-                self.update_user_calls.append((existing_uid, {"password": password}))
-            return existing_uid, False
+            return existing_uid, False  # adopt never touches the credential
         self._counter += 1
         uid = f"fake-staff-uid-{self._counter}"
         self._existing[email] = uid
         return uid, True
+
+    def set_password(self, uid: str, password: str) -> None:
+        self.update_user_calls.append((uid, {"password": password}))
 
     def delete_user(self, uid: str) -> None:
         self.delete_user_calls.append(uid)
