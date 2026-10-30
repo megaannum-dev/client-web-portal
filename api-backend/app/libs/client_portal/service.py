@@ -12,6 +12,7 @@ from typing import BinaryIO, Literal
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import FULL_VISIBILITY_ROLES
 from app.core.storage import Bucket, StoredFile, get_storage
 from app.libs.client_portal.repository import ClientPortalRepository
 from app.libs.client_portal.schemas import (
@@ -55,7 +56,6 @@ _SCOPES = {"legal", "statements"}
 _SCOPE_BUCKET: dict[str, Bucket] = {"legal": Bucket.LEGAL, "statements": Bucket.STATEMENTS}
 
 _TERMINAL = {TicketStatus.RESOLVED, TicketStatus.DECLINED}
-_FULL_VISIBILITY_ROLES = {AdminRole.ADMIN}  # mirrors clients/repository.py's FULL_VISIBILITY_ROLES
 
 # ---------- Requests & tickets (BE-13) ----------
 # Exhaustive over every AllotRdmpStatus member (6) -- a status added to that
@@ -347,7 +347,7 @@ class ClientPortalService:
         return self._ticket_to_request_dto(ticket)
 
     def list_rm_tickets(self, *, rm_uid: str, role: AdminRole) -> list[RmTicketDTO]:
-        full_visibility = role in _FULL_VISIBILITY_ROLES
+        full_visibility = role in FULL_VISIBILITY_ROLES
         tickets = self.repo.list_for_rm(rm_uid=rm_uid, full_visibility=full_visibility)
         return [self._ticket_to_rm_dto(t) for t in tickets]
 
@@ -355,7 +355,7 @@ class ClientPortalService:
         ticket = self.repo.get_ticket_by_ref(ref)
         if ticket is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
-        if role not in _FULL_VISIBILITY_ROLES and ticket.assigned_rm_uid != rm_uid:
+        if role not in FULL_VISIBILITY_ROLES and ticket.assigned_rm_uid != rm_uid:
             # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
         return ticket

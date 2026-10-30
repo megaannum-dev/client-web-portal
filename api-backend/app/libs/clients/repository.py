@@ -8,16 +8,11 @@ from datetime import date
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
+from app.core.config import FULL_VISIBILITY_ROLES
 from app.models.onboarding import ClientOnboarding
 from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
-
-# D-4: roles in this set see every client_profiles row, unfiltered. Every other
-# role with CLIENT_VIEW (today: only RM) is scoped to their own book. Written as
-# an explicit allowlist, not "every role except RM" — so COMPLIANCE (or any future
-# role) is never swept into full visibility by accident if it later gains CLIENT_VIEW.
-FULL_VISIBILITY_ROLES = {AdminRole.ADMIN, AdminRole.COMPLIANCE}
 
 
 @dataclass(frozen=True)
