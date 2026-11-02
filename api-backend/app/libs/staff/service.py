@@ -126,9 +126,10 @@ class StaffService:
     ) -> tuple[User, bool, int, str]:
         """Saga: Firebase identity first, DB row second (parity with BE-12).
         Firebase-fail -> ensure_identity raises before any DB write -> zero rows.
-        Commit-fail on a newly-created identity (created=True) -> compensating
-        delete_user (Risk A1). Commit-fail on an adopted identity (created=False,
-        a pre-existing orphan) -> never deleted, since this call didn't mint it.
+        An email that already has a Firebase identity -- with or without a `users`
+        row -- is refused with 409 before any write: enrolment never adopts or
+        touches someone else's identity. Commit-fail -> compensating delete_user of
+        the identity this call just minted (Risk A1).
 
         User + profile (with department/start_date/address) + every enrollment-time
         override + the "account.created" audit row are all flushed in the SAME
@@ -140,18 +141,13 @@ class StaffService:
         an already-committed account, so it can never run inside the try block.
 
         The password (generated client-side, previewed/regenerable on the
-        wizard's Credentials step) is set on a NEW identity by `ensure_identity`.
-        An adopted identity is only a true orphan (no `users` row) -- one that
-        already has a row is refused with 409, since enrolment must never take
-        over a live account -- and gets the password via `set_password` strictly
-        AFTER the commit. It is returned once to the caller and never logged or
-        persisted anywhere else. The new user can still take the account over via
+        wizard's Credentials step) is set on the new identity by `ensure_identity`.
+        It is returned once to the caller and never logged or persisted anywhere
+        else. The new user can still take the account over via
         the emailed set-password link (`notify` below), which resets whatever
         password was set here."""
         uid, created = identity.ensure_identity(email, password=password)
-        # users.firebase_uid is the identity link; users.email is not unique and
-        # can be edited locally, so the existing-account check goes by uid.
-        if not created and UserRepository(self.repo.db).get_by_firebase_uid(uid) is not None:
+        if not created:  # the email already has a Firebase identity: never adopt it
             raise HTTPException(409, "An account with this email already exists")
         user_id = uuid.uuid4()
         try:
@@ -186,12 +182,9 @@ class StaffService:
             self.repo.db.commit()
         except Exception:
             self.repo.db.rollback()
-            if created:  # Risk A1
-                identity.delete_user(uid)
+            identity.delete_user(uid)  # Risk A1: always minted by this call
             raise
         set_portal_claims(uid, "admin", role.value, settings)  # Risk A4
-        if not created:  # adopted orphan: create_user never got the password
-            identity.set_password(uid, password)
         user = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
 
         link_sent = False

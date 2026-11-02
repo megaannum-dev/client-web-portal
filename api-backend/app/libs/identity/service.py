@@ -34,17 +34,6 @@ class FirebaseIdentityService:
         user = auth.create_user(**kwargs)
         return user.uid
 
-    def set_password(self, uid: str, password: str) -> None:
-        """Sets a Firebase Auth identity's password directly. Called by staff
-        enrollment, AFTER its DB commit, on an identity `ensure_identity` adopted
-        (a true orphan: no `users` row), so the adopted account ends up with the
-        password this enrollment generated. Never call it on an identity that has
-        a `users` row: Firebase cannot restore the old password."""
-        if self._settings.firebase_auth_disabled:
-            return  # nothing real to update for a synthetic uid
-        _init_firebase(self._settings)
-        auth.update_user(uid, password=password)
-
     def get_user_by_email(self, email: str) -> str | None:
         if self._settings.firebase_auth_disabled:
             return None  # no real backing store to check under dev bypass
@@ -95,21 +84,11 @@ class FirebaseIdentityService:
             return auth.generate_sign_in_with_email_link(email, action_code_settings)
 
     def ensure_identity(self, email: str, password: str | None = None) -> tuple[str, bool]:
-        """Returns (uid, created). If an identity already exists for `email`
-        (a prior failed commit left a class-A orphan), ADOPTS its uid instead
-        of creating a new one -- `created=False` in that case.
-
-        The `created` flag is load-bearing: it is the ONLY signal that lets a
-        caller's compensation step distinguish "this request minted the identity"
-        from "this request adopted someone else's" -- an adopted identity must
-        NEVER be deleted on compensation (Risk A1).
-
-        `password` is used only when a NEW identity is created. The adopted
-        branch never touches the existing identity's credential: the adopted
-        identity may belong to a live account, and Firebase cannot restore an
-        overwritten password. The caller must confirm the uid has no `users`
-        row (409 otherwise), commit, and only then call `set_password` if it
-        wants the adopted orphan to carry its generated password.
+        """Returns (uid, created). If an identity already exists for `email`,
+        returns its uid untouched with `created=False`; `password` applies only to
+        a NEW identity. Staff enrolment and client onboarding refuse
+        `created=False` with 409 (an existing identity may be someone's live
+        account, even with no `users` row). Only the bootstrap CLI adopts it.
         """
         existing_uid = self.get_user_by_email(email)
         if existing_uid is not None:
