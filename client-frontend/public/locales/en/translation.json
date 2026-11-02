@@ -16,6 +16,7 @@
     "drag_drop_files": "Drag & drop files here",
     "supported_formats": "Supported: JPG, PNG, PDF (Max 10MB)",
     "select_document_error": "Please select a document before uploading.",
+    "file_too_large": "File is too large. The limit is 10 MB.",
     "reveal_values": "Reveal values",
     "hide_values": "Hide values",
     "vs_last_month": "vs Last Month",

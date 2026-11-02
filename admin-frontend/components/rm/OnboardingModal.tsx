@@ -28,6 +28,7 @@ import { formatFeePercent, parseFeePercent } from "@/lib/fee";
 import { KYC_ACCEPT, type DocSpecDTO, type RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
+import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
 const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents"];
@@ -138,8 +139,11 @@ export function OnboardingModal({
   };
   const onDoc = (docType: string) => (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setDocs((d) => ({ ...d, [docType]: file }));
     e.target.value = "";
+    if (!file) return;
+    const tooLarge = fileTooLargeError(file, KYC_MAX_BYTES);
+    if (tooLarge) return alert(tooLarge);
+    setDocs((d) => ({ ...d, [docType]: file }));
   };
   const removeDoc = (docType: string) => setDocs((d) => { const n = { ...d }; delete n[docType]; return n; });
 

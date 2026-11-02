@@ -14,6 +14,7 @@ import { KYC_ACCEPT, type DocStatus, type KycBoardClient } from "@/lib/onboardin
 import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
 import { fmtTimestamp } from "@/lib/pc/format";
 import { saveBase64File } from "@/lib/download";
+import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -92,6 +93,8 @@ function KycPanel({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const tooLarge = fileTooLargeError(file, KYC_MAX_BYTES);
+    if (tooLarge) return void toast.error("Upload failed", { description: tooLarge });
     void onUploadDoc(item.id, docType, file).then((r) => {
       if (!r.success) toast.error("Upload failed", { description: r.error });
     });

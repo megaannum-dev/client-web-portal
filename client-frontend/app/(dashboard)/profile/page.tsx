@@ -93,6 +93,8 @@ function BalanceItem({ label, value, censored }: { label: string; value: string;
 const moneyFmt = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const KYC_MAX_BYTES = 10 * 1024 * 1024;
+
 // ── KYC Upload Modal ───────────────────────────────────────────────────────────
 
 function KycUploadModal({
@@ -110,7 +112,11 @@ function KycUploadModal({
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileSelect(selected: File) { setFile(selected); setFileError(false); setSubmitError(null); }
+  function handleFileSelect(selected: File) {
+    // Same limit as the backend's KYC_MAX_UPLOAD_BYTES: never send an oversized file.
+    if (selected.size > KYC_MAX_BYTES) { setSubmitError(t("common.file_too_large")); return; }
+    setFile(selected); setFileError(false); setSubmitError(null);
+  }
   async function handleSubmit() {
     if (!file) { setFileError(true); return; }
     setSubmitting(true);

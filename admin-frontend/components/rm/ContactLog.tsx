@@ -24,6 +24,7 @@ import {
 } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { CONTACT_LOG_ACCEPT, type ContactLogEntryDTO } from "@/lib/onboarding/types";
+import { CONTACT_LOG_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 type DownloadAttachmentResult = {
   success: boolean; error?: string; filename?: string; contentType?: string; base64?: string;
@@ -156,8 +157,11 @@ function NewContactLogModal({
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) setFile(f);
     e.target.value = "";
+    if (!f) return;
+    const tooLarge = fileTooLargeError(f, CONTACT_LOG_MAX_BYTES);
+    setInlineError(tooLarge);
+    if (!tooLarge) setFile(f);
   };
 
   const save = async () => {

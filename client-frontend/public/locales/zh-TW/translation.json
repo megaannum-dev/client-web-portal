@@ -16,6 +16,7 @@
     "drag_drop_files": "將檔案拖曳至此",
     "supported_formats": "支援格式：JPG、PNG、PDF（上限 10MB）",
     "select_document_error": "請先選擇要上傳的文件。",
+    "file_too_large": "檔案過大，上限為 10MB。",
     "reveal_values": "顯示數值",
     "hide_values": "隱藏數值",
     "vs_last_month": "較上月",
