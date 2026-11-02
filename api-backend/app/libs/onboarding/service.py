@@ -624,8 +624,8 @@ class OnboardingService:
         return self._to_dto(onboarding, with_documents=True)
 
     # ---- Board / list reads -------------------------------------------------
-    def board(self) -> BoardDTO:
-        buckets = self.repo.board()
+    def board(self, *, role: AdminRole, rm_uid: str) -> BoardDTO:
+        buckets = self.repo.board(role, rm_uid)
         return BoardDTO(**{k: [self._to_dto(o) for o in v] for k, v in buckets.items()})
 
     def compliance_queue(self) -> list[OnboardingDTO]:

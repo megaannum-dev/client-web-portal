@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.libs.auth.actions import Action
-from app.libs.auth.deps import require_action
+from app.libs.auth.deps import get_current_admin_user, require_action
 from app.libs.clients.repository import ClientRepository
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.onboarding.schemas import (
@@ -48,16 +48,19 @@ def _service(db: Annotated[Session, Depends(get_db)]) -> OnboardingService:
 
 
 def _get_subscriptions_caller_role(
-    user: Annotated[User, Depends(require_action(Action.CLIENT_VIEW))],
+    user: Annotated[User, Depends(get_current_admin_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> AdminRole:
     """A small local role-lookup dependency, mirroring clients/router.py's own
     _get_caller_role (that function is underscore-private to its module; rather
     than import a private name across packages, this router keeps its own copy
     of the same 3-line lookup -- one small extra query rather than changing a
-    shared dependency's shape)."""
+    shared dependency's shape). Lookup only, no action check: every route that
+    uses it carries its own require_action (CLIENT_* or ONBOARDING_*)."""
     profile = AdminProfileRepository(db).get_by_user_id(user.id)
-    return AdminRole(profile.role)  # type: ignore[union-attr]
+    if profile is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No admin profile")
+    return AdminRole(profile.role)
 
 
 def _require_visible_client(
@@ -66,7 +69,7 @@ def _require_visible_client(
     """Scoped 404, not 403 -- a non-visible client is indistinguishable from an
     unknown one (same stance as the clients router and _require_rm_visible_ticket).
     Visibility is the D-4 book rule: ADMIN sees all, everyone else only the
-    clients whose client_profiles.assigned_rm_uid is theirs."""
+    clients they serve as main or assistant RM."""
     if ClientRepository(db).get_profile_for_update(role, rm_uid, client_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
 
@@ -80,6 +83,17 @@ def _require_visible_allotment(
     if allotment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown allotment/redemption")
     _require_visible_client(db, role, rm_uid, allotment.user_id)
+
+
+def _require_visible_onboarding(
+    svc: OnboardingService, db: Session, role: AdminRole, rm_uid: str, onboarding_id: uuid.UUID
+) -> None:
+    """Resolves the cycle's client, then applies the same book check. An
+    unknown cycle keeps the service's own 404 message."""
+    onboarding = svc.repo.get_by_id(onboarding_id)
+    if onboarding is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown onboarding cycle")
+    _require_visible_client(db, role, rm_uid, onboarding.user_id)
 
 
 # ---- RM ---------------------------------------------------------------
@@ -119,9 +133,10 @@ def get_doc_specs(
 @router.get("/rm/onboardings", response_model=BoardDTO)
 def get_board(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
 ) -> BoardDTO:
-    return svc.board()
+    return svc.board(role=role, rm_uid=user.firebase_uid)
 
 
 @router.get("/rm/onboardings/by-client/{client_id}", response_model=OnboardingDTO)
@@ -228,13 +243,16 @@ def download_contact_log_attachment(
 def get_onboarding_detail(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> OnboardingDTO:
     """Gated by ONBOARDING_VIEW, not WRITE -- this is the read the board's
     client panel calls (fetchOnboarding) to load a client's document rows.
     A VIEW-only user must be able to open the panel and see documents,
     same reasoning as get_board above; WRITE holders still resolve this
     action too (EDIT bucket is a superset of VIEW, § pages.py)."""
+    _require_visible_onboarding(svc, db, role, user.firebase_uid, onboarding_id)
     return svc.detail(onboarding_id)
 
 
@@ -244,8 +262,11 @@ async def upload_document(
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
     file: UploadFile = File(...),
 ) -> DocumentDTO:
+    _require_visible_onboarding(svc, db, role, user.firebase_uid, onboarding_id)
     return svc.upload_document(
         onboarding_id,
         doc_type,
@@ -260,8 +281,11 @@ async def upload_document(
 def submit_onboarding(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> OnboardingDTO:
+    _require_visible_onboarding(svc, db, role, user.firebase_uid, onboarding_id)
     return svc.submit(onboarding_id)
 
 
@@ -270,8 +294,11 @@ def download_document_rm(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
+    _require_visible_onboarding(svc, db, role, user.firebase_uid, onboarding_id)
     stream, filename, content_type = svc.download_document(onboarding_id, doc_type)
     return StreamingResponse(
         stream,
@@ -284,8 +311,11 @@ def download_document_rm(
 def download_all_documents(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
+    _require_visible_onboarding(svc, db, role, user.firebase_uid, onboarding_id)
     stream, zip_name = svc.download_all_documents(onboarding_id)
     return StreamingResponse(
         stream,

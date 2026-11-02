@@ -9,8 +9,10 @@ from decimal import Decimal
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, aliased
 
+from app.core.config import FULL_VISIBILITY_ROLES
 from app.core.storage import Bucket, client_folder
 from app.libs import client_ib_accounts
+from app.libs.clients.repository import in_book
 from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS, get_doc_spec
 from app.models.onboarding import (
     AllotRdmpKind,
@@ -25,7 +27,7 @@ from app.models.onboarding import (
     TransactionDetail,
 )
 from app.models.pc import ClientIbAccount, ClientSubscription, Model
-from app.models.users import AdminProfile, ClientProfile, User
+from app.models.users import AdminProfile, AdminRole, ClientProfile, User
 
 
 @dataclass(frozen=True)
@@ -125,10 +127,17 @@ class OnboardingRepository:
             .one_or_none()
         )
 
-    def board(self) -> dict[str, list[ClientOnboarding]]:
+    def board(self, role: AdminRole, rm_uid: str) -> dict[str, list[ClientOnboarding]]:
         """Grouped by status for GET /api/rm/onboardings. Ordering within a
-        column: created_at ascending (oldest first), matching kanban convention."""
-        rows = self.db.query(ClientOnboarding).order_by(ClientOnboarding.created_at.asc()).all()
+        column: created_at ascending (oldest first), matching kanban convention.
+        Same D-4 book rule as the client routes: ADMIN sees every cycle, every
+        other role only its own book's (main or assistant RM)."""
+        query = self.db.query(ClientOnboarding)
+        if role not in FULL_VISIBILITY_ROLES:
+            query = query.join(
+                ClientProfile, ClientProfile.user_id == ClientOnboarding.user_id
+            ).filter(in_book(rm_uid))
+        rows = query.order_by(ClientOnboarding.created_at.asc()).all()
         buckets: dict[str, list[ClientOnboarding]] = {
             "initial": [],
             "reviewing": [],
