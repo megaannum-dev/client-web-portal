@@ -55,12 +55,12 @@ describe("login page FE-3", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: { uid: "u1" },
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Wrong credentials or disabled account, contact your RM",
       })
     );
     render(<LoginPage />);
     expect(
-      screen.getByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.getByText("Wrong credentials or disabled account, contact your RM")
     ).toBeInTheDocument();
   });
 
@@ -68,12 +68,12 @@ describe("login page FE-3", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: null,
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Wrong credentials or disabled account, contact your RM",
       })
     );
     render(<LoginPage />);
     expect(
-      screen.getByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.getByText("Wrong credentials or disabled account, contact your RM")
     ).toBeInTheDocument();
   });
 
@@ -84,7 +84,7 @@ describe("login page FE-3", () => {
 
     await submitLoginForm();
 
-    await waitFor(() => expect(screen.getByText("Wrong email or password.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Wrong credentials or disabled account, contact your RM")).toBeInTheDocument());
     expect(screen.queryByText("auth/wrong-password")).not.toBeInTheDocument();
   });
 
@@ -93,7 +93,7 @@ describe("login page FE-3", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: { uid: "u1" },
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Could not sync with API",
         signInWithEmailPassword,
       })
     );
@@ -101,9 +101,9 @@ describe("login page FE-3", () => {
 
     await submitLoginForm();
 
-    await waitFor(() => expect(screen.getByText("Wrong email or password.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Wrong credentials or disabled account, contact your RM")).toBeInTheDocument());
     expect(
-      screen.queryByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.queryByText("Could not sync with API")
     ).not.toBeInTheDocument();
   });
 

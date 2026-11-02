@@ -54,12 +54,12 @@ describe("admin-frontend login page FE-6", () => {
     useAuthMock.mockReturnValue(
       baseAuth({
         user: null,
-        backendSyncError: "No internal account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Wrong credentials or disabled account, contact the system admin",
       })
     );
     render(<LoginPage />);
     expect(
-      screen.getByText("No internal account found for this login, or your account is disabled. Contact your RM.")
+      screen.getByText("Wrong credentials or disabled account, contact the system admin")
     ).toBeInTheDocument();
   });
 

@@ -92,7 +92,7 @@ describe("admin-frontend AuthProvider FE-5", () => {
 
       expect(signOutMock).toHaveBeenCalledTimes(1);
       expect(ctx?.backendSyncError).toBe(
-        "No internal account found for this login, or your account is disabled. Contact your RM."
+        "Wrong credentials or disabled account, contact the system admin"
       );
       expect(ctx?.portalUser).toBeNull();
     }
