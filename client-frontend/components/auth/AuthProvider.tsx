@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               /* noop */
             }
             setBackendSyncError(
-              "No account found for this login, or your account is disabled. Contact your RM."
+              "Wrong credentials or disabled account, contact your RM"
             );
           } else {
             setBackendSyncError(err instanceof Error ? err.message : "Could not sync with API");

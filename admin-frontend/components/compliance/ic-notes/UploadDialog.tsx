@@ -8,6 +8,7 @@ import { FormatBadgeBig } from "./FormatBadge";
 import { fmtSize, fmtTime, hkDayKey, HK_OFFSET } from "./format";
 import { ROLE_LABELS } from "./Uploader";
 import type { IcNoteRole } from "@/lib/ic-notes/types";
+import { IC_NOTES_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const ACCEPT_EXT = [".pdf", ".docx", ".md"];
 
@@ -47,6 +48,8 @@ export function UploadDialog({
       setError("Only .pdf, .docx and .md files are supported.");
       return;
     }
+    const tooLarge = fileTooLargeError(f, IC_NOTES_MAX_BYTES);
+    if (tooLarge) return setError(tooLarge);
     setError(null);
     setFile(f);
     if (!title.trim()) setTitle(titleFromFilename(f.name));

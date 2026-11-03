@@ -13,6 +13,11 @@ export type AllotRdmpStatus =
   | "rejected";      // NEW — redemption rejected by PC or CO
 export type AllotRdmpKind    = "allotment" | "redemption";
 
+// Must stay in sync with _KYC_CONTENT_TYPES and _CONTACT_LOG_CONTENT_TYPES in
+// api-backend/app/libs/onboarding/service.py. A convenience only: the backend enforces them.
+export const KYC_ACCEPT = ".pdf,.jpg,.jpeg,.png";
+export const CONTACT_LOG_ACCEPT = `${KYC_ACCEPT},.docx,.xlsx,.msg,.eml`;
+
 export interface StartOnboardingReq {
   client_name: string; email: string; primary_phone: string;
   address: string; country_of_residence: string;

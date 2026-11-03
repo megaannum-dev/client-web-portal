@@ -56,16 +56,21 @@ class ClientService:
         **profile_fields: str | None,
     ) -> tuple[User, str]:
         """Onboards a new client: assert_is_rm runs BEFORE any Firebase call (no
-        identity/DB side effects if the target isn't an RM); ensure_identity then
+        identity/DB side effects if the target isn't an RM); ensure_identity (409 if
+        the email already has a Firebase identity, with or without a users row) then
         create_with_profile + a single commit (§ 3.1 txn boundary owned here).
-        Compensation (delete_user) fires iff `created is True` (Risk A1) -- an
-        adopted identity is NEVER deleted on rollback."""
+        Compensation (delete_user) removes the identity this call minted (Risk A1)."""
         rm_uid = assigned_rm_uid or caller_uid
         self.assert_is_rm(rm_uid)
         if asst_rm_uid is not None:
             self.assert_is_rm(asst_rm_uid)
 
         uid, created = identity.ensure_identity(email)
+        if not created:  # the email already has a Firebase identity: never adopt it
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists",
+            )
         try:
             self.repo.create_with_profile(
                 user_id=uuid.uuid4(),
@@ -80,8 +85,7 @@ class ClientService:
             self.repo.db.commit()
         except Exception:
             self.repo.db.rollback()
-            if created:  # Risk A1: NEVER delete an identity this call adopted
-                identity.delete_user(uid)
+            identity.delete_user(uid)  # Risk A1: always minted by this call
             raise
 
         set_portal_claims(uid, "client", None, settings)  # Risk A4: stamp at provisioning

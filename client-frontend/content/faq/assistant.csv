@@ -1,0 +1,9 @@
+﻿key,where_it_appears,text_en,text_zh
+ask_topic,Greeting — asks the client to pick a topic,Hi! What would you like help with? Choose a topic below.,您好！請問需要甚麼協助？請在下方選擇一個主題。
+ask_question,Lists a topic's questions. Must contain {{topic}} (replaced by the topic name),Here are common questions about {{topic}}. Which one is closest to yours?,以下是關於「{{topic}}」的常見問題，哪一個最接近您的問題？
+ask_resolved,Asked after an answer,Did this answer your question?,這個解答有幫助到您嗎？
+solved,Button: the answer helped,"Yes, that solved it",是，問題已解決
+contact_rm,"Button: the answer did not help, contact the RM","No, I want to contact my RM",否，我想聯絡我的客戶關係經理
+glad,Reply after the client says it helped,"Great, glad that helped! Is there anything else?",太好了，很高興能幫到您！還有其他問題嗎？
+not_listed,Button under the questions: none of them fit,My question isn't listed,我的問題不在列表中
+handoff,Reply before connecting the client to their RM,No problem — I'll connect you with your Relationship Manager.,沒問題，我會為您聯繫您的客戶關係經理。

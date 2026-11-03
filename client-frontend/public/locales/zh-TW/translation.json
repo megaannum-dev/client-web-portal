@@ -16,6 +16,7 @@
     "drag_drop_files": "將檔案拖曳至此",
     "supported_formats": "支援格式：JPG、PNG、PDF（上限 10MB）",
     "select_document_error": "請先選擇要上傳的文件。",
+    "file_too_large": "檔案過大，上限為 10MB。",
     "reveal_values": "顯示數值",
     "hide_values": "隱藏數值",
     "vs_last_month": "較上月",
@@ -63,6 +64,16 @@
     "common_query_faq": "常見問題集",
     "download_latest_eom": "下載最新月結報告",
     "raise_ticket": "提出申請"
+  },
+  "faq": {
+    "title": "常見問題",
+    "subtitle": "使用客戶平台的快速解答",
+    "search_placeholder": "搜尋問題…",
+    "no_results": "沒有符合搜尋的問題。",
+    "close": "關閉常見問題",
+    "still_need_help": "仍需要協助？",
+    "message_team": "傳送訊息給您的顧問團隊",
+    "back": "返回"
   },
   "auth": {
     "login": {
@@ -273,6 +284,13 @@
     "close": "關閉對話",
     "maximize": "展開至全頁",
     "restore": "縮小為視窗",
+    "assistant": {
+      "name": "智能助手",
+      "subtitle": "為您聯繫客戶關係經理前的快速解答",
+      "start_over": "重新開始",
+      "connecting": "正在為您連線…",
+      "your_team": "您的顧問團隊"
+    },
     "calendar": {
       "prev_month": "上個月",
       "next_month": "下個月",

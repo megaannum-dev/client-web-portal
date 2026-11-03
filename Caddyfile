@@ -36,6 +36,9 @@ clientportal.megaannum-am.com {
 
 api.megaannum-am.com {
 	encode zstd gzip
+	request_body {
+		max_size 55MB
+	}
 	reverse_proxy api-backend:8000
 }
 

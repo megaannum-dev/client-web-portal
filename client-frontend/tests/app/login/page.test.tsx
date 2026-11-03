@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const replaceMock = vi.fn();
+let nextParam: string | null = null;
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: replaceMock }),
+  useSearchParams: () => ({ get: () => nextParam }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -44,18 +47,20 @@ async function submitLoginForm() {
 describe("login page FE-3", () => {
   beforeEach(() => {
     mockUseAuth.mockReset();
+    replaceMock.mockReset();
+    nextParam = null;
   });
 
   it("renders AuthProvider's backendSyncError verbatim in the error banner", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: { uid: "u1" },
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Wrong credentials or disabled account, contact your RM",
       })
     );
     render(<LoginPage />);
     expect(
-      screen.getByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.getByText("Wrong credentials or disabled account, contact your RM")
     ).toBeInTheDocument();
   });
 
@@ -63,12 +68,12 @@ describe("login page FE-3", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: null,
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Wrong credentials or disabled account, contact your RM",
       })
     );
     render(<LoginPage />);
     expect(
-      screen.getByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.getByText("Wrong credentials or disabled account, contact your RM")
     ).toBeInTheDocument();
   });
 
@@ -79,7 +84,7 @@ describe("login page FE-3", () => {
 
     await submitLoginForm();
 
-    await waitFor(() => expect(screen.getByText("Wrong email or password.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Wrong credentials or disabled account, contact your RM")).toBeInTheDocument());
     expect(screen.queryByText("auth/wrong-password")).not.toBeInTheDocument();
   });
 
@@ -88,7 +93,7 @@ describe("login page FE-3", () => {
     mockUseAuth.mockReturnValue(
       baseAuth({
         user: { uid: "u1" },
-        backendSyncError: "No account found for this login, or your account is disabled. Contact your RM.",
+        backendSyncError: "Could not sync with API",
         signInWithEmailPassword,
       })
     );
@@ -96,9 +101,26 @@ describe("login page FE-3", () => {
 
     await submitLoginForm();
 
-    await waitFor(() => expect(screen.getByText("Wrong email or password.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Wrong credentials or disabled account, contact your RM")).toBeInTheDocument());
     expect(
-      screen.queryByText("No account found for this login, or your account is disabled. Contact your RM.")
+      screen.queryByText("Could not sync with API")
     ).not.toBeInTheDocument();
+  });
+
+  it.each(["//evil.com", "/\\evil.com", "https://evil.com", "/\t/evil.com"])(
+    "ignores the external ?next=%j and redirects to the default",
+    (bad) => {
+      nextParam = bad;
+      mockUseAuth.mockReturnValue(baseAuth({ user: { uid: "u1" }, portalUser: { id: "p1" } }));
+      render(<LoginPage />);
+      expect(replaceMock).toHaveBeenCalledWith("/overview");
+    }
+  );
+
+  it("keeps an internal ?next= path", () => {
+    nextParam = "/some/path";
+    mockUseAuth.mockReturnValue(baseAuth({ user: { uid: "u1" }, portalUser: { id: "p1" } }));
+    render(<LoginPage />);
+    expect(replaceMock).toHaveBeenCalledWith("/some/path");
   });
 });

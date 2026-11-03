@@ -17,7 +17,8 @@ export function formatFirebaseAuthError(error: unknown): string {
     case "auth/user-not-found":
     case "auth/wrong-password":
     case "auth/invalid-credential":
-      return "Wrong email or password.";
+    case "auth/user-disabled":
+      return "Wrong credentials or disabled account, contact your RM";
     case "auth/too-many-requests":
       return "Too many attempts. Wait a bit and try again.";
     case "auth/popup-closed-by-user":

@@ -5,19 +5,23 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, aliased
 
+from app.core.config import FULL_VISIBILITY_ROLES
 from app.models.onboarding import ClientOnboarding
 from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
-# D-4: roles in this set see every client_profiles row, unfiltered. Every other
-# role with CLIENT_VIEW (today: only RM) is scoped to their own book. Written as
-# an explicit allowlist, not "every role except RM" — so COMPLIANCE (or any future
-# role) is never swept into full visibility by accident if it later gains CLIENT_VIEW.
-FULL_VISIBILITY_ROLES = {AdminRole.ADMIN, AdminRole.COMPLIANCE}
+
+def in_book(rm_firebase_uid: str):
+    """An RM's book: the clients they serve as main OR assistant RM. Filter on any
+    query that has ClientProfile in its FROM clause."""
+    return or_(
+        ClientProfile.assigned_rm_uid == rm_firebase_uid,
+        ClientProfile.asst_rm_uid == rm_firebase_uid,
+    )
 
 
 @dataclass(frozen=True)
@@ -133,10 +137,10 @@ class ClientRepository:
 
     def _scoped(self, query, role: AdminRole, rm_firebase_uid: str):
         """Applies D-4's role-based WHERE clause. Full-visibility roles get the
-        query untouched; every other role is scoped to their own assigned book."""
+        query untouched; every other role is scoped to their own book."""
         if role in FULL_VISIBILITY_ROLES:
             return query
-        return query.filter(ClientProfile.assigned_rm_uid == rm_firebase_uid)
+        return query.filter(in_book(rm_firebase_uid))
 
     def list_visible(self, role: AdminRole, rm_firebase_uid: str) -> list[ClientRow]:
         rows = self._scoped(self._base_query(), role, rm_firebase_uid).all()

@@ -38,6 +38,7 @@ class StaffUpdatePatch(Protocol):
     name: str | None
     phone_number: str | None
     email: str | None
+    deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
 
@@ -125,9 +126,10 @@ class StaffService:
     ) -> tuple[User, bool, int, str]:
         """Saga: Firebase identity first, DB row second (parity with BE-12).
         Firebase-fail -> ensure_identity raises before any DB write -> zero rows.
-        Commit-fail on a newly-created identity (created=True) -> compensating
-        delete_user (Risk A1). Commit-fail on an adopted identity (created=False,
-        a pre-existing orphan) -> never deleted, since this call didn't mint it.
+        An email that already has a Firebase identity -- with or without a `users`
+        row -- is refused with 409 before any write: enrolment never adopts or
+        touches someone else's identity. Commit-fail -> compensating delete_user of
+        the identity this call just minted (Risk A1).
 
         User + profile (with department/start_date/address) + every enrollment-time
         override + the "account.created" audit row are all flushed in the SAME
@@ -139,12 +141,14 @@ class StaffService:
         an already-committed account, so it can never run inside the try block.
 
         The password (generated client-side, previewed/regenerable on the
-        wizard's Credentials step) is set on the Firebase identity (create or
-        adopt, either way) inside `ensure_identity` -- it is returned once to
-        the caller and never logged or persisted anywhere else. The new user
-        can still take the account over via the emailed set-password link
-        (`notify` below), which resets whatever password was set here."""
+        wizard's Credentials step) is set on the new identity by `ensure_identity`.
+        It is returned once to the caller and never logged or persisted anywhere
+        else. The new user can still take the account over via
+        the emailed set-password link (`notify` below), which resets whatever
+        password was set here."""
         uid, created = identity.ensure_identity(email, password=password)
+        if not created:  # the email already has a Firebase identity: never adopt it
+            raise HTTPException(409, "An account with this email already exists")
         user_id = uuid.uuid4()
         try:
             self.repo.create_with_profile(
@@ -178,8 +182,7 @@ class StaffService:
             self.repo.db.commit()
         except Exception:
             self.repo.db.rollback()
-            if created:  # Risk A1
-                identity.delete_user(uid)
+            identity.delete_user(uid)  # Risk A1: always minted by this call
             raise
         set_portal_claims(uid, "admin", role.value, settings)  # Risk A4
         user = self.repo.db.query(User).filter(User.firebase_uid == uid).one()
@@ -303,6 +306,26 @@ class StaffService:
                 raise HTTPException(409, block)
             self._assert_valid_receiver(receiver_uid, from_uid=uid)
 
+        # Audit fragments, built from the before-values and ACTUAL changes only (a
+        # no-op write adds nothing). `state` = role/status, `contact` = name/phone/
+        # email; a handover row already says role/deactivation in its own words.
+        state: list[str] = []
+        contact: list[str] = []
+        reason = patch.deactivate_reason if is_disabling else None
+        reactivated = patch.status == "ACTIVE" and user.status != AccountStatus.ACTIVE
+        if patch.role is not None and patch.role != role_before:
+            state.append(f"role {role_before.value}→{patch.role.value}")
+        if is_disabling:
+            state.append(f"deactivated (reason: {reason})" if reason else "deactivated")
+        elif reactivated:
+            state.append("reactivated")
+        if patch.name is not None and patch.name != profile.name:
+            contact.append(f"name {profile.name or '(none)'}→{patch.name}")
+        if patch.phone_number is not None and patch.phone_number != profile.phone_number:
+            contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
+        if patch.email is not None and patch.email != user.email:
+            contact.append(f"email {user.email or '(none)'}→{patch.email}")
+
         if patch.role is not None:
             profile.role = patch.role
         if patch.status is not None:
@@ -320,16 +343,37 @@ class StaffService:
             moved_tickets = self.repo.reassign_open_tickets(from_uid=uid, to_uid=receiver_uid)
             if patch.status == "DEACTIVATED":
                 change_desc = f"Deactivated {target_label}"
+                if patch.role is not None and patch.role != role_before:
+                    change_desc += f" · role {role_before.value}→{patch.role.value}"
             else:
                 change_desc = f"{target_label} {role_before.value} → {patch.role.value}"  # type: ignore[union-attr]
+            # ONE row: the handover row carries the extras (reason, contact edits)
+            # instead of a second row, which would tie on `at` (now() is the txn start).
+            extras = ([f"reason: {reason}"] if reason else []) + contact
             AccessRepository(self.repo.db).insert_audit(
                 actor_uid=actor.firebase_uid if actor is not None else None,
                 actor_name=actor.name if actor is not None else None,
                 event="staff.book_handover",
-                detail=(
-                    f"{change_desc} · book of {moved_clients} clients + "
-                    f"{moved_tickets} open tickets → {receiver_uid}"
+                detail=" · ".join(
+                    [
+                        f"{change_desc} · book of {moved_clients} clients + "
+                        f"{moved_tickets} open tickets → {receiver_uid}",
+                        *extras,
+                    ]
                 ),
+            )
+        elif state or contact:
+            AccessRepository(self.repo.db).insert_audit(
+                actor_uid=actor.firebase_uid if actor is not None else None,
+                actor_name=actor.name if actor is not None else None,
+                event=(
+                    "staff.deactivated"
+                    if is_disabling
+                    else "staff.reactivated"
+                    if reactivated
+                    else "staff.updated"
+                ),
+                detail=f"{target_label}: {'; '.join(state + contact)}",
             )
 
         self.repo.db.commit()

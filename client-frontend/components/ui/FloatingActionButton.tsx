@@ -6,11 +6,14 @@ import type { LucideIcon } from "lucide-react";
 import { Plus, Ticket, Download, HelpCircle, MessagesSquare } from "@/lib/icons";
 import { RaiseTicketModal } from "@/components/ui/RaiseTicketModal";
 import { ChatPopup } from "@/components/messaging/ChatPopup";
+import { FaqPopup } from "@/components/faq/FaqPopup";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { downloadDocument } from "@/lib/api/documents";
 import { useDocuments } from "@/lib/hooks/useDocuments";
 
 type ActionId = "messaging" | "ticket" | "download" | "faq";
+// Panels share the FloatingPanel slot above the FAB, so at most one is open.
+type PanelId = "chat" | "faq";
 
 const SPEED_DIAL_ACTIONS: {
   id: ActionId;
@@ -26,7 +29,7 @@ const SPEED_DIAL_ACTIONS: {
 export function FloatingActionButton({ sidebarWidth = 0 }: { sidebarWidth?: number }) {
   const [expanded, setExpanded]     = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [chatOpen, setChatOpen]     = useState(false);
+  const [panel, setPanel]           = useState<PanelId | null>(null);
   const { t } = useTranslation();
   const { getIdToken } = useAuth();
   const { data: statements } = useDocuments("statements");
@@ -50,16 +53,15 @@ export function FloatingActionButton({ sidebarWidth = 0 }: { sidebarWidth?: numb
 
   function handleAction(id: ActionId) {
     if (id === "messaging") {
-      setChatOpen(true);
-      setExpanded(false);
+      setPanel("chat");
+    } else if (id === "faq") {
+      setPanel("faq");
     } else if (id === "ticket") {
       setTicketOpen(true);
-      setExpanded(false);
     } else if (id === "download") {
       handleDownloadLatest();
-      setExpanded(false);
     }
-    // faq: no-op until implemented
+    setExpanded(false);
   }
 
   function handleConfirm() {
@@ -68,10 +70,17 @@ export function FloatingActionButton({ sidebarWidth = 0 }: { sidebarWidth?: numb
 
   return (
     <>
-      {/* Sits above the FAB, not over it, so the quick actions stay reachable
-          while chatting. Rendered before the backdrop so a click on the chat
-          also closes an open speed dial. */}
-      {chatOpen && <ChatPopup sidebarWidth={sidebarWidth} onClose={() => setChatOpen(false)} />}
+      {/* Panels sit above the FAB, not over it, so the quick actions stay
+          reachable. Rendered before the backdrop so a click on a panel also
+          closes an open speed dial. */}
+      {panel === "chat" && <ChatPopup sidebarWidth={sidebarWidth} onClose={() => setPanel(null)} />}
+      {panel === "faq" && (
+        <FaqPopup
+          sidebarWidth={sidebarWidth}
+          onClose={() => setPanel(null)}
+          onOpenChat={() => setPanel("chat")}
+        />
+      )}
 
       {/* Click-away backdrop */}
       {expanded && (

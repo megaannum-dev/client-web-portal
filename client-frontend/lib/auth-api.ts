@@ -36,7 +36,7 @@ export class BackendAuthError extends Error {
   }
 }
 
-// Bind-only — 403 means "no account staged for this uid, or account disabled".
+// Bind-only — 401/403 mean "no account staged for this uid, or account disabled".
 // Body drops the old `portal` field: the route itself is portal-scoped now.
 export async function postBackendLogin(idToken: string | null): Promise<PortalUser> {
   const base = getApiBase();

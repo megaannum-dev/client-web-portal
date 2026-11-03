@@ -56,6 +56,17 @@ class Settings(BaseSettings):
     ib_flex_cache_ttl_seconds: int = 900
 
 
+# D-4: roles in this set see every client_profiles row, unfiltered. Only ADMIN is
+# firm-wide; every other role with CLIENT_VIEW (RM, COMPLIANCE, ...) is scoped to
+# its own book. An explicit allowlist, not "every role except RM", so no role is
+# swept into full visibility by accident if it later gains CLIENT_VIEW. A module
+# constant, not a Settings field: an env var must not be able to widen access.
+# Strings because this module can't import AdminRole (models/users.py ->
+# core/database.py -> core/config.py would be an import cycle); AdminRole is a str
+# enum, so `role in FULL_VISIBILITY_ROLES` works for an AdminRole or a plain string.
+FULL_VISIBILITY_ROLES = frozenset({"ADMIN"})
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

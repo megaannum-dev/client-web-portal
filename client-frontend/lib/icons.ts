@@ -84,4 +84,7 @@ export {
   FileCheck2,
   Maximize2,
   Minimize2,
+  // Messaging — help assistant
+  Bot,
+  RotateCcw,
 } from "lucide-react";

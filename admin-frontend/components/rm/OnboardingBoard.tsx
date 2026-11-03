@@ -3,16 +3,18 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
+import { toast } from "sonner";
 import { Shield, X, Bell, Check, Upload, Clock, TriangleAlert, AlertCircle, Download } from "@/lib/icons";
 import type { LucideIcon } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
-import type { DocStatus, KycBoardClient } from "@/lib/onboarding/types";
+import { KYC_ACCEPT, type DocStatus, type KycBoardClient } from "@/lib/onboarding/types";
 import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
 import { fmtTimestamp } from "@/lib/pc/format";
 import { saveBase64File } from "@/lib/download";
+import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -91,8 +93,10 @@ function KycPanel({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const tooLarge = fileTooLargeError(file, KYC_MAX_BYTES);
+    if (tooLarge) return void toast.error("Upload failed", { description: tooLarge });
     void onUploadDoc(item.id, docType, file).then((r) => {
-      if (!r.success) alert(`Upload failed: ${r.error}`);
+      if (!r.success) toast.error("Upload failed", { description: r.error });
     });
   };
 
@@ -172,7 +176,7 @@ function KycPanel({
                   style={{ background: "rgba(242,116,5,.12)" }}
                 >
                   <Upload size={13} strokeWidth={2} />Upload
-                  <input type="file" className="hidden" onChange={handleUpload(d.doc_type)} />
+                  <input type="file" accept={KYC_ACCEPT} className="hidden" onChange={handleUpload(d.doc_type)} />
                 </label>
               ) : !d.can_reupload && d.filename ? (
                 <button

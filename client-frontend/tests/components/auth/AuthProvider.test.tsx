@@ -77,7 +77,7 @@ describe("AuthProvider FE-2", () => {
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId("error").textContent).toBe(
-        "No account found for this login, or your account is disabled. Contact your RM."
+        "Wrong credentials or disabled account, contact your RM"
       );
     }
   );

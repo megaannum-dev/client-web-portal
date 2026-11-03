@@ -199,6 +199,98 @@ def test_upload_document_marks_status_uploaded_and_computes_can_reupload(svc, mo
     assert doc_dto.filename == "id.pdf"
 
 
+def _kyc_start(svc, model, rm):
+    return svc.start(
+        make_start_req(model),
+        caller_uid=rm.firebase_uid,
+        identity=FakeIdentityService(),
+        settings=_dev_settings(),
+    )
+
+
+def test_upload_document_stores_size_bytes_and_server_decided_content_type(
+    session, svc, model, rm, fake_storage
+):
+    dto = _kyc_start(svc, model, rm)
+    doc_dto = svc.upload_document(
+        dto.id,
+        "identity_proof",
+        stream=io.BytesIO(b"12345"),
+        filename="id.PNG",
+        content_type="application/x-evil",  # client claim is ignored
+        caller_uid=rm.firebase_uid,
+    )
+    doc = OnboardingRepository(session).get_document(dto.id, "identity_proof")
+    assert doc.size_bytes == 5
+    assert doc.content_type == "image/png"
+    assert doc_dto.status == "uploaded"
+    assert len(fake_storage.save_calls) == 1
+
+
+def test_upload_document_unsupported_extension_raises_415_and_saves_nothing(
+    svc, model, rm, fake_storage
+):
+    dto = _kyc_start(svc, model, rm)
+    with pytest.raises(HTTPException) as exc:
+        svc.upload_document(
+            dto.id,
+            "identity_proof",
+            stream=io.BytesIO(b"x"),
+            filename="payload.exe",
+            content_type="application/pdf",
+            caller_uid=rm.firebase_uid,
+        )
+    assert exc.value.status_code == 415
+    assert fake_storage.save_calls == []
+
+
+def test_upload_document_over_the_limit_raises_413(svc, model, rm, fake_storage, monkeypatch):
+    monkeypatch.setattr("app.libs.onboarding.service.KYC_MAX_UPLOAD_BYTES", 4)
+    dto = _kyc_start(svc, model, rm)
+    with pytest.raises(HTTPException) as exc:
+        svc.upload_document(
+            dto.id,
+            "identity_proof",
+            stream=io.BytesIO(b"12345"),
+            filename="id.pdf",
+            content_type="application/pdf",
+            caller_uid=rm.firebase_uid,
+        )
+    assert exc.value.status_code == 413
+    assert fake_storage.save_calls == []
+
+
+class _ContactLogUpload:
+    """Minimal stand-in for UploadFile -- only what create_contact_log reads."""
+
+    def __init__(self, filename: str, body: bytes) -> None:
+        self.file = io.BytesIO(body)
+        self.filename = filename
+        self.content_type = "application/pdf"
+        self.size = len(body)
+
+
+def test_create_contact_log_unsupported_extension_raises_415_and_saves_nothing(
+    session, svc, fake_storage
+):
+    client = make_client(session)
+    with pytest.raises(HTTPException) as exc:
+        svc.create_contact_log(
+            client.id,
+            caller_uid="rm-uid-1",
+            topic="Call",
+            channel="phone",
+            occurred_at=datetime.utcnow(),
+            description="d",
+            interest=None,
+            complaint=None,
+            follow_up=None,
+            file=_ContactLogUpload("payload.exe", b"x"),
+        )
+    assert exc.value.status_code == 415
+    assert fake_storage.save_calls == []
+
+
 def _dev_settings():
     from app.core.config import Settings
 

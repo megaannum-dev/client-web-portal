@@ -16,6 +16,7 @@ from app.libs.ic_notes.schemas import IcNoteDTO
 from app.models.ic_notes import IcNote
 from app.models.users import User
 from app.utils.filenames import fix_mojibake_filename
+from app.utils.uploads import validate_upload
 
 # Same feature-local-tunable convention as CHAT_MAX_UPLOAD_BYTES (chat/service.py:25).
 IC_NOTES_MAX_UPLOAD_BYTES = int(os.getenv("IC_NOTES_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
@@ -42,24 +43,9 @@ class IcNotesService:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "title is required")
 
         filename = fix_mojibake_filename(file.filename) or "note"
-        ext = os.path.splitext(filename)[1].lower()
-        content_type = _EXT_CONTENT_TYPES.get(ext)
-        if content_type is None:
-            raise HTTPException(
-                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                f"Unsupported file type '{ext or filename}' -- expected .pdf/.docx/.md",
-            )
-
-        file.file.seek(0, 2)
-        size = file.file.tell()
-        file.file.seek(0)
-        if size == 0:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "File is empty")
-        if size > IC_NOTES_MAX_UPLOAD_BYTES:
-            raise HTTPException(
-                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                f"File exceeds the {IC_NOTES_MAX_UPLOAD_BYTES} byte upload budget",
-            )
+        content_type, size = validate_upload(
+            filename, file.file, types=_EXT_CONTENT_TYPES, max_bytes=IC_NOTES_MAX_UPLOAD_BYTES
+        )
 
         key = get_storage(Bucket.IC_NOTES).save(
             file.file, suggested_name=filename, content_type=content_type

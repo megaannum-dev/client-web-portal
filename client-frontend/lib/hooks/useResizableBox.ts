@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 export type ResizeEdge = "top" | "left" | "top-left";
 
-interface Size {
+export interface Size {
   width: number;
   height: number;
 }

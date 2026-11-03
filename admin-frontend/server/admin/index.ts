@@ -132,10 +132,11 @@ export async function revokeOverride(id: string): Promise<APIResult<void>> {
   return apiClient<void>(ENDPOINTS.ADMIN.ACCESS_OVERRIDE(id), { method: "DELETE" });
 }
 
-export async function getAudit(params?: { limit?: number; before?: string }): Promise<APIResult<AuditOut[]>> {
+export async function getAudit(params?: { limit?: number; before?: string; before_id?: string }): Promise<APIResult<AuditOut[]>> {
   const q = new URLSearchParams();
   if (params?.limit  != null) q.set("limit", String(params.limit));
   if (params?.before != null) q.set("before", params.before);
+  if (params?.before_id != null) q.set("before_id", params.before_id);
   const qs = q.toString();
   return apiClient<AuditOut[]>(qs ? `${ENDPOINTS.ADMIN.AUDIT}?${qs}` : ENDPOINTS.ADMIN.AUDIT);
 }

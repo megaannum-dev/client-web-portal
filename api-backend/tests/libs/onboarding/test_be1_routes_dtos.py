@@ -34,6 +34,7 @@ from app.libs.onboarding.service import OnboardingService
 from app.main import app
 from app.models.users import AdminProfile, AdminRole
 from tests.conftest import make_admin_stub
+from tests.libs.onboarding.conftest import make_client
 
 
 def _stub_dto(**overrides) -> AllotRdmptDTO:
@@ -102,10 +103,20 @@ def admin_client(db_factory):
         app.dependency_overrides.clear()
 
 
+def _own_client_id(db_factory, stub_user) -> str:
+    """A client in the calling RM's own book -- /rm/allotment and /rm/redemption
+    404 for a client the caller is not assigned to (D03)."""
+    db = db_factory()
+    try:
+        return str(make_client(db, assigned_rm_uid=stub_user.firebase_uid).id)
+    finally:
+        db.close()
+
+
 # --- Positive: each route reaches its service method, returns the pinned DTO ---------
 
 
-def test_rm_submit_allotment_reaches_service_and_returns_201(admin_client, monkeypatch):
+def test_rm_submit_allotment_reaches_service_and_returns_201(admin_client, db_factory, monkeypatch):
     http, stub_user, _set_role = admin_client
     captured: dict = {}
 
@@ -116,7 +127,7 @@ def test_rm_submit_allotment_reaches_service_and_returns_201(admin_client, monke
     monkeypatch.setattr(OnboardingService, "submit_allotment", _fake_submit_allotment, raising=False)
 
     body = {
-        "client_id": str(uuid.uuid4()),
+        "client_id": _own_client_id(db_factory, stub_user),
         "model_id": str(uuid.uuid4()),
         "multiplier": "2",
         "expected_cash_in": None,
@@ -128,7 +139,7 @@ def test_rm_submit_allotment_reaches_service_and_returns_201(admin_client, monke
     assert captured["req"].multiplier == Decimal("2")
 
 
-def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, monkeypatch):
+def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, db_factory, monkeypatch):
     http, stub_user, _set_role = admin_client
     captured: dict = {}
 
@@ -141,7 +152,7 @@ def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, monk
     )
 
     body = {
-        "client_id": str(uuid.uuid4()),
+        "client_id": _own_client_id(db_factory, stub_user),
         "model_id": str(uuid.uuid4()),
         "multiplier": "1",
         "expected_cash_out": None,

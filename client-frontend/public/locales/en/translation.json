@@ -16,6 +16,7 @@
     "drag_drop_files": "Drag & drop files here",
     "supported_formats": "Supported: JPG, PNG, PDF (Max 10MB)",
     "select_document_error": "Please select a document before uploading.",
+    "file_too_large": "File is too large. The limit is 10 MB.",
     "reveal_values": "Reveal values",
     "hide_values": "Hide values",
     "vs_last_month": "vs Last Month",
@@ -63,6 +64,16 @@
     "common_query_faq": "Common Query FAQ",
     "download_latest_eom": "Download Latest EoM Report",
     "raise_ticket": "Raise a Ticket"
+  },
+  "faq": {
+    "title": "Common Questions",
+    "subtitle": "Quick answers about using your client portal",
+    "search_placeholder": "Search questions…",
+    "no_results": "No questions match your search.",
+    "close": "Close FAQ",
+    "still_need_help": "Still need help?",
+    "message_team": "Message your advisory team",
+    "back": "Back"
   },
   "auth": {
     "login": {
@@ -272,6 +283,13 @@
     "close": "Close chat",
     "maximize": "Expand to full page",
     "restore": "Shrink to window",
+    "assistant": {
+      "name": "Help Assistant",
+      "subtitle": "Quick answers before connecting you with your RM",
+      "start_over": "Start over",
+      "connecting": "Connecting you now…",
+      "your_team": "Your advisory team"
+    },
     "calendar": {
       "prev_month": "Previous month",
       "next_month": "Next month",

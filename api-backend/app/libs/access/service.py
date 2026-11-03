@@ -116,7 +116,8 @@ class AccessService:
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="access.published",
-                detail=f"{len(body.changes)} cell(s) published",
+                detail=f"{len(body.changes)} cell(s) published"
+                + (f" · {body.note}" if body.note else ""),
             )
             self.repo.db.commit()
         except Exception as exc:
@@ -228,7 +229,11 @@ class AccessService:
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="override.granted",
-                detail=f"granted {body.level.value} on {body.page_id} to {grantee}",
+                detail=(
+                    f"granted {body.level.value} on {body.page_id} to {grantee}"
+                    f" · reason: {body.reason}"
+                    f" · expires {body.expires_at.date().isoformat() if body.expires_at else 'never'}"
+                ),
             )
             self.repo.db.commit()
         except Exception as exc:
@@ -252,12 +257,15 @@ class AccessService:
             raise HTTPException(404, "Unknown override")
 
         try:
+            # Same grantee label as grant_override; read before the row is deleted.
+            owner = self.repo.db.query(User).filter(User.id == override.user_id).one_or_none()
+            grantee = (owner.name or owner.firebase_uid) if owner is not None else "(deleted user)"
             self.repo.delete_override(override)
             self.repo.insert_audit(
                 actor_uid=actor.firebase_uid,
                 actor_name=actor.name,
                 event="override.revoked",
-                detail=f"revoked override on {override.page_id}",
+                detail=f"revoked override on {override.page_id} from {grantee}",
             )
             self.repo.db.commit()
         except Exception as exc:
@@ -265,10 +273,12 @@ class AccessService:
             raise HTTPException(409, "Failed to revoke override") from exc
 
     # --- audit (BE-11) ---
-    def list_audit(self, *, limit: int, before: datetime | None) -> list[AuditOut]:
-        """Newest-first, keyset-paged on `before` (repo does `at < before`, so a
-        row exactly at the boundary is excluded -- pages never overlap even with
-        a concurrent insert). `actor_name` NULL (actor deleted) is never
+    def list_audit(
+        self, *, limit: int, before: datetime | None, before_id: uuid.UUID | None = None
+    ) -> list[AuditOut]:
+        """Newest-first, keyset-paged on `before` + `before_id` (the last row seen), so
+        pages neither overlap nor skip rows sharing a second. `before` alone still
+        means `at < before`. `actor_name` NULL (actor deleted) is never
         serialised as JSON null -- falls back to a display string."""
         return [
             AuditOut(
@@ -278,5 +288,5 @@ class AccessService:
                 event=row.event,
                 detail=row.detail,
             )
-            for row in self.repo.list_audit(limit=limit, before=before)
+            for row in self.repo.list_audit(limit=limit, before=before, before_id=before_id)
         ]

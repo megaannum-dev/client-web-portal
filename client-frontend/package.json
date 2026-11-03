@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "faq": "node scripts/faq/buildFaq.mjs",
+    "predev": "npm run faq",
     "dev": "next dev --turbo",
+    "prebuild": "npm run faq",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

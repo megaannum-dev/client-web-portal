@@ -60,9 +60,31 @@ from app.models.onboarding import (
 from app.models.pc import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 from app.utils.filenames import fix_mojibake_filename
+from app.utils.uploads import validate_upload
 
 _CAN_REUPLOAD_STATUSES = {"not_started", "uploaded", "expired", "pending"}
 _EDITABLE_STATUSES = {OnboardingStatus.INITIAL, OnboardingStatus.PENDING_REVIEW}
+
+# Same feature-local-tunable convention as SOP_MAX_UPLOAD_BYTES (sop/service.py).
+KYC_MAX_UPLOAD_BYTES = int(os.getenv("KYC_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
+CONTACT_LOG_MAX_UPLOAD_BYTES = int(
+    os.getenv("CONTACT_LOG_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024))
+)
+
+# Extension -> server-decided MIME. Client-supplied content_type is ignored.
+_KYC_CONTENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+_CONTACT_LOG_CONTENT_TYPES = {
+    **_KYC_CONTENT_TYPES,
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".msg": "application/vnd.ms-outlook",
+    ".eml": "message/rfc822",
+}
 
 # Widened 2026-07-20 (D-9/C-7): settlement lag used to compute
 # client_allotment_redemptions.expected_cash_in at approve. Same os.getenv(...)
@@ -112,7 +134,9 @@ class OnboardingService:
         if not source_ticket_ref:
             return
         ticket = self.db.query(ClientTicket).filter_by(reference=source_ticket_ref).one_or_none()
-        if ticket is None:
+        # scoped 404 (same message as unknown): a ticket belonging to another
+        # client must not be linkable, nor distinguishable from a missing one
+        if ticket is None or ticket.user_id != allotment.user_id:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, f"Unknown ticket reference: {source_ticket_ref}"
             )
@@ -262,6 +286,10 @@ class OnboardingService:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "Document cannot be reuploaded in its current status"
             )
+        # After the status guards above so their 409/403 keep precedence.
+        content_type, size = validate_upload(
+            filename, stream, types=_KYC_CONTENT_TYPES, max_bytes=KYC_MAX_UPLOAD_BYTES
+        )
         storage_key = get_storage(Bucket.KYC).save(
             stream,
             suggested_name=filename,
@@ -273,6 +301,7 @@ class OnboardingService:
             storage_key=storage_key,
             filename=filename,
             content_type=content_type,
+            size_bytes=size,
             uploaded_by=caller_uid,
         )
         self.db.commit()
@@ -595,8 +624,8 @@ class OnboardingService:
         return self._to_dto(onboarding, with_documents=True)
 
     # ---- Board / list reads -------------------------------------------------
-    def board(self) -> BoardDTO:
-        buckets = self.repo.board()
+    def board(self, *, role: AdminRole, rm_uid: str) -> BoardDTO:
+        buckets = self.repo.board(role, rm_uid)
         return BoardDTO(**{k: [self._to_dto(o) for o in v] for k, v in buckets.items()})
 
     def compliance_queue(self) -> list[OnboardingDTO]:
@@ -1070,15 +1099,19 @@ class OnboardingService:
         doc_storage_key = doc_filename = doc_content_type = None
         doc_size_bytes = None
         if file is not None:
+            doc_filename = fix_mojibake_filename(file.filename)
+            doc_content_type, doc_size_bytes = validate_upload(
+                doc_filename or "upload",
+                file.file,
+                types=_CONTACT_LOG_CONTENT_TYPES,
+                max_bytes=CONTACT_LOG_MAX_UPLOAD_BYTES,
+            )
             doc_storage_key = get_storage(Bucket.CONTACT_LOG).save(
                 file.file,
-                suggested_name=file.filename or "upload",
-                content_type=file.content_type,
+                suggested_name=doc_filename or "upload",
+                content_type=doc_content_type,
                 subdir=self._client_folder(client_id, bucket=Bucket.CONTACT_LOG),
             )
-            doc_filename = fix_mojibake_filename(file.filename)
-            doc_content_type = file.content_type
-            doc_size_bytes = file.size
         log = self.repo.create_contact_log(
             user_id=client_id,
             logged_by_uid=caller_uid,

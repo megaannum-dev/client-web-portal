@@ -1,0 +1,99 @@
+"""D26 -- StaffService.update writes ONE audit row per call, describing only the
+ACTUAL changes (before -> after); a no-op writes nothing; a book handover keeps
+its single `staff.book_handover` row and carries the extras on it.
+
+Exercised through `PATCH /api/admin/staff/{uid}` (be019_client roster)."""
+
+from __future__ import annotations
+
+from app.models.access import AdminAuditEvent
+from app.models.users import AdminProfile
+
+
+def _staff_audit(client) -> list[AdminAuditEvent]:
+    db = client.db()
+    try:
+        return db.query(AdminAuditEvent).filter(AdminAuditEvent.event.like("staff.%")).all()
+    finally:
+        db.close()
+
+
+def _patch(client, user, **body):
+    resp = client.http.patch(f"/api/admin/staff/{user.firebase_uid}", json=body)
+    assert resp.status_code == 200, resp.text
+
+
+def test_role_change_writes_one_updated_row(be019_client):
+    target = be019_client.users["rm_empty"]
+    _patch(be019_client, target, role="PC")
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.updated"
+    assert row.detail == f"{target.firebase_uid}: role RM→PC"
+
+
+def test_deactivate_with_reason(be019_client):
+    target = be019_client.users["pc"]
+    _patch(be019_client, target, status="DEACTIVATED", deactivate_reason="left the firm")
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.deactivated"
+    assert row.detail == f"{target.firebase_uid}: deactivated (reason: left the firm)"
+
+
+def test_deactivate_without_reason(be019_client):
+    target = be019_client.users["pc"]
+    _patch(be019_client, target, status="DEACTIVATED")
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.deactivated"
+    assert row.detail == f"{target.firebase_uid}: deactivated"
+
+
+def test_reactivate(be019_client):
+    target = be019_client.users["rm_deactivated"]
+    _patch(be019_client, target, status="ACTIVE")
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.reactivated"
+    assert row.detail == f"{target.firebase_uid}: reactivated"
+
+
+def test_name_phone_email_changes_are_all_listed(be019_client):
+    target = be019_client.users["pm"]
+    old_email = target.email
+    _patch(
+        be019_client,
+        target,
+        name="Pat Renamed",
+        phone_number="555-0100",
+        email="pat.new@example.com",
+    )
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.updated"
+    assert row.detail == (
+        f"{target.firebase_uid}: name {target.firebase_uid}→Pat Renamed"
+        f"; phone (none)→555-0100; email {old_email}→pat.new@example.com"
+    )
+
+
+def test_noop_values_write_no_audit_row(be019_client):
+    target = be019_client.users["pc"]
+    db = be019_client.db()
+    name = db.query(AdminProfile).filter(AdminProfile.user_id == target.id).one().name
+    db.close()
+    # role, status and name all equal what is already stored
+    _patch(be019_client, target, role="PC", status="ACTIVE", name=name, email=target.email)
+    assert _staff_audit(be019_client) == []
+
+
+def test_handover_keeps_a_single_row_and_carries_the_reason(be019_client):
+    booked = be019_client.users["rm_booked"]
+    receiver = be019_client.users["rm_receiver"]
+    _patch(
+        be019_client,
+        booked,
+        status="DEACTIVATED",
+        deactivate_reason="left the firm",
+        reassign_book_to=receiver.firebase_uid,
+    )
+    (row,) = _staff_audit(be019_client)
+    assert row.event == "staff.book_handover"
+    assert row.detail.startswith(f"Deactivated {booked.firebase_uid} · book of 3 clients")
+    assert row.detail.endswith(" · reason: left the firm")

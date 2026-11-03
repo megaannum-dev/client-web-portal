@@ -221,9 +221,7 @@ class FakeStaffIdentityService:
         self.ensure_identity_calls.append(email)
         existing_uid = self._existing.get(email)
         if existing_uid is not None:
-            if password is not None:
-                self.update_user_calls.append((existing_uid, {"password": password}))
-            return existing_uid, False
+            return existing_uid, False  # pre-existing identity: enroll must 409
         self._counter += 1
         uid = f"fake-staff-uid-{self._counter}"
         self._existing[email] = uid

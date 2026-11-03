@@ -10,6 +10,7 @@ import { SOP_ROLE_LABELS } from "./roles";
 import { fmtSize } from "@/components/compliance/ic-notes/format";
 import { PERIODIC, defWin, toWire, winValid, type Win } from "@/lib/sop/schedule";
 import { SOP_ACCEPT, SOP_CATEGORIES, SOP_FORMATS, extOf, type SopCategory, type SopDocumentDTO } from "@/lib/sop/types";
+import { SOP_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const LABEL = "text-[12px] font-semibold uppercase tracking-[0.05em] text-secondary";
 const INPUT = "w-full rounded border border-outline-variant bg-surface-lowest px-3 text-[14px] text-on-surface outline-none";
@@ -46,6 +47,8 @@ export function SopUploadDialog({
       setError("Unsupported file type. Use PDF, Word, PowerPoint, Excel, TXT/MD or PNG/JPG.");
       return;
     }
+    const tooLarge = fileTooLargeError(f, SOP_MAX_BYTES);
+    if (tooLarge) return setError(tooLarge);
     setError(null);
     setFile(f);
     if (!isVersion && !title.trim()) setTitle(titleFromFilename(f.name));

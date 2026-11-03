@@ -34,16 +34,6 @@ class FirebaseIdentityService:
         user = auth.create_user(**kwargs)
         return user.uid
 
-    def set_password(self, uid: str, password: str) -> None:
-        """Sets a Firebase Auth identity's password directly. Used only when
-        `ensure_identity` adopts a pre-existing (orphaned) identity during staff
-        enrollment, so the adopted account ends up with the password this
-        enrollment generated."""
-        if self._settings.firebase_auth_disabled:
-            return  # nothing real to update for a synthetic uid
-        _init_firebase(self._settings)
-        auth.update_user(uid, password=password)
-
     def get_user_by_email(self, email: str) -> str | None:
         if self._settings.firebase_auth_disabled:
             return None  # no real backing store to check under dev bypass
@@ -94,23 +84,13 @@ class FirebaseIdentityService:
             return auth.generate_sign_in_with_email_link(email, action_code_settings)
 
     def ensure_identity(self, email: str, password: str | None = None) -> tuple[str, bool]:
-        """Returns (uid, created). If an identity already exists for `email`
-        (a prior failed commit left a class-A orphan), ADOPTS its uid instead
-        of creating a new one -- `created=False` in that case.
-
-        The `created` flag is load-bearing: it is the ONLY signal that lets a
-        caller's compensation step distinguish "this request minted the identity"
-        from "this request adopted someone else's" -- an adopted identity must
-        NEVER be deleted on compensation (Risk A1).
-
-        When `password` is given (staff enrollment), the adopted branch also
-        sets it via `set_password`, so an adopted orphan ends up with exactly
-        the password this enrollment generated -- same end state as the create
-        branch. Other callers pass no password and this is unchanged.
+        """Returns (uid, created). If an identity already exists for `email`,
+        returns its uid untouched with `created=False`; `password` applies only to
+        a NEW identity. Staff enrolment and client onboarding refuse
+        `created=False` with 409 (an existing identity may be someone's live
+        account, even with no `users` row). Only the bootstrap CLI adopts it.
         """
         existing_uid = self.get_user_by_email(email)
         if existing_uid is not None:
-            if password is not None:
-                self.set_password(existing_uid, password)
             return existing_uid, False
         return self.create_user(email, password), True
