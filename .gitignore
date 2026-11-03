@@ -44,3 +44,8 @@ next-env.d.ts
 /templates
 /scratch-crm
 api-backend/db-backups/
+
+AGENTS.md
+AGENTS.md.v4-migration.lock
+LEAN-CTX.md
+LEAN-CTX.md.v4-migration.lock
