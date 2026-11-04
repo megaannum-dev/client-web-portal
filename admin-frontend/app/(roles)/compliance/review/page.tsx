@@ -11,6 +11,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Filter, Download, Eye, Check, Shield, ShieldCheck, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -143,7 +144,7 @@ function ComplianceReviewContent() {
   };
   const decideCr = (id: string, verdict: "approve" | "reject", reason?: string) =>
     void decideRedemption(id, { verdict, reason }).then((r) => {
-      if (!r.success) alert(`Could not submit decision: ${r.error}`);
+      if (!r.success) toast.error(`Could not submit decision: ${r.error}`);
     });
 
   const isEmpty = tab === "onboarding" ? onboarding.length === 0 : redemptions.length === 0;

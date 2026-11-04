@@ -4,6 +4,7 @@
 // slide-in detail panels. Wired to live data via useAllotments hook (FE-5/FE-7).
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Filter, Download, Inbox, Lock, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -69,7 +70,7 @@ export default function AllotmentRedemptionPage() {
           onClose={() => setOpenRedeemId(null)}
           onDecision={(id, verdict, reason) =>
             void decideRedemption(id, { verdict, reason }).then((r) => {
-              if (!r.success) alert(`Could not submit decision: ${r.error}`);
+              if (!r.success) toast.error(`Could not submit decision: ${r.error}`);
             })}
         />
       )}
