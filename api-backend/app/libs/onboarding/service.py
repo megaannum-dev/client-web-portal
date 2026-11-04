@@ -122,6 +122,12 @@ def _same_fee(a: Decimal | float | None, b: Decimal | float | None) -> bool:
     return Decimal(str(a)).quantize(_FEE_Q) == Decimal(str(b)).quantize(_FEE_Q)
 
 
+def _units(multiplier: Decimal | int | float) -> str:
+    """A unit count for client-facing event text: the stored multiplier carries
+    the column's 10-dp scale, so 1.0000000000 -> "1" and 2.5000000000 -> "2.5"."""
+    return f"{Decimal(str(multiplier)).normalize():f}"
+
+
 class OnboardingService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -748,7 +754,7 @@ class OnboardingService:
                 user_id=req.client_id,
                 category="Account Notification",
                 title="Allotment submitted",
-                body=f"An allotment of {req.multiplier} unit(s) in {model.name} was submitted.",
+                body=f"An allotment of {_units(req.multiplier)} unit(s) in {model.name} was submitted.",
             )
             self.db.commit()
         except Exception:
@@ -867,7 +873,7 @@ class OnboardingService:
                 category="Account Notification",
                 title="Redemption submitted",
                 body=(
-                    f"A redemption of {multiplier} unit(s) in {model.name} "
+                    f"A redemption of {_units(multiplier)} unit(s) in {model.name} "
                     "was submitted for approval."
                 ),
             )
@@ -913,7 +919,7 @@ class OnboardingService:
                     category="Requests Status",
                     title="Redemption declined",
                     body=(
-                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"Your redemption of {_units(row.multiplier)} unit(s) in "
                         f"{reject_model.name if reject_model else 'your model'} was declined. "
                         f'Reason: "{req.reason}"'
                     ),
@@ -962,7 +968,7 @@ class OnboardingService:
             user_id=row.user_id,
             category="Account Notification",
             title="Redemption approved",
-            body=f"Your redemption of {row.multiplier} unit(s) in {model.name} has been approved.",
+            body=f"Your redemption of {_units(row.multiplier)} unit(s) in {model.name} has been approved.",
         )
 
     # ---- CO: redemption decide (BE-5) --------------------------------------
@@ -999,7 +1005,7 @@ class OnboardingService:
                     category="Requests Status",
                     title="Redemption declined",
                     body=(
-                        f"Your redemption of {row.multiplier} unit(s) in "
+                        f"Your redemption of {_units(row.multiplier)} unit(s) in "
                         f"{reject_model.name if reject_model else 'your model'} was declined. "
                         f'Reason: "{req.reason}"'
                     ),
