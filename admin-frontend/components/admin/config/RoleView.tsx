@@ -12,12 +12,9 @@ import { Help, Label, DropdownMenu, type MenuItemDef } from "@/components/admin/
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Copy, RefreshCw, Users } from "@/lib/icons";
-import { ROLE_CODES, kFor } from "@/lib/admin/catalog";
-import { isLockedRole, useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { kFor } from "@/lib/admin/catalog";
+import { EDITABLE_ROLES, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
-
-// ADMIN is fixed at Edit on every page, so it is not offered here at all.
-const EDITABLE_ROLES = ROLE_CODES.filter((code) => !isLockedRole(code));
 
 export function RoleView({
   role, onSelectRole, openGroups, onToggleGroup,

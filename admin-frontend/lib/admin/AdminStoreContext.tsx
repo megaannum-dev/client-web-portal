@@ -48,6 +48,8 @@ function levelsToMap(levels: MatrixOut["levels"]): Record<string, Level> {
 
 /** ADMIN is fixed at Edit on every page (server-enforced); its matrix cells are not editable. */
 export const isLockedRole = (role: Role) => role === "ADMIN";
+/** The roles System Config lists and edits — ADMIN is never offered. */
+export const EDITABLE_ROLES = ROLE_CODES.filter((role) => !isLockedRole(role));
 
 interface AdminStore {
   /* ---- server state ---- */
