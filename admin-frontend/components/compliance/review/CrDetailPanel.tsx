@@ -96,9 +96,12 @@ export function CrDetailPanel({
         {pending ? (
           <>
             {/* View/Edit Gate Function */}
-            {canEdit && <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)} />}
-            {/* View/Edit Gate Function */}
-            {canEdit && <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>}
+            {canEdit && (
+              <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)}>
+                {/* View/Edit Gate Function */}
+                <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
+              </RejectReason>
+            )}
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">

@@ -113,8 +113,9 @@ export function RedeemDetailPanel({
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         {pending ? (
           <>
-            <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)} />
-            <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
+            <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)}>
+              <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
+            </RejectReason>
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">

@@ -1,16 +1,22 @@
 "use client";
 
 // Reject control that collects the (required) reason the API demands.
-import { useState } from "react";
+// `children` (the Approve button) shows only while the reason form is closed.
+import { useState, type ReactNode } from "react";
 import { X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 
-export function RejectReason({ onReject }: { onReject: (reason: string) => void }) {
+export function RejectReason({ onReject, children }: { onReject: (reason: string) => void; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
 
   if (!open) {
-    return <Button variant="secondary" icon={X} onClick={() => setOpen(true)}>Reject</Button>;
+    return (
+      <>
+        <Button variant="secondary" icon={X} onClick={() => setOpen(true)}>Reject</Button>
+        {children}
+      </>
+    );
   }
   return (
     <div className="flex w-full flex-col gap-2">
