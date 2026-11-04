@@ -3,27 +3,21 @@
 /* ============================================================
    System Config — pages × roles matrix (PMatrix/PCell/PLevelKey
    in the design handoff). Body grouped by workspace, one column
-   per role; ADMIN × Administration is locked — it's the only
-   route back into the permission model, so it can't edit itself
-   out of it.
+   per role; the ADMIN column is locked — ADMIN always has Edit
+   on every page.
    ============================================================ */
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Lock } from "@/lib/icons";
 import { Card } from "@/components/ui/Card";
 import { Help, Label, LevelBadge, Th, Td, useHover } from "@/components/admin/Shared";
 import { LEVEL_LABEL, PAGE_GROUPS, ROLE_CODES, type CatalogPage, kFor } from "@/lib/admin/catalog";
-import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { isLockedRole, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Level } from "@/lib/admin/types";
 import type { PageId, Role } from "@/lib/pages-config";
 
 export interface CellPayload { page_id: PageId; label: string; path: string; role: Role }
 
-const LOCKED_MSG = "ADMIN × Administration is locked — it is the only route back into the permission model.";
-
-/** ADMIN × the admin pages stays locked — it is the only route back into the permission
- *  model. Re-expressed against the surviving keys: the old test compared the group
- *  label and a positional role index, and neither survives derivation from PAGES. */
-const isLocked = (page_id: PageId, role: Role) => role === "ADMIN" && page_id.startsWith("admin.");
+const LOCKED_MSG = "ADMIN always has Edit on every page.";
 
 export function Matrix({
   collapsed, onToggleGroup, selCell, onSelectCell, onOpenCell,
@@ -77,7 +71,7 @@ export function Matrix({
       </Card>
       <LevelKey />
       <Help className="mt-2.5">
-        Click any cell to set its level. ADMIN × Administration is locked — it is the only route back into the permission model.
+        Click any cell to set its level. ADMIN always has Edit on every page.
       </Help>
     </>
   );
@@ -151,7 +145,7 @@ function Cell({
   const key = kFor(page_id, role);
   const st = staged[key];
   const sel = selCell === key;
-  const locked = isLocked(page_id, role);
+  const locked = isLockedRole(role);
   const isOvr = ovrOn(page_id, role);
 
   const click = () => {

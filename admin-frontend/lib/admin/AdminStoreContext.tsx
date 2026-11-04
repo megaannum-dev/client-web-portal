@@ -46,10 +46,8 @@ function levelsToMap(levels: MatrixOut["levels"]): Record<string, Level> {
   return map;
 }
 
-/** ADMIN must always retain Edit on the two pages that manage access itself —
- *  otherwise an admin can lock themselves (and everyone else) out for good. */
-export const LOCKED_ADMIN_PAGES: PageId[] = ["admin.enroll-user", "admin.system-config"];
-export const isLockedForAdmin = (pageId: PageId, role: Role) => role === "ADMIN" && LOCKED_ADMIN_PAGES.includes(pageId);
+/** ADMIN is fixed at Edit on every page (server-enforced); its matrix cells are not editable. */
+export const isLockedRole = (role: Role) => role === "ADMIN";
 
 interface AdminStore {
   /* ---- server state ---- */
@@ -149,7 +147,7 @@ export function AdminStoreProvider({
 
   const stage = useCallback(
     (pageId: PageId, role: Role, to: Level) => {
-      const target = isLockedForAdmin(pageId, role) ? "EDIT" : to;
+      const target = isLockedRole(role) ? "EDIT" : to;
       const k = kFor(pageId, role);
       setStaged((s) => {
         const next = { ...s };
