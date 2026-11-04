@@ -356,8 +356,11 @@ class ClientPortalService:
         if ticket is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
         if role not in FULL_VISIBILITY_ROLES and ticket.assigned_rm_uid != rm_uid:
-            # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
+            # not the ticket's RM: still visible to the client's live assistant RM
+            profile = self.db.get(ClientProfile, ticket.user_id)
+            if profile is None or profile.asst_rm_uid != rm_uid:
+                # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
         return ticket
 
     def _require_rm_visible_ticket_dto(
