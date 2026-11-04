@@ -431,6 +431,7 @@ class ClientPortalService:
         )
         amount = float(t.amount) if t.amount is not None else None
         multiplier = float(t.multiplier) if t.multiplier is not None else None
+        responder = self.repo.rm_contact_row(t.responded_by) if t.responded_by else None
         return RmTicketDTO(
             ref=t.reference,
             client_id=t.user_id,
@@ -451,6 +452,8 @@ class ClientPortalService:
             responded_by=t.responded_by,
             responded_at=t.responded_at,
             response_note=t.response_note,
+            responded_by_name=(responder.name or responder.email) if responder else None,
+            responded_by_role=responder.role.value if responder else None,
         )
 
     def _ticket_to_request_dto(self, t: ClientTicket) -> ClientRequestDTO:

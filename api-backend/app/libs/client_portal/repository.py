@@ -33,7 +33,7 @@ class ClientPortalRepository:
     # ---------- Profile (BE-2) ----------
     def rm_contact_row(self, rm_uid: str) -> Row | None:
         return (
-            self.db.query(User.email, AdminProfile.name, AdminProfile.phone_number)
+            self.db.query(User.email, AdminProfile.name, AdminProfile.phone_number, AdminProfile.role)
             .join(AdminProfile, AdminProfile.user_id == User.id)
             .filter(User.firebase_uid == rm_uid)
             .one_or_none()

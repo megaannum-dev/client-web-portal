@@ -22,6 +22,10 @@ export type RequestTicket = {
   tone: ChipTone;
   subject?: string;
   message: string;
+  /** Why it was declined -- by the RM, or by PC/Compliance rejecting the linked redemption. */
+  responseNote?: string;
+  /** Who last acted on it, e.g. "Penny PC (PC) · Nov 04". */
+  respondedBy?: string;
 };
 
 export type TicketKind = "allotment" | "redemption";
@@ -47,6 +51,8 @@ export interface RmTicketDTO {
   responded_by: string | null;
   responded_at: string | null;
   response_note: string | null;
+  responded_by_name?: string | null;
+  responded_by_role?: string | null;
 }
 
 const KIND_LABEL: Record<TicketKind, "Allotment" | "Redemption"> = {
@@ -111,5 +117,10 @@ export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
     tone: STATUS_TONE[dto.status],
     subject: dto.subject ?? undefined,
     message: dto.message,
+    responseNote: dto.response_note ?? undefined,
+    respondedBy: dto.responded_by_name
+      ? `${dto.responded_by_name}${dto.responded_by_role ? ` (${dto.responded_by_role})` : ""}`
+        + (dto.responded_at ? ` · ${fmtDate(dto.responded_at)}` : "")
+      : undefined,
   };
 }
