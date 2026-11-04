@@ -891,7 +891,7 @@ class OnboardingService:
 
         try:
             if req.verdict == "reject":
-                if not req.reason:
+                if not (req.reason or "").strip():
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
                 ticket = self._linked_ticket(row.id)
                 if ticket is not None and ticket.status == TicketStatus.DECLINED:
@@ -977,7 +977,7 @@ class OnboardingService:
 
         try:
             if req.verdict == "reject":
-                if not req.reason:
+                if not (req.reason or "").strip():
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "reason is required")
                 ticket = self._linked_ticket(row.id)
                 if ticket is not None and ticket.status == TicketStatus.DECLINED:

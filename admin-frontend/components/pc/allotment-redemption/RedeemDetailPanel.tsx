@@ -7,6 +7,7 @@
 
 import { Check, X, User, TriangleAlert, Shield } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
+import { RejectReason } from "@/components/ui/RejectReason";
 import { fmtMoney, fmtTimestamp } from "@/lib/pc/format";
 import type { RedemptionView } from "@/lib/onboarding/types";
 import { ArDetailShell, ArFact, ArNotice, arLabelCls } from "./parts";
@@ -37,7 +38,7 @@ export function RedeemDetailPanel({
 }: {
   r: RedemptionView;
   onClose: () => void;
-  onDecision: (id: string, verdict: "approve" | "reject") => void;
+  onDecision: (id: string, verdict: "approve" | "reject", reason?: string) => void;
 }) {
   const amt = r.amount;
   const comp = amt > 300000;
@@ -109,10 +110,10 @@ export function RedeemDetailPanel({
           </p>
         )}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
         {pending ? (
           <>
-            <Button variant="secondary" icon={X} onClick={() => onDecision(r.id, "reject")}>Reject</Button>
+            <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)} />
             <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
           </>
         ) : (

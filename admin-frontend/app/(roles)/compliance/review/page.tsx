@@ -141,8 +141,8 @@ function ComplianceReviewContent() {
     clearDraft(id);           // the reopened cycle re-seeds from its new server state
     setReprovisioning(false); // panel stays open, now showing "Awaiting Resubmit"
   };
-  const decideCr = (id: string, verdict: "approve" | "reject") =>
-    void decideRedemption(id, { verdict }).then((r) => {
+  const decideCr = (id: string, verdict: "approve" | "reject", reason?: string) =>
+    void decideRedemption(id, { verdict, reason }).then((r) => {
       if (!r.success) alert(`Could not submit decision: ${r.error}`);
     });
 

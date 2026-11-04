@@ -67,7 +67,10 @@ export default function AllotmentRedemptionPage() {
         <RedeemDetailPanel
           r={openRedeem}
           onClose={() => setOpenRedeemId(null)}
-          onDecision={(id, verdict) => decideRedemption(id, { verdict })}
+          onDecision={(id, verdict, reason) =>
+            void decideRedemption(id, { verdict, reason }).then((r) => {
+              if (!r.success) alert(`Could not submit decision: ${r.error}`);
+            })}
         />
       )}
     </div>
