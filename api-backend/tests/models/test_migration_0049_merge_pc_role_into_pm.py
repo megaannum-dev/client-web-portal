@@ -53,3 +53,14 @@ def test_downgrade_restores_then_drops_backup_last():
     down = _src(_load()["downgrade"])
     assert BACKUP in down
     assert down.rindex(BACKUP) == down.index(f"DROP TABLE {BACKUP}") + len("DROP TABLE ")
+
+
+def test_downgrade_backup_key_joins_are_binary():
+    # The backup table gets the server default collation (uca1400), the app tables are
+    # utf8mb4_unicode_ci; a plain `=` across them raises MariaDB error 1267.
+    import re
+
+    down = _src(_load()["downgrade"])
+    joins = re.findall(r"[\w. ()]*b\.pk[\w. ()]*=[\w. ()]*|=\s*BINARY b\.pk", down)
+    assert joins, "expected backup-key joins in downgrade"
+    assert all("BINARY" in j for j in joins), joins

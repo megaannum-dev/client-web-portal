@@ -122,17 +122,21 @@ def downgrade() -> None:
         "WHERE status = 'awaiting_pm'"
     )
 
-    # Restore from the snapshot.
+    # Restore from the snapshot. Key comparisons are BINARY: the backup table takes the
+    # server default collation (uca1400) while the app tables are utf8mb4_unicode_ci,
+    # and MariaDB refuses `=` across the two (error 1267). Keys are ASCII ids/UUIDs.
     # raised PM levels first
     _x(
         "UPDATE page_access pa JOIN pc_role_merge_backup_0049 b "
-        "ON b.tbl = 'page_access' AND b.col = 'level' AND b.pk = CAST(pa.id AS CHAR) "
+        "ON b.tbl = 'page_access' AND b.col = 'level' "
+        "AND BINARY b.pk = BINARY CAST(pa.id AS CHAR) "
         "SET pa.level = b.old_value"
     )
     # surviving PC rows back to PC (their page_id was already restored above)
     _x(
         "UPDATE page_access pa JOIN pc_role_merge_backup_0049 b "
-        "ON b.tbl = 'page_access' AND b.col = 'row' AND b.pk = CAST(pa.id AS CHAR) "
+        "ON b.tbl = 'page_access' AND b.col = 'row' "
+        "AND BINARY b.pk = BINARY CAST(pa.id AS CHAR) "
         "SET pa.role = 'PC'"
     )
     # re-insert the PC rows deleted as duplicates (their PC slot is free now)
@@ -140,20 +144,20 @@ def downgrade() -> None:
         "INSERT INTO page_access (id, page_id, role, level) "
         "SELECT CAST(b.pk AS UNSIGNED), b.extra, 'PC', b.old_value "
         "FROM pc_role_merge_backup_0049 b "
-        "LEFT JOIN page_access pa ON CAST(pa.id AS CHAR) = b.pk "
+        "LEFT JOIN page_access pa ON BINARY CAST(pa.id AS CHAR) = BINARY b.pk "
         "WHERE b.tbl = 'page_access' AND b.col = 'row' AND pa.id IS NULL"
     )
     _x(
         "UPDATE admin_profiles t JOIN pc_role_merge_backup_0049 b "
-        "ON b.tbl = 'admin_profiles' AND b.pk = t.user_id SET t.role = 'PC'"
+        "ON b.tbl = 'admin_profiles' AND BINARY b.pk = BINARY t.user_id SET t.role = 'PC'"
     )
     _x(
         "UPDATE ic_notes t JOIN pc_role_merge_backup_0049 b "
-        "ON b.tbl = 'ic_notes' AND b.pk = t.id SET t.uploaded_by_role = 'PC'"
+        "ON b.tbl = 'ic_notes' AND BINARY b.pk = BINARY t.id SET t.uploaded_by_role = 'PC'"
     )
     _x(
         "UPDATE sop_versions t JOIN pc_role_merge_backup_0049 b "
-        "ON b.tbl = 'sop_versions' AND b.pk = t.id SET t.uploaded_by_role = 'PC'"
+        "ON b.tbl = 'sop_versions' AND BINARY b.pk = BINARY t.id SET t.uploaded_by_role = 'PC'"
     )
 
     _x("DROP TABLE pc_role_merge_backup_0049")
