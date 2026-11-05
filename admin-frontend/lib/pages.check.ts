@@ -2,7 +2,7 @@
 // Plain node:assert. NOT a Vitest suite — kept in that form deliberately.
 import { strict as assert } from "node:assert";
 import {
-  PAGES, ROLE_DEFAULT_PAGE, defaultPathFor, pageIdForPath, groupsFor,
+  PAGES, ROLE_DEFAULT_PAGE, defaultPathFor, pageIdForPath, groupsFor, roleLabel,
   type GrantMap, type PageId,
 } from "./pages-config";
 import { ALL_PAGES, PAGE_GROUPS, TOTAL_PAGES, kFor } from "./admin/catalog";
@@ -80,5 +80,9 @@ for (const [role, id] of Object.entries(ROLE_DEFAULT_PAGE)) {
 // Cell keys are role-code keyed and collision-free.
 assert.equal(kFor("pm.allocation-matrix", "PM"), "pm.allocation-matrix|PM");
 assert.notEqual(kFor("pm.allocation-matrix", "PM"), kFor("pm.allocation-matrix", "COMPLIANCE"));
+
+// Profile card shows the full role name; unknown codes pass through.
+assert.equal(roleLabel("PM"), "Portfolio Manager");
+assert.equal(roleLabel("BOGUS"), "BOGUS");
 
 console.log("pages.check.ts: OK");

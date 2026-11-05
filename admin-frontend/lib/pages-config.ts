@@ -223,6 +223,11 @@ const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
   ADMIN: { label: "Admin", icon: ShieldCheck },
 };
 
+/** Full role name ("PM" → "Portfolio Manager"); falls back to the raw code. */
+export function roleLabel(role: string): string {
+  return (ROLE_NAV as Record<string, { label: string } | undefined>)[role]?.label ?? role;
+}
+
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   RM: "rm.client-info",
   MOBO: "mobo.recon-overview",

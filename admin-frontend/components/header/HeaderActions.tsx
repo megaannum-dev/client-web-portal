@@ -2,6 +2,7 @@
 
 import { Bell, HelpCircle } from "@/lib/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { roleLabel } from "@/lib/pages-config";
 
 export function HeaderActions() {
   const { user, portalUser } = useAuth();
@@ -82,7 +83,7 @@ export function HeaderActions() {
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-secondary mb-1">Role</p>
-                <p className="text-[13px] text-on-surface">{portalUser?.role ?? "—"}</p>
+                <p className="text-[13px] text-on-surface">{portalUser?.role ? roleLabel(portalUser.role) : "—"}</p>
               </div>
             </div>
 
