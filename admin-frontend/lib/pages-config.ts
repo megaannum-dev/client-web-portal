@@ -134,14 +134,14 @@ export const PAGES: Record<PageId, PageDef> = {
   },
   "pm.allotment-redemption": {
     id: "pm.allotment-redemption",
-    path: "/pc/allotment-redemption",
+    path: "/pm/allotment-redemption",
     label: "Allotment & Redemption",
     icon: Inbox,
     subgroup: "Client Management",
   },
   "pm.allocation-matrix": {
     id: "pm.allocation-matrix",
-    path: "/pc/allocation-matrix",
+    path: "/pm/allocation-matrix",
     label: "Allocation Matrix",
     icon: Grid3x3,
     subgroup: "Trade Management",
@@ -176,7 +176,7 @@ export const PAGES: Record<PageId, PageDef> = {
   },
   "pm.model-management": {
     id: "pm.model-management",
-    path: "/pc/model-management",
+    path: "/pm/model-management",
     label: "Model Management",
     icon: Layers,
     subgroup: "System",

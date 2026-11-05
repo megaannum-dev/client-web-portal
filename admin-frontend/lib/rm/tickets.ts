@@ -1,5 +1,5 @@
 // ADM-1 — pure DTO->view mapping, no fetch logic, mirroring lib/rm/clients.ts's /
-// lib/pc/models.ts's mapper convention.
+// lib/pm/models.ts's mapper convention.
 // ADM-5: RequestTicket lives here as its canonical home.
 import type { ChipTone } from "@/components/ui/Chip";
 
@@ -89,7 +89,7 @@ function fmtDate(iso: string): string {
 
 /** Reshapes the wire DTO into the existing `RequestTicket` view type
  *  RequestTickets.tsx already renders — no component-side destructuring
- *  of a raw DTO, matching lib/rm/clients.ts's / lib/pc/models.ts's mapper pattern. */
+ *  of a raw DTO, matching lib/rm/clients.ts's / lib/pm/models.ts's mapper pattern. */
 export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
   return {
     ref: dto.ref,

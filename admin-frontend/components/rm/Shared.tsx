@@ -4,7 +4,7 @@
    RM shared workspace primitives
    Modal
    Ported faithfully from the design handoff prototype (Screens.jsx
-   modals), following the components/pc/Shared.tsx Modal pattern.
+   modals), following the components/pm/Shared.tsx Modal pattern.
    ============================================================ */
 
 import { useEffect, useState, type ReactNode } from "react";

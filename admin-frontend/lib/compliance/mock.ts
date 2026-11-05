@@ -85,6 +85,6 @@ export interface Guideline {
   status: "active" | string; version: number;
 }
 // Empty: the only real client in this build (Wilson Lee, see
-// lib/pc/investment-guideline-mock.ts) hasn't had a guideline uploaded by
+// lib/pm/investment-guideline-mock.ts) hasn't had a guideline uploaded by
 // a PM yet — nothing exists here for Compliance to reference yet either.
 export const GR_GUIDELINES: Guideline[] = [];

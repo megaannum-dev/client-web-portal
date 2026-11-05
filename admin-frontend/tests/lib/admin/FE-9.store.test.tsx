@@ -39,7 +39,7 @@ const STAFF_FIXTURE = [
   },
 ];
 const MATRIX_FIXTURE = {
-  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
+  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pm/model-management" }],
   roles: [{ code: "PM", name: "Portfolio Manager", user_count: 4 }],
   levels: [{ page_id: "pm.model-management", role: "PM", level: "EDIT" }],
   published: { at: "2026-07-01T00:00:00Z", by: "Omar Bakri" },
@@ -47,7 +47,7 @@ const MATRIX_FIXTURE = {
 const OVERRIDES_FIXTURE = [
   {
     id: "o1", firebase_uid: "u1", user_name: "Amara Rahim", user_role: "RM",
-    page_id: "pm.model-management", page_label: "Model Management", page_path: "/pc/model-management",
+    page_id: "pm.model-management", page_label: "Model Management", page_path: "/pm/model-management",
     role_default: "NONE", level: "VIEW", reason: "x", granted_by: "Omar Bakri",
     expires_at: "2026-08-01T00:00:00Z", expiring_soon: true,
   },

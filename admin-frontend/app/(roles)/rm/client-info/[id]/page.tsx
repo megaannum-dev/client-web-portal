@@ -17,7 +17,7 @@ import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
 import { COLUMN_LABELS } from "@/lib/onboarding/mappers";
-import { fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { fmtMoneyShort, fmtTimestamp } from "@/lib/pm/format";
 import type { ClientDoc, HistoryEntry } from "@/lib/rm/types";
 import { ContactLogCard } from "@/components/rm/ContactLog";
 import { EditClientModal } from "@/components/rm/EditClientModal";

@@ -16,7 +16,7 @@ import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/rm/Shared";
-import { fmtTimestamp } from "@/lib/pc/format";
+import { fmtTimestamp } from "@/lib/pm/format";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { saveBase64File } from "@/lib/download";
 import {

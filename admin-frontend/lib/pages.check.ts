@@ -27,9 +27,9 @@ const MATRIX_PAGES_FIXTURE: MatrixOut["pages"] = [
   { page_id: "mobo.trade-reconciliation", group: "Trade Management", label: "Trade Reconciliation", path: "/mobo/trade-reconciliation" },
   { page_id: "mobo.commission-tracking", group: "Trade Management", label: "Commission Tracking", path: "/mobo/commission-tracking" },
   { page_id: "mobo.post-trade-allocation", group: "Trade Management", label: "Post-Trade Allocation", path: "/mobo/post-trade-allocation" },
-  { page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pc/model-management" },
-  { page_id: "pm.allocation-matrix", group: "Trade Management", label: "Allocation Matrix", path: "/pc/allocation-matrix" },
-  { page_id: "pm.allotment-redemption", group: "Client Management", label: "Allotment & Redemption", path: "/pc/allotment-redemption" },
+  { page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pm/model-management" },
+  { page_id: "pm.allocation-matrix", group: "Trade Management", label: "Allocation Matrix", path: "/pm/allocation-matrix" },
+  { page_id: "pm.allotment-redemption", group: "Client Management", label: "Allotment & Redemption", path: "/pm/allotment-redemption" },
   { page_id: "compliance.overview", group: "Other", label: "Compliance Overview", path: "/compliance/overview" },
   { page_id: "compliance.review", group: "Compliance", label: "Compliance Review", path: "/compliance/review" },
   { page_id: "compliance.ic-notes", group: "Compliance", label: "IC Meeting Notes", path: "/compliance/ic-notes" },
@@ -60,7 +60,7 @@ assert.ok(!groupsFor(allEdit, "ADMIN")[0].pages.some((p) => p.href === "/mobo/re
 {
   const reduced: GrantMap = { ...allEdit };
   delete reduced["pm.allocation-matrix"];
-  assert.ok(!groupsFor(reduced, "PM")[0].pages.some((p) => p.href === "/pc/allocation-matrix"));
+  assert.ok(!groupsFor(reduced, "PM")[0].pages.some((p) => p.href === "/pm/allocation-matrix"));
 }
 assert.equal(groupsFor(allEdit, "PM").length, 1, "PM must have exactly one nav group");
 

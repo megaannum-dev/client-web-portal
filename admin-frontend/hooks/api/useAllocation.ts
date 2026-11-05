@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAllocation, confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pc/allocation-matrix/actions";
-import { mapDtoToAllocationView, type AllocationView } from "@/lib/pc/allocation";
+import { getAllocation, confirmPeriod as confirmPeriodAction } from "@/app/(roles)/pm/allocation-matrix/actions";
+import { mapDtoToAllocationView, type AllocationView } from "@/lib/pm/allocation";
 
 export interface UseAllocationResult {
   data: AllocationView | null;

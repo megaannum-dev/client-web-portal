@@ -1,9 +1,9 @@
-// FE-6 — pure DTO->view mapping, no fetch logic, mirroring lib/pc/models.ts's
+// FE-6 — pure DTO->view mapping, no fetch logic, mirroring lib/pm/models.ts's
 // mapDtoToModel convention.
 // SubClient/SubModel/TxnRow's canonical home (moved from lib/mock/rm-data.ts,
 // which no longer has any mock subscription data to anchor them to — see
 // lib/rm/tickets.ts for the identical precedent with RequestTicket).
-import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pm/format";
 import { formatFeePercent } from "@/lib/fee";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
@@ -74,7 +74,7 @@ export function initialsFromName(name: string): string {
  *  client_subscriptions actually holds, even before allotment history has
  *  loaded. */
 function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
-  // Decimal fields arrive over JSON as strings (see lib/pc/models.ts's
+  // Decimal fields arrive over JSON as strings (see lib/pm/models.ts's
   // `Number(dto.model_size ?? 0)` for the same coercion) -- Number() first,
   // or toLocaleString()/template interpolation just echoes the raw string.
   const amt = Number(sub.amount).toLocaleString("en-US");

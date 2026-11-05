@@ -23,7 +23,7 @@ vi.mock("@/app/(roles)/admin/actions", async (importOriginal) => ({
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 const MATRIX_FIXTURE = {
-  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
+  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pm/model-management" }],
   roles: [{ code: "PM", name: "Portfolio Manager", user_count: 4 }],
   // mobo.commission-tracking/MOBO is given an explicit non-NONE level here (rather than
   // being omitted) so that staging it to NONE below is a genuine change. stage() drops a

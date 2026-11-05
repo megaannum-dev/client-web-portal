@@ -18,7 +18,7 @@ import { useClientBook } from "@/hooks/api/useClientBook";
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { formatFeePercent } from "@/lib/fee";
-import { DEFAULT_MGMT_FRACTION, DEFAULT_INCENTIVE_FRACTION } from "@/lib/pc/models";
+import { DEFAULT_MGMT_FRACTION, DEFAULT_INCENTIVE_FRACTION } from "@/lib/pm/models";
 
 type ModalState = { mode: SubscriptionModalMode; context: SubscriptionModalContext };
 

@@ -29,7 +29,7 @@ vi.mock("@/lib/admin/catalog", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/lib/admin/catalog")>()),
   LEVEL_LABEL: { NONE: "None", VIEW: "View", EDIT: "Edit" },
   PAGE_BY_ID: {
-    "pm.model-management": { page_id: "pm.model-management", label: "Model Management", path: "/pc/model-management", group: "System" },
+    "pm.model-management": { page_id: "pm.model-management", label: "Model Management", path: "/pm/model-management", group: "System" },
     "rm.client-info": { page_id: "rm.client-info", label: "Client Information", path: "/rm/client-info", group: "Client Management" },
   },
   EXPIRY_OPTS: ["30 days", "90 days", "No expiry"],

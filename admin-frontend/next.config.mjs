@@ -8,6 +8,10 @@ const nextConfig = {
     // the backend still enforces each feature's own limit (413).
     serverActions: { bodySizeLimit: "51mb" },
   },
+  // ponytail: old /pc bookmarks; drop once nobody uses /pc links.
+  async redirects() {
+    return [{ source: "/pc/:path*", destination: "/pm/:path*", permanent: true }];
+  },
 };
 
 export default nextConfig;

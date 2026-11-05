@@ -35,7 +35,7 @@ beforeEach(() => {
 const OVERRIDES_FIXTURE = [
   {
     id: "o1", firebase_uid: "u1", user_name: "Amara Rahim", user_role: "RM",
-    page_id: "pm.model-management", page_label: "Model Management", page_path: "/pc/model-management",
+    page_id: "pm.model-management", page_label: "Model Management", page_path: "/pm/model-management",
     role_default: "NONE", level: "VIEW", reason: "x", granted_by: "Omar Bakri",
     expires_at: "2026-08-01T00:00:00Z", expiring_soon: true,
   },

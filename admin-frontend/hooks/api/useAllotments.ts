@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchAllotments, acknowledgeAllotment, pmDecideRedemption } from "@/app/(roles)/pc/allotment-redemption/actions";
+import { fetchAllotments, acknowledgeAllotment, pmDecideRedemption } from "@/app/(roles)/pm/allotment-redemption/actions";
 import { mapAllotmentsToView, mapRedemptionsToView } from "@/lib/onboarding/mappers";
 import type { AllotmentView, AllotRdmptDTO, RedemptionView, RedemptionDecisionReq } from "@/lib/onboarding/types";
 

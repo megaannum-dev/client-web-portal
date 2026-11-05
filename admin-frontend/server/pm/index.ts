@@ -17,7 +17,7 @@ import type {
   ModelDTO,
   ModelsListDTO,
   PeriodDTO,
-} from "@/lib/pc/types";
+} from "@/lib/pm/types";
 
 export type { APIResult };
 export type AllocationFetchResult = ConditionalResult<AllocationDTO>;

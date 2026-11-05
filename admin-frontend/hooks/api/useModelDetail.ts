@@ -20,9 +20,9 @@ import {
   getChanges as getChangesAction,
   uploadMaterial as uploadMaterialAction,
   downloadMaterial as downloadMaterialAction,
-} from "@/app/(roles)/pc/model-management/actions";
-import { mapDtoToModel, mapDtoToMaterial } from "@/lib/pc/models";
-import type { Model, Material } from "@/lib/pc/types";
+} from "@/app/(roles)/pm/model-management/actions";
+import { mapDtoToModel, mapDtoToMaterial } from "@/lib/pm/models";
+import type { Model, Material } from "@/lib/pm/types";
 
 export interface UseModelDetailResult {
   data: { model: Model; materials: Material[] } | null;
