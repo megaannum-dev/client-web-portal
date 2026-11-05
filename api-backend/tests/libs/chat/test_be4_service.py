@@ -372,7 +372,7 @@ def test_admin_can_read_and_download_but_not_send_in_a_room_it_is_not_in(session
     assert filename == "a.txt"
     with pytest.raises(HTTPException) as e:
         svc.send(admin, client.id, body="x", files=[])
-    assert e.value.status_code == 404
+    assert e.value.status_code == 403  # D08: ADMIN never sends, member or not
 
 
 def test_non_admin_non_member_still_gets_404_on_reads(session, storage):

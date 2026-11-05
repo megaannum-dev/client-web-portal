@@ -356,8 +356,11 @@ class ClientPortalService:
         if ticket is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
         if role not in FULL_VISIBILITY_ROLES and ticket.assigned_rm_uid != rm_uid:
-            # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
+            # not the ticket's RM: still visible to the client's live assistant RM
+            profile = self.db.get(ClientProfile, ticket.user_id)
+            if profile is None or profile.asst_rm_uid != rm_uid:
+                # scoped 404, not 403 -- avoid leaking existence to a non-visible caller
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown ticket")
         return ticket
 
     def _require_rm_visible_ticket_dto(
@@ -428,6 +431,7 @@ class ClientPortalService:
         )
         amount = float(t.amount) if t.amount is not None else None
         multiplier = float(t.multiplier) if t.multiplier is not None else None
+        responder = self.repo.rm_contact_row(t.responded_by) if t.responded_by else None
         return RmTicketDTO(
             ref=t.reference,
             client_id=t.user_id,
@@ -448,6 +452,8 @@ class ClientPortalService:
             responded_by=t.responded_by,
             responded_at=t.responded_at,
             response_note=t.response_note,
+            responded_by_name=(responder.name or responder.email) if responder else None,
+            responded_by_role=responder.role.value if responder else None,
         )
 
     def _ticket_to_request_dto(self, t: ClientTicket) -> ClientRequestDTO:

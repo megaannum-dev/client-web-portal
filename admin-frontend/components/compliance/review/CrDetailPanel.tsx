@@ -2,6 +2,7 @@
 
 import { Check, X, Shield, User, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
+import { RejectReason } from "@/components/ui/RejectReason";
 import { DetailShell, Fact, Notice, SectionLabel, CrStatusChip } from "@/components/compliance/Shared";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { coMoney } from "@/lib/compliance/mock";
@@ -31,7 +32,7 @@ export function CrDetailPanel({
 }: {
   r: RedemptionView;
   onClose: () => void;
-  onDecision: (id: string, verdict: "approve" | "reject") => void;
+  onDecision: (id: string, verdict: "approve" | "reject", reason?: string) => void;
 }) {
   // D-2: for >$300k redemptions, Compliance is the FIRST gate (awaiting_co),
   // PC is the second/final gate (awaiting_pc -> approved) -- CO never sees a
@@ -91,13 +92,16 @@ export function CrDetailPanel({
           </div>
         )}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
         {pending ? (
           <>
             {/* View/Edit Gate Function */}
-            {canEdit && <Button variant="secondary" icon={X} onClick={() => onDecision(r.id, "reject")}>Reject</Button>}
-            {/* View/Edit Gate Function */}
-            {canEdit && <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>}
+            {canEdit && (
+              <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)}>
+                {/* View/Edit Gate Function */}
+                <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
+              </RejectReason>
+            )}
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">

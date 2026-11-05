@@ -99,6 +99,32 @@ def test_set_rm_ticket_status_stamps_responder_and_timestamp(session):
     assert updated.responded_by == rm.firebase_uid
     assert updated.responded_at is not None
     assert updated.response_note == "Looking into it"
+    assert (updated.responded_by_name, updated.responded_by_role) == ("Ricky RM", "RM")
+
+
+def test_ticket_declined_by_pc_names_the_pc_officer(session):
+    """A PC/Compliance redemption rejection stamps their uid on the linked ticket;
+    the RM's DTO resolves it to a name and role, not a bare uid."""
+    from app.models.onboarding import ClientTicket
+    from app.models.onboarding import TicketStatus as DbTicketStatus
+
+    client_user = make_client(session, name="Cathy Client")
+    rm = make_admin(session, AdminRole.RM, name="Ricky RM")
+    pc = make_admin(session, AdminRole.PC, name="Penny PC")
+    model = make_model(session, name="Alpha Model")
+    set_assigned_rm(session, client_user, rm)
+
+    svc = ClientPortalService(session)
+    created = svc.create_ticket(
+        client_user.id, RaiseTicketReq(kind=TicketKind.ALLOTMENT, model_id=model.id, message="x")
+    )
+    row = session.query(ClientTicket).filter_by(reference=created.ref).one()
+    row.status, row.responded_by, row.response_note = DbTicketStatus.DECLINED, pc.firebase_uid, "Too large"
+    session.commit()
+
+    [dto] = svc.list_rm_tickets(rm_uid=rm.firebase_uid, role=AdminRole.RM)
+    assert (dto.responded_by_name, dto.responded_by_role) == ("Penny PC", "PC")
+    assert dto.response_note == "Too large"
 
 
 # --- Negative: the kind-conditional validator 422s at the wire boundary ----------

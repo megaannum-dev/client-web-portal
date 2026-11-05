@@ -35,8 +35,9 @@ export interface RoomClient {
   id: string;
   name: string | null;
   assignedRm?: string | null;
-  /** Room-member uids. Only these two may post; anyone else (ADMIN's
-   *  view-all included) gets a read-only composer. Matches send's server gate. */
+  /** Room-member uids. Only these two may post, and never an ADMIN
+   *  (even if seated); anyone else (ADMIN's view-all included) gets a read-only
+   *  composer. Matches send's server gate. */
   rmUid?: string | null;
   armUid?: string | null;
 }
@@ -150,8 +151,11 @@ function OpenRoom({
     subscribe,
     socketOpen,
   });
-  const meUid = useAuth().portalUser?.firebase_uid;
-  const canSend = meUid != null && (meUid === client.rmUid || meUid === client.armUid);
+  const { portalUser } = useAuth();
+  const meUid = portalUser?.firebase_uid;
+  // ADMIN never posts, even when seated as RM/ARM (server refuses it too).
+  const canSend =
+    meUid != null && portalUser?.role !== "ADMIN" && (meUid === client.rmUid || meUid === client.armUid);
   return (
     <ChatRoomPanel
       canSend={canSend}

@@ -176,3 +176,59 @@ def test_source_ticket_ref_of_another_client_is_rejected(world, api_client, book
     own = world.ticket_open_new.reference  # clients[0]'s own ticket still links
     resp = http.post("/api/rm/allotment", json=_alloc_body(book, source_ticket_ref=own))
     assert resp.status_code == 201
+
+
+# ---- D05: tickets and chat use the same RM-or-ARM visibility as the client lists ----
+
+
+@pytest.fixture
+def arm_of_client1(world):
+    """rm_empty becomes the ASSISTANT RM of clients[1] (ticket_open_progress)."""
+    session = world.SessionLocal()
+    profile = session.query(ClientProfile).filter_by(user_id=world.clients[1].id).one()
+    profile.asst_rm_uid = world.rm_empty.firebase_uid
+    session.commit()
+    return world.ticket_open_progress.reference
+
+
+def test_arm_sees_the_clients_ticket_in_list_and_detail(world, api_client, arm_of_client1):
+    http, set_actor = api_client
+
+    set_actor(world.rm_empty)
+    resp = http.get("/api/rm/tickets")
+    assert resp.status_code == 200, resp.text
+    assert {t["ref"] for t in resp.json()} == {arm_of_client1}
+    assert http.get(f"/api/rm/tickets/{arm_of_client1}").status_code == 200
+    # only that client's ticket -- clients[0]'s stays invisible
+    resp = http.get(f"/api/rm/tickets/{world.ticket_open_new.reference}")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Unknown ticket"
+
+
+def test_unrelated_rm_gets_no_tickets_and_404(world, api_client, arm_of_client1):
+    http, set_actor = api_client
+
+    set_actor(world.rm_receiver)  # neither RM nor ARM of anyone
+    assert http.get("/api/rm/tickets").json() == []
+    resp = http.get(f"/api/rm/tickets/{arm_of_client1}")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Unknown ticket"
+
+
+def test_chat_history_member_gate_covers_the_arm(world, arm_of_client1):
+    from fastapi import HTTPException
+
+    from app.libs.chat.service import ChatService
+    from app.models.users import User
+
+    session = world.SessionLocal()
+    svc = ChatService(session)
+    client_id = world.clients[1].id
+
+    arm = session.get(User, world.rm_empty.id)
+    assert svc.history(arm, client_id, since=None, limit=10) == []
+
+    stranger = session.get(User, world.rm_receiver.id)  # non-member staff
+    with pytest.raises(HTTPException) as exc:
+        svc.history(stranger, client_id, since=None, limit=10)
+    assert exc.value.status_code == 404

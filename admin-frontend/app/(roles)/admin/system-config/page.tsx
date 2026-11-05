@@ -20,8 +20,7 @@ import { Matrix, type CellPayload } from "@/components/admin/config/Matrix";
 import { RoleView } from "@/components/admin/config/RoleView";
 import { OverridesLedger } from "@/components/admin/config/OverridesLedger";
 import { AddOverrideModal, CellModal, PublishModal } from "@/components/admin/config/ConfigModals";
-import { ROLE_CODES } from "@/lib/admin/catalog";
-import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { EDITABLE_ROLES, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
 type ModalState =
@@ -74,7 +73,7 @@ export default function SystemConfigPage() {
         <ViewSwitch view={configView} onChange={setConfigView} />
         <span className="h-[26px] w-px bg-outline-variant" />
         <span className="text-[12.5px] text-secondary">
-          {totalPages} pages · {ROLE_CODES.length} roles · {overrides.length} per-user exception{overrides.length === 1 ? "" : "s"}
+          {totalPages} pages · {EDITABLE_ROLES.length} roles · {overrides.length} per-user exception{overrides.length === 1 ? "" : "s"}
         </span>
         <span className="ml-auto flex items-center gap-2.5">
           {n ? (

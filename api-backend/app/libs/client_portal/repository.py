@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Row, and_, exists, func
+from sqlalchemy import Row, and_, exists, func, or_
 from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
@@ -23,7 +23,7 @@ from app.models.post_trade_allocation import (
     PostTradeAllocation,
     PostTradeAllocationRun,
 )
-from app.models.users import AdminProfile, User
+from app.models.users import AdminProfile, ClientProfile, User
 
 
 class ClientPortalRepository:
@@ -33,7 +33,7 @@ class ClientPortalRepository:
     # ---------- Profile (BE-2) ----------
     def rm_contact_row(self, rm_uid: str) -> Row | None:
         return (
-            self.db.query(User.email, AdminProfile.name, AdminProfile.phone_number)
+            self.db.query(User.email, AdminProfile.name, AdminProfile.phone_number, AdminProfile.role)
             .join(AdminProfile, AdminProfile.user_id == User.id)
             .filter(User.firebase_uid == rm_uid)
             .one_or_none()
@@ -168,7 +168,10 @@ class ClientPortalRepository:
     def list_for_rm(self, *, rm_uid: str, full_visibility: bool) -> list[ClientTicket]:
         q = self.db.query(ClientTicket)
         if not full_visibility:
-            q = q.filter(ClientTicket.assigned_rm_uid == rm_uid)
+            # RM: the ticket's own assignee (moved on handover); ARM: the client's live asst_rm_uid
+            q = q.outerjoin(ClientProfile, ClientProfile.user_id == ClientTicket.user_id).filter(
+                or_(ClientTicket.assigned_rm_uid == rm_uid, ClientProfile.asst_rm_uid == rm_uid)
+            )
         return q.order_by(ClientTicket.created_at.desc()).all()
 
     def get_ticket_by_ref(self, ref: str) -> ClientTicket | None:

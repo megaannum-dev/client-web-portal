@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Any, Protocol
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.libs.allocation_matrix.repository import AllocationRepository, MatrixReadRepository
@@ -63,15 +64,30 @@ class AllocationService:
         return period
 
     def create_period(self, label: str) -> AllocationPeriod:
-        """Admin override: create a new open period. Enforces single-open invariant."""
+        """Admin override: create a new open period.
+
+        Enforces label uniqueness (any status) and the single-open invariant.
+        Both raise 409; the label check is mirrored by DB constraint
+        uq_allocation_periods_label, which covers the concurrent-insert race.
+        """
+        if self.alloc_repo.find_by_label(label) is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, f"Period '{label}' already exists"
+            )
         existing = self.alloc_repo.get_open_period()
         if existing is not None:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"An open period already exists: '{existing.label}'",
             )
-        period = self.alloc_repo.create_period(label)
-        self.db.commit()
+        try:
+            period = self.alloc_repo.create_period(label)
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, f"Period '{label}' already exists"
+            ) from exc
         self.db.refresh(period)
         return period
 

@@ -139,7 +139,7 @@ def test_pc_synthetic_view_grant_on_model_management(http_client):
         app.dependency_overrides.pop(get_current_admin_user, None)
 
 
-# --- Fail-closed sweep: empty page_access -> 403 for EVERY role, incl. ADMIN -
+# --- Fail-closed sweep: empty page_access -> 403 for every NON-ADMIN role ----
 
 
 @pytest.mark.parametrize(
@@ -150,20 +150,25 @@ def test_pc_synthetic_view_grant_on_model_management(http_client):
         (AdminRole.PM, Action.MODEL_VIEW),
         (AdminRole.PC, Action.MODEL_VIEW),
         (AdminRole.COMPLIANCE, Action.ONBOARDING_REVIEW),
-        (AdminRole.ADMIN, Action.MODEL_VIEW),
     ],
     ids=lambda v: getattr(v, "name", v),
 )
 def test_fail_closed_with_empty_page_access_for_every_role(session, role, action):
     """C-2 / D-9: with `page_access` empty (the un-migrated-DB simulation --
     this in-memory DB never gets a page_access row in this test), every guarded
-    route denies for every role, ADMIN included -- no ROLE_ACTIONS-style
-    fallback of any kind."""
+    route denies for every non-ADMIN role -- no ROLE_ACTIONS-style fallback of
+    any kind."""
     user = make_admin_user(session, firebase_uid=f"uid-{role.value.lower()}-empty", role=role)
     dep = require_action(action)
     with pytest.raises(HTTPException) as exc_info:
         dep(user=user, db=session)
     assert exc_info.value.status_code == 403
+
+
+def test_admin_passes_even_with_empty_page_access(session):
+    """D08: ADMIN is fixed at EDIT on every page, so it never fails closed."""
+    user = make_admin_user(session, firebase_uid="uid-admin-empty", role=AdminRole.ADMIN)
+    require_action(Action.MODEL_VIEW)(user=user, db=session)  # no raise
 
 
 def test_no_admin_profile_still_403_no_admin_profile(session):

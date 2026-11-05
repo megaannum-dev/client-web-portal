@@ -9,6 +9,7 @@ from typing import Literal
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Query, Session, aliased, selectinload
 
+from app.libs.clients.repository import in_book
 from app.models.chat import ChatAttachment, ChatMessage
 from app.models.users import AdminProfile, ClientProfile, Portal, User
 
@@ -43,21 +44,10 @@ class ChatRepository:
         moves access: the old RM is out, the new RM is in with full history.
         That is the product requirement, and it is why this is a live read on
         every call rather than a column on the message row.
-
-        KNOWN INCONSISTENCY (deliberate, out of scope here): chat is the first
-        feature that treats the ARM as the RM's equal. `ClientRepository._scoped`
-        (app/libs/clients/repository.py:129-134) and
-        app/libs/client_portal/service.py:358 both filter on `assigned_rm_uid`
-        alone, so an ARM sees zero clients and zero tickets today. Net effect: an
-        ARM can chat about a client they cannot see in any list. Fixing those two
-        scoping helpers is its own change, not this one.
         """
         return (
             self.db.query(ClientProfile.user_id)
-            .filter(
-                ClientProfile.user_id == client_id,
-                or_(ClientProfile.assigned_rm_uid == uid, ClientProfile.asst_rm_uid == uid),
-            )
+            .filter(ClientProfile.user_id == client_id, in_book(uid))
             .first()
             is not None
         )
@@ -185,7 +175,7 @@ class ChatRepository:
             .outerjoin(arm_ap, arm_ap.user_id == arm_user.id)
         )
         if uid is not None:
-            query = query.filter(or_(room.assigned_rm_uid == uid, room.asst_rm_uid == uid))
+            query = query.filter(in_book(uid, room))
         if f.view == "in":
             query = query.filter(User.portal != Portal.ADMIN)
         elif f.view == "out":

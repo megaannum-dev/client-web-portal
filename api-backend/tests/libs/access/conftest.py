@@ -433,8 +433,8 @@ def world(session: Session, SessionLocal) -> SimpleNamespace:
         reason="temporary downgrade",
         expires_at=now + timedelta(days=30),
     )
-    # Unexpired NONE override revoking ADMIN's seeded EDIT on admin.system-config
-    # for this one person -- D-3's "active revocation" case.
+    # Unexpired NONE override on ADMIN's admin.system-config -- INERT since D08
+    # (ADMIN is fixed at EDIT everywhere); kept as the regression fixture for that.
     override_none_unexpired = make_override(
         session,
         admin,

@@ -4,9 +4,11 @@ Registered at app startup in app/main.py.  No apscheduler dependency — pure
 asyncio.  The job fires once per hour and checks whether the calendar month has
 changed since the last run; if so it calls the service to open a new period.
 
-The single-open invariant is enforced by AllocationService.create_period: if
-the prior period is still unconfirmed the call raises HTTP 409, which we catch
-and log — no second open period is ever created.
+The single-open invariant and label uniqueness are enforced by
+AllocationService.create_period: if the prior period is still unconfirmed, or a
+period with this label already exists (e.g. after a restart reset the month
+tracker), the call raises HTTP 409, which we catch and log — no second open or
+duplicate-label period is ever created.
 """
 
 from __future__ import annotations
@@ -56,11 +58,15 @@ async def _try_open_period(label: str) -> None:
     db = SessionLocal()
     try:
         svc = AllocationService(db)
+        # last_month resets on restart, so the month's period may already exist.
+        if svc.find_period_by_label(label) is not None:
+            logger.info("PC scheduler: skipping — period '%s' already exists", label)
+            return
         svc.create_period(label)
         logger.info("PC scheduler: auto-opened allocation period '%s'", label)
     except Exception as exc:
-        if "already exists" in str(exc) or getattr(exc, "status_code", None) == 409:
-            logger.info("PC scheduler: skipping — open period already exists")
+        if getattr(exc, "status_code", None) == 409:
+            logger.info("PC scheduler: skipping — %s", getattr(exc, "detail", exc))
         else:
             db.rollback()
             logger.exception("PC scheduler: failed to auto-open period '%s'", label)
