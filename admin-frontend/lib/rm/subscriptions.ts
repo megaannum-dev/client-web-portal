@@ -88,7 +88,7 @@ function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
  *  no currency field exists anywhere in the schema yet (the mock's CHF/AUD rows
  *  are decorative and have no backing concept to preserve). Dates are formatted
  *  with the SAME fmtTimestamp already used for this exact DTO's fields on the
- *  PC allotments page (AllotTable.tsx) — the mock's placeholder "DD/MM/YYYY"
+ *  PM allotments page (AllotTable.tsx) — the mock's placeholder "DD/MM/YYYY"
  *  strings are not a convention worth preserving once real data is behind it. */
 export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null): TxnRow {
   const isRedemption = dto.kind === "redemption";

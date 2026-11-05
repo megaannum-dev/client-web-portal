@@ -1,7 +1,7 @@
 /* ============================================================
-   PC (Portfolio Commander) — domain type layer (backend-aligned)
+   PM (Portfolio Manager) — domain type layer (backend-aligned)
 
-   These types are the PERMANENT layer of the PC workspace. Field
+   These types are the PERMANENT layer of the PM workspace. Field
    names and shapes mirror the eventual backend columns: when the
    API lands, its payload deserializes straight into these and the
    data-access seams (`lib/pm/models.ts`, `lib/pm/allocation.ts`)

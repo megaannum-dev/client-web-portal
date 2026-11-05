@@ -1,5 +1,5 @@
 /* ============================================================
-   PC — allocation-matrix data-access SEAM + DTO→view mapper
+   PM — allocation-matrix data-access SEAM + DTO→view mapper
 
    `loadAllocation()` reads the purgeable mock until FE-6 swaps the
    screen onto `useAllocation()`; then the mock is deleted.

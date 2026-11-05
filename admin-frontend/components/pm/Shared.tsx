@@ -1,7 +1,7 @@
 "use client";
 
 /* ============================================================
-   PC shared workspace primitives
+   PM shared workspace primitives
    Eyebrow · StatusChip · Ticks · VerBadge · Modal · Fact · FeeCalc
    Ported faithfully from the design prototype (ModelManagement.jsx /
    AllocationMatrix.jsx). Reuses the repo's Button/Chip primitives.

@@ -1,6 +1,6 @@
 "use client";
 
-// PC — Model Management: card/table layout + slide-in detail panel,
+// PM — Model Management: card/table layout + slide-in detail panel,
 // New-model/Edit forms, fee calc. All data/mutations flow through
 // useModels (list) and useModelDetail (open model's materials + changes).
 

@@ -166,7 +166,7 @@ export function PublishModal({ onClose }: { onClose: () => void }) {
         value={note}
         onChange={setNote}
         span
-        placeholder="Q3 control review — reconciliation read access for PC"
+        placeholder="Q3 control review — reconciliation read access for PM"
         help="Attached to this publish in the audit log."
       />
     </Modal>

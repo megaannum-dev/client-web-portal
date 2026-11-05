@@ -1,5 +1,5 @@
 /* ============================================================
-   PC — model-book data-access SEAM + DTO→view mapper
+   PM — model-book data-access SEAM + DTO→view mapper
 
    `loadModels()` reads the purgeable mock until FE-6 swaps the
    screens onto `useModels()`; then the mock is deleted. Components

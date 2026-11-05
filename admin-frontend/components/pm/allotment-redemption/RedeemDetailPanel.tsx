@@ -2,7 +2,7 @@
 
 // Redemption detail — the ONLY place approve/reject live. Approving a request
 // above US$300K routes to compliance FIRST (backend handles routing; D-2:
-// awaiting_co -> awaiting_pm -> approved); below that threshold, PC approval
+// awaiting_co -> awaiting_pm -> approved); below that threshold, PM approval
 // alone is sufficient.
 
 import { Check, X, User, TriangleAlert, Shield } from "@/lib/icons";
@@ -60,7 +60,7 @@ export function RedeemDetailPanel({
       )}
       {comp && (
         <ArNotice tone="warn" icon={Shield}>
-          <b>Compliance approval required</b> — exceeds the US$300,000 threshold ({fmtMoney(amt)}). Compliance decides first, then PC gives the final sign-off.
+          <b>Compliance approval required</b> — exceeds the US$300,000 threshold ({fmtMoney(amt)}). Compliance decides first, then PM gives the final sign-off.
         </ArNotice>
       )}
       <div
@@ -81,7 +81,7 @@ export function RedeemDetailPanel({
         {!comp ? (
           <div className="flex items-center gap-2.5">
             <WorkflowStep
-              label="PC approval"
+              label="PM approval"
               sub={r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Awaiting your decision"}
               state={r.status === "rejected" ? "rejected" : r.status === "approved" ? "done" : "current"}
             />
@@ -97,7 +97,7 @@ export function RedeemDetailPanel({
             />
             <div className="h-px w-6 bg-outline-variant" />
             <WorkflowStep
-              label="PC approval (final)"
+              label="PM approval (final)"
               sub={r.status === "approved" ? "Approved" : r.status === "awaiting_pm" ? "Awaiting your decision" : "Pending"}
               state={r.status === "approved" ? "done" : r.status === "awaiting_pm" ? "current" : "upcoming"}
             />
@@ -105,7 +105,7 @@ export function RedeemDetailPanel({
         )}
         {!comp && (
           <p className="mt-2.5 text-[12.5px] leading-[1.55] text-secondary">
-            Below US$300K — no compliance sign-off needed. PC approval is sufficient.
+            Below US$300K — no compliance sign-off needed. PM approval is sufficient.
           </p>
         )}
       </div>

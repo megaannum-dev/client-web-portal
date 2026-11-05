@@ -2,7 +2,7 @@
 // See docs/implementations/013-client-onboarding-integration-fe.md §6.
 //
 // Stitched together from three worktrees (FE-3 board half, FE-4 compliance
-// half, FE-5 PC half) — each unit owns a distinct section of this file.
+// half, FE-5 PM half) — each unit owns a distinct section of this file.
 
 import type {
   AdminOnboardingRow, AllotRdmptDTO, AllotmentView, BoardDTO, DocStatus,
@@ -78,7 +78,7 @@ export function docStatusToVerdict(status: DocStatus): "valid" | "issue" | null 
   return null;
 }
 
-/* ---- FE-5: PC allotments ---------------------------------------------- */
+/* ---- FE-5: PM allotments ---------------------------------------------- */
 
 /**
  * AllotRdmptDTO[] → AllotmentView[]. Widened 2026-07-20 (D-9): the per-model
@@ -98,7 +98,7 @@ export function mapAllotmentsToView(dtos: AllotRdmptDTO[]): AllotmentView[] {
   }));
 }
 
-/* ---- FE-7: PC redemptions ---------------------------------------------- */
+/* ---- FE-7: PM redemptions ---------------------------------------------- */
 
 export function mapRedemptionsToView(dtos: AllotRdmptDTO[]): RedemptionView[] {
   return dtos

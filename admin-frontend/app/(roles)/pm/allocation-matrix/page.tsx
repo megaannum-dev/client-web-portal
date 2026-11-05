@@ -1,6 +1,6 @@
 "use client";
 
-// MegaCRM — PC · Allocation Matrix. Data flows only through useAllocation().
+// MegaCRM — PM · Allocation Matrix. Data flows only through useAllocation().
 import { useState } from "react";
 import { Check, Eye, History } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";

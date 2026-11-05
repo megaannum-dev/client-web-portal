@@ -1,6 +1,6 @@
 "use client";
 
-// PC — Allotment & Redemption: tabbed queue (Allotments | Redemptions) with
+// PM — Allotment & Redemption: tabbed queue (Allotments | Redemptions) with
 // slide-in detail panels. Wired to live data via useAllotments hook (FE-5/FE-7).
 
 import { useState } from "react";
@@ -53,8 +53,8 @@ export default function AllotmentRedemptionPage() {
           )}
 
           <div className="mt-4 flex flex-wrap gap-x-[22px] gap-y-2 text-[12.5px] text-secondary">
-            <span className="flex items-center gap-1.5"><Inbox size={13} strokeWidth={2} />Allotments are informational — PC acknowledges but does not block</span>
-            <span className="flex items-center gap-1.5"><Lock size={13} strokeWidth={2} />Redemptions require PC approval; &gt; US$300K also needs compliance</span>
+            <span className="flex items-center gap-1.5"><Inbox size={13} strokeWidth={2} />Allotments are informational — PM acknowledges but does not block</span>
+            <span className="flex items-center gap-1.5"><Lock size={13} strokeWidth={2} />Redemptions require PM approval; &gt; US$300K also needs compliance</span>
             <span className="flex items-center gap-1.5"><User size={13} strokeWidth={2} />Client identity is anonymized throughout</span>
           </div>
         </div>

@@ -7,10 +7,10 @@ export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verif
 export type AllotRdmpStatus =
   | "pending"        // existing
   | "acknowledged"   // existing
-  | "awaiting_pm"    // NEW — redemption submitted, needs PC approval
+  | "awaiting_pm"    // NEW — redemption submitted, needs PM approval
   | "awaiting_co"    // NEW — redemption submitted, needs Compliance approval (amount > $300k)
   | "approved"       // NEW — redemption fully approved, took effect
-  | "rejected";      // NEW — redemption rejected by PC or CO
+  | "rejected";      // NEW — redemption rejected by PM or CO
 export type AllotRdmpKind    = "allotment" | "redemption";
 
 // Must stay in sync with _KYC_CONTENT_TYPES and _CONTACT_LOG_CONTENT_TYPES in
