@@ -59,15 +59,14 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.sop": PageMeta(
         "compliance.sop", "Compliance", "SOP Documents", "/compliance/sop"
     ),
-    # ponytail: path stays /pc/... until the FE route dir moves (follow-up); flip with admin-frontend PAGES paths.
     "pm.allotment-redemption": PageMeta(
         "pm.allotment-redemption",
         "Client Management",
         "Allotment & Redemption",
-        "/pc/allotment-redemption",
+        "/pm/allotment-redemption",
     ),
     "pm.allocation-matrix": PageMeta(
-        "pm.allocation-matrix", "Trade Management", "Allocation Matrix", "/pc/allocation-matrix"
+        "pm.allocation-matrix", "Trade Management", "Allocation Matrix", "/pm/allocation-matrix"
     ),
     "mobo.post-trade-allocation": PageMeta(
         "mobo.post-trade-allocation",
@@ -91,7 +90,7 @@ PAGE_META: Final[dict[str, PageMeta]] = {
         "shared.monthly-reports", "Trade Management", "Monthly Reports (Models)", "/monthly-reports"
     ),
     "pm.model-management": PageMeta(
-        "pm.model-management", "System", "Model Management", "/pc/model-management"
+        "pm.model-management", "System", "Model Management", "/pm/model-management"
     ),
     "admin.enroll-user": PageMeta(
         "admin.enroll-user", "System", "Enroll User", "/admin/enroll-user"
