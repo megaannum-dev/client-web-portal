@@ -35,10 +35,9 @@ from app.core.config import get_settings
 API_BACKEND_DIR = Path(__file__).resolve().parents[2]
 PRE_REVISION = "b34f8c1a9d27"
 NEW_REVISION = "5cd1cc1948cc"
-# The repo-wide alembic head has since moved past NEW_REVISION -- proposal 020's DB
-# layer landed 0029/0030/0031 after this file was written (020 BE-3 mechanical-rename
-# tail: pin refreshed to the actual current head, `.venv/Scripts/alembic.exe heads`).
-CURRENT_HEAD = "a3f7c1d9e824"
+# Every test runs against the schema AT NEW_REVISION, not head: later revisions add
+# page_access rows (0045/0046/0047) and 0049 merges PC into PM, so at head the 55-row
+# 0028 seed no longer exists. Pinning the revision keeps this a test of 0028 only.
 
 # Seam mock: the 16 PageId literals (admin-frontend/lib/pages-config.ts PAGES keys).
 PAGE_IDS = {
@@ -169,10 +168,12 @@ def _page_access_rows() -> list[tuple[str, str, str]]:
 
 
 @pytest.fixture(autouse=True)
-def _ensure_head_before_and_after(isolated_migration_db):
-    command.upgrade(_cfg(), "head")
+def _ensure_new_revision_before_and_after(isolated_migration_db):
+    # The scratch schema starts empty and never goes past NEW_REVISION, so upgrade()
+    # alone lands exactly there (it restores it after a test that downgraded to PRE).
+    command.upgrade(_cfg(), NEW_REVISION)
     yield
-    command.upgrade(_cfg(), "head")
+    command.upgrade(_cfg(), NEW_REVISION)
 
 
 # --- Positive: DB-6 revision identity / history -----------------------------
@@ -189,7 +190,9 @@ def test_new_revision_down_revision_is_b34f8c1a9d27():
 def test_alembic_history_shows_a_single_linear_head():
     script = ScriptDirectory.from_config(_cfg())
     assert len(script.get_heads()) == 1
-    assert script.get_heads()[0] == CURRENT_HEAD
+    # NEW_REVISION is on the single line of history (no head pin: it goes stale on
+    # every new migration).
+    assert NEW_REVISION in {r.revision for r in script.walk_revisions()}
 
 
 # --- Positive: DB-6 four new tables + four new columns ----------------------
@@ -353,7 +356,7 @@ def test_no_pre_existing_table_or_column_is_touched():
 
 def test_upgrade_downgrade_upgrade_cycle_is_idempotent_and_reseeds():
     command.downgrade(_cfg(), PRE_REVISION)
-    command.upgrade(_cfg(), "head")
+    command.upgrade(_cfg(), NEW_REVISION)
 
     assert "page_access" in _table_names()
     assert len(_page_access_rows()) == 55
