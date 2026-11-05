@@ -9,7 +9,7 @@
 // fmtMoney / fmtMoneyShort are reused from `@/lib/pm/format` (identical to the
 // prototype's) rather than re-declared here.
 
-export type RedeemStatus = "pending_pc" | "approved" | "rejected" | "pending_compliance";
+export type RedeemStatus = "pending_pm" | "approved" | "rejected" | "pending_compliance";
 
 export interface ArModel {
   id: string;
@@ -40,10 +40,10 @@ export const ALLOC_MODELS: ArModel[] = [
 ];
 
 export const AR_REDEMPTIONS_SEED: Redemption[] = [
-  { id: "rd1", mid: "mA", mult: 1, rm: "James Liu", ref: "RD-2026-001", status: "pending_pc", date: "11 Jul 2026", emergent: true },
-  { id: "rd2", mid: "mC", mult: 2, rm: "Sarah Chen", ref: "RD-2026-002", status: "pending_pc", date: "09 Jul 2026" },
+  { id: "rd1", mid: "mA", mult: 1, rm: "James Liu", ref: "RD-2026-001", status: "pending_pm", date: "11 Jul 2026", emergent: true },
+  { id: "rd2", mid: "mC", mult: 2, rm: "Sarah Chen", ref: "RD-2026-002", status: "pending_pm", date: "09 Jul 2026" },
   { id: "rd3", mid: "mB", mult: 0.5, rm: "James Liu", ref: "RD-2026-003", status: "approved", date: "06 Jul 2026" },
-  { id: "rd4", mid: "mC", mult: 0.5, rm: "Sarah Chen", ref: "RD-2026-004", status: "pending_pc", date: "13 Jul 2026" },
+  { id: "rd4", mid: "mC", mult: 0.5, rm: "Sarah Chen", ref: "RD-2026-004", status: "pending_pm", date: "13 Jul 2026" },
 ];
 
 export const arModelById = (id: string): ArModel =>

@@ -85,12 +85,14 @@ export function CreateField({
    never sent to the backend) so they resurface as suggestions next
    time — see CATEGORY_STORAGE_KEY. */
 const DEFAULT_CATEGORIES = ["Options", "ETF", "Common stocks", "Futures", "Bonds", "Commodity"];
-const CATEGORY_STORAGE_KEY = "pc:custom-categories";
+const CATEGORY_STORAGE_KEY = "pm:custom-categories";
 
 function loadCustomCategories(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
+    // ponytail: one-time fallback so saved categories survive the rename; drop later
+    const raw =
+      window.localStorage.getItem(CATEGORY_STORAGE_KEY) ?? window.localStorage.getItem("pc:custom-categories");
     return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
     return [];

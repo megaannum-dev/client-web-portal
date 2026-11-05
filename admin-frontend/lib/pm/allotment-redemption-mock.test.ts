@@ -10,7 +10,7 @@ import {
 // Guards the money/threshold path that drives compliance routing.
 describe("arNeedsCompliance", () => {
   const mk = (mid: string, mult: number): Redemption =>
-    ({ id: "x", mid, mult, rm: "", ref: "", status: "pending_pc", date: "" });
+    ({ id: "x", mid, mult, rm: "", ref: "", status: "pending_pm", date: "" });
 
   it("routes strictly ABOVE the US$300K threshold", () => {
     // mC per-unit notional = 500,000

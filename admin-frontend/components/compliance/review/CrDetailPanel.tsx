@@ -37,7 +37,7 @@ export function CrDetailPanel({
   // PC is the second/final gate (awaiting_pm -> approved) -- CO never sees a
   // row that's already "PC-approved".
   const pending = r.status === "awaiting_co";
-  const awaitingPc = r.status === "awaiting_pm";
+  const awaitingPm = r.status === "awaiting_pm";
   const canEdit = useCanEdit("compliance.review");
   return (
     <DetailShell
@@ -85,8 +85,8 @@ export function CrDetailPanel({
             <div className="ml-1 h-4 w-px bg-outline-variant" />
             <WorkflowStep
               label="PC approval (final)"
-              sub={awaitingPc ? "Awaiting PC sign-off" : r.status === "approved" ? "Approved" : "Pending"}
-              state={r.status === "approved" ? "done" : awaitingPc ? "current" : "pending"}
+              sub={awaitingPm ? "Awaiting PC sign-off" : r.status === "approved" ? "Approved" : "Pending"}
+              state={r.status === "approved" ? "done" : awaitingPm ? "current" : "pending"}
             />
           </div>
         )}

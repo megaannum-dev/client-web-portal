@@ -27,24 +27,24 @@ export async function getAllocation(
   etag?: string,
 ): Promise<AllocationFetchResult> {
   try {
-    logger.log("🔄 Fetching PC allocation matrix:", { period, etag });
+    logger.log("🔄 Fetching PM allocation matrix:", { period, etag });
     const response = await _getAllocation(period, etag);
     logger.json("✅ Get allocation response:", response);
     return response;
   } catch (error) {
-    console.error("❌ Error fetching PC allocation matrix:", { error, period });
+    console.error("❌ Error fetching PM allocation matrix:", { error, period });
     return { result: toErrorResult(error), notModified: false };
   }
 }
 
 export async function confirmPeriod(id: string): Promise<APIResult<PeriodDTO>> {
   try {
-    logger.log("🔄 Confirming PC allocation period:", id);
+    logger.log("🔄 Confirming PM allocation period:", id);
     const response = await _confirmPeriod(id);
     logger.json("✅ Confirm period response:", response);
     return response;
   } catch (error) {
-    console.error("❌ Error confirming PC allocation period:", { error, id });
+    console.error("❌ Error confirming PM allocation period:", { error, id });
     return toErrorResult(error);
   }
 }

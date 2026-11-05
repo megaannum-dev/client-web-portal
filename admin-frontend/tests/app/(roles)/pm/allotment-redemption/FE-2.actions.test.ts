@@ -11,7 +11,7 @@ vi.mock("@/server/onboarding", async (importOriginal) => ({
 import * as serverOnboarding from "@/server/onboarding";
 import { fetchAllotments, acknowledgeAllotment } from "@/app/(roles)/pm/allotment-redemption/actions";
 
-describe("FE-2 PC action wrappers", () => {
+describe("FE-2 PM action wrappers", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("fetchAllotments() calls the FE-1 function and returns its success result verbatim", async () => {

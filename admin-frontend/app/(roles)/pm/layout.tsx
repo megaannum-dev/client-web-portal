@@ -1,6 +1,6 @@
 import { RoleGuard } from "@/components/auth/RoleGuard";
 
-export default function PcLayout({
+export default function PmLayout({
   children,
 }: {
   children: React.ReactNode;
