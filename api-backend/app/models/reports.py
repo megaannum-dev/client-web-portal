@@ -20,7 +20,7 @@ class EomReportComment(Base):
     )
     report_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     comment: Mapped[str] = mapped_column(Text, nullable=False)
-    updated_by: Mapped[str] = mapped_column(String(128), nullable=False)  # firebase_uid of the PC
+    updated_by: Mapped[str] = mapped_column(String(128), nullable=False)  # firebase_uid of the PM
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -484,8 +484,8 @@ def request_reprovision(
     return svc.request_reprovision(onboarding_id, req, requested_by=user.firebase_uid)
 
 
-# ---- PC ------------------------------------------------------------------
-@router.get("/pc/allotments", response_model=list[AllotRdmptDTO])
+# ---- PM ------------------------------------------------------------------
+@router.get("/pm/allotments", response_model=list[AllotRdmptDTO])
 def get_allotments(
     svc: Annotated[OnboardingService, Depends(_service)],
     _: Annotated[User, Depends(require_action(Action.ALLOTMENT_VIEW))],
@@ -493,7 +493,7 @@ def get_allotments(
     return svc.list_allotments()
 
 
-@router.post("/pc/allotments/{allotment_id}/acknowledge", response_model=AllotRdmptDTO)
+@router.post("/pm/allotments/{allotment_id}/acknowledge", response_model=AllotRdmptDTO)
 def acknowledge_allotment(
     allotment_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
@@ -502,14 +502,14 @@ def acknowledge_allotment(
     return svc.acknowledge_allotment(allotment_id, acked_by=user.firebase_uid)
 
 
-@router.post("/pc/redemptions/{allotment_id}/decide", response_model=AllotRdmptDTO)
-def pc_decide_redemption(
+@router.post("/pm/redemptions/{allotment_id}/decide", response_model=AllotRdmptDTO)
+def pm_decide_redemption(
     allotment_id: uuid.UUID,
     req: RedemptionDecisionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
     user: Annotated[User, Depends(require_action(Action.ALLOTMENT_ACKNOWLEDGE))],
 ) -> AllotRdmptDTO:
-    return svc.pc_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
+    return svc.pm_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
 
 
 @router.post("/co/redemptions/{allotment_id}/decide", response_model=AllotRdmptDTO)

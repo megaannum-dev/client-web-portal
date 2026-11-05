@@ -91,7 +91,7 @@ def client():
 
 
 def _create_model(http) -> str:
-    resp = http.post("/api/pc/models", json={"name": "M", "symbols": []})
+    resp = http.post("/api/pm/models", json={"name": "M", "symbols": []})
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
@@ -107,7 +107,7 @@ def test_symbol_routes_guarded_and_codes(client):
     db.commit()
     db.close()
 
-    denied = http.post(f"/api/pc/models/{model_id}/symbols", json={"symbol": "AAPL"})
+    denied = http.post(f"/api/pm/models/{model_id}/symbols", json={"symbol": "AAPL"})
     assert denied.status_code == 403
 
     db = Session()
@@ -116,28 +116,28 @@ def test_symbol_routes_guarded_and_codes(client):
     db.close()
 
     # POST -> 201, symbol added.
-    resp = http.post(f"/api/pc/models/{model_id}/symbols", json={"symbol": "aapl"})
+    resp = http.post(f"/api/pm/models/{model_id}/symbols", json={"symbol": "aapl"})
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert any(s["symbol"] == "AAPL" and s["active"] for s in body["symbols"])
 
     # PATCH -> 200, deactivate.
-    resp = http.patch(f"/api/pc/models/{model_id}/symbols/AAPL", json={"active": False})
+    resp = http.patch(f"/api/pm/models/{model_id}/symbols/AAPL", json={"active": False})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert any(s["symbol"] == "AAPL" and not s["active"] for s in body["symbols"])
 
     # DELETE -> 204.
-    resp = http.delete(f"/api/pc/models/{model_id}/symbols/AAPL")
+    resp = http.delete(f"/api/pm/models/{model_id}/symbols/AAPL")
     assert resp.status_code == 204, resp.text
     assert resp.content == b""
 
     # 404 on missing symbol.
-    resp = http.patch(f"/api/pc/models/{model_id}/symbols/NOPE", json={"active": True})
+    resp = http.patch(f"/api/pm/models/{model_id}/symbols/NOPE", json={"active": True})
     assert resp.status_code == 404
 
     # include=symbol_audit surfaces the trail.
-    resp = http.get(f"/api/pc/models/{model_id}?include=symbol_audit")
+    resp = http.get(f"/api/pm/models/{model_id}?include=symbol_audit")
     assert resp.status_code == 200, resp.text
     audit = resp.json()["symbol_audit"]
     ops = [a["op"] for a in audit if a["symbol"] == "AAPL"]

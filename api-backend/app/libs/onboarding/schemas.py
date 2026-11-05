@@ -12,7 +12,7 @@ OnboardingStatus = Literal["initial", "reviewing", "pending_review", "active"]
 OnboardingKind = Literal["initial", "renewal"]
 DocStatus = Literal["not_started", "uploaded", "in_review", "verified", "pending", "expired"]
 AllotRdmpStatus = Literal[
-    "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected"
+    "pending", "acknowledged", "awaiting_pm", "awaiting_co", "approved", "rejected"
 ]
 AllotRdmpKind = Literal["allotment", "redemption"]
 

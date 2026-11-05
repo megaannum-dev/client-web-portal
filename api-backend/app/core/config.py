@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     firebase_auth_disabled: bool = False
     app_env: str = "development"
 
-    # PC workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
+    # PM workspace — file storage (BE-1); renamed 014 C-5 (shared with onboarding KYC docs)
     storage_backend: str = "local"  # "local" | "nas"
     storage_root: str = "./crm_filesystem"  # base for the seven bucket defaults below (BE-5)
     storage_root_marketing: str | None = None  # default: {storage_root}/marketing

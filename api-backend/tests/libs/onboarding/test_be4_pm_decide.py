@@ -6,9 +6,9 @@
 # OnboardingRepository.create_allotment (BE-2's widened contract) rather than
 # through OnboardingService.submit_redemption, to isolate BE-4's own decide
 # logic from BE-3's routing math -- BE-4 only cares "given a row already in
-# awaiting_pc/awaiting_co, does decide do the right thing."
+# awaiting_pm/awaiting_co, does decide do the right thing."
 #
-# Run: .venv/Scripts/python.exe -m pytest -q tests/libs/onboarding/test_be4_pc_decide.py
+# Run: .venv/Scripts/python.exe -m pytest -q tests/libs/onboarding/test_be4_pm_decide.py
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _make_redemption_row(svc, *, client, model, multiplier, status):
 # --- Positive: reject ------------------------------------------------------------------
 
 
-def test_reject_on_awaiting_pc_sets_terminal_fields_and_leaves_state_untouched(session):
+def test_reject_on_awaiting_pm_sets_terminal_fields_and_leaves_state_untouched(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("10"))
@@ -50,18 +50,18 @@ def test_reject_on_awaiting_pc_sets_terminal_fields_and_leaves_state_untouched(s
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
-        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PC
+        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PM
     )
     session.commit()
 
-    dto = svc.pc_decide_redemption(
-        row.id, RedemptionDecisionReq(verdict="reject", reason="not eligible"), decided_by="pc-uid"
+    dto = svc.pm_decide_redemption(
+        row.id, RedemptionDecisionReq(verdict="reject", reason="not eligible"), decided_by="pm-uid"
     )
 
     assert dto.status == "rejected"
     fresh = svc.repo.get_allotment(row.id)
     assert fresh.reject_reason == "not eligible"
-    assert fresh.decided_by == "pc-uid"
+    assert fresh.decided_by == "pm-uid"
     assert fresh.decided_at is not None
 
     sub = session.get(ClientSubscription, (client.id, model.id))
@@ -74,19 +74,19 @@ def test_reject_on_awaiting_pc_sets_terminal_fields_and_leaves_state_untouched(s
 # --- Positive: approve, partial redemption ----------------------------------------------
 
 
-def test_approve_on_awaiting_pc_decrements_subscription(session):
+def test_approve_on_awaiting_pm_decrements_subscription(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("10"))
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
-        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PC
+        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PM
     )
     session.commit()
 
-    dto = svc.pc_decide_redemption(
-        row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
+    dto = svc.pm_decide_redemption(
+        row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid"
     )
 
     assert dto.status == "approved"
@@ -104,11 +104,11 @@ def test_approve_fully_closing_subscription_sets_multiplier_to_zero(session):
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
-        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PC
+        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PM
     )
     session.commit()
 
-    svc.pc_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid")
+    svc.pm_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid")
 
     # The row is never deleted -- it's the permanent anchor for the client's
     # client_ib_accounts binding, and a later re-subscription is always Add
@@ -134,7 +134,7 @@ def test_decide_on_awaiting_co_row_raises_409(session):
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        svc.pc_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid")
+        svc.pm_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid")
     assert exc.value.status_code == 409
 
 
@@ -150,7 +150,7 @@ def test_decide_on_already_terminal_row_raises_409(session, status):
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        svc.pc_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid")
+        svc.pm_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid")
     assert exc.value.status_code == 409
 
 
@@ -162,12 +162,12 @@ def test_reject_without_reason_raises_422(session):
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
-        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PC
+        svc, client=client, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PM
     )
     session.commit()
 
     with pytest.raises(HTTPException) as exc:
-        svc.pc_decide_redemption(row.id, RedemptionDecisionReq(verdict="reject"), decided_by="pc-uid")
+        svc.pm_decide_redemption(row.id, RedemptionDecisionReq(verdict="reject"), decided_by="pm-uid")
     assert exc.value.status_code == 422
 
 
@@ -183,14 +183,14 @@ def test_terminal_approval_resnapshots_agg_at_moment_of_real_effect(session):
 
     svc = OnboardingService(session)
     row = _make_redemption_row(
-        svc, client=client_a, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PC
+        svc, client=client_a, model=model, multiplier=Decimal("3"), status=AllotRdmpStatus.AWAITING_PM
     )
     session.commit()
     # a submit-time preview would have been agg_before=0 (only client_a existed) --
     # but client_b subscribes to the SAME model in between submit and decide.
     make_subscription(session, client_b, model, multiplier=Decimal("4"))
 
-    svc.pc_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid")
+    svc.pm_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid")
 
     fresh = svc.repo.get_allotment(row.id)
     # real-effect snapshot: agg_before = 10 (client_a) + 4 (client_b) = 14, taken

@@ -375,7 +375,7 @@ def test_compliance_request_resubmit_returns_200_and_marks_pending_review(admin_
     assert "missing docs" in body["compl_note"]
 
 
-def test_pc_get_allotments_returns_200(admin_client):
+def test_pm_get_allotments_returns_200(admin_client):
     http, *_ = admin_client
     started = _submitted_cycle(admin_client)
     _verdict_all_valid(http, started["id"])
@@ -383,12 +383,12 @@ def test_pc_get_allotments_returns_200(admin_client):
 
     _http, _db_factory, _stub, set_role = admin_client
     set_role(AdminRole.PM)
-    resp = http.get("/api/pc/allotments")
+    resp = http.get("/api/pm/allotments")
     assert resp.status_code == 200, resp.text
     assert len(resp.json()) == 1
 
 
-def test_pc_acknowledge_allotment_returns_200(admin_client):
+def test_pm_acknowledge_allotment_returns_200(admin_client):
     http, *_ = admin_client
     started = _submitted_cycle(admin_client)
     _verdict_all_valid(http, started["id"])
@@ -396,8 +396,8 @@ def test_pc_acknowledge_allotment_returns_200(admin_client):
 
     _http, _db_factory, _stub, set_role = admin_client
     set_role(AdminRole.PM)
-    allotment_id = http.get("/api/pc/allotments").json()[0]["id"]
-    resp = http.post(f"/api/pc/allotments/{allotment_id}/acknowledge")
+    allotment_id = http.get("/api/pm/allotments").json()[0]["id"]
+    resp = http.post(f"/api/pm/allotments/{allotment_id}/acknowledge")
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "acknowledged"
 
@@ -436,10 +436,10 @@ def test_non_compliance_role_hitting_compliance_route_gets_403(admin_client, rol
 
 
 @pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.COMPLIANCE])
-def test_non_pc_role_hitting_pc_route_gets_403(admin_client, role):
+def test_non_pm_role_hitting_pm_route_gets_403(admin_client, role):
     http, _db_factory, _stub, set_role = admin_client
     set_role(role)
-    resp = http.get("/api/pc/allotments")
+    resp = http.get("/api/pm/allotments")
     assert resp.status_code == 403
 
 
@@ -448,7 +448,7 @@ def test_admin_role_passes_every_onboarding_gated_route(admin_client):
     set_role(AdminRole.ADMIN)
     assert http.get("/api/rm/onboardings").status_code == 200
     assert http.get("/api/compliance/onboardings").status_code == 200
-    assert http.get("/api/pc/allotments").status_code == 200
+    assert http.get("/api/pm/allotments").status_code == 200
 
 
 # --- Negative: portal check both directions (real auth chain, dev bypass) -----------
@@ -518,7 +518,7 @@ def test_exactly_twenty_onboarding_routes_are_registered():
             for seg in (
                 "/rm/onboardings",
                 "/compliance/onboardings",
-                "/pc/allotments",
+                "/pm/allotments",
                 "/client/subscriptions",
                 "/client/events",
             )

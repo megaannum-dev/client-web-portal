@@ -132,7 +132,7 @@ class ModelOut(BaseModel):
 
 
 class ModelsListOut(BaseModel):
-    """Wrapper for GET /api/pc/models — matches frontend ModelsListDTO."""
+    """Wrapper for GET /api/pm/models — matches frontend ModelsListDTO."""
 
     models: list[ModelOut]
 

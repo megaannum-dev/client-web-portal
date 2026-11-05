@@ -144,7 +144,7 @@ app.include_router(staff_router, prefix="/api")  # /api/admin/staff/…
 app.include_router(reconciliation_router, prefix="/api")
 app.include_router(
     onboarding_router, prefix="/api"
-)  # /api/rm|compliance|pc|client onboarding routes
+)  # /api/rm|compliance|pm|client onboarding routes
 app.include_router(client_portal_router, prefix="/api")  # /api/client|rm/tickets… (relocated + new)
 app.include_router(access_router, prefix="/api")  # /api/admin/access/…, /api/admin/audit
 app.include_router(reports_router, prefix="/api")  # /api/reports/eom-comments

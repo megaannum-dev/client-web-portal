@@ -126,7 +126,7 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # grant can load the board read-only; every mutating route (start/upload/
     # submit) and the wizard-support/detail/download GETs stay on ONBOARDING_WRITE.
     # MODEL_VIEW is also carried at VIEW: the onboarding/renewal wizard's "Initial
-    # Model to Subscribe" dropdown calls GET /pc/models, which is otherwise gated
+    # Model to Subscribe" dropdown calls GET /pm/models, which is otherwise gated
     # by the separate pm.model-management page -- this page's own bucket must
     # grant it directly so RM can populate that dropdown independent of whatever
     # (possibly revoked) access RM holds on pm.model-management itself.
@@ -152,7 +152,7 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # ---- PM ----
     "pm.model-management": (fs(Action.MODEL_VIEW), fs(Action.MODEL_WRITE)),
     "pm.allocation-matrix": (fs(Action.ALLOCATION_VIEW), fs(Action.ALLOCATION_WRITE)),
-    # BE-22 (C-12/D-16): `view` now reads the page (GET /pc/allotments) and nothing
+    # BE-22 (C-12/D-16): `view` now reads the page (GET /pm/allotments) and nothing
     # else; `edit` adds acknowledge/decide -- exactly what PM (the only role that
     # held this page before D-11) has today. Was: (fs(ALLOTMENT_ACKNOWLEDGE), fs()) --
     # D-11's seed grants `view` here to RM/MOBO/COMPLIANCE too, and the old bucket's

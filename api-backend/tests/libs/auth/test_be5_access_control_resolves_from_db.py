@@ -127,13 +127,13 @@ def test_pm_synthetic_view_grant_on_model_management(http_client):
 
     app.dependency_overrides[get_current_admin_user] = lambda: pm_user
     try:
-        assert http.get("/api/pc/models").status_code == 200
+        assert http.get("/api/pm/models").status_code == 200
         # NOTE: expected to currently FAIL with 200, not 403 -- ROLE_ACTIONS
         # grants PM's MODEL_MANAGE unconditionally today, so this synthetic
         # page_access VIEW row is simply never consulted and the write goes
         # through. This assertion only becomes a genuine proof of the VIEW
         # level once BE-5 makes page_access authoritative (see file header).
-        resp = http.patch(f"/api/pc/models/{model_id}", json={"name": "Changed"})
+        resp = http.patch(f"/api/pm/models/{model_id}", json={"name": "Changed"})
         assert resp.status_code == 403
     finally:
         app.dependency_overrides.pop(get_current_admin_user, None)

@@ -145,7 +145,7 @@ def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, db_f
 
     def _fake_submit_redemption(self, req):
         captured["req"] = req
-        return _stub_dto(kind="redemption", status="awaiting_pc")
+        return _stub_dto(kind="redemption", status="awaiting_pm")
 
     monkeypatch.setattr(
         OnboardingService, "submit_redemption", _fake_submit_redemption, raising=False
@@ -165,22 +165,22 @@ def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, db_f
     assert captured["req"].emergent is False
 
 
-def test_pc_decide_redemption_reaches_service_and_returns_200(admin_client, monkeypatch):
+def test_pm_decide_redemption_reaches_service_and_returns_200(admin_client, monkeypatch):
     http, stub_user, set_role = admin_client
     set_role(AdminRole.PM)
     captured: dict = {}
     allotment_id = uuid.uuid4()
 
-    def _fake_pc_decide(self, aid, req, *, decided_by):
+    def _fake_pm_decide(self, aid, req, *, decided_by):
         captured["allotment_id"] = aid
         captured["req"] = req
         captured["decided_by"] = decided_by
         return _stub_dto(id=aid, kind="redemption", status="approved")
 
-    monkeypatch.setattr(OnboardingService, "pc_decide_redemption", _fake_pc_decide, raising=False)
+    monkeypatch.setattr(OnboardingService, "pm_decide_redemption", _fake_pm_decide, raising=False)
 
     resp = http.post(
-        f"/api/pc/redemptions/{allotment_id}/decide", json={"verdict": "approve", "reason": None}
+        f"/api/pm/redemptions/{allotment_id}/decide", json={"verdict": "approve", "reason": None}
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "approved"
@@ -198,7 +198,7 @@ def test_co_decide_redemption_reaches_service_and_returns_200(admin_client, monk
         captured["allotment_id"] = aid
         captured["req"] = req
         captured["decided_by"] = decided_by
-        return _stub_dto(id=aid, kind="redemption", status="awaiting_pc")
+        return _stub_dto(id=aid, kind="redemption", status="awaiting_pm")
 
     monkeypatch.setattr(OnboardingService, "co_decide_redemption", _fake_co_decide, raising=False)
 
@@ -206,7 +206,7 @@ def test_co_decide_redemption_reaches_service_and_returns_200(admin_client, monk
         f"/api/co/redemptions/{allotment_id}/decide", json={"verdict": "approve", "reason": None}
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["status"] == "awaiting_pc"
+    assert resp.json()["status"] == "awaiting_pm"
     assert captured["allotment_id"] == allotment_id
     assert captured["decided_by"] == stub_user.firebase_uid
 
@@ -254,17 +254,17 @@ def test_rm_submit_redemption_wrong_role_gets_403(admin_client, monkeypatch, rol
 
 
 @pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.COMPLIANCE])
-def test_pc_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, role):
+def test_pm_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     monkeypatch.setattr(
         OnboardingService,
-        "pc_decide_redemption",
+        "pm_decide_redemption",
         lambda self, aid, req, *, decided_by: _stub_dto(),
         raising=False,
     )
     set_role(role)
     resp = http.post(
-        f"/api/pc/redemptions/{uuid.uuid4()}/decide", json={"verdict": "approve", "reason": None}
+        f"/api/pm/redemptions/{uuid.uuid4()}/decide", json={"verdict": "approve", "reason": None}
     )
     assert resp.status_code == 403
 
@@ -285,7 +285,7 @@ def test_co_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, rol
     assert resp.status_code == 403
 
 
-# --- Invariant: no path-prefix collision with existing /rm/*, /pc/*, /compliance/* ----
+# --- Invariant: no path-prefix collision with existing /rm/*, /pm/*, /compliance/* ----
 
 
 def test_new_routes_registered_without_colliding_with_existing_paths():
@@ -293,15 +293,15 @@ def test_new_routes_registered_without_colliding_with_existing_paths():
     for expected in (
         "/api/rm/allotment",
         "/api/rm/redemption",
-        "/api/pc/redemptions/{allotment_id}/decide",
+        "/api/pm/redemptions/{allotment_id}/decide",
         "/api/co/redemptions/{allotment_id}/decide",
     ):
         assert expected in paths, f"missing route {expected}"
-    # every pre-existing /rm/*, /pc/*, /compliance/* path must still resolve
+    # every pre-existing /rm/*, /pm/*, /compliance/* path must still resolve
     # (registration order didn't swallow an existing path under a new one)
     for existing in (
         "/api/rm/onboardings",
-        "/api/pc/allotments",
+        "/api/pm/allotments",
         "/api/compliance/onboardings",
     ):
         assert existing in paths, f"existing route {existing} was shadowed"

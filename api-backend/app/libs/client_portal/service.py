@@ -62,7 +62,7 @@ _TERMINAL = {TicketStatus.RESOLVED, TicketStatus.DECLINED}
 # enum without a matching entry here must KeyError at read time (fail loud).
 _ALLOT_STATUS_MAP: dict[str, TicketStatus] = {
     "pending": TicketStatus.IN_PROGRESS,
-    "awaiting_pc": TicketStatus.IN_PROGRESS,
+    "awaiting_pm": TicketStatus.IN_PROGRESS,
     "awaiting_co": TicketStatus.IN_PROGRESS,
     "acknowledged": TicketStatus.RESOLVED,
     "approved": TicketStatus.RESOLVED,
@@ -376,7 +376,7 @@ class ClientPortalService:
         if ticket.linked_allotment_id is not None and req.status != TicketStatus.DECLINED:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "In Progress/Resolved for a linked request is driven by PC/Compliance "
+                "In Progress/Resolved for a linked request is driven by PM/Compliance "
                 "approval, not set directly",
             )
         ticket.status = DbTicketStatus(req.status.value)
@@ -408,7 +408,7 @@ class ClientPortalService:
     def _effective_ticket_status(self, t: ClientTicket) -> TicketStatus:
         """A ticket linked to a real allotment/redemption defers to that row's
         live approval-chain status instead of its own (possibly stale) column --
-        PC/Compliance's decision is the source of truth once linked."""
+        PM/Compliance's decision is the source of truth once linked."""
         if t.linked_allotment_id is not None:
             allotment = self.db.get(ClientAllotmentRedemption, t.linked_allotment_id)
             if allotment is not None:

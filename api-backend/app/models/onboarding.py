@@ -198,10 +198,10 @@ class AllotRdmpStatus(str, enum.Enum):
     PENDING = "pending"
     ACKNOWLEDGED = "acknowledged"
     # NEW (proposal 016, B-1):
-    AWAITING_PC = "awaiting_pc"  # redemption submitted, needs PC approval
+    AWAITING_PM = "awaiting_pm"  # redemption submitted, needs PM approval
     AWAITING_CO = "awaiting_co"  # redemption submitted, needs Compliance approval (amount > $300k)
     APPROVED = "approved"  # redemption fully approved, took effect
-    REJECTED = "rejected"  # redemption rejected by PC or CO
+    REJECTED = "rejected"  # redemption rejected by PM or CO
 
 
 class AllotRdmpKind(str, enum.Enum):
@@ -270,7 +270,7 @@ class ClientAllotmentRedemption(Base):
     )
     # --- widened 2026-07-22 (proposal 016, DB-2): redemption approval workflow ---
     reject_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # firebase_uid of PC/CO
+    # firebase_uid of PM/CO
     decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # server_default uses text("false") not the bare string "false" — a plain string
