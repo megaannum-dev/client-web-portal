@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.libs.allocation_matrix.repository import AllocationRepository, MatrixReadRepository
 from app.libs.trade_models.repository import ModelRepository, SubscriptionRepository
-from app.models.pc import (
+from app.models.pm import (
     AllocationPeriod,
     PeriodStatus,
 )

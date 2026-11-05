@@ -23,7 +23,7 @@ def assert_money_equal(actual: Decimal, expected: Decimal) -> None:
     assert abs(actual - expected) < _MONEY_TOL, f"{actual} != {expected} (tol={_MONEY_TOL})"
 
 from app.core.database import Base
-from app.models.pc import AllocationPeriod, Model
+from app.models.pm import AllocationPeriod, Model
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     PostTradeAllocation,

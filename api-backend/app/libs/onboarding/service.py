@@ -57,7 +57,7 @@ from app.models.onboarding import (
     TicketStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientIbAccount, ClientSubscription, Model
+from app.models.pm import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 from app.utils.filenames import fix_mojibake_filename
 from app.utils.uploads import validate_upload

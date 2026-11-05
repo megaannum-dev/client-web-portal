@@ -26,7 +26,7 @@ from app.models.onboarding import (
     OnboardingStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientIbAccount, ClientSubscription, Model
+from app.models.pm import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AdminProfile, AdminRole, ClientProfile, User
 
 

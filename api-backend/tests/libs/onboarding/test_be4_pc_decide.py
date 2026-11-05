@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from app.libs.onboarding.schemas import RedemptionDecisionReq
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.post_trade_allocation import ClientPortfolio
 
 from tests.libs.onboarding.conftest import make_client, make_model, make_portfolio, make_subscription

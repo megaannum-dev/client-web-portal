@@ -10,7 +10,7 @@ from app.models.reconciliation import (  # noqa: F401
     Trade,
     SymbolSummary,
 )
-from app.models.pc import (  # noqa: F401
+from app.models.pm import (  # noqa: F401
     ModelStatus,
     PeriodStatus,
     ModelChangeKind,

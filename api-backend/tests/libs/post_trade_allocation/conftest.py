@@ -22,7 +22,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base
 from app.core.flex_query import FlexRows, FlexUnavailable
 from app.libs.post_trade_allocation import service as service_module
-from app.models.pc import (
+from app.models.pm import (
     AllocationModelSnapshot,
     AllocationPeriod,
     Model,

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from app.models.pc import PeriodStatus
+from app.models.pm import PeriodStatus
 
 # ---------------------------------------------------------------------------
 # Allocation period schemas

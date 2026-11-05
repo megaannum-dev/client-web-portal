@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.core.config import FULL_VISIBILITY_ROLES
 from app.models.onboarding import ClientOnboarding
-from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelStatus
+from app.models.pm import ClientIbAccount, ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 

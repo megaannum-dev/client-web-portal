@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.libs.trade_models.repository import _SubscriptionCell, _WatermarkResult
-from app.models.pc import (
+from app.models.pm import (
     AllocationModelSnapshot,
     AllocationPeriod,
     AllocationPeriodModel,

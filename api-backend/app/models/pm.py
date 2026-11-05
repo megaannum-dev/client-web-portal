@@ -1,4 +1,4 @@
-﻿"""PC workspace models — trading models & client subscriptions (feature 006)."""
+﻿"""PM workspace models — trading models & client subscriptions (feature 006)."""
 import enum
 import uuid
 from datetime import datetime

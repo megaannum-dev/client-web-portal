@@ -18,7 +18,7 @@ from fastapi import HTTPException, status
 from app.libs.onboarding.schemas import RedemptionDecisionReq, SubmitAllotmentReq
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus, ClientEvent
-from app.models.pc import ClientIbAccount, ClientSubscription
+from app.models.pm import ClientIbAccount, ClientSubscription
 
 from tests.libs.onboarding.conftest import (
     make_client,

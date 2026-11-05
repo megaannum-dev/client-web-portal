@@ -124,7 +124,7 @@ def test_position_reports_the_per_client_per_model_ib_account(session):
     client_user = make_client(session, name="Cathy Client")
     model = make_model(session, name="Alpha Model")
     make_subscription(session, client_user, model)
-    from app.models.pc import ClientIbAccount
+    from app.models.pm import ClientIbAccount
 
     session.add(
         ClientIbAccount(user_id=client_user.id, model_id=model.id, ib_account="IB-777")

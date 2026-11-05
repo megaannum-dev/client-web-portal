@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.storage import FileStorage
 from app.libs.trade_models.repository import ModelRepository
-from app.models.pc import (
+from app.models.pm import (
     Model,
     ModelChange,
     ModelChangeKind,

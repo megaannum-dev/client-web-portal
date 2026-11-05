@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
-from app.models.pc import (
+from app.models.pm import (
     ClientIbAccount,
     ClientSubscription,
     Model,

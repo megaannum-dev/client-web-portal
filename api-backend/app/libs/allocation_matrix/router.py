@@ -24,7 +24,7 @@ from app.libs.allocation_matrix.schemas import (
     PeriodOut,
     PeriodStatusUpdate,
 )
-from app.models.pc import PeriodStatus
+from app.models.pm import PeriodStatus
 from app.models.users import User
 
 router = APIRouter(prefix="/pc", tags=["pc"])

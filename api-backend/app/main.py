@@ -14,7 +14,7 @@ import app.models.chat as _models_chat  # noqa: F401 — registers chat tables w
 import app.models.ic_notes as _models_ic_notes  # noqa: F401
 import app.models.sop as _models_sop  # noqa: F401
 import app.models.onboarding as _models_onboarding  # noqa: F401 — registers onboarding tables with Base.metadata
-import app.models.pc as _models_pc  # noqa: F401 — registers PC tables with Base.metadata
+import app.models.pm as _models_pm  # noqa: F401 — registers PM tables with Base.metadata
 import app.models.reports as _models_reports  # noqa: F401 — registers reports tables with Base.metadata
 import app.models.users as _models_users  # noqa: F401 — registers User with Base.metadata
 from app.core.config import get_settings

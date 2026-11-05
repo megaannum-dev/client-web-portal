@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.core.flex_query import FlexUnavailable, StoredFetcher
 from app.core.ib_ingest import archived_days
 from app.libs.post_trade_allocation.repository import PostTradeAllocationRepository
-from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model
+from app.models.pm import AllocationModelSnapshot, AllocationPeriod, Model
 from app.models.post_trade_allocation import (
     PostTradeAllocation,
     PostTradeAllocationRun,

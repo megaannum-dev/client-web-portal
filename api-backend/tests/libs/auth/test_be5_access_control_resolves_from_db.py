@@ -53,7 +53,7 @@ from app.libs.auth import actions as actions_module
 from app.libs.auth.actions import Action
 from app.libs.auth.deps import get_current_admin_user, require_action
 from app.models.access import AccessLevel
-from app.models.pc import Model
+from app.models.pm import Model
 from app.models.users import AdminRole
 from tests.libs.auth.conftest import make_admin_user, make_page_access_row
 

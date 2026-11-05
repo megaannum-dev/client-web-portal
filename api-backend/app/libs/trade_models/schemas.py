@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.pc import ModelChangeKind, ModelStatus
+from app.models.pm import ModelChangeKind, ModelStatus
 
 _FEE_DESC = "Decimal fraction, not percent: 0.020000 means 2%. Must satisfy 0 <= fee < 1."
 

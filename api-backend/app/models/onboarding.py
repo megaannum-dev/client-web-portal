@@ -277,7 +277,7 @@ class ClientAllotmentRedemption(Base):
     # server_default is quoted as a string literal in the DDL (works on MySQL/MariaDB via
     # implicit cast, but on SQLite stores the literal text "false" and reads back truthy).
     # text() emits unquoted SQL, matching the existing Boolean-default convention in
-    # app/models/pc.py (`server_default=text("1")`) and this table's own migration
+    # app/models/pm.py (`server_default=text("1")`) and this table's own migration
     # (op.add_column(..., server_default=sa.text("false"))).
     emergent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     # widened 2026-07-22 (proposal 016, BE-2/BE-3 gap fix): redemption's settlement-date

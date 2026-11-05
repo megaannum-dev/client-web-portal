@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models.onboarding import ClientTicket
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import ClientIbAccount, ClientSubscription, Model, ModelMaterial, ModelStatus
+from app.models.pm import ClientIbAccount, ClientSubscription, Model, ModelMaterial, ModelStatus
 from app.models.post_trade_allocation import (
     ClientPortfolio,
     ClientPortfolioRunDelta,

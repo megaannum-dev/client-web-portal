@@ -15,7 +15,7 @@ unique -- no two (client, model) pairs may share one.
 Every write to client_ib_accounts goes through `ensure` so the invariant
 cannot drift between the onboarding path, the allotment path, and the RM
 repair route. `(user_id, model_id)` is the table's composite PRIMARY KEY
-(app/models/pc.py), so a duplicate row is already physically impossible --
+(app/models/pm.py), so a duplicate row is already physically impossible --
 the failure this module actually prevents is a bare INSERT colliding with a
 surviving row (an IntegrityError 500) when a client who fully redeemed
 resubscribes to the same model.
@@ -29,7 +29,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.pc import ClientIbAccount
+from app.models.pm import ClientIbAccount
 
 _IB_FORMAT = re.compile(r"^U[A-Z0-9]{7}$")
 

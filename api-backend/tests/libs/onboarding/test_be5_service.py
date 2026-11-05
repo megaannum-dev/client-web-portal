@@ -24,7 +24,7 @@ from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.schemas import ResubmitReq, VerdictBatchReq, VerdictItem
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import ClientOnboarding
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.users import AccountStatus, AdminRole, User
 from tests.libs.onboarding.conftest import (
     FakeIdentityService,

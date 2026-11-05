@@ -48,7 +48,7 @@ from app.models.onboarding import (
     OnboardingDocument,
 )
 from app.models.onboarding import TicketStatus as DbTicketStatus
-from app.models.pc import ClientIbAccount, Model, ModelStatus
+from app.models.pm import ClientIbAccount, Model, ModelStatus
 from app.models.users import AdminRole, ClientProfile, User
 
 _PERIOD_RE = re.compile(r"^(\d{4}-\d{2})[_-]")

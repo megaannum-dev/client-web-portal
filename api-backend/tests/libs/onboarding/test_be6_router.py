@@ -169,7 +169,7 @@ def _seed_dev_user(db_factory, *, portal: Portal, role: AdminRole | None = None)
 def _seed_model(db_factory):
     from decimal import Decimal
 
-    from app.models.pc import Model
+    from app.models.pm import Model
 
     db = db_factory()
     model = Model(

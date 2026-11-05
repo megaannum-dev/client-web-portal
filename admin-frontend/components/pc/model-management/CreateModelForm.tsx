@@ -79,7 +79,7 @@ export function CreateField({
 
 /* ---- Category multi-select --------------------------------
    Stored on the backend as a single joined string (`category` is a
-   VARCHAR column, not an array — see api-backend/app/models/pc.py),
+   VARCHAR column, not an array — see api-backend/app/models/pm.py),
    so the list <-> string conversion happens entirely here. Custom
    entries a user types are remembered in localStorage (per-browser,
    never sent to the backend) so they resurface as suggestions next

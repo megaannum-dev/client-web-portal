@@ -27,7 +27,7 @@ from app.core.database import Base
 from app.libs.onboarding import scheduler as sched
 from app.libs.onboarding.repository import OnboardingRepository
 from app.models.onboarding import ClientOnboarding, OnboardingStatus
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.users import User
 from tests.libs.onboarding.conftest import make_client, make_model
 from tests.libs.onboarding.conftest import make_ib as _ib

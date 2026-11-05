@@ -14,7 +14,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model, PeriodStatus
+from app.models.pm import AllocationModelSnapshot, AllocationPeriod, Model, PeriodStatus
 from app.models.post_trade_allocation import (
     DailyClientPortfolio,
     PostTradeAllocation,

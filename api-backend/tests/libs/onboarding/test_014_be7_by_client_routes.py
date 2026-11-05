@@ -24,7 +24,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import Base, get_db
 from app.libs.auth.deps import get_current_admin_user
 from app.main import app
-from app.models.pc import Model
+from app.models.pm import Model
 from app.models.users import AdminRole
 from tests.conftest import make_admin_stub
 from tests.libs.onboarding.conftest import FakeStorage
