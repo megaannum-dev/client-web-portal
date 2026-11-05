@@ -5,7 +5,7 @@
 //     for resubmission (nothing is ever declined outright).
 //   · Redemptions — Compliance's gate on large ( > US$300K ) redemptions;
 //     Compliance decides FIRST (awaiting_co), PC gives the final sign-off
-//     second (awaiting_pc -> approved) -- see proposal 016 D-2.
+//     second (awaiting_pm -> approved) -- see proposal 016 D-2.
 // Thin orchestrator holding UI state; queue tables + slide-in detail panels.
 // Both tabs wired to live data (FE-8: useCoRedemptions mirrors PC's FE-7).
 

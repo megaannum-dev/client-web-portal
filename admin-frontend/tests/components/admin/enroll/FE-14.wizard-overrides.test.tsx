@@ -19,7 +19,7 @@ vi.mock("@/components/admin/AccessEditor", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/components/admin/AccessEditor")>()),
   AccessEditor: ({ onSet }: { onSet: (pageId: string, level: string) => void }) => (
     <div>
-      <button type="button" onClick={() => onSet("pc.model-management", "EDIT")}>Set pc.model-management EDIT</button>
+      <button type="button" onClick={() => onSet("pm.model-management", "EDIT")}>Set pm.model-management EDIT</button>
       <button type="button" onClick={() => onSet("rm.client-info", "VIEW")}>Set rm.client-info VIEW</button>
     </div>
   ),
@@ -29,11 +29,11 @@ vi.mock("@/lib/admin/catalog", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/lib/admin/catalog")>()),
   LEVEL_LABEL: { NONE: "None", VIEW: "View", EDIT: "Edit" },
   PAGE_BY_ID: {
-    "pc.model-management": { page_id: "pc.model-management", label: "Model Management", path: "/pc/model-management", group: "System" },
+    "pm.model-management": { page_id: "pm.model-management", label: "Model Management", path: "/pc/model-management", group: "System" },
     "rm.client-info": { page_id: "rm.client-info", label: "Client Information", path: "/rm/client-info", group: "Client Management" },
   },
   EXPIRY_OPTS: ["30 days", "90 days", "No expiry"],
-  ROLE_CODES: ["RM", "MOBO", "PM", "PC", "COMPLIANCE", "ADMIN"],
+  ROLE_CODES: ["RM", "MOBO", "PM", "COMPLIANCE", "ADMIN"],
 }));
 
 const mockUseAdminStore = vi.fn();
@@ -76,7 +76,7 @@ describe("FE-14 Wizard.tsx Access step — expiry select visibility", () => {
   });
 
   it("positive: with at least one override, the expiry select renders", async () => {
-    await renderAccessStep({ "pc.model-management": "EDIT" });
+    await renderAccessStep({ "pm.model-management": "EDIT" });
     expect(screen.getByText(/overrides expire/i)).toBeInTheDocument();
   });
 });
@@ -106,7 +106,7 @@ describe("FE-14 enroll-user/page.tsx createUser — the enroll request body", ()
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
 
     if (pickOverride) {
-      fireEvent.click(screen.getByText("Set pc.model-management EDIT"));
+      fireEvent.click(screen.getByText("Set pm.model-management EDIT"));
       fireEvent.click(screen.getByText("Set rm.client-info VIEW"));
     }
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
@@ -123,7 +123,7 @@ describe("FE-14 enroll-user/page.tsx createUser — the enroll request body", ()
     expect(body.overrides).toHaveLength(2);
     expect(body.overrides).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ page_id: "pc.model-management", level: "EDIT", reason: "Set during enrolment" }),
+        expect.objectContaining({ page_id: "pm.model-management", level: "EDIT", reason: "Set during enrolment" }),
         expect.objectContaining({ page_id: "rm.client-info", level: "VIEW", reason: "Set during enrolment" }),
       ]),
     );
@@ -144,7 +144,7 @@ describe("FE-14 enroll-user/page.tsx createUser — the enroll request body", ()
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     fireEvent.click(screen.getByText("RM"));
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    fireEvent.click(screen.getByText("Set pc.model-management EDIT"));
+    fireEvent.click(screen.getByText("Set pm.model-management EDIT"));
     // SelectField's label div is a sibling of its trigger button, both inside the
     // outer `.relative` wrapper (Shared.tsx:203-222) — not a wrapping <span>.
     fireEvent.click(screen.getByText(/overrides expire/i).closest(".relative")!.querySelector("button")!);

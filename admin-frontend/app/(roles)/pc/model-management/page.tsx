@@ -27,7 +27,7 @@ const TOGGLES: [Layout, typeof LayoutGrid, string][] = [
 ];
 
 export default function ModelManagementPage() {
-  const canEdit = useCanEdit("pc.model-management");
+  const canEdit = useCanEdit("pm.model-management");
   const { data: models, refetch, createModel, updateModel, downloadLatestMaterial } = useModels();
   const [layout, setLayout] = useState<Layout>("grid");
   const [openId, setOpenId] = useState<string | null>(null);

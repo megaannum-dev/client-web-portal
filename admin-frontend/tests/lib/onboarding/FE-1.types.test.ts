@@ -17,7 +17,7 @@ import type {
 const ALL_STATUSES: AllotRdmpStatus[] = [
   "pending",
   "acknowledged",
-  "awaiting_pc",
+  "awaiting_pm",
   "awaiting_co",
   "approved",
   "rejected",
@@ -34,7 +34,7 @@ describe("FE-1 widened AllotRdmpStatus", () => {
   });
 
   it("each of the 4 new literals is present verbatim", () => {
-    expect(ALL_STATUSES).toContain("awaiting_pc");
+    expect(ALL_STATUSES).toContain("awaiting_pm");
     expect(ALL_STATUSES).toContain("awaiting_co");
     expect(ALL_STATUSES).toContain("approved");
     expect(ALL_STATUSES).toContain("rejected");
@@ -43,10 +43,10 @@ describe("FE-1 widened AllotRdmpStatus", () => {
   it("assignable to an existing consumer field (AllotmentView.status) with no cast", () => {
     const view: AllotmentView = {
       id: "a-1", ref: "REF-1", modelName: "Balanced", mult: 1, amount: 100_000,
-      status: "awaiting_pc", rm: "Alice", date: "2026-07-22", acknowledgedAt: null,
+      status: "awaiting_pm", rm: "Alice", date: "2026-07-22", acknowledgedAt: null,
       expectedCashIn: null, aggBefore: 0, aggAfter: 1,
     };
-    expect(view.status).toBe("awaiting_pc");
+    expect(view.status).toBe("awaiting_pm");
   });
 
   // Negative — a value outside the union is a compile-time error, not a

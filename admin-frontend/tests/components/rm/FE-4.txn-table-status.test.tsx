@@ -37,7 +37,7 @@ describe("FE-4 TxnTable renders the status-driven chip instead of hardcoded 'Con
   it.each([
     ["pending", "Confirmed"],
     ["acknowledged", "Confirmed"],
-    ["awaiting_pc", "Awaiting Approval"],
+    ["awaiting_pm", "Awaiting Approval"],
     ["awaiting_co", "Awaiting Approval"],
     ["approved", "Approved"],
     ["rejected", "Rejected"],

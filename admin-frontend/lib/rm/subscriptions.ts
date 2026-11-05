@@ -50,7 +50,7 @@ export function statusToChip(status: AllotRdmpStatus): { tone: ChipTone; label: 
     case "pending":
     case "acknowledged":
       return { tone: "active", label: "Confirmed" };
-    case "awaiting_pc":
+    case "awaiting_pm":
     case "awaiting_co":
       return { tone: "pending", label: "Awaiting Approval" };
     case "approved":

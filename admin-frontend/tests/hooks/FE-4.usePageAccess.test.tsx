@@ -25,43 +25,43 @@ function withPortalUser(portalUser: Partial<PortalUser> | null) {
 describe("FE-4 usePageAccess / useCanEdit", () => {
   describe("positive", () => {
     it("returns the granted level for a page present in grants", () => {
-      withPortalUser({ grants: { "pc.model-management": "EDIT" } as GrantMap });
-      const { result } = renderHook(() => usePageAccess("pc.model-management"));
+      withPortalUser({ grants: { "pm.model-management": "EDIT" } as GrantMap });
+      const { result } = renderHook(() => usePageAccess("pm.model-management"));
       expect(result.current).toBe("EDIT");
     });
 
     it("useCanEdit is true only when the level is EDIT", () => {
-      withPortalUser({ grants: { "pc.model-management": "EDIT" } as GrantMap });
-      const { result } = renderHook(() => useCanEdit("pc.model-management"));
+      withPortalUser({ grants: { "pm.model-management": "EDIT" } as GrantMap });
+      const { result } = renderHook(() => useCanEdit("pm.model-management"));
       expect(result.current).toBe(true);
     });
   });
 
   describe("negative — default-deny (a wrong default silently grants write access)", () => {
     it("a VIEW grant makes useCanEdit false", () => {
-      withPortalUser({ grants: { "pc.model-management": "VIEW" } as GrantMap });
-      const { result } = renderHook(() => useCanEdit("pc.model-management"));
+      withPortalUser({ grants: { "pm.model-management": "VIEW" } as GrantMap });
+      const { result } = renderHook(() => useCanEdit("pm.model-management"));
       expect(result.current).toBe(false);
     });
 
     it("a page key absent from grants resolves to NONE, and useCanEdit is false", () => {
       withPortalUser({ grants: { "rm.client-info": "EDIT" } as GrantMap });
-      const access = renderHook(() => usePageAccess("pc.model-management"));
-      const canEdit = renderHook(() => useCanEdit("pc.model-management"));
+      const access = renderHook(() => usePageAccess("pm.model-management"));
+      const canEdit = renderHook(() => useCanEdit("pm.model-management"));
       expect(access.result.current).toBe("NONE");
       expect(canEdit.result.current).toBe(false);
     });
 
     it("a missing grants map (portalUser.grants undefined) resolves to NONE", () => {
       withPortalUser({});
-      const { result } = renderHook(() => usePageAccess("pc.model-management"));
+      const { result } = renderHook(() => usePageAccess("pm.model-management"));
       expect(result.current).toBe("NONE");
     });
 
     it("no portalUser at all resolves to NONE", () => {
       withPortalUser(null);
-      const access = renderHook(() => usePageAccess("pc.model-management"));
-      const canEdit = renderHook(() => useCanEdit("pc.model-management"));
+      const access = renderHook(() => usePageAccess("pm.model-management"));
+      const canEdit = renderHook(() => useCanEdit("pm.model-management"));
       expect(access.result.current).toBe("NONE");
       expect(canEdit.result.current).toBe(false);
     });
@@ -82,8 +82,8 @@ describe("FE-4 usePageAccess / useCanEdit", () => {
       const ids = [
         "rm.client-info", "rm.onboarding-renewal", "rm.model-subscription", "rm.request-tickets",
         "mobo.recon-overview", "mobo.trade-reconciliation", "mobo.commission-tracking",
-        "mobo.post-trade-allocation", "pc.model-management", "pc.allocation-matrix",
-        "pc.allotment-redemption", "compliance.overview", "compliance.review",
+        "mobo.post-trade-allocation", "pm.model-management", "pm.allocation-matrix",
+        "pm.allotment-redemption", "compliance.overview", "compliance.review",
         "shared.monthly-reports", "admin.enroll-user", "admin.system-config",
       ] as const;
       for (const id of ids) {

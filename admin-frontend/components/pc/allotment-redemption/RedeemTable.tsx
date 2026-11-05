@@ -11,7 +11,7 @@ import { fmtMoney } from "@/lib/pc/format";
 import type { AllotRdmpStatus, RedemptionView } from "@/lib/onboarding/types";
 
 export function RedeemStatusChip({ status }: { status: AllotRdmpStatus }) {
-  if (status === "awaiting_pc") return <Chip tone="pending">Awaiting approval</Chip>;
+  if (status === "awaiting_pm") return <Chip tone="pending">Awaiting approval</Chip>;
   if (status === "approved") return <Chip tone="active">Approved</Chip>;
   if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
   if (status === "awaiting_co") return <Chip tone="review">Compliance review</Chip>;

@@ -7,7 +7,7 @@ export type DocStatus        = "not_started" | "uploaded" | "in_review" | "verif
 export type AllotRdmpStatus =
   | "pending"        // existing
   | "acknowledged"   // existing
-  | "awaiting_pc"    // NEW — redemption submitted, needs PC approval
+  | "awaiting_pm"    // NEW — redemption submitted, needs PC approval
   | "awaiting_co"    // NEW — redemption submitted, needs Compliance approval (amount > $300k)
   | "approved"       // NEW — redemption fully approved, took effect
   | "rejected";      // NEW — redemption rejected by PC or CO

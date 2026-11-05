@@ -13,7 +13,7 @@ export function ArStatStrip({
   redemptions: RedemptionView[];
 }) {
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
-  const pending = redemptions.filter((r) => r.status === "awaiting_pc");
+  const pending = redemptions.filter((r) => r.status === "awaiting_pm");
   const compCount = pending.filter((r) => r.amount > 300000).length;
   const totalRedeem = pending.reduce((s, r) => s + r.amount, 0);
 

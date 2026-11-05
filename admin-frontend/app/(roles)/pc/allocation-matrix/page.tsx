@@ -32,7 +32,7 @@ export default function AllocationMatrixPage() {
   const selectedStatus = data?.periods.find((p) => p.label === period)?.status;
   const confirmed = selectedStatus === "confirmed" || justConfirmed;
   const historical = !!OPEN && period !== OPEN;
-  const canEdit = useCanEdit("pc.allocation-matrix");
+  const canEdit = useCanEdit("pm.allocation-matrix");
 
   const handleConfirm = () => {
     const openPeriodId = data?.periods.find((p) => p.status === "open")?.id;

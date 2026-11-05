@@ -2,7 +2,7 @@
 
 // Redemption detail — the ONLY place approve/reject live. Approving a request
 // above US$300K routes to compliance FIRST (backend handles routing; D-2:
-// awaiting_co -> awaiting_pc -> approved); below that threshold, PC approval
+// awaiting_co -> awaiting_pm -> approved); below that threshold, PC approval
 // alone is sufficient.
 
 import { Check, X, User, TriangleAlert, Shield } from "@/lib/icons";
@@ -41,7 +41,7 @@ export function RedeemDetailPanel({
 }) {
   const amt = r.amount;
   const comp = amt > 300000;
-  const pending = r.status === "awaiting_pc";
+  const pending = r.status === "awaiting_pm";
 
   return (
     <ArDetailShell
@@ -98,8 +98,8 @@ export function RedeemDetailPanel({
             <div className="h-px w-6 bg-outline-variant" />
             <WorkflowStep
               label="PC approval (final)"
-              sub={r.status === "approved" ? "Approved" : r.status === "awaiting_pc" ? "Awaiting your decision" : "Pending"}
-              state={r.status === "approved" ? "done" : r.status === "awaiting_pc" ? "current" : "upcoming"}
+              sub={r.status === "approved" ? "Approved" : r.status === "awaiting_pm" ? "Awaiting your decision" : "Pending"}
+              state={r.status === "approved" ? "done" : r.status === "awaiting_pm" ? "current" : "upcoming"}
             />
           </div>
         )}

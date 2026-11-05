@@ -27,7 +27,7 @@ async function downloadReport(url: string, filename: string) {
 
 export default function MonthlyReportsPage() {
   const { portalUser } = useAuth();
-  const isPC = portalUser?.role === "PC";
+  const isPC = portalUser?.role === "PM";
 
   const { data: comments, saveComment } = useEomComments();
 

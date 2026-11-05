@@ -39,15 +39,15 @@ const STAFF_FIXTURE = [
   },
 ];
 const MATRIX_FIXTURE = {
-  pages: [{ page_id: "pc.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
-  roles: [{ code: "PC", name: "Portfolio Commander", user_count: 4 }],
-  levels: [{ page_id: "pc.model-management", role: "PC", level: "EDIT" }],
+  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
+  roles: [{ code: "PM", name: "Portfolio Manager", user_count: 4 }],
+  levels: [{ page_id: "pm.model-management", role: "PM", level: "EDIT" }],
   published: { at: "2026-07-01T00:00:00Z", by: "Omar Bakri" },
 };
 const OVERRIDES_FIXTURE = [
   {
     id: "o1", firebase_uid: "u1", user_name: "Amara Rahim", user_role: "RM",
-    page_id: "pc.model-management", page_label: "Model Management", page_path: "/pc/model-management",
+    page_id: "pm.model-management", page_label: "Model Management", page_path: "/pc/model-management",
     role_default: "NONE", level: "VIEW", reason: "x", granted_by: "Omar Bakri",
     expires_at: "2026-08-01T00:00:00Z", expiring_soon: true,
   },
@@ -96,7 +96,7 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
     it("eff returns the published level for a present cell", () => {
       renderStore();
       const store = ctx as unknown as { eff: (p: string, r: string) => string };
-      expect(store.eff("pc.model-management", "PC")).toBe("EDIT");
+      expect(store.eff("pm.model-management", "PM")).toBe("EDIT");
     });
 
     it("eff returns NONE for an omitted cell (MatrixOut.levels omits NONE by contract)", () => {
@@ -109,13 +109,13 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
       renderStore();
       act(() =>
         (ctx as unknown as { stage: (p: string, r: string, to: string) => void }).stage(
-          "pc.model-management", "PC", "VIEW",
+          "pm.model-management", "PM", "VIEW",
         ),
       );
       // Re-read ctx fresh after act() — AdminStoreProvider hands out a new `value` object
       // each render, so a reference captured before act() is stale by the time we read it.
       const store = ctx as unknown as { eff: (p: string, r: string) => string };
-      expect(store.eff("pc.model-management", "PC")).toBe("VIEW");
+      expect(store.eff("pm.model-management", "PM")).toBe("VIEW");
     });
 
     it("roleUsers reads MatrixOut.roles[].user_count rather than counting directory rows", () => {
@@ -123,7 +123,7 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
       const store = ctx as unknown as { roleUsers: (r: string) => number };
       // The fixture's user_count (4) deliberately differs from STAFF_FIXTURE's actual
       // row count (1) — roleUsers must read the server count, not count(staff).
-      expect(store.roleUsers("PC")).toBe(4);
+      expect(store.roleUsers("PM")).toBe(4);
     });
   });
 
@@ -179,7 +179,7 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
         stage: (p: string, r: string, to: string) => void;
         publish: (note?: string) => Promise<unknown>;
       };
-      act(() => store.stage("pc.model-management", "PC", "VIEW"));
+      act(() => store.stage("pm.model-management", "PM", "VIEW"));
       await act(async () => store.publish());
       expect((ctx as unknown as { stagedList: unknown[] }).stagedList).toHaveLength(1);
     });

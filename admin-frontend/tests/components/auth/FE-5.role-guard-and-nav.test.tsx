@@ -89,7 +89,7 @@ describe("FE-5 groupsFor(grants, role) (lib/pages-config.ts)", () => {
 
   describe("invariants", () => {
     it("an empty grant map yields zero nav groups for every role, including ADMIN and PM", () => {
-      for (const role of ["RM", "MOBO", "PC", "COMPLIANCE", "ADMIN", "PM"] as const) {
+      for (const role of ["RM", "MOBO", "COMPLIANCE", "ADMIN", "PM"] as const) {
         expect(groupsFor({}, role)).toEqual([]);
       }
     });
@@ -114,7 +114,7 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("positive: renders children for a page the grants include", async () => {
     await renderGuard(
-      { role: "PC", grants: { "pc.model-management": "EDIT" } },
+      { role: "PM", grants: { "pm.model-management": "EDIT" } },
       "/pc/model-management",
     );
     expect(screen.getByTestId("protected-children")).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
   it("keeps children mounted during a background grant refresh (backendSyncing with a profile)", async () => {
     mockUsePathname.mockReturnValue("/pc/model-management");
     mockUseAuth.mockReturnValue({
-      portalUser: { role: "PC", grants: { "pc.model-management": "EDIT" } },
+      portalUser: { role: "PM", grants: { "pm.model-management": "EDIT" } },
       loading: false,
       backendSyncing: true,
     });
@@ -139,7 +139,7 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("negative: for a known page the grants omit, renders <NoAccess> and does NOT redirect", async () => {
     await renderGuard(
-      { role: "PC", grants: {} },
+      { role: "PM", grants: {} },
       "/pc/allocation-matrix",
     );
     expect(screen.queryByTestId("protected-children")).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("negative: a pathname that resolves to no PageId at all does not block (no NoAccess, no redirect)", async () => {
     await renderGuard(
-      { role: "PC", grants: { "pc.model-management": "EDIT" } },
+      { role: "PM", grants: { "pm.model-management": "EDIT" } },
       "/pc/some-unmapped-subroute",
     );
     expect(screen.getByTestId("protected-children")).toBeInTheDocument();

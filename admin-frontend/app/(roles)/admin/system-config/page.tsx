@@ -38,7 +38,7 @@ export default function SystemConfigPage() {
   const [configView, setConfigView] = useState<ConfigView>(
     params.get("view") === "overrides" ? "overrides" : "role", // one search param, read once
   );
-  const [role, setRole] = useState<Role>("PC");
+  const [role, setRole] = useState<Role>("PM");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selCell, setSelCell] = useState<string | null>(null);
   const [roleOpenGroup, setRoleOpenGroup] = useState<string[]>(["Middle / Back Office"]);

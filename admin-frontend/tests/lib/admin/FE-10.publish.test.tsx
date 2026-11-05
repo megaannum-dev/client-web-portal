@@ -23,15 +23,15 @@ vi.mock("@/app/(roles)/admin/actions", async (importOriginal) => ({
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 const MATRIX_FIXTURE = {
-  pages: [{ page_id: "pc.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
-  roles: [{ code: "PC", name: "Portfolio Commander", user_count: 4 }],
+  pages: [{ page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pc/model-management" }],
+  roles: [{ code: "PM", name: "Portfolio Manager", user_count: 4 }],
   // mobo.commission-tracking/MOBO is given an explicit non-NONE level here (rather than
   // being omitted) so that staging it to NONE below is a genuine change. stage() drops a
   // staged cell as a no-op whenever it equals the cell's current level — and an omitted
   // level is implicitly NONE, so staging an omitted cell to NONE would otherwise vanish
   // before it ever reaches `staged` (see AdminStoreContext.tsx's `stage`).
   levels: [
-    { page_id: "pc.model-management", role: "PC", level: "EDIT" },
+    { page_id: "pm.model-management", role: "PM", level: "EDIT" },
     { page_id: "mobo.commission-tracking", role: "MOBO", level: "EDIT" },
   ],
   published: { at: "2026-07-01T00:00:00Z", by: "Omar Bakri" },
@@ -81,7 +81,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
     });
     renderStore();
     act(() => {
-      store().stage("pc.model-management", "PC", "VIEW");
+      store().stage("pm.model-management", "PM", "VIEW");
       store().stage("rm.client-info", "RM", "EDIT");
       store().stage("mobo.commission-tracking", "MOBO", "NONE");
     });
@@ -100,7 +100,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
       data: { ...MATRIX_FIXTURE, published: { at: "2026-07-02T00:00:00Z", by: "Amara Rahim" } },
     });
     renderStore();
-    act(() => store().stage("pc.model-management", "PC", "VIEW"));
+    act(() => store().stage("pm.model-management", "PM", "VIEW"));
     await act(async () => store().publish());
     expect(store().stagedList).toEqual([]);
     expect(store().published).toEqual({ at: "2026-07-02T00:00:00Z", by: "Amara Rahim" });
@@ -119,7 +119,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
         <Consumer />
       </AdminStoreProvider>,
     );
-    act(() => store().stage("pc.model-management", "PC", "VIEW"));
+    act(() => store().stage("pm.model-management", "PM", "VIEW"));
     await act(async () => store().publish());
     const body = mockActions.publishMatrix.mock.calls[0][0];
     expect(body).toHaveProperty("base_published_at", null);
@@ -132,7 +132,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
       data: { ...MATRIX_FIXTURE, published: { at: "2026-07-03T00:00:00Z", by: "Someone Else" } },
     });
     renderStore();
-    act(() => store().stage("pc.model-management", "PC", "VIEW"));
+    act(() => store().stage("pm.model-management", "PM", "VIEW"));
     const stagedBefore = store().stagedList;
     const result = await act(async () => store().publish());
 
@@ -145,7 +145,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
   it("negative: a generic (non-409) failure reports the error and also leaves staged intact", async () => {
     mockActions.publishMatrix.mockResolvedValue({ success: false, error: "server exploded", code: "HTTP_500" });
     renderStore();
-    act(() => store().stage("pc.model-management", "PC", "VIEW"));
+    act(() => store().stage("pm.model-management", "PM", "VIEW"));
     const result = await act(async () => store().publish());
     expect(result).toEqual(expect.objectContaining({ ok: false, conflict: false, error: "server exploded" }));
     expect(store().stagedList).toHaveLength(1);
@@ -161,7 +161,7 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
     it("exactly one request per publish regardless of cell count (1 vs 5 staged cells)", async () => {
       mockActions.publishMatrix.mockResolvedValue({ success: true, data: MATRIX_FIXTURE });
       renderStore();
-      act(() => store().stage("pc.model-management", "PC", "VIEW"));
+      act(() => store().stage("pm.model-management", "PM", "VIEW"));
       await act(async () => store().publish());
       expect(mockActions.publishMatrix).toHaveBeenCalledTimes(1);
     });
@@ -169,10 +169,10 @@ describe("FE-10 publish() — one PUT per publish carrying base_published_at", (
     it("a NONE change is sent as level:'NONE' in the request, never performed as a client-side row deletion", async () => {
       mockActions.publishMatrix.mockResolvedValue({ success: true, data: MATRIX_FIXTURE });
       renderStore();
-      act(() => store().stage("pc.model-management", "PC", "NONE"));
+      act(() => store().stage("pm.model-management", "PM", "NONE"));
       await act(async () => store().publish());
       const body = mockActions.publishMatrix.mock.calls[0][0];
-      expect(body.changes[0]).toEqual(expect.objectContaining({ page_id: "pc.model-management", role: "PC", level: "NONE" }));
+      expect(body.changes[0]).toEqual(expect.objectContaining({ page_id: "pm.model-management", role: "PM", level: "NONE" }));
     });
   });
 });

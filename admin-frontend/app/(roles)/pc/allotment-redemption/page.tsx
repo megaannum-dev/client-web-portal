@@ -24,7 +24,7 @@ export default function AllotmentRedemptionPage() {
   const allotments = allotmentsData ?? [];
   const redemptions = redemptionsData ?? [];
   const pendAllot = allotments.filter((a) => a.status === "pending").length;
-  const pendRedeem = redemptions.filter((r) => r.status === "awaiting_pc").length;
+  const pendRedeem = redemptions.filter((r) => r.status === "awaiting_pm").length;
 
   const openAllot = allotments.find((a) => a.id === openAllotId);
   const openRedeem = redemptions.find((r) => r.id === openRedeemId);

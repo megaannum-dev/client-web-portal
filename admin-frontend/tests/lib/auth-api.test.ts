@@ -46,7 +46,7 @@ describe("auth-api FE-4", () => {
 
   it("PortalUser type has exactly firebase_uid/email/name/role (no id)", () => {
     // Compile-time invariant: this literal must type-check without an `id` field.
-    const user: PortalUser = { firebase_uid: "uid-3", email: null, name: null, role: "PC" };
+    const user: PortalUser = { firebase_uid: "uid-3", email: null, name: null, role: "PM" };
     expect(Object.keys(user).sort()).toEqual(["email", "firebase_uid", "name", "role"]);
   });
 });

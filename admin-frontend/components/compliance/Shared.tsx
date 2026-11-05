@@ -32,7 +32,7 @@ export function ObTypeChip({ type }: { type: string }) {
 }
 export function CrStatusChip({ status }: { status: AllotRdmpStatus }) {
   if (status === "awaiting_co") return <Chip tone="pending">Awaiting compliance</Chip>;
-  if (status === "awaiting_pc") return <Chip tone="review">Awaiting PC sign-off</Chip>;
+  if (status === "awaiting_pm") return <Chip tone="review">Awaiting PC sign-off</Chip>;
   if (status === "approved") return <Chip tone="active">Approved</Chip>;
   if (status === "rejected") return <Chip tone="failed">Rejected</Chip>;
   return <Chip tone="neutral">{status}</Chip>;
