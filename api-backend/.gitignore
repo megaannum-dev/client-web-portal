@@ -22,8 +22,7 @@ build/
 *.db
 *.sqlite
 
-# PC workspace uploaded marketing materials (local storage backend mount)
-/pc_storage/
+# Local storage backend mount
 /crm_filesystem/
 /tests/
 
