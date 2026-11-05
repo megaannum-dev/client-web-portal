@@ -1,6 +1,6 @@
 """Trade models router — split from app/libs/pc/router.py (007-A).
 
-All model routes from the PC workspace. Prefix: /pm (mounted under /api/pm in app/main.py).
+All model routes from the PM workspace. Prefix: /pm (mounted under /api/pm in app/main.py).
 All routes are guarded by require_action() exactly as app/libs/users/router.py does.
 """
 

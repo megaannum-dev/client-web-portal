@@ -1,6 +1,6 @@
 """Allocation matrix router — split from app/libs/pc/router.py (007-A).
 
-All allocation routes from the PC workspace. Prefix: /pm (mounted under /api/pm in app/main.py).
+All allocation routes from the PM workspace. Prefix: /pm (mounted under /api/pm in app/main.py).
 All routes are guarded by require_action() exactly as app/libs/users/router.py does.
 """
 
