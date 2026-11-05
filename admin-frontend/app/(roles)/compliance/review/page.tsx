@@ -11,6 +11,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Filter, Download, Eye, Check, Shield, ShieldCheck, User } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -106,21 +107,21 @@ function ComplianceReviewContent() {
     // package skips the call rather than 422-ing.
     if (items.length === 0) return true;
     const r = await submitVerdicts(o.id, items);
-    if (!r.success) alert(`Could not save document verdicts: ${r.error}`);
+    if (!r.success) toast.error(`Could not save document verdicts: ${r.error}`);
     return r.success;
   };
 
   const doDownload = (docType: string) => {
     if (!openOb) return;
     void download(openOb.id, docType).then((r) =>
-      r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : alert(`Download failed: ${r.error}`),
+      r.success ? saveBase64File(r.filename!, r.contentType!, r.base64!) : toast.error(`Download failed: ${r.error}`),
     );
   };
   const approveOb = async (id: string) => {
     const o = onboarding.find((x) => x.id === id);
     if (!o || !(await flushVerdicts(o))) return;
     const r = await approve(id);
-    if (!r.success) return alert(`Could not approve: ${r.error}`);
+    if (!r.success) { toast.error(`Could not approve: ${r.error}`); return; }
     clearDraft(id);
     setOpenObId(null);
   };
@@ -131,19 +132,19 @@ function ComplianceReviewContent() {
     // nothing flagged and 409.
     if (!o || !(await flushVerdicts(o))) return;
     const r = await requestResubmit(id, note || undefined);
-    if (!r.success) return alert(`Could not request a resubmission: ${r.error}`);
+    if (!r.success) { toast.error(`Could not request a resubmission: ${r.error}`); return; }
     clearDraft(id);
     setOpenObId(null);
   };
   const confirmReprovision = async (id: string, docTypes: string[], note: string) => {
     const r = await requestReprovision(id, docTypes, note || undefined);
-    if (!r.success) return alert(`Could not request new documents: ${r.error}`);
+    if (!r.success) { toast.error(`Could not request new documents: ${r.error}`); return; }
     clearDraft(id);           // the reopened cycle re-seeds from its new server state
     setReprovisioning(false); // panel stays open, now showing "Awaiting Resubmit"
   };
-  const decideCr = (id: string, verdict: "approve" | "reject") =>
-    void decideRedemption(id, { verdict }).then((r) => {
-      if (!r.success) alert(`Could not submit decision: ${r.error}`);
+  const decideCr = (id: string, verdict: "approve" | "reject", reason?: string) =>
+    void decideRedemption(id, { verdict, reason }).then((r) => {
+      if (!r.success) toast.error(`Could not submit decision: ${r.error}`);
     });
 
   const isEmpty = tab === "onboarding" ? onboarding.length === 0 : redemptions.length === 0;

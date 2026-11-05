@@ -330,47 +330,63 @@ function ActOnTradePanel({
 
         <div className="h-px bg-outline-variant" />
 
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Or decline with a reason</div>
-          <button
-            type="button"
-            onClick={() => setReasonOpen((v) => !v)}
-            disabled={closed}
-            className="flex w-full items-center justify-between gap-2 rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] text-secondary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className={reason ? "text-on-surface" : undefined}>{reason ?? "Select a reason…"}</span>
-            <ChevronDown size={16} strokeWidth={2} />
-          </button>
-          {reasonOpen && !closed && (
-            <div className="mt-1.5 overflow-hidden rounded border border-outline-variant bg-white">
-              {DECLINE_REASONS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => { setReason(r); setReasonOpen(false); }}
-                  className="block w-full px-3.5 py-2 text-left text-[13.5px] text-on-surface hover:bg-surface-low"
-                >
-                  {r}
-                </button>
-              ))}
+        {ticket.status === "Declined" ? (
+          <div>
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Decline reason</div>
+            <p className="rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface">
+              {ticket.responseNote ?? "No reason was recorded."}
+            </p>
+            {ticket.respondedBy && (
+              <div className="mt-1.5 text-[12.5px] text-secondary">
+                Declined by <b className="text-on-surface">{ticket.respondedBy}</b>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Or decline with a reason</div>
+              <button
+                type="button"
+                onClick={() => setReasonOpen((v) => !v)}
+                disabled={closed}
+                className="flex w-full items-center justify-between gap-2 rounded border border-outline bg-white px-3.5 py-2.5 text-[14px] text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className={reason ? "text-on-surface" : undefined}>{reason ?? "Select a reason…"}</span>
+                <ChevronDown size={16} strokeWidth={2} />
+              </button>
+              {reasonOpen && !closed && (
+                <div className="mt-1.5 overflow-hidden rounded border border-outline-variant bg-white">
+                  {DECLINE_REASONS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => { setReason(r); setReasonOpen(false); }}
+                      className="block w-full px-3.5 py-2 text-left text-[13.5px] text-on-surface hover:bg-surface-low"
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isCustomReason ? (
+                <textarea
+                  value={customNote}
+                  onChange={(e) => setCustomNote(e.target.value)}
+                  disabled={closed}
+                  placeholder="Add a note to the client explaining why this request can't be actioned…"
+                  className="mt-2.5 min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              ) : (
+                <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
+                  {reason ? `Client will see: "${reason}"` : "Add a note to the client explaining why this request can't be actioned…"}
+                </div>
+              )}
             </div>
-          )}
-          {isCustomReason ? (
-            <textarea
-              value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              disabled={closed}
-              placeholder="Add a note to the client explaining why this request can't be actioned…"
-              className="mt-2.5 min-h-[48px] w-full resize-y rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-on-surface placeholder:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          ) : (
-            <div className="mt-2.5 min-h-[48px] rounded border border-outline-variant bg-white px-3.5 py-2.5 text-[13.5px] leading-relaxed text-secondary">
-              {reason ? `Client will see: "${reason}"` : "Add a note to the client explaining why this request can't be actioned…"}
-            </div>
-          )}
-        </div>
-        {/* View/Edit Gate Function */}
-        {canEdit && <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>}
+            {/* View/Edit Gate Function */}
+            {canEdit && <Button variant="secondary" icon={X} full disabled={declineDisabled} onClick={handleDecline}>Decline request</Button>}
+          </>
+        )}
 
         {inlineError && (
           <p className="text-[13px] font-semibold text-red-600">{inlineError}</p>

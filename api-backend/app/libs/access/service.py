@@ -38,6 +38,9 @@ ROLE_NAMES: Final[dict[AdminRole, str]] = {
 }
 
 
+ADMIN_FIXED_MSG: Final = "ADMIN access is fixed at Edit on every page"
+
+
 class AccessService:
     def __init__(self, db: Session) -> None:
         self.repo = AccessRepository(db)
@@ -56,12 +59,17 @@ class AccessService:
 
         levels: list[MatrixCellOut] = []
         for row in self.repo.all_levels():
-            if row.page_id not in PAGE_IDS:
+            if row.page_id not in PAGE_IDS or row.role == AdminRole.ADMIN:
                 continue
             level = to_wire(row.level)
             if level == "NONE":
                 continue  # never stored on this table (repository.py) -- belt-and-suspenders
             levels.append(MatrixCellOut(page_id=row.page_id, role=row.role, level=level))
+        # ADMIN is fixed at EDIT everywhere (resolver.levels_for); stored rows ignored.
+        levels.extend(
+            MatrixCellOut(page_id=page_id, role=AdminRole.ADMIN, level="EDIT")
+            for page_id in PAGE_META
+        )
 
         publication = self.repo.latest_publication()
         published = (
@@ -86,6 +94,8 @@ class AccessService:
         envelope for every exception but this unit's own 409)."""
         latest = self.repo.latest_publication()
         current_token = latest.published_at if latest is not None else None
+        if any(change.role == AdminRole.ADMIN for change in body.changes):
+            raise HTTPException(422, ADMIN_FIXED_MSG)
         if current_token != body.base_published_at:
             raise HTTPException(
                 status_code=409,
@@ -205,11 +215,14 @@ class AccessService:
 
     def grant_override(self, body: OverrideIn, *, actor: User) -> OverrideOut:
         """404 if firebase_uid is unknown or is not a Portal.ADMIN user; 409 on
-        the UNIQUE (user_id, page_id); one audit row, one commit."""
+        the UNIQUE (user_id, page_id); 422 for an ADMIN target (fixed at EDIT);
+        one audit row, one commit."""
         user = self.repo.db.query(User).filter(User.firebase_uid == body.firebase_uid).one_or_none()
         if user is None or user.portal != Portal.ADMIN or user.admin_profile is None:
             raise HTTPException(404, "Unknown admin user")
         role = user.admin_profile.role
+        if role == AdminRole.ADMIN:
+            raise HTTPException(422, ADMIN_FIXED_MSG)
 
         if self.repo.find_override(user_id=user.id, page_id=body.page_id) is not None:
             raise HTTPException(409, "An override already exists for this user and page")

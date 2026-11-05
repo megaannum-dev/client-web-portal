@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.libs.access.pages import PAGE_ACTIONS, PAGE_IDS, PAGELESS_ACTIONS
 from app.libs.access.repository import AccessRepository, to_wire
 from app.libs.auth.actions import Action
-from app.models.users import Portal, User
+from app.models.users import AdminRole, Portal, User
 
 GrantLevel = Literal["VIEW", "EDIT"]
 
@@ -17,6 +17,8 @@ def levels_for(user: User, db: Session) -> dict[str, GrantLevel]:
     """Effective level per page_id for ONE user.
 
     Precedence (the ONLY place this rule lives):
+        role ADMIN                            ->  EDIT on every page in PAGE_IDS, fixed:
+                                                  no matrix row or override can change it
         unexpired override for (user, page)   ->  that level, EVEN IF it is NONE
         else                                  ->  the standing level of the user's role
         else                                  ->  NONE
@@ -33,6 +35,8 @@ def levels_for(user: User, db: Session) -> dict[str, GrantLevel]:
     """
     if user.portal != Portal.ADMIN or user.admin_profile is None:
         return {}
+    if user.admin_profile.role == AdminRole.ADMIN:
+        return {page_id: "EDIT" for page_id in PAGE_IDS}
 
     repo = AccessRepository(db)
     role_levels = repo.levels_for_role(user.admin_profile.role)
@@ -64,8 +68,9 @@ def actions_for(user: User, db: Session) -> set[Action]:
     plus PAGELESS_ACTIONS.get(role, frozenset()).
 
     Returns an EMPTY set for a user with no admin_profile, for a client, and --
-    by design -- for any admin when page_access is empty because the migration
-    has not been applied: fail closed (C-2 / D-9), never fall back. Fail-closed
+    by design -- for any NON-ADMIN admin when page_access is empty because the
+    migration has not been applied (ADMIN is fixed at EDIT everywhere, so it never
+    fails closed): fail closed (C-2 / D-9), never fall back. Fail-closed
     means PAGELESS_ACTIONS is withheld too in that case -- it is added only when
     the user holds at least one real page grant, never unconditionally by role.
     """

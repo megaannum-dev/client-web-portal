@@ -5,8 +5,8 @@ import { ChevronDown, FileText, Clock, Check, Upload, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal, Ticks } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
-import { parseFeePercent } from "@/lib/fee";
 import type { ModelStatus } from "@/lib/pm/types";
+import { parseFeePercent, formatFeePercent } from "@/lib/fee";
 import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
 /* ============================================================
@@ -271,8 +271,8 @@ export function CreateModelForm({
   const [liquidity, setLiquidity] = useState(initial?.liquidity ?? "");
   const [reporting, setReporting] = useState(initial?.reporting ?? "");
   const [navPerf, setNavPerf] = useState(initial?.nav_perf ?? "");
-  const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? String(initial.mgmt_fee) : "");
-  const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? String(initial.incentive_fee) : "");
+  const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? formatFeePercent(initial.mgmt_fee).replace("%", "") : "");
+  const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? formatFeePercent(initial.incentive_fee).replace("%", "") : "");
   const [masterIbAccount, setMasterIbAccount] = useState(initial?.master_ib_account ?? "");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 

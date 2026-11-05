@@ -169,6 +169,10 @@ class RmTicketDTO(BaseModel):
     responded_by: str | None
     responded_at: datetime | None
     response_note: str | None
+    # responded_by (a firebase_uid) resolved live -- the RM who acted, or the PC /
+    # Compliance officer whose redemption rejection declined the ticket.
+    responded_by_name: str | None = None
+    responded_by_role: str | None = None
 
 
 class ClientRequestDTO(BaseModel):

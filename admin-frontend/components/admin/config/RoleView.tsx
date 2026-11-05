@@ -12,8 +12,8 @@ import { Help, Label, DropdownMenu, type MenuItemDef } from "@/components/admin/
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Copy, RefreshCw, Users } from "@/lib/icons";
-import { ROLE_CODES, kFor } from "@/lib/admin/catalog";
-import { isLockedForAdmin, useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { kFor } from "@/lib/admin/catalog";
+import { EDITABLE_ROLES, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Role } from "@/lib/admin/types";
 
 export function RoleView({
@@ -32,7 +32,7 @@ export function RoleView({
     <div className="flex items-stretch gap-5" style={{ height: 660 }}>
       <Card pad={false} className="flex w-[250px] flex-none flex-col overflow-auto">
         <div className="px-4 pb-[7px] pt-[13px]"><Label>Roles</Label></div>
-        {ROLE_CODES.map((code) => {
+        {EDITABLE_ROLES.map((code) => {
           const on = code === role;
           const changed = stagedList.filter((s) => s.role === code).length;
           return (
@@ -79,7 +79,7 @@ export function RoleView({
                 width={210}
                 align="left"
                 anchorRef={copyAnchorRef}
-                items={ROLE_CODES.filter((code) => code !== role).map((code) => [code, Users] as MenuItemDef)}
+                items={EDITABLE_ROLES.filter((code) => code !== role).map((code) => [code, Users] as MenuItemDef)}
                 onClose={() => setCopyOpen(false)}
                 onPick={(label) => {
                   setCopyOpen(false);
@@ -99,7 +99,6 @@ export function RoleView({
             openGroups={openGroups}
             onToggleGroup={onToggleGroup}
             stagedOn={(pageId) => !!staged[kFor(pageId, role)]}
-            disabledFor={(pageId) => isLockedForAdmin(pageId, role)}
           />
           <Help className="mt-3">Each workspace collapses — open only the group you are changing. Staged edits carry over when you switch back to the matrix.</Help>
         </div>

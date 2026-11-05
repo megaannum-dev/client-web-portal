@@ -176,7 +176,7 @@ export function PublishModal({ onClose }: { onClose: () => void }) {
 /* ---- add override (from the ledger) -------------------------------- */
 export function AddOverrideModal({ onClose }: { onClose: () => void }) {
   const store = useAdminStore();
-  const candidates = store.staff.filter((u) => u.status !== "DEACTIVATED");
+  const candidates = store.staff.filter((u) => u.status !== "DEACTIVATED" && u.role !== "ADMIN"); // ADMIN is fixed at Edit
   const [uid, setUid] = useState(candidates[0]?.firebase_uid ?? "");
   const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");

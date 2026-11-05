@@ -54,10 +54,10 @@ class ChatService:
 
         ADMIN gets read-only view-all, and only where the caller passes
         `allow_admin=True` (history, attachment download); sending stays
-        members-only. COMPLIANCE gets no special visibility. Two conflicting
-        full-visibility role sets already exist (clients/repository.py:20 has
-        {ADMIN, COMPLIANCE}, client_portal/service.py:58 has {ADMIN}); a third
-        would be worse than none.
+        members-only (send() refuses ADMIN outright, seated or not). COMPLIANCE
+        gets no special visibility. Two conflicting full-visibility role sets
+        already exist (clients/repository.py:20 has {ADMIN, COMPLIANCE},
+        client_portal/service.py:58 has {ADMIN}); a third would be worse than none.
         """
         profile = self.repo.client_profile(client_id)
         if profile is None:
@@ -194,6 +194,14 @@ class ChatService:
     ) -> tuple[ChatMessageDTO, list[str]]:
         """Returns (dto, to_uids). Deliberately SYNC: the router awaits
         `manager.send(payload, to_uids=...)` after this returns."""
+        # ADMIN holds every action, so CLIENT_WRITE can no longer gate it; a hard
+        # role check instead. 403 not 404: ADMIN can already see the thread.
+        admin_profile = user.admin_profile if user.portal == Portal.ADMIN else None
+        if admin_profile is not None and admin_profile.role == AdminRole.ADMIN:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Administrators can view chat history but cannot send messages",
+            )
         client_id = self.resolve_client_id(user, client_id)
         profile = self._require_member(client_id, user)
         self._require_action(user, Action.CLIENT_WRITE)

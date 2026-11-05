@@ -15,12 +15,12 @@ from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
 
-def in_book(rm_firebase_uid: str):
+def in_book(rm_firebase_uid: str, profile=ClientProfile):
     """An RM's book: the clients they serve as main OR assistant RM. Filter on any
-    query that has ClientProfile in its FROM clause."""
+    query that has `profile` (ClientProfile, or an alias of it) in its FROM clause."""
     return or_(
-        ClientProfile.assigned_rm_uid == rm_firebase_uid,
-        ClientProfile.asst_rm_uid == rm_firebase_uid,
+        profile.assigned_rm_uid == rm_firebase_uid,
+        profile.asst_rm_uid == rm_firebase_uid,
     )
 
 

@@ -3,27 +3,18 @@
 /* ============================================================
    System Config — pages × roles matrix (PMatrix/PCell/PLevelKey
    in the design handoff). Body grouped by workspace, one column
-   per role; ADMIN × Administration is locked — it's the only
-   route back into the permission model, so it can't edit itself
-   out of it.
+   per editable role; ADMIN has no column — it always has Edit
+   on every page.
    ============================================================ */
-import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Lock } from "@/lib/icons";
+import { ChevronDown, ChevronUp } from "@/lib/icons";
 import { Card } from "@/components/ui/Card";
 import { Help, Label, LevelBadge, Th, Td, useHover } from "@/components/admin/Shared";
-import { LEVEL_LABEL, PAGE_GROUPS, ROLE_CODES, type CatalogPage, kFor } from "@/lib/admin/catalog";
-import { useAdminStore } from "@/lib/admin/AdminStoreContext";
+import { LEVEL_LABEL, PAGE_GROUPS, type CatalogPage, kFor } from "@/lib/admin/catalog";
+import { EDITABLE_ROLES, useAdminStore } from "@/lib/admin/AdminStoreContext";
 import type { Level } from "@/lib/admin/types";
 import type { PageId, Role } from "@/lib/pages-config";
 
 export interface CellPayload { page_id: PageId; label: string; path: string; role: Role }
-
-const LOCKED_MSG = "ADMIN × Administration is locked — it is the only route back into the permission model.";
-
-/** ADMIN × the admin pages stays locked — it is the only route back into the permission
- *  model. Re-expressed against the surviving keys: the old test compared the group
- *  label and a positional role index, and neither survives derivation from PAGES. */
-const isLocked = (page_id: PageId, role: Role) => role === "ADMIN" && page_id.startsWith("admin.");
 
 export function Matrix({
   collapsed, onToggleGroup, selCell, onSelectCell, onOpenCell,
@@ -46,7 +37,7 @@ export function Matrix({
                 Page
                 <span className="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-secondary">route</span>
               </Th>
-              {ROLE_CODES.map((role) => (
+              {EDITABLE_ROLES.map((role) => (
                 <Th key={role} className="!text-center">
                   {role}
                   <span className="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-secondary">
@@ -77,7 +68,7 @@ export function Matrix({
       </Card>
       <LevelKey />
       <Help className="mt-2.5">
-        Click any cell to set its level. ADMIN × Administration is locked — it is the only route back into the permission model.
+        Click any cell to set its level. ADMIN is not listed — it always has Edit on every page.
       </Help>
     </>
   );
@@ -98,7 +89,7 @@ function Group({
     <>
       <tr>
         <td
-          colSpan={1 + ROLE_CODES.length}
+          colSpan={1 + EDITABLE_ROLES.length}
           onClick={() => onToggleGroup(group)}
           className="cursor-pointer border-t border-outline-variant bg-surface-container px-4 py-[9px]"
         >
@@ -117,7 +108,7 @@ function Group({
             <div className="text-[13px] font-semibold">{p.label}</div>
             <div className="text-[11.5px] text-secondary">{p.path}</div>
           </Td>
-          {ROLE_CODES.map((role) => (
+          {EDITABLE_ROLES.map((role) => (
             <Cell
               key={role}
               page_id={p.page_id}
@@ -151,14 +142,9 @@ function Cell({
   const key = kFor(page_id, role);
   const st = staged[key];
   const sel = selCell === key;
-  const locked = isLocked(page_id, role);
   const isOvr = ovrOn(page_id, role);
 
   const click = () => {
-    if (locked) {
-      toast.warning(LOCKED_MSG);
-      return;
-    }
     onSelectCell(key);
     onOpenCell({ page_id, label, path, role });
   };
@@ -169,8 +155,8 @@ function Cell({
       onClick={click}
       className="relative border-t border-outline-variant px-4 py-[13px] text-center transition-colors"
       style={{
-        cursor: locked ? "not-allowed" : "pointer",
-        background: sel ? "rgba(242,116,5,0.07)" : st ? "rgba(242,116,5,0.05)" : hover && !locked ? "var(--surface-low)" : undefined,
+        cursor: "pointer",
+        background: sel ? "rgba(242,116,5,0.07)" : st ? "rgba(242,116,5,0.05)" : hover ? "var(--surface-low)" : undefined,
         boxShadow: sel ? "inset 0 0 0 1.5px var(--primary)" : "none",
       }}
     >
@@ -178,11 +164,6 @@ function Cell({
         <LevelBadge level={eff(page_id, role)} override={isOvr} />
         {st && (
           <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full border-[1.5px] border-white" style={{ background: "var(--primary)" }} />
-        )}
-        {locked && (
-          <span className="absolute -bottom-1 -right-1.5 flex rounded-full bg-white p-px">
-            <Lock size={11} strokeWidth={2.5} className="text-secondary" />
-          </span>
         )}
       </span>
     </td>
