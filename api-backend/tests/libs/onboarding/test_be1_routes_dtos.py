@@ -167,7 +167,7 @@ def test_rm_submit_redemption_reaches_service_and_returns_201(admin_client, db_f
 
 def test_pc_decide_redemption_reaches_service_and_returns_200(admin_client, monkeypatch):
     http, stub_user, set_role = admin_client
-    set_role(AdminRole.PC)
+    set_role(AdminRole.PM)
     captured: dict = {}
     allotment_id = uuid.uuid4()
 
@@ -214,7 +214,7 @@ def test_co_decide_redemption_reaches_service_and_returns_200(admin_client, monk
 # --- Negative: wrong role on each route returns 403, service never reached ------------
 
 
-@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_rm_submit_allotment_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     called = {"hit": False}
@@ -236,7 +236,7 @@ def test_rm_submit_allotment_wrong_role_gets_403(admin_client, monkeypatch, role
     assert called["hit"] is False
 
 
-@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_rm_submit_redemption_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     monkeypatch.setattr(
@@ -253,7 +253,7 @@ def test_rm_submit_redemption_wrong_role_gets_403(admin_client, monkeypatch, rol
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.COMPLIANCE])
 def test_pc_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     monkeypatch.setattr(
@@ -269,7 +269,7 @@ def test_pc_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, rol
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.PC])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM])
 def test_co_decide_redemption_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     monkeypatch.setattr(

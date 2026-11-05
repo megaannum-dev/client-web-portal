@@ -10,17 +10,17 @@
 # FAIL: the real behaviour today is governed entirely by ROLE_ACTIONS, so
 # seeded page_access rows are silently ignored. Distinct expected failure
 # modes, called out per test:
-#   - "synthetic VIEW-only row on pc.model-management should still 403 the
-#     PATCH" -> FAILS (200 instead of 403): ROLE_ACTIONS grants PC's
+#   - "synthetic VIEW-only row on pm.model-management should still 403 the
+#     PATCH" -> FAILS (200 instead of 403): ROLE_ACTIONS grants PM's
 #     MODEL_MANAGE unconditionally today, so the synthetic page_access VIEW
 #     row is simply never consulted and the write goes through anyway.
-#   - "PC x PTA seeded VIEW should now allow a read that ROLE_ACTIONS denies"
+#   - "PM x PTA seeded VIEW should now allow a read that ROLE_ACTIONS denies"
 #     -> FAILS (403 instead of 200) because ROLE_ACTIONS has no entry at all
 #     for that (role, action) pair.
 #   - "empty page_access -> 403 for EVERY role incl. ADMIN" -> FAILS for every
-#     role ROLE_ACTIONS currently grants the action to (ADMIN/RM/MOBO/PC/
-#     COMPLIANCE); PM is the one role that already has an empty ROLE_ACTIONS
-#     set, so it coincidentally already 403s.
+#     role ROLE_ACTIONS currently grants the action to (ADMIN/RM/MOBO/PM/
+#     COMPLIANCE) (historical: PM was once the one role with an empty
+#     ROLE_ACTIONS set; PC was merged into PM, 0049).
 #   - "ROLE_ACTIONS / get_actions_for_role gone" -> FAILS (both still exist).
 #   - "query budget == 3" -> FAILS (actual budget today is 1: only the
 #     AdminProfileRepository lookup; get_actions_for_role is a pure dict read).
@@ -58,11 +58,11 @@ from app.models.users import AdminRole
 from tests.libs.auth.conftest import make_admin_user, make_page_access_row
 
 
-# --- The named shipping case: PC x mobo.post-trade-allocation @ view (D-10) --
+# --- The named shipping case: PM x mobo.post-trade-allocation @ view (D-10) --
 
 
-def test_pc_pta_view_case_shipping(http_client, monkeypatch):
-    """PC x `mobo.post-trade-allocation` seeded `view` (the one cell ruled on
+def test_pm_pta_view_case_shipping(http_client, monkeypatch):
+    """PM x `mobo.post-trade-allocation` seeded `view` (the one cell ruled on
     individually, D-10): reads 200, POST /run 403. Business-logic isolation:
     PostTradeAllocationService.get_view is monkeypatched to a fixed view so
     this test proves the AUTH GUARD, not proposal 011's PTA business logic
@@ -70,9 +70,9 @@ def test_pc_pta_view_case_shipping(http_client, monkeypatch):
     couple a BE-5 auth test to a sibling feature's fixture shape."""
     http, SessionFactory = http_client
     seed_db = SessionFactory()
-    pc_user = make_admin_user(seed_db, firebase_uid="uid-pc-pta", role=AdminRole.PC)
+    pm_user = make_admin_user(seed_db, firebase_uid="uid-pm-pta", role=AdminRole.PM)
     make_page_access_row(
-        seed_db, page_id="mobo.post-trade-allocation", role=AdminRole.PC, level=AccessLevel.VIEW
+        seed_db, page_id="mobo.post-trade-allocation", role=AdminRole.PM, level=AccessLevel.VIEW
     )
     seed_db.close()
 
@@ -89,7 +89,7 @@ def test_pc_pta_view_case_shipping(http_client, monkeypatch):
 
     from app.main import app
 
-    app.dependency_overrides[get_current_admin_user] = lambda: pc_user
+    app.dependency_overrides[get_current_admin_user] = lambda: pm_user
     try:
         assert http.get("/api/mobo/post-trade-allocation").status_code == 200
         assert http.get("/api/mobo/post-trade-allocation/runs").status_code == 200
@@ -105,16 +105,16 @@ def test_pc_pta_view_case_shipping(http_client, monkeypatch):
         app.dependency_overrides.pop(get_current_admin_user, None)
 
 
-def test_pc_synthetic_view_grant_on_model_management(http_client):
+def test_pm_synthetic_view_grant_on_model_management(http_client):
     """The second, hand-constructed VIEW case (§8.3 BE-5 positive/negative):
-    a synthetic `view`-only page_access row on `pc.model-management` -> the PC
-    caller's read succeeds and the write is denied, even though PC's role
+    a synthetic `view`-only page_access row on `pm.model-management` -> the PM
+    caller's read succeeds and the write is denied, even though PM's role
     otherwise holds full model-management access today."""
     http, SessionFactory = http_client
     seed_db = SessionFactory()
-    pc_user = make_admin_user(seed_db, firebase_uid="uid-pc-synth", role=AdminRole.PC)
+    pm_user = make_admin_user(seed_db, firebase_uid="uid-pm-synth", role=AdminRole.PM)
     make_page_access_row(
-        seed_db, page_id="pc.model-management", role=AdminRole.PC, level=AccessLevel.VIEW
+        seed_db, page_id="pm.model-management", role=AdminRole.PM, level=AccessLevel.VIEW
     )
     model = Model(name="Synthetic Model")
     seed_db.add(model)
@@ -125,11 +125,11 @@ def test_pc_synthetic_view_grant_on_model_management(http_client):
 
     from app.main import app
 
-    app.dependency_overrides[get_current_admin_user] = lambda: pc_user
+    app.dependency_overrides[get_current_admin_user] = lambda: pm_user
     try:
         assert http.get("/api/pc/models").status_code == 200
         # NOTE: expected to currently FAIL with 200, not 403 -- ROLE_ACTIONS
-        # grants PC's MODEL_MANAGE unconditionally today, so this synthetic
+        # grants PM's MODEL_MANAGE unconditionally today, so this synthetic
         # page_access VIEW row is simply never consulted and the write goes
         # through. This assertion only becomes a genuine proof of the VIEW
         # level once BE-5 makes page_access authoritative (see file header).
@@ -148,7 +148,6 @@ def test_pc_synthetic_view_grant_on_model_management(http_client):
         (AdminRole.RM, Action.CLIENT_VIEW),
         (AdminRole.MOBO, Action.RECON_VIEW),
         (AdminRole.PM, Action.MODEL_VIEW),
-        (AdminRole.PC, Action.MODEL_VIEW),
         (AdminRole.COMPLIANCE, Action.ONBOARDING_REVIEW),
         (AdminRole.ADMIN, Action.MODEL_VIEW),
     ],
@@ -210,9 +209,9 @@ def test_query_budget_is_three_queries_per_guarded_request(session):
     overrides), up from 1.' Counted via a `before_cursor_execute` listener on
     the session's own bound engine -- no ORM-level query-count helper exists
     in this codebase, so this is the plainest correct instrument."""
-    user = make_admin_user(session, firebase_uid="uid-pc-budget", role=AdminRole.PC)
+    user = make_admin_user(session, firebase_uid="uid-pm-budget", role=AdminRole.PM)
     make_page_access_row(
-        session, page_id="pc.model-management", role=AdminRole.PC, level=AccessLevel.EDIT
+        session, page_id="pm.model-management", role=AdminRole.PM, level=AccessLevel.EDIT
     )
     engine = session.get_bind()
     counter = {"n": 0}

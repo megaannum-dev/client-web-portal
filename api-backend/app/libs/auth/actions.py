@@ -6,11 +6,11 @@ class Action(str, enum.Enum):
     USER_WRITE = "admin:user_write"
     CLIENT_VIEW = "clients:view"  # pre-kept for 004 (RM client onboarding)
     CLIENT_WRITE = "clients:write"  # pre-kept for 004 (RM client onboarding)
-    # PC workspace — feature 006 (BE-2)
-    MODEL_VIEW = "pc:model_view"
-    MODEL_WRITE = "pc:model_write"
-    ALLOCATION_VIEW = "pc:allocation_view"
-    ALLOCATION_WRITE = "pc:allocation_write"
+    # PM workspace — feature 006 (BE-2)
+    MODEL_VIEW = "pm:model_view"
+    MODEL_WRITE = "pm:model_write"
+    ALLOCATION_VIEW = "pm:allocation_view"
+    ALLOCATION_WRITE = "pm:allocation_write"
     # Post-Trade Allocation — feature 011 (BE-4)
     POST_TRADE_ALLOCATION_VIEW = "mobo:pta_view"
     POST_TRADE_ALLOCATION_RUN = "mobo:pta_run"
@@ -22,9 +22,9 @@ class Action(str, enum.Enum):
     ONBOARDING_VIEW = "onboarding:view"  # RM: read-only board access for VIEW-level grants
     ONBOARDING_WRITE = "onboarding:write"  # RM: start / upload / submit
     ONBOARDING_REVIEW = "onboarding:review"  # COMPLIANCE: verdict / approve / reject / download
-    ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PC: acknowledge/decide allotments (write)
-    ALLOTMENT_VIEW = "pc:allotment_view"  # BE-22 (C-12) — read-only sibling, see above
-    EOM_COMMENT_WRITE = "reports:eom_comment_write"  # PC: write EoM report comments
+    ALLOTMENT_ACKNOWLEDGE = "allotment:acknowledge"  # PM: acknowledge/decide allotments (write)
+    ALLOTMENT_VIEW = "pm:allotment_view"  # BE-22 (C-12) — read-only sibling, see above
+    EOM_COMMENT_WRITE = "reports:eom_comment_write"  # PM: write EoM report comments
     # IC Notes — module ic-notes (BE-2)
     IC_NOTES_VIEW = "ic_notes:view"
     IC_NOTES_WRITE = "ic_notes:write"

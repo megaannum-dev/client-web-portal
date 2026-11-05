@@ -180,7 +180,7 @@ def test_get_transaction_detail_reaches_service_and_returns_200(
 # --- Negative: wrong role on each route returns 403, service never reached ----------
 
 
-@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_file_transaction_detail_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     called = {"hit": False}
@@ -198,7 +198,7 @@ def test_file_transaction_detail_wrong_role_gets_403(admin_client, monkeypatch, 
     assert called["hit"] is False
 
 
-@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_get_transaction_detail_wrong_role_gets_403(admin_client, monkeypatch, role):
     http, _stub_user, set_role = admin_client
     called = {"hit": False}

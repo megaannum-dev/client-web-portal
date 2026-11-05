@@ -57,7 +57,7 @@ class PageAccess(Base):
     __tablename__ = "page_access"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    # A PageId literal (e.g. "pc.allocation-matrix"). Deliberately NOT an FK to a
+    # A PageId literal (e.g. "pm.allocation-matrix"). Deliberately NOT an FK to a
     # pages table: the page registry (paths, labels, icons, grouping) is
     # presentation code owned by admin-frontend/lib/pages-config.ts and does not
     # belong in the DB (proposal D-8). A row whose page_id is no longer a known

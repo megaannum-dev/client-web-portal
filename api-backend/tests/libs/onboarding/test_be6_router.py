@@ -35,7 +35,7 @@ from app.models.users import AccountStatus, AdminProfile, AdminRole, ClientProfi
 from tests.conftest import make_admin_stub
 from tests.libs.onboarding.conftest import FakeStorage
 
-ADMIN_ROLES = [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE]
+ADMIN_ROLES = [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE]
 
 
 @pytest.fixture
@@ -382,7 +382,7 @@ def test_pc_get_allotments_returns_200(admin_client):
     http.post(f"/api/compliance/onboardings/{started['id']}/approve")
 
     _http, _db_factory, _stub, set_role = admin_client
-    set_role(AdminRole.PC)
+    set_role(AdminRole.PM)
     resp = http.get("/api/pc/allotments")
     assert resp.status_code == 200, resp.text
     assert len(resp.json()) == 1
@@ -395,7 +395,7 @@ def test_pc_acknowledge_allotment_returns_200(admin_client):
     http.post(f"/api/compliance/onboardings/{started['id']}/approve")
 
     _http, _db_factory, _stub, set_role = admin_client
-    set_role(AdminRole.PC)
+    set_role(AdminRole.PM)
     allotment_id = http.get("/api/pc/allotments").json()[0]["id"]
     resp = http.post(f"/api/pc/allotments/{allotment_id}/acknowledge")
     assert resp.status_code == 200, resp.text
@@ -419,7 +419,7 @@ def test_client_get_events_returns_200(client_portal_client):
 # --- Negative: RBAC cross-role 403 within the admin portal --------------------------
 
 
-@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_non_rm_role_hitting_rm_route_gets_403(admin_client, role):
     http, _db_factory, _stub, set_role = admin_client
     set_role(role)
@@ -427,7 +427,7 @@ def test_non_rm_role_hitting_rm_route_gets_403(admin_client, role):
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.PC])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM])
 def test_non_compliance_role_hitting_compliance_route_gets_403(admin_client, role):
     http, _db_factory, _stub, set_role = admin_client
     set_role(role)
@@ -435,7 +435,7 @@ def test_non_compliance_role_hitting_compliance_route_gets_403(admin_client, rol
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.COMPLIANCE])
 def test_non_pc_role_hitting_pc_route_gets_403(admin_client, role):
     http, _db_factory, _stub, set_role = admin_client
     set_role(role)
