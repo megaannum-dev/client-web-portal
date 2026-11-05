@@ -25,7 +25,7 @@ export interface Material {
   size: string;
 }
 
-/** Raw material DTO from the backend (GET /api/pc/models/{id}/materials). */
+/** Raw material DTO from the backend (GET /api/pm/models/{id}/materials). */
 export interface MaterialDTO {
   id: string;
   model_id: string;
@@ -186,7 +186,7 @@ export interface SymbolAuditDTO {
   created_at: string;
 }
 
-/** Backend payload for a single model (GET /api/pc/models/:id and list). */
+/** Backend payload for a single model (GET /api/pm/models/:id and list). */
 export interface ModelDTO {
   id: string;
   name: string;
@@ -211,7 +211,7 @@ export interface ModelDTO {
   master_ib_account?: string | null;
 }
 
-/** Backend payload for GET /api/pc/models. */
+/** Backend payload for GET /api/pm/models. */
 export interface ModelsListDTO {
   models: ModelDTO[];
 }
@@ -252,7 +252,7 @@ export interface PeriodDTO {
   status: "open" | "confirmed";
 }
 
-/** Backend payload for GET /api/pc/allocation. All aggregates precomputed by BE-5. */
+/** Backend payload for GET /api/pm/allocation. All aggregates precomputed by BE-5. */
 export interface AllocationDTO {
   models: AllocationModelDTO[];
   clients: AllocationClientDTO[];
@@ -266,7 +266,7 @@ export interface AllocationDTO {
   open_period_id: string;
 }
 
-/** Backend payload for GET /api/pc/periods. */
+/** Backend payload for GET /api/pm/periods. */
 export interface PeriodsListDTO {
   periods: PeriodDTO[];
 }

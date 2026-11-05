@@ -1,4 +1,4 @@
-const PC = "/api/pc";
+const PM = "/api/pm";
 const RM = "/api/rm";
 const MOBO = "/api/mobo";
 const COMPLIANCE = "/api/compliance";
@@ -7,23 +7,23 @@ const REPORTS = "/api/reports";
 const ADMIN = "/api/admin";
 
 export const ENDPOINTS = {
-  PC: {
-    MODELS:              `${PC}/models`,
-    MODEL:               (id: string) => `${PC}/models/${id}`,
-    MATERIALS:           (id: string) => `${PC}/models/${id}/materials`,
-    SYMBOLS:             (id: string) => `${PC}/models/${id}/symbols`,
-    SYMBOL:              (id: string, sym: string) => `${PC}/models/${id}/symbols/${encodeURIComponent(sym)}`,
-    DOWNLOAD:            (id: string, mid: string) => `${PC}/models/${id}/materials/${mid}/download`,
-    CHANGES:             (id: string) => `${PC}/models/${id}/changes`,
+  PM: {
+    MODELS:              `${PM}/models`,
+    MODEL:               (id: string) => `${PM}/models/${id}`,
+    MATERIALS:           (id: string) => `${PM}/models/${id}/materials`,
+    SYMBOLS:             (id: string) => `${PM}/models/${id}/symbols`,
+    SYMBOL:              (id: string, sym: string) => `${PM}/models/${id}/symbols/${encodeURIComponent(sym)}`,
+    DOWNLOAD:            (id: string, mid: string) => `${PM}/models/${id}/materials/${mid}/download`,
+    CHANGES:             (id: string) => `${PM}/models/${id}/changes`,
     // PUBLISH removed — use MODEL(id) with PATCH {status:'live'} (D-1)
     // DELETE removed — use MODEL(id) with PATCH {status:'deleted'} (D-1)
-    ALLOCATION:          `${PC}/allocation`,
+    ALLOCATION:          `${PM}/allocation`,
     // PERIODS removed — periods are embedded in GET /allocation (D-2)
     // CONFIRM removed — use PATCH_PERIOD(id) with {status:'confirmed'} (D-3)
-    PATCH_PERIOD:        (id: string) => `${PC}/allocation/periods/${id}`,
-    ALLOTMENTS:      `${PC}/allotments`,
-    ALLOTMENT_ACK:   (id: string) => `${PC}/allotments/${id}/acknowledge`,
-    REDEMPTION_DECIDE: (id: string) => `${PC}/redemptions/${id}/decide`,
+    PATCH_PERIOD:        (id: string) => `${PM}/allocation/periods/${id}`,
+    ALLOTMENTS:      `${PM}/allotments`,
+    ALLOTMENT_ACK:   (id: string) => `${PM}/allotments/${id}/acknowledge`,
+    REDEMPTION_DECIDE: (id: string) => `${PM}/redemptions/${id}/decide`,
   },
   RM: {
     CLIENTS: `${RM}/clients`,

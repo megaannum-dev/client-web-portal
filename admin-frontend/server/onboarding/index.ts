@@ -158,7 +158,7 @@ export async function requestResubmit(
 export async function approveOnboarding(onboardingId: string): Promise<APIResult<OnboardingDTO>> {
   return apiClient<OnboardingDTO>(ENDPOINTS.COMPLIANCE.ONBOARDING_APPROVE(onboardingId), { method: "POST" });
 }
-/** Base64 proxy — mirrors server/pc/index.ts's downloadMaterial (cookie token can't ride a plain <a href>). */
+/** Base64 proxy — mirrors server/pm/index.ts's downloadMaterial (cookie token can't ride a plain <a href>). */
 export async function downloadDocument(
   onboardingId: string, docType: string,
 ): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
@@ -181,17 +181,17 @@ export async function downloadDocument(
   }
 }
 
-/* ---- PC ---- */
+/* ---- PM ---- */
 export async function fetchAllotments(): Promise<APIResult<AllotRdmptDTO[]>> {
-  return apiClient<AllotRdmptDTO[]>(ENDPOINTS.PC.ALLOTMENTS);
+  return apiClient<AllotRdmptDTO[]>(ENDPOINTS.PM.ALLOTMENTS);
 }
 export async function acknowledgeAllotment(id: string): Promise<APIResult<AllotRdmptDTO>> {
-  return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.ALLOTMENT_ACK(id), { method: "POST" });
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.PM.ALLOTMENT_ACK(id), { method: "POST" });
 }
-export async function pcDecideRedemption(
+export async function pmDecideRedemption(
   id: string, body: RedemptionDecisionReq,
 ): Promise<APIResult<AllotRdmptDTO>> {
-  return apiClient<AllotRdmptDTO>(ENDPOINTS.PC.REDEMPTION_DECIDE(id), {
+  return apiClient<AllotRdmptDTO>(ENDPOINTS.PM.REDEMPTION_DECIDE(id), {
     method: "POST", body: JSON.stringify(body),
   });
 }

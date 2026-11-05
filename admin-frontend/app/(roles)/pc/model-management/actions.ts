@@ -12,7 +12,7 @@ import {
   deleteModel as _deleteModel,
   getChanges as _getChanges,
   type APIResult,
-} from "@/server/pc";
+} from "@/server/pm";
 import type { MaterialDTO, ModelDTO, ModelsListDTO } from "@/lib/pc/types";
 import { logger } from "@/lib/logger";
 

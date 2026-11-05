@@ -12,7 +12,7 @@ import { parseFeePercent, formatFeePercent } from "@/lib/fee";
 import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
 
 /* ---- Edit-model form ---------------------------------------
-   Sends a PATCH /api/pc/models/{id} with only the fields the user
+   Sends a PATCH /api/pm/models/{id} with only the fields the user
    changed (the diff). `mgmt_fee` / `incentive_fee` are optional
    per-model overrides (null => the hardcoded 2 % / 20 % default from
    `lib/pc/models.ts` applies); they are stored as decimal fractions

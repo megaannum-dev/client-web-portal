@@ -25,15 +25,15 @@ export type AllocationFetchResult = ConditionalResult<AllocationDTO>;
 /* ---- Model book -------------------------------------------- */
 
 export async function getModels(): Promise<APIResult<ModelsListDTO>> {
-  return apiClient<ModelsListDTO>(ENDPOINTS.PC.MODELS);
+  return apiClient<ModelsListDTO>(ENDPOINTS.PM.MODELS);
 }
 
 export async function getModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(`${ENDPOINTS.PC.MODEL(id)}?include=materials,changes,symbol_audit`);
+  return apiClient<ModelDTO>(`${ENDPOINTS.PM.MODEL(id)}?include=materials,changes,symbol_audit`);
 }
 
 export async function addSymbol(id: string, symbol: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.SYMBOLS(id), {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.SYMBOLS(id), {
     method: "POST",
     body: JSON.stringify({ symbol }),
   });
@@ -44,20 +44,20 @@ export async function setSymbolActive(
   symbol: string,
   active: boolean,
 ): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.SYMBOL(id, symbol), {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.SYMBOL(id, symbol), {
     method: "PATCH",
     body: JSON.stringify({ active }),
   });
 }
 
 export async function removeSymbol(id: string, symbol: string): Promise<APIResult<void>> {
-  return apiClient<void>(ENDPOINTS.PC.SYMBOL(id, symbol), { method: "DELETE" });
+  return apiClient<void>(ENDPOINTS.PM.SYMBOL(id, symbol), { method: "DELETE" });
 }
 
 export async function createModel(
   body: Record<string, unknown>,
 ): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.MODELS, {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.MODELS, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -67,35 +67,35 @@ export async function updateModel(
   id: string,
   body: Record<string, unknown>,
 ): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.MODEL(id), {
     method: "PATCH",
     body: JSON.stringify(body),
   });
 }
 
 export async function publishModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.MODEL(id), {
     method: "PATCH",
     body: JSON.stringify({ status: "live" }),
   });
 }
 
 export async function deleteModel(id: string): Promise<APIResult<ModelDTO>> {
-  return apiClient<ModelDTO>(ENDPOINTS.PC.MODEL(id), {
+  return apiClient<ModelDTO>(ENDPOINTS.PM.MODEL(id), {
     method: "PATCH",
     body: JSON.stringify({ status: "deleted" }),
   });
 }
 
 export async function getMaterials(id: string): Promise<APIResult<MaterialDTO[]>> {
-  return apiClient<MaterialDTO[]>(ENDPOINTS.PC.MATERIALS(id));
+  return apiClient<MaterialDTO[]>(ENDPOINTS.PM.MATERIALS(id));
 }
 
 export async function uploadMaterial(
   id: string,
   formData: FormData,
 ): Promise<APIResult<MaterialDTO>> {
-  return apiClientFormData<MaterialDTO>(ENDPOINTS.PC.MATERIALS(id), formData);
+  return apiClientFormData<MaterialDTO>(ENDPOINTS.PM.MATERIALS(id), formData);
 }
 
 /** Fetch a material's bytes through the BE; returns base64 so the browser
@@ -106,7 +106,7 @@ export async function downloadMaterial(
   materialId: string,
 ): Promise<APIResult<{ filename: string; contentType: string; base64: string }>> {
   const token = (await cookies()).get("id_token")?.value ?? "";
-  const url = `${getApiBase()}${ENDPOINTS.PC.DOWNLOAD(modelId, materialId)}`;
+  const url = `${getApiBase()}${ENDPOINTS.PM.DOWNLOAD(modelId, materialId)}`;
   try {
     const res = await fetch(url, {
       cache: "no-store",
@@ -133,7 +133,7 @@ export async function downloadMaterial(
 export async function getChanges(
   id: string,
 ): Promise<APIResult<ModelDTO["changes"]>> {
-  return apiClient(ENDPOINTS.PC.CHANGES(id));
+  return apiClient(ENDPOINTS.PM.CHANGES(id));
 }
 
 /* ---- Allocation matrix ------------------------------------- */
@@ -148,13 +148,13 @@ export async function getAllocation(
   etag?: string,
 ): Promise<AllocationFetchResult> {
   const path = period
-    ? `${ENDPOINTS.PC.ALLOCATION}?period=${encodeURIComponent(period)}`
-    : ENDPOINTS.PC.ALLOCATION;
+    ? `${ENDPOINTS.PM.ALLOCATION}?period=${encodeURIComponent(period)}`
+    : ENDPOINTS.PM.ALLOCATION;
   return apiClientConditional<AllocationDTO>(path, etag);
 }
 
 export async function confirmPeriod(id: string): Promise<APIResult<PeriodDTO>> {
-  return apiClient<PeriodDTO>(ENDPOINTS.PC.PATCH_PERIOD(id), {
+  return apiClient<PeriodDTO>(ENDPOINTS.PM.PATCH_PERIOD(id), {
     method: "PATCH",
     body: JSON.stringify({ status: "confirmed" }),
   });

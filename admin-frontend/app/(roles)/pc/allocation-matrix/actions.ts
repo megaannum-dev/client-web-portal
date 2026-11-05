@@ -5,7 +5,7 @@ import {
   confirmPeriod as _confirmPeriod,
   type APIResult,
   type AllocationFetchResult,
-} from "@/server/pc";
+} from "@/server/pm";
 import type { PeriodDTO } from "@/lib/pc/types";
 import { logger } from "@/lib/logger";
 

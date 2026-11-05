@@ -3,7 +3,7 @@
 import {
   fetchAllotments as _fetchAllotments,
   acknowledgeAllotment as _acknowledgeAllotment,
-  pcDecideRedemption as _pcDecideRedemption,
+  pmDecideRedemption as _pmDecideRedemption,
   type APIResult,
 } from "@/server/onboarding";
 import type { AllotRdmptDTO, RedemptionDecisionReq } from "@/lib/onboarding/types";
@@ -37,10 +37,10 @@ export async function acknowledgeAllotment(id: string): Promise<APIResult<AllotR
   }
 }
 
-export async function pcDecideRedemption(id: string, body: RedemptionDecisionReq) {
+export async function pmDecideRedemption(id: string, body: RedemptionDecisionReq) {
   try {
-    const r = await _pcDecideRedemption(id, body);
-    logger.json("pc.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
+    const r = await _pmDecideRedemption(id, body);
+    logger.json("pm.decideRedemption", r.success ? { id: r.data.id, status: r.data.status } : r);
     return r;
   } catch (e) { return toErrorResult(e); }
 }

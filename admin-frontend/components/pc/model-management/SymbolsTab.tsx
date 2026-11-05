@@ -5,7 +5,7 @@ import { Plus, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { fmtTimestampParts } from "@/lib/pc/format";
-import { addSymbol, setSymbolActive, removeSymbol } from "@/server/pc";
+import { addSymbol, setSymbolActive, removeSymbol } from "@/server/pm";
 import type { Model, SymbolAuditEntry, SymbolBookEntry } from "@/lib/pc/types";
 
 /* ============================================================
