@@ -1,6 +1,6 @@
 """Allocation matrix router — split from app/libs/pc/router.py (007-A).
 
-All allocation routes from the PC workspace. Prefix: /pc (mounted under /api/pc in app/main.py).
+All allocation routes from the PM workspace. Prefix: /pm (mounted under /api/pm in app/main.py).
 All routes are guarded by require_action() exactly as app/libs/users/router.py does.
 """
 
@@ -24,10 +24,10 @@ from app.libs.allocation_matrix.schemas import (
     PeriodOut,
     PeriodStatusUpdate,
 )
-from app.models.pc import PeriodStatus
+from app.models.pm import PeriodStatus
 from app.models.users import User
 
-router = APIRouter(prefix="/pc", tags=["pc"])
+router = APIRouter(prefix="/pm", tags=["pm"])
 
 
 # ---------------------------------------------------------------------------

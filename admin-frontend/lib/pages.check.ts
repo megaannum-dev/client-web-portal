@@ -2,7 +2,7 @@
 // Plain node:assert. NOT a Vitest suite — kept in that form deliberately.
 import { strict as assert } from "node:assert";
 import {
-  PAGES, ROLE_DEFAULT_PAGE, defaultPathFor, pageIdForPath, groupsFor,
+  PAGES, ROLE_DEFAULT_PAGE, defaultPathFor, pageIdForPath, groupsFor, roleLabel,
   type GrantMap, type PageId,
 } from "./pages-config";
 import { ALL_PAGES, PAGE_GROUPS, TOTAL_PAGES, kFor } from "./admin/catalog";
@@ -27,9 +27,9 @@ const MATRIX_PAGES_FIXTURE: MatrixOut["pages"] = [
   { page_id: "mobo.trade-reconciliation", group: "Trade Management", label: "Trade Reconciliation", path: "/mobo/trade-reconciliation" },
   { page_id: "mobo.commission-tracking", group: "Trade Management", label: "Commission Tracking", path: "/mobo/commission-tracking" },
   { page_id: "mobo.post-trade-allocation", group: "Trade Management", label: "Post-Trade Allocation", path: "/mobo/post-trade-allocation" },
-  { page_id: "pc.model-management", group: "System", label: "Model Management", path: "/pc/model-management" },
-  { page_id: "pc.allocation-matrix", group: "Trade Management", label: "Allocation Matrix", path: "/pc/allocation-matrix" },
-  { page_id: "pc.allotment-redemption", group: "Client Management", label: "Allotment & Redemption", path: "/pc/allotment-redemption" },
+  { page_id: "pm.model-management", group: "System", label: "Model Management", path: "/pm/model-management" },
+  { page_id: "pm.allocation-matrix", group: "Trade Management", label: "Allocation Matrix", path: "/pm/allocation-matrix" },
+  { page_id: "pm.allotment-redemption", group: "Client Management", label: "Allotment & Redemption", path: "/pm/allotment-redemption" },
   { page_id: "compliance.overview", group: "Other", label: "Compliance Overview", path: "/compliance/overview" },
   { page_id: "compliance.review", group: "Compliance", label: "Compliance Review", path: "/compliance/review" },
   { page_id: "compliance.ic-notes", group: "Compliance", label: "IC Meeting Notes", path: "/compliance/ic-notes" },
@@ -59,10 +59,10 @@ assert.equal(groupsFor(allEdit, "ADMIN").length, 1, "ADMIN must have exactly one
 assert.ok(!groupsFor(allEdit, "ADMIN")[0].pages.some((p) => p.href === "/mobo/recon-overview"));
 {
   const reduced: GrantMap = { ...allEdit };
-  delete reduced["pc.allocation-matrix"];
-  assert.ok(!groupsFor(reduced, "PC")[0].pages.some((p) => p.href === "/pc/allocation-matrix"));
+  delete reduced["pm.allocation-matrix"];
+  assert.ok(!groupsFor(reduced, "PM")[0].pages.some((p) => p.href === "/pm/allocation-matrix"));
 }
-assert.deepEqual(groupsFor(allEdit, "PM"), []);      // no ROLE_NAV entry → zero groups
+assert.equal(groupsFor(allEdit, "PM").length, 1, "PM must have exactly one nav group");
 
 // Path resolution — the surviving half of the old rolesForPath.
 assert.equal(pageIdForPath("/rm/client-info"),           "rm.client-info");
@@ -78,7 +78,11 @@ for (const [role, id] of Object.entries(ROLE_DEFAULT_PAGE)) {
 }
 
 // Cell keys are role-code keyed and collision-free.
-assert.equal(kFor("pc.allocation-matrix", "PC"), "pc.allocation-matrix|PC");
-assert.notEqual(kFor("pc.allocation-matrix", "PC"), kFor("pc.allocation-matrix", "PM"));
+assert.equal(kFor("pm.allocation-matrix", "PM"), "pm.allocation-matrix|PM");
+assert.notEqual(kFor("pm.allocation-matrix", "PM"), kFor("pm.allocation-matrix", "COMPLIANCE"));
+
+// Profile card shows the full role name; unknown codes pass through.
+assert.equal(roleLabel("PM"), "Portfolio Manager");
+assert.equal(roleLabel("BOGUS"), "BOGUS");
 
 console.log("pages.check.ts: OK");

@@ -25,14 +25,14 @@ def _patch(client, user, **body):
 
 def test_role_change_writes_one_updated_row(be019_client):
     target = be019_client.users["rm_empty"]
-    _patch(be019_client, target, role="PC")
+    _patch(be019_client, target, role="PM")
     (row,) = _staff_audit(be019_client)
     assert row.event == "staff.updated"
-    assert row.detail == f"{target.firebase_uid}: role RM→PC"
+    assert row.detail == f"{target.firebase_uid}: role RM→PM"
 
 
 def test_deactivate_with_reason(be019_client):
-    target = be019_client.users["pc"]
+    target = be019_client.users["pm_active"]
     _patch(be019_client, target, status="DEACTIVATED", deactivate_reason="left the firm")
     (row,) = _staff_audit(be019_client)
     assert row.event == "staff.deactivated"
@@ -40,7 +40,7 @@ def test_deactivate_with_reason(be019_client):
 
 
 def test_deactivate_without_reason(be019_client):
-    target = be019_client.users["pc"]
+    target = be019_client.users["pm_active"]
     _patch(be019_client, target, status="DEACTIVATED")
     (row,) = _staff_audit(be019_client)
     assert row.event == "staff.deactivated"
@@ -74,12 +74,12 @@ def test_name_phone_email_changes_are_all_listed(be019_client):
 
 
 def test_noop_values_write_no_audit_row(be019_client):
-    target = be019_client.users["pc"]
+    target = be019_client.users["pm_active"]
     db = be019_client.db()
     name = db.query(AdminProfile).filter(AdminProfile.user_id == target.id).one().name
     db.close()
     # role, status and name all equal what is already stored
-    _patch(be019_client, target, role="PC", status="ACTIVE", name=name, email=target.email)
+    _patch(be019_client, target, role="PM", status="ACTIVE", name=name, email=target.email)
     assert _staff_audit(be019_client) == []
 
 

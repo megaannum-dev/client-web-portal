@@ -339,14 +339,14 @@ def seed_be019_roster(session: Session) -> dict:
     """§8.1's test-setup roster in one call: one ADMIN (the sole active admin --
     load-bearing for the last-active-ADMIN guard test), an RM with 3 clients + 2
     open (new/in_progress) + 1 resolved ticket, an empty-book RM, a second ACTIVE
-    RM (the handover receiver), a DEACTIVATED RM, one PC, one COMPLIANCE, one PM.
+    RM (the handover receiver), a DEACTIVATED RM, one signed-in PM (pm_active), one COMPLIANCE, one never-signed-in PM (pm); PC was merged into PM (0049).
 
     Returns a dict keyed by role name (`"clients"` holds the 3 ClientProfile
     owners). `rm_booked` and `pm` are seeded with last_sign_in_at=None so BE-16's
     derived-INITIATED path is exercised by the shared roster too.
 
     Corrected 2026-07-30 (orchestrator, Wave 5 gate): also seeds the real
-    55-row `page_access` policy (tests/libs/access/conftest.py's
+    66-row `page_access` policy (tests/libs/access/conftest.py's
     `seed_page_access`, reused rather than duplicated) -- this fixture's own
     docstring always assumed the caller would hold "full USER_VIEW/USER_WRITE
     access once BE-1/BE-2/BE-5 land," but the row-seeding call was missing, so
@@ -360,7 +360,7 @@ def seed_be019_roster(session: Session) -> dict:
     rm_deactivated = mk_admin_portal_user(
         session, role=AdminRole.RM, status=AccountStatus.DISABLED, last_sign_in_at=NOW_UTC
     )
-    pc = mk_admin_portal_user(session, role=AdminRole.PC, last_sign_in_at=NOW_UTC)
+    pm_active = mk_admin_portal_user(session, role=AdminRole.PM, last_sign_in_at=NOW_UTC)
     compliance = mk_admin_portal_user(session, role=AdminRole.COMPLIANCE, last_sign_in_at=NOW_UTC)
     pm = mk_admin_portal_user(session, role=AdminRole.PM, last_sign_in_at=None)
 
@@ -384,7 +384,7 @@ def seed_be019_roster(session: Session) -> dict:
         "rm_empty": rm_empty,
         "rm_receiver": rm_receiver,
         "rm_deactivated": rm_deactivated,
-        "pc": pc,
+        "pm_active": pm_active,
         "compliance": compliance,
         "pm": pm,
         "clients": clients,

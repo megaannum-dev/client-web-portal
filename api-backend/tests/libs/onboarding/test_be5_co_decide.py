@@ -4,7 +4,7 @@
 #
 # Seam mocks: none per §8.3. Redemption rows are built directly via
 # OnboardingRepository.create_allotment (BE-2's widened contract), same
-# approach as test_be4_pc_decide.py, to isolate BE-5's own decide logic.
+# approach as test_be4_pm_decide.py, to isolate BE-5's own decide logic.
 #
 # Run: .venv/Scripts/python.exe -m pytest -q tests/libs/onboarding/test_be5_co_decide.py
 
@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from app.libs.onboarding.schemas import RedemptionDecisionReq
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.post_trade_allocation import ClientPortfolio
 
 from tests.libs.onboarding.conftest import make_client, make_model, make_portfolio, make_subscription
@@ -69,10 +69,10 @@ def test_reject_on_awaiting_co_sets_terminal_fields_no_side_effects(session):
     assert portfolio.amount_in_trade == Decimal("50")
 
 
-# --- Positive: approve hands off to awaiting_pc, non-terminal -----------------------------
+# --- Positive: approve hands off to awaiting_pm, non-terminal -----------------------------
 
 
-def test_approve_on_awaiting_co_hands_off_to_awaiting_pc_only(session):
+def test_approve_on_awaiting_co_hands_off_to_awaiting_pm_only(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("10"))
@@ -86,7 +86,7 @@ def test_approve_on_awaiting_co_hands_off_to_awaiting_pc_only(session):
 
     dto = svc.co_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="co-uid")
 
-    assert dto.status == "awaiting_pc"
+    assert dto.status == "awaiting_pm"
     fresh = svc.repo.get_allotment(row.id)
     assert fresh.decided_by is None
     assert fresh.decided_at is None
@@ -98,7 +98,7 @@ def test_approve_on_awaiting_co_hands_off_to_awaiting_pc_only(session):
     assert portfolio.amount_in_trade == Decimal("50")
 
 
-# --- Positive: full two-gate sequence (CO approve -> PC approve) -------------------------
+# --- Positive: full two-gate sequence (CO approve -> PM approve) -------------------------
 
 
 def test_full_sequence_co_approve_then_pc_approve_reaches_approved_with_pc_as_final_decider(session):
@@ -113,13 +113,13 @@ def test_full_sequence_co_approve_then_pc_approve_reaches_approved_with_pc_as_fi
     session.commit()
 
     svc.co_decide_redemption(row.id, RedemptionDecisionReq(verdict="approve"), decided_by="co-uid")
-    dto = svc.pc_decide_redemption(
-        row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
+    dto = svc.pm_decide_redemption(
+        row.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid"
     )
 
     assert dto.status == "approved"
     fresh = svc.repo.get_allotment(row.id)
-    assert fresh.decided_by == "pc-uid"  # the FINAL decider, not CO's uid
+    assert fresh.decided_by == "pm-uid"  # the FINAL decider, not CO's uid
 
     sub = session.get(ClientSubscription, (client.id, model.id))
     assert sub.multiplier == Decimal("7")
@@ -132,7 +132,7 @@ def test_full_sequence_co_approve_then_pc_approve_reaches_approved_with_pc_as_fi
 
 @pytest.mark.parametrize(
     "status",
-    [AllotRdmpStatus.AWAITING_PC, AllotRdmpStatus.APPROVED, AllotRdmpStatus.REJECTED],
+    [AllotRdmpStatus.AWAITING_PM, AllotRdmpStatus.APPROVED, AllotRdmpStatus.REJECTED],
 )
 def test_decide_on_non_awaiting_co_status_raises_409(session, status):
     client = make_client(session)
@@ -169,7 +169,7 @@ def test_reject_without_reason_raises_422(session):
 # --- Invariant: CO approve is idempotently non-terminal -----------------------------------
 
 
-def test_second_co_decide_call_on_now_awaiting_pc_row_raises_409_not_reapprove(session):
+def test_second_co_decide_call_on_now_awaiting_pm_row_raises_409_not_reapprove(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("10"))

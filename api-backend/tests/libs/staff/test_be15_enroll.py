@@ -190,7 +190,7 @@ def test_enroll_refuses_409_when_the_email_already_has_a_firebase_identity(sessi
 # --- StaffService.enroll: invariants -------------------------------------------------
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.ADMIN, AdminRole.MOBO, AdminRole.PC])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.ADMIN, AdminRole.MOBO, AdminRole.PM])
 def test_enroll_stamps_portal_claim_exactly_once_with_enrolled_role(session, role):
     _service, _identity, claim_mock, _user, _invite = _enroll(session, role=role, email=f"{role.value}@example.com")
 

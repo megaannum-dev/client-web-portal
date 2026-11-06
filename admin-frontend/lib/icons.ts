@@ -107,7 +107,7 @@ export {
   // CRM — MOBO daily exception report (design-faithful glyphs)
   Banknote,
   CircleSlash,
-  // CRM — PC workspace
+  // CRM — PM workspace
   Calculator,
   Copy,
   History,
@@ -147,10 +147,10 @@ export {
   RotateCcw,
   MoreVertical,
   Undo2,
-  // CRM — PC Allocation Matrix SOP tooltip
+  // CRM — PM Allocation Matrix SOP tooltip
   MailCheck,
   ArrowRightLeft,
-  // CRM — PC Monthly Reports comment feature
+  // CRM — PM Monthly Reports comment feature
   MessageSquarePlus,
   MessageSquareText,
   // CRM — MOBO recon/commission redesign

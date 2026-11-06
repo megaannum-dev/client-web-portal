@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from app.libs.onboarding.schemas import SubmitRedemptionReq
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.post_trade_allocation import ClientPortfolio
 
 from tests.libs.onboarding.conftest import make_client, make_model, make_portfolio, make_subscription
@@ -28,7 +28,7 @@ from tests.libs.onboarding.conftest import make_client, make_model, make_portfol
 # --- Positive: $300k boundary routing ($300,000 model_size=1 for cent-exact math) ------
 
 
-def test_redemption_exactly_300k_routes_to_awaiting_pc(session):
+def test_redemption_exactly_300k_routes_to_awaiting_pm(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("500000"))
@@ -38,7 +38,7 @@ def test_redemption_exactly_300k_routes_to_awaiting_pc(session):
     req = SubmitRedemptionReq(client_id=client.id, model_id=model.id, multiplier=Decimal("300000"))
     dto = svc.submit_redemption(req)
 
-    assert dto.status == "awaiting_pc"
+    assert dto.status == "awaiting_pm"
 
 
 def test_redemption_one_dollar_above_300k_routes_to_awaiting_co(session):
@@ -160,7 +160,7 @@ def test_redemption_against_a_zero_unit_subscription_raises_422(session):
 
 def test_emergent_redemption_against_a_zero_unit_subscription_raises_422(session):
     """Without this guard, emergent's `multiplier = sub.multiplier` (already 0)
-    would sail a no-op redemption through the whole CO/PC approval chain."""
+    would sail a no-op redemption through the whole CO/PM approval chain."""
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
     make_subscription(session, client, model, multiplier=Decimal("0"))
@@ -229,7 +229,7 @@ def test_submit_inserts_exactly_one_allotment_row_and_one_event(session):
 
     allotment = svc.repo.get_allotment(dto.id)
     assert allotment.kind == AllotRdmpKind.REDEMPTION
-    assert allotment.status in (AllotRdmpStatus.AWAITING_PC, AllotRdmpStatus.AWAITING_CO)
+    assert allotment.status in (AllotRdmpStatus.AWAITING_PM, AllotRdmpStatus.AWAITING_CO)
 
     from app.models.onboarding import ClientEvent
 

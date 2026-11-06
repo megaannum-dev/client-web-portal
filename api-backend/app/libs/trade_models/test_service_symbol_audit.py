@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.libs.trade_models.schemas import SymbolIn
 from app.libs.trade_models.service import ModelService
-from app.models.pc import ModelSymbolAudit
+from app.models.pm import ModelSymbolAudit
 
 
 @pytest.fixture

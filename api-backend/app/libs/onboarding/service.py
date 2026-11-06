@@ -57,7 +57,7 @@ from app.models.onboarding import (
     TicketStatus,
     TransactionDetail,
 )
-from app.models.pc import ClientIbAccount, ClientSubscription, Model
+from app.models.pm import ClientIbAccount, ClientSubscription, Model
 from app.models.users import AccountStatus, AdminRole, ClientProfile, Portal, User
 from app.utils.filenames import fix_mojibake_filename
 from app.utils.uploads import validate_upload
@@ -92,7 +92,7 @@ _CONTACT_LOG_CONTENT_TYPES = {
 ONBOARDING_SETTLEMENT_DAYS = max(0, int(os.getenv("ONBOARDING_SETTLEMENT_DAYS", "5")))
 
 # BE-3 (D-2): redemptions strictly above this amount require Compliance
-# approval in addition to PC's.
+# approval in addition to PM's.
 _REDEMPTION_CO_THRESHOLD = Decimal("300000")
 
 # 017 BE-2: fixed currency set transaction details may settle in -- kept off
@@ -101,7 +101,7 @@ _REDEMPTION_CO_THRESHOLD = Decimal("300000")
 _VALID_CURRENCIES = {"USD", "CHF", "AUD", "GBP", "EUR", "CAD", "HKD"}
 
 # 017 BE-2: per-kind status a row must be in before RM can file settlement
-# details -- allotments are filed once PC has acknowledged them, redemptions
+# details -- allotments are filed once PM has acknowledged them, redemptions
 # once fully approved.
 _SETTLEMENT_ELIGIBLE_STATUS = {
     AllotRdmpKind.ALLOTMENT: AllotRdmpStatus.ACKNOWLEDGED,
@@ -672,7 +672,7 @@ class OnboardingService:
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
 
-    # ---- RM/PC: allotment submission (BE-2) --------------------------------
+    # ---- RM/PM: allotment submission (BE-2) --------------------------------
     def submit_allotment(self, req: SubmitAllotmentReq) -> AllotRdmptDTO:
         """Mirrors _approve_initial (service.py:242) without the onboarding
         ceremony: no compliance gate, no users.status change, no document checks."""
@@ -814,7 +814,7 @@ class OnboardingService:
     def _needs_co(self, amount: Decimal) -> bool:
         return amount > _REDEMPTION_CO_THRESHOLD
 
-    # ---- RM/PC: redemption submission (BE-3) -------------------------------
+    # ---- RM/PM: redemption submission (BE-3) -------------------------------
     def submit_redemption(self, req: SubmitRedemptionReq) -> AllotRdmptDTO:
         model = self.db.get(Model, req.model_id)
         if model is None:
@@ -841,7 +841,7 @@ class OnboardingService:
 
         amount = multiplier * (model.model_size or Decimal("0"))
         status_ = (
-            AllotRdmpStatus.AWAITING_CO if self._needs_co(amount) else AllotRdmpStatus.AWAITING_PC
+            AllotRdmpStatus.AWAITING_CO if self._needs_co(amount) else AllotRdmpStatus.AWAITING_PM
         )
         agg_before = self.repo.sum_subscription_multiplier(req.model_id)
         agg_after = agg_before - multiplier  # preview snapshot; not applied until final approval
@@ -883,8 +883,8 @@ class OnboardingService:
             raise
         return self._allotment_to_dto(allotment)
 
-    # ---- PC: redemption decide (BE-4) --------------------------------------
-    def pc_decide_redemption(
+    # ---- PM: redemption decide (BE-4) --------------------------------------
+    def pm_decide_redemption(
         self, allotment_id: uuid.UUID, req: RedemptionDecisionReq, *, decided_by: str
     ) -> AllotRdmptDTO:
         row = self.repo.get_allotment(allotment_id)
@@ -892,7 +892,7 @@ class OnboardingService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown redemption")
         if row.status == AllotRdmpStatus.AWAITING_CO:
             raise HTTPException(status.HTTP_409_CONFLICT, "Awaiting Compliance decision first")
-        if row.status != AllotRdmpStatus.AWAITING_PC:
+        if row.status != AllotRdmpStatus.AWAITING_PM:
             raise HTTPException(status.HTTP_409_CONFLICT, "Redemption already decided")
 
         try:
@@ -924,8 +924,8 @@ class OnboardingService:
                         f'Reason: "{req.reason}"'
                     ),
                 )
-            else:  # approve -- awaiting_pc is always the LAST gate (D-2's sequential
-                # machine: awaiting_co -> awaiting_pc -> approved), so this is final.
+            else:  # approve -- awaiting_pm is always the LAST gate (D-2's sequential
+                # machine: awaiting_co -> awaiting_pm -> approved), so this is final.
                 self._execute_redemption_approval(row, decided_by=decided_by)
             self.db.commit()
         except Exception:
@@ -936,8 +936,8 @@ class OnboardingService:
     def _execute_redemption_approval(
         self, row: ClientAllotmentRedemption, *, decided_by: str
     ) -> None:
-        """Terminal step, called only from pc_decide_redemption above (this same
-        unit) once a row reaches its final PC gate. (1) read agg_before, (2)
+        """Terminal step, called only from pm_decide_redemption above (this same
+        unit) once a row reaches its final PM gate. (1) read agg_before, (2)
         decrement client_subscriptions.multiplier (floored at 0 -- never
         deleted; there is no literal "unsubscription", the row is the
         client_ib_accounts binding's permanent anchor and a later
@@ -945,7 +945,7 @@ class OnboardingService:
         agg_after = agg_before - row.multiplier, (4) status=approved +
         decided_by/decided_at, (5) insert client_events. No commit here --
         caller's txn boundary. Defined in this unit (not BE-5) because
-        pc_decide_redemption, its only caller, lives here."""
+        pm_decide_redemption, its only caller, lives here."""
         self._guard_against_rm_decline(row.id)
         model = self.db.get(Model, row.model_id)
         assert model is not None
@@ -1011,17 +1011,17 @@ class OnboardingService:
                     ),
                 )
             else:  # approve -- D-2: CO is the FIRST gate for a >$300k row; hand off
-                # to PC. Never transitions straight to approved -- PC still owes
+                # to PM. Never transitions straight to approved -- PM still owes
                 # the terminal decision (BE-4's _execute_redemption_approval),
                 # so decided_by/decided_at/execute are NOT stamped here.
-                row.status = AllotRdmpStatus.AWAITING_PC
+                row.status = AllotRdmpStatus.AWAITING_PM
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
         return self._allotment_to_dto(row)
 
-    # ---- PC: allotments -----------------------------------------------------
+    # ---- PM: allotments -----------------------------------------------------
     def list_allotments(self) -> list[AllotRdmptDTO]:
         return [self._allotment_to_dto(a) for a in self.repo.list_allotments()]
 

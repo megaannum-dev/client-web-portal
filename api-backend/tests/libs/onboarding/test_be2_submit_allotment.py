@@ -18,7 +18,7 @@ from fastapi import HTTPException, status
 from app.libs.onboarding.schemas import RedemptionDecisionReq, SubmitAllotmentReq
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus, ClientEvent
-from app.models.pc import ClientIbAccount, ClientSubscription
+from app.models.pm import ClientIbAccount, ClientSubscription
 
 from tests.libs.onboarding.conftest import (
     make_client,
@@ -245,7 +245,7 @@ def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(
 
     # Full redemption of all 5 units -> _execute_redemption_approval floors the
     # subscription's multiplier at 0 (never deletes it), same path
-    # test_be4_pc_decide.py drives.
+    # test_be4_pm_decide.py drives.
     redemption = svc.repo.create_allotment(
         user_id=client.id,
         model_id=model.id,
@@ -253,12 +253,12 @@ def test_resubscribe_after_full_redemption_with_a_different_account_is_rejected(
         agg_before=Decimal("5"),
         agg_after=Decimal("0"),
         kind=AllotRdmpKind.REDEMPTION,
-        status=AllotRdmpStatus.AWAITING_PC,
+        status=AllotRdmpStatus.AWAITING_PM,
         note="full redemption",
     )
     session.commit()
-    svc.pc_decide_redemption(
-        redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
+    svc.pm_decide_redemption(
+        redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid"
     )
     sub = session.get(ClientSubscription, (client.id, model.id))
     assert sub is not None
@@ -311,12 +311,12 @@ def test_resubscribe_after_full_redemption_with_the_same_account_inherits_it(ses
         agg_before=Decimal("5"),
         agg_after=Decimal("0"),
         kind=AllotRdmpKind.REDEMPTION,
-        status=AllotRdmpStatus.AWAITING_PC,
+        status=AllotRdmpStatus.AWAITING_PM,
         note="full redemption",
     )
     session.commit()
-    svc.pc_decide_redemption(
-        redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pc-uid"
+    svc.pm_decide_redemption(
+        redemption.id, RedemptionDecisionReq(verdict="approve"), decided_by="pm-uid"
     )
     sub = session.get(ClientSubscription, (client.id, model.id))
     assert sub is not None

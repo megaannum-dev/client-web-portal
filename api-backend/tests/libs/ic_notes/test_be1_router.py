@@ -1,5 +1,5 @@
 """Router-level test for IC notes (compliance.ic-notes page): GET/POST/download
-gated by Action.IC_NOTES_VIEW / IC_NOTES_WRITE. PC is seeded EDIT, RM has no row.
+gated by Action.IC_NOTES_VIEW / IC_NOTES_WRITE. PM is seeded EDIT, RM has no row.
 
 Run: .venv/Scripts/python.exe -m pytest -q tests/libs/ic_notes
 """
@@ -61,7 +61,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         AdminProfile(user_id=stub_user.id, role=AdminRole.RM, name="Test RM")
     )
     seed_db.add(
-        PageAccess(page_id="compliance.ic-notes", role=AdminRole.PC, level=AccessLevel.EDIT)
+        PageAccess(page_id="compliance.ic-notes", role=AdminRole.PM, level=AccessLevel.EDIT)
     )
     seed_db.commit()
     seed_db.close()
@@ -70,7 +70,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         db: Annotated[OrmSession, Depends(get_db)],
     ) -> User:
         # Re-queried per request, not a cached object -- a mid-test role switch
-        # (RM -> PC below) must be observed. Same fix as reports/test_router.py.
+        # (RM -> PM below) must be observed. Same fix as reports/test_router.py.
         return db.query(User).filter(User.id == stub_user.id).one()
 
     app.dependency_overrides[get_db] = _override_get_db
@@ -82,9 +82,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         get_storage.cache_clear()
 
 
-def _make_pc(Session) -> None:
+def _make_pm(Session) -> None:
     db = Session()
-    db.query(AdminProfile).update({"role": AdminRole.PC})
+    db.query(AdminProfile).update({"role": AdminRole.PM})
     db.commit()
     db.close()
 
@@ -102,9 +102,9 @@ def test_rm_gets_403_on_list_upload_download(client):
     assert http.get(f"/api/ic-notes/{uuid.uuid4()}/download").status_code == 403
 
 
-def test_pc_upload_list_download_round_trip_and_audit(client):
+def test_pm_upload_list_download_round_trip_and_audit(client):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
 
     upload = http.post(
         "/api/ic-notes",
@@ -114,7 +114,7 @@ def test_pc_upload_list_download_round_trip_and_audit(client):
     assert upload.status_code == 201, upload.text
     body = upload.json()
     assert body["uploaded_by_name"] == "Test RM"  # profile row is still named "Test RM"
-    assert body["uploaded_by_role"] == "PC"
+    assert body["uploaded_by_role"] == "PM"
     assert body["uploaded_by_email"] == "rm@example.com"
     assert body["content_type"] == "text/markdown"
     assert "storage_key" not in body
@@ -138,7 +138,7 @@ def test_pc_upload_list_download_round_trip_and_audit(client):
 
 def test_unsupported_extension_is_415(client):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
 
     resp = http.post(
         "/api/ic-notes",
@@ -150,7 +150,7 @@ def test_unsupported_extension_is_415(client):
 
 def test_oversize_upload_is_413(client, monkeypatch: pytest.MonkeyPatch):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
     monkeypatch.setattr(ic_notes_service_module, "IC_NOTES_MAX_UPLOAD_BYTES", 4)
 
     resp = http.post(
@@ -163,7 +163,7 @@ def test_oversize_upload_is_413(client, monkeypatch: pytest.MonkeyPatch):
 
 def test_blank_title_is_422(client):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
 
     resp = http.post(
         "/api/ic-notes",
@@ -175,7 +175,7 @@ def test_blank_title_is_422(client):
 
 def test_empty_file_is_422(client):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
 
     resp = http.post(
         "/api/ic-notes",
@@ -187,7 +187,7 @@ def test_empty_file_is_422(client):
 
 def test_unknown_id_is_404(client):
     http, Session = client
-    _make_pc(Session)
+    _make_pm(Session)
 
     resp = http.get(f"/api/ic-notes/{uuid.uuid4()}/download")
     assert resp.status_code == 404

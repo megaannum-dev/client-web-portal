@@ -103,7 +103,7 @@ describe("FE-7 server/admin/index.ts — one function per §7.1 route", () => {
   it("grantOverride POSTs the override body", async () => {
     const { grantOverride } = await import("@/server/admin");
     const { ENDPOINTS } = await import("@/server/endpoints");
-    const body = { firebase_uid: "u1", page_id: "pc.model-management" as const, level: "EDIT" as const, reason: "x", expires_at: null };
+    const body = { firebase_uid: "u1", page_id: "pm.model-management" as const, level: "EDIT" as const, reason: "x", expires_at: null };
     await grantOverride(body);
     expect(mockApiClient).toHaveBeenCalledWith(ENDPOINTS.ADMIN.ACCESS_OVERRIDES, {
       method: "POST", body: JSON.stringify(body),

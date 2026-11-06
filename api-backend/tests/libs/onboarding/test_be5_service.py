@@ -24,7 +24,7 @@ from app.libs.onboarding.repository import OnboardingRepository
 from app.libs.onboarding.schemas import ResubmitReq, VerdictBatchReq, VerdictItem
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import ClientOnboarding
-from app.models.pc import ClientSubscription
+from app.models.pm import ClientSubscription
 from app.models.users import AccountStatus, AdminRole, User
 from tests.libs.onboarding.conftest import (
     FakeIdentityService,
@@ -699,9 +699,9 @@ def test_acknowledge_already_acknowledged_allotment_raises_409(svc, model, rm, c
         svc, model, rm_uid=rm.firebase_uid, compliance_uid=compliance.firebase_uid
     )
     allotment_id = svc.list_allotments()[0].id
-    svc.acknowledge_allotment(allotment_id, acked_by="pc-uid")
+    svc.acknowledge_allotment(allotment_id, acked_by="pm-uid")
     with pytest.raises(HTTPException) as exc:
-        svc.acknowledge_allotment(allotment_id, acked_by="pc-uid")
+        svc.acknowledge_allotment(allotment_id, acked_by="pm-uid")
     assert exc.value.status_code == 409
 
 
@@ -744,7 +744,7 @@ def test_upload_document_unknown_doc_type_raises_404(svc, model, rm):
 
 def test_acknowledge_unknown_allotment_id_raises_404(svc):
     with pytest.raises(HTTPException) as exc:
-        svc.acknowledge_allotment(uuid.uuid4(), acked_by="pc-uid")
+        svc.acknowledge_allotment(uuid.uuid4(), acked_by="pm-uid")
     assert exc.value.status_code == 404
 
 

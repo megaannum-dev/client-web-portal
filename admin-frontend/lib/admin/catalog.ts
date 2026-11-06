@@ -52,7 +52,7 @@ export const kFor = (pageId: PageId, role: Role): string => `${pageId}|${role}`;
 
 /** Fallback role order, used only until the first MatrixOut read resolves so the rails
  *  render. Display names and user counts come from MatrixOut.roles, never from here. */
-export const ROLE_CODES: readonly Role[] = ["RM", "MOBO", "PM", "PC", "COMPLIANCE", "ADMIN"];
+export const ROLE_CODES: readonly Role[] = ["RM", "MOBO", "PM", "COMPLIANCE", "ADMIN"];
 
 export const LEVEL_LABEL: Record<Level, string> = { NONE: "None", VIEW: "View", EDIT: "Edit" };
 

@@ -33,7 +33,6 @@ ROLE_NAMES: Final[dict[AdminRole, str]] = {
     AdminRole.RM: "Relationship Manager",
     AdminRole.MOBO: "Middle / Back Office",
     AdminRole.PM: "Portfolio Manager",
-    AdminRole.PC: "Portfolio Controller",
     AdminRole.COMPLIANCE: "Compliance Officer",
     AdminRole.ADMIN: "Administrator",
 }

@@ -198,7 +198,7 @@ def test_post_run_route_body_is_optional(client):
         ("POST", "/api/mobo/post-trade-allocation/run"),
     ],
 )
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_non_mobo_non_admin_gets_403_on_all_routes(client, method, path, role):
     http, Session, stub_user = client
     db = Session()

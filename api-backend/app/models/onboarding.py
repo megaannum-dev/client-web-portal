@@ -198,10 +198,10 @@ class AllotRdmpStatus(str, enum.Enum):
     PENDING = "pending"
     ACKNOWLEDGED = "acknowledged"
     # NEW (proposal 016, B-1):
-    AWAITING_PC = "awaiting_pc"  # redemption submitted, needs PC approval
+    AWAITING_PM = "awaiting_pm"  # redemption submitted, needs PM approval
     AWAITING_CO = "awaiting_co"  # redemption submitted, needs Compliance approval (amount > $300k)
     APPROVED = "approved"  # redemption fully approved, took effect
-    REJECTED = "rejected"  # redemption rejected by PC or CO
+    REJECTED = "rejected"  # redemption rejected by PM or CO
 
 
 class AllotRdmpKind(str, enum.Enum):
@@ -270,14 +270,14 @@ class ClientAllotmentRedemption(Base):
     )
     # --- widened 2026-07-22 (proposal 016, DB-2): redemption approval workflow ---
     reject_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # firebase_uid of PC/CO
+    # firebase_uid of PM/CO
     decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # server_default uses text("false") not the bare string "false" — a plain string
     # server_default is quoted as a string literal in the DDL (works on MySQL/MariaDB via
     # implicit cast, but on SQLite stores the literal text "false" and reads back truthy).
     # text() emits unquoted SQL, matching the existing Boolean-default convention in
-    # app/models/pc.py (`server_default=text("1")`) and this table's own migration
+    # app/models/pm.py (`server_default=text("1")`) and this table's own migration
     # (op.add_column(..., server_default=sa.text("false"))).
     emergent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     # widened 2026-07-22 (proposal 016, BE-2/BE-3 gap fix): redemption's settlement-date

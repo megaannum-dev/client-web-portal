@@ -14,7 +14,7 @@ export interface Redemption {
   mult: number;
   rm: string;
   date: string;
-  pcApproved: string;
+  pmApproved: string;
   status: CrStatus;
   gateLimit: number;
   liquidity: number;
@@ -32,13 +32,13 @@ export const COMPLIANCE_THRESHOLD = 300000;
 /* status: pending_co | approved_co | rejected_co */
 export const CR_REDEMPTIONS: Redemption[] = [
   { id: "cr1", ref: "RD-2026-001", mid: "mA", mult: 1, rm: "James Liu", date: "11 Jul 2026",
-    pcApproved: "12 Jul 2026", status: "pending_co", gateLimit: 10, liquidity: 78, emergent: true },
+    pmApproved: "12 Jul 2026", status: "pending_co", gateLimit: 10, liquidity: 78, emergent: true },
   { id: "cr2", ref: "RD-2026-005", mid: "mB", mult: 2, rm: "Sarah Chen", date: "09 Jul 2026",
-    pcApproved: "10 Jul 2026", status: "pending_co", gateLimit: 15, liquidity: 62 },
+    pmApproved: "10 Jul 2026", status: "pending_co", gateLimit: 15, liquidity: 62 },
   { id: "cr3", ref: "RD-2026-003", mid: "mA", mult: 0.5, rm: "David Park", date: "06 Jul 2026",
-    pcApproved: "07 Jul 2026", status: "approved_co", gateLimit: 10, liquidity: 85 },
+    pmApproved: "07 Jul 2026", status: "approved_co", gateLimit: 10, liquidity: 85 },
   { id: "cr4", ref: "RD-2026-008", mid: "mC", mult: 3, rm: "James Liu", date: "13 Jul 2026",
-    pcApproved: "14 Jul 2026", status: "pending_co", gateLimit: 8, liquidity: 44 },
+    pmApproved: "14 Jul 2026", status: "pending_co", gateLimit: 8, liquidity: 44 },
 ];
 
 /* ---- helpers ---------------------------------------------- */
@@ -85,6 +85,6 @@ export interface Guideline {
   status: "active" | string; version: number;
 }
 // Empty: the only real client in this build (Wilson Lee, see
-// lib/pc/investment-guideline-mock.ts) hasn't had a guideline uploaded by
+// lib/pm/investment-guideline-mock.ts) hasn't had a guideline uploaded by
 // a PM yet — nothing exists here for Compliance to reference yet either.
 export const GR_GUIDELINES: Guideline[] = [];

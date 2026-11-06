@@ -63,7 +63,7 @@ describe("FE-2 server/rm.submitAllotment", () => {
 
 describe("FE-2 server/rm.submitRedemption", () => {
   it("POSTs to ENDPOINTS.RM.SUBMIT_REDEMPTION with the exact request body", async () => {
-    const dto = { ...ALLOTMENT, kind: "redemption" as const, status: "awaiting_pc" as const };
+    const dto = { ...ALLOTMENT, kind: "redemption" as const, status: "awaiting_pm" as const };
     mockFetchOnce(dto);
     const req = { client_id: "c-1", model_id: "m-1", multiplier: 1, expected_cash_out: "2026-08-15", emergent: false };
     const result = await submitRedemption(req);

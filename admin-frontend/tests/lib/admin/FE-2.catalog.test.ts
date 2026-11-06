@@ -62,8 +62,8 @@ describe("FE-2 PAGE_CATALOG derived from PAGES", () => {
     });
 
     it("kFor is injective over (PageId, Role) — distinct roles on the same page never collide", () => {
-      expect(kFor("pc.allocation-matrix", "PC")).toBe("pc.allocation-matrix|PC");
-      expect(kFor("pc.allocation-matrix", "PC")).not.toBe(kFor("pc.allocation-matrix", "PM"));
+      expect(kFor("pm.allocation-matrix", "PM")).toBe("pm.allocation-matrix|PM");
+      expect(kFor("pm.allocation-matrix", "PM")).not.toBe(kFor("pm.allocation-matrix", "COMPLIANCE"));
     });
 
     it("kFor's output never depends on array position (ROLE_CODES order is not load-bearing)", () => {
@@ -87,7 +87,7 @@ describe("FE-2 PAGE_CATALOG derived from PAGES", () => {
       const isLocked = (pageId: PageId, role: Role) => role === "ADMIN" && pageId.startsWith("admin.");
       expect(isLocked("admin.enroll-user", "ADMIN")).toBe(true);
       expect(isLocked("admin.system-config", "ADMIN")).toBe(true);
-      expect(isLocked("admin.enroll-user", "PC")).toBe(false);
+      expect(isLocked("admin.enroll-user", "PM")).toBe(false);
       expect(isLocked("rm.client-info", "ADMIN")).toBe(false);
     });
   });

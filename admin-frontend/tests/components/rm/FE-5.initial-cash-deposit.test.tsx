@@ -13,7 +13,7 @@ import { useModels } from "@/hooks/api/useModels";
 import { OnboardingModal } from "@/components/rm/OnboardingModal";
 
 /** A fake Model, deliberately carrying BOTH `size` (the field the existing
- *  `Model` type in lib/pc/types.ts actually uses) and `model_size` (the
+ *  `Model` type in lib/pm/types.ts actually uses) and `model_size` (the
  *  literal name §6 FE-5's contract snippet reads) so this black-box test
  *  doesn't have to take a side on that naming — it only ever observes the
  *  modal through its rendered DOM, never the implementation's internal

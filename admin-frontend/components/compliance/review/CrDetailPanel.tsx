@@ -35,10 +35,10 @@ export function CrDetailPanel({
   onDecision: (id: string, verdict: "approve" | "reject", reason?: string) => void;
 }) {
   // D-2: for >$300k redemptions, Compliance is the FIRST gate (awaiting_co),
-  // PC is the second/final gate (awaiting_pc -> approved) -- CO never sees a
-  // row that's already "PC-approved".
+  // PM is the second/final gate (awaiting_pm -> approved) -- CO never sees a
+  // row that's already "PM-approved".
   const pending = r.status === "awaiting_co";
-  const awaitingPc = r.status === "awaiting_pc";
+  const awaitingPm = r.status === "awaiting_pm";
   const canEdit = useCanEdit("compliance.review");
   return (
     <DetailShell
@@ -59,7 +59,7 @@ export function CrDetailPanel({
       {/* View/Edit Gate Function */}
       {canEdit && (
         <Notice tone="warn" icon={Shield}>
-          <b>Compliance gate</b> — exceeds US${COMPLIANCE_THRESHOLD.toLocaleString()} ({coMoney(r.amount)}). Compliance decides first; PC gives the final sign-off before release.
+          <b>Compliance gate</b> — exceeds US${COMPLIANCE_THRESHOLD.toLocaleString()} ({coMoney(r.amount)}). Compliance decides first; PM gives the final sign-off before release.
         </Notice>
       )}
       <div className="mt-3.5 flex items-center gap-[7px] text-[12.5px] text-secondary">
@@ -85,9 +85,9 @@ export function CrDetailPanel({
             />
             <div className="ml-1 h-4 w-px bg-outline-variant" />
             <WorkflowStep
-              label="PC approval (final)"
-              sub={awaitingPc ? "Awaiting PC sign-off" : r.status === "approved" ? "Approved" : "Pending"}
-              state={r.status === "approved" ? "done" : awaitingPc ? "current" : "pending"}
+              label="PM approval (final)"
+              sub={awaitingPm ? "Awaiting PM sign-off" : r.status === "approved" ? "Approved" : "Pending"}
+              state={r.status === "approved" ? "done" : awaitingPm ? "current" : "pending"}
             />
           </div>
         )}
@@ -106,9 +106,9 @@ export function CrDetailPanel({
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
             {r.status === "rejected" && <><X size={15} strokeWidth={2} />Rejected — blocked</>}
-            {r.status === "awaiting_pc" && "Approved by you — awaiting PC sign-off"}
+            {r.status === "awaiting_pm" && "Approved by you — awaiting PM sign-off"}
             {r.status === "approved" && <><Check size={15} strokeWidth={2} />Approved — released</>}
-            {r.status !== "rejected" && r.status !== "awaiting_pc" && r.status !== "approved" && `Unexpected status: ${r.status}`}
+            {r.status !== "rejected" && r.status !== "awaiting_pm" && r.status !== "approved" && `Unexpected status: ${r.status}`}
           </span>
         )}
       </div>

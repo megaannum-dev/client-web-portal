@@ -29,7 +29,7 @@ const RM_WITH_BOOK = {
 };
 const RM_NO_BOOK = { ...RM_WITH_BOOK, firebase_uid: "rm-2", client_count: 0, open_ticket_count: 0 };
 const OTHER_RM = { ...RM_WITH_BOOK, firebase_uid: "rm-3", name: "Active Receiver", client_count: 5 };
-const PC_USER = { ...RM_WITH_BOOK, firebase_uid: "pc-1", role: "PC", client_count: null, open_ticket_count: null };
+const PM_USER = { ...RM_WITH_BOOK, firebase_uid: "pm-1", role: "PM", client_count: null, open_ticket_count: null };
 
 describe("FE-15 DeactivateModal", () => {
   function mountStore(staff: unknown[]) {
@@ -39,7 +39,7 @@ describe("FE-15 DeactivateModal", () => {
   }
 
   it("positive: for an RM with a book, the picker renders with real client_count/open_ticket_count numbers, lists only other active RMs", async () => {
-    mountStore([RM_WITH_BOOK, OTHER_RM, PC_USER]);
+    mountStore([RM_WITH_BOOK, OTHER_RM, PM_USER]);
     const { DeactivateModal } = await import("@/components/admin/enroll/LifecycleModals");
     render(<DeactivateModal user={RM_WITH_BOOK as never} onClose={vi.fn()} />);
     expect(screen.getByText(/23 clients/)).toBeInTheDocument();
@@ -67,13 +67,13 @@ describe("FE-15 DeactivateModal", () => {
     expect(screen.getByRole("button", { name: /deactivate account/i })).toBeDisabled();
   });
 
-  it("negative: no picker renders for a PC user, and the patch carries no reassign_book_to", async () => {
-    const updateStaff = mountStore([PC_USER, RM_WITH_BOOK]);
+  it("negative: no picker renders for a PM user, and the patch carries no reassign_book_to", async () => {
+    const updateStaff = mountStore([PM_USER, RM_WITH_BOOK]);
     const { DeactivateModal } = await import("@/components/admin/enroll/LifecycleModals");
-    render(<DeactivateModal user={PC_USER as never} onClose={vi.fn()} />);
+    render(<DeactivateModal user={PM_USER as never} onClose={vi.fn()} />);
     expect(screen.queryByText(/pick a receiving rm/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /deactivate account/i }));
-    expect(updateStaff).toHaveBeenCalledWith("pc-1", expect.not.objectContaining({ reassign_book_to: expect.anything() }));
+    expect(updateStaff).toHaveBeenCalledWith("pm-1", expect.not.objectContaining({ reassign_book_to: expect.anything() }));
   });
 
   it("negative: no picker renders for an RM whose client_count is 0", async () => {
@@ -106,7 +106,7 @@ describe("FE-15 DeactivateModal", () => {
 
   it("invariant: the receiver list never contains the user being deactivated, a non-ACTIVE user, or a non-RM", async () => {
     const deactivatedRm = { ...OTHER_RM, firebase_uid: "rm-4", name: "Gone Already", status: "DEACTIVATED" };
-    mountStore([RM_WITH_BOOK, OTHER_RM, PC_USER, deactivatedRm]);
+    mountStore([RM_WITH_BOOK, OTHER_RM, PM_USER, deactivatedRm]);
     const { DeactivateModal } = await import("@/components/admin/enroll/LifecycleModals");
     render(<DeactivateModal user={RM_WITH_BOOK as never} onClose={vi.fn()} />);
     fireEvent.click(screen.getByText(/pick a receiving rm/i));

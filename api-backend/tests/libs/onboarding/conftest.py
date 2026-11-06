@@ -33,7 +33,7 @@ from app.libs.onboarding.compliance_doc_config import REQUIRED_DOCS
 from app.libs.onboarding.schemas import StartOnboardingReq, VerdictBatchReq, VerdictItem
 from app.libs.onboarding.service import OnboardingService
 from app.models.onboarding import AllotRdmpKind, AllotRdmpStatus, ClientAllotmentRedemption
-from app.models.pc import ClientSubscription, Model
+from app.models.pm import ClientSubscription, Model
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AccountStatus, AdminProfile, AdminRole, ClientProfile, Portal, User
 from tests.libs.clients.conftest import FakeIdentityService

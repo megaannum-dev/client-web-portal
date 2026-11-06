@@ -247,20 +247,20 @@ describe("FE-1 server/onboarding — Compliance", () => {
   });
 });
 
-describe("FE-1 server/onboarding — PC", () => {
+describe("FE-1 server/onboarding — PM", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("fetchAllotments() hits GET /api/pc/allotments and returns the AllotRdmptDTO[] verbatim", async () => {
+  it("fetchAllotments() hits GET /api/pm/allotments and returns the AllotRdmptDTO[] verbatim", async () => {
     mockFetchOnce([ALLOTMENT]);
     const result = await fetchAllotments();
-    expect(calledUrl().endsWith(ENDPOINTS.PC.ALLOTMENTS)).toBe(true);
+    expect(calledUrl().endsWith(ENDPOINTS.PM.ALLOTMENTS)).toBe(true);
     expect(result).toEqual({ success: true, data: [ALLOTMENT] });
   });
 
   it("acknowledgeAllotment() POSTs to the acknowledge route and returns the updated DTO", async () => {
     mockFetchOnce({ ...ALLOTMENT, status: "acknowledged", acknowledged_at: "2026-07-20T00:00:00Z" });
     const result = await acknowledgeAllotment("al-1");
-    expect(calledUrl().endsWith(ENDPOINTS.PC.ALLOTMENT_ACK("al-1"))).toBe(true);
+    expect(calledUrl().endsWith(ENDPOINTS.PM.ALLOTMENT_ACK("al-1"))).toBe(true);
     expect(calledInit()?.method).toBe("POST");
     expect(result.success).toBe(true);
   });

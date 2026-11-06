@@ -25,7 +25,7 @@ describe("FE-4 statusToChip", () => {
   it.each([
     ["pending", "active", "Confirmed"],
     ["acknowledged", "active", "Confirmed"],
-    ["awaiting_pc", "pending", "Awaiting Approval"],
+    ["awaiting_pm", "pending", "Awaiting Approval"],
     ["awaiting_co", "pending", "Awaiting Approval"],
     ["approved", "active", "Approved"],
     ["rejected", "overdue", "Rejected"],
@@ -36,7 +36,7 @@ describe("FE-4 statusToChip", () => {
 
 describe("FE-4 allotmentToTxnRow carries status as the 10th element", () => {
   it.each([
-    "pending", "acknowledged", "awaiting_pc", "awaiting_co", "approved", "rejected",
+    "pending", "acknowledged", "awaiting_pm", "awaiting_co", "approved", "rejected",
   ] as const)("a DTO with status=%s produces a TxnRow whose 10th element is that status", (status) => {
     const row = allotmentToTxnRow(makeAllot({ status }), "IB-4471");
     expect(row[9]).toBe(status);

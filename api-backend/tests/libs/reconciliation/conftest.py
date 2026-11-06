@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
-from app.models.pc import AllocationModelSnapshot, AllocationPeriod, Model, ModelStatus, PeriodStatus
+from app.models.pm import AllocationModelSnapshot, AllocationPeriod, Model, ModelStatus, PeriodStatus
 from app.models.post_trade_allocation import PostTradeAllocationRun, RunStatus, RunTrigger
 from app.models.reconciliation import Order
 from app.models.users import Portal, User

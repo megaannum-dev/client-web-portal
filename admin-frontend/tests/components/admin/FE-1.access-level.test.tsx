@@ -97,7 +97,7 @@ describe("FE-1 the single AccessLevel vocabulary", () => {
   describe("isReduction (private to ConfigModals.tsx) — tested via PublishModal's rendered diff", () => {
     it("counts a change to NONE and an EDIT→VIEW change as reductions, but not a VIEW→EDIT widening or a no-op", async () => {
       const staged: StagedChange[] = [
-        { page_id: "pc.model-management", label: "Model Management", role: "PC", from: "EDIT", to: "NONE" },
+        { page_id: "pm.model-management", label: "Model Management", role: "PM", from: "EDIT", to: "NONE" },
         { page_id: "rm.client-info", label: "Client Information", role: "RM", from: "EDIT", to: "VIEW" },
         { page_id: "mobo.commission-tracking", label: "Commission Tracking", role: "MOBO", from: "VIEW", to: "EDIT" },
       ];

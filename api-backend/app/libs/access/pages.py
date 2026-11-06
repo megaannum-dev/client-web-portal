@@ -59,14 +59,14 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "compliance.sop": PageMeta(
         "compliance.sop", "Compliance", "SOP Documents", "/compliance/sop"
     ),
-    "pc.allotment-redemption": PageMeta(
-        "pc.allotment-redemption",
+    "pm.allotment-redemption": PageMeta(
+        "pm.allotment-redemption",
         "Client Management",
         "Allotment & Redemption",
-        "/pc/allotment-redemption",
+        "/pm/allotment-redemption",
     ),
-    "pc.allocation-matrix": PageMeta(
-        "pc.allocation-matrix", "Trade Management", "Allocation Matrix", "/pc/allocation-matrix"
+    "pm.allocation-matrix": PageMeta(
+        "pm.allocation-matrix", "Trade Management", "Allocation Matrix", "/pm/allocation-matrix"
     ),
     "mobo.post-trade-allocation": PageMeta(
         "mobo.post-trade-allocation",
@@ -89,8 +89,8 @@ PAGE_META: Final[dict[str, PageMeta]] = {
     "shared.monthly-reports": PageMeta(
         "shared.monthly-reports", "Trade Management", "Monthly Reports (Models)", "/monthly-reports"
     ),
-    "pc.model-management": PageMeta(
-        "pc.model-management", "System", "Model Management", "/pc/model-management"
+    "pm.model-management": PageMeta(
+        "pm.model-management", "System", "Model Management", "/pm/model-management"
     ),
     "admin.enroll-user": PageMeta(
         "admin.enroll-user", "System", "Enroll User", "/admin/enroll-user"
@@ -125,10 +125,10 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # grant can load the board read-only; every mutating route (start/upload/
     # submit) and the wizard-support/detail/download GETs stay on ONBOARDING_WRITE.
     # MODEL_VIEW is also carried at VIEW: the onboarding/renewal wizard's "Initial
-    # Model to Subscribe" dropdown calls GET /pc/models, which is otherwise gated
-    # by the separate pc.model-management page -- this page's own bucket must
+    # Model to Subscribe" dropdown calls GET /pm/models, which is otherwise gated
+    # by the separate pm.model-management page -- this page's own bucket must
     # grant it directly so RM can populate that dropdown independent of whatever
-    # (possibly revoked) access RM holds on pc.model-management itself.
+    # (possibly revoked) access RM holds on pm.model-management itself.
     "rm.onboarding-renewal": (
         fs(Action.ONBOARDING_VIEW, Action.MODEL_VIEW), fs(Action.ONBOARDING_WRITE)
     ),
@@ -148,22 +148,22 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
         fs(Action.POST_TRADE_ALLOCATION_VIEW),
         fs(Action.POST_TRADE_ALLOCATION_RUN),
     ),
-    # ---- PC ----
-    "pc.model-management": (fs(Action.MODEL_VIEW), fs(Action.MODEL_WRITE)),
-    "pc.allocation-matrix": (fs(Action.ALLOCATION_VIEW), fs(Action.ALLOCATION_WRITE)),
-    # BE-22 (C-12/D-16): `view` now reads the page (GET /pc/allotments) and nothing
-    # else; `edit` adds acknowledge/decide -- exactly what PC (the only role that
+    # ---- PM ----
+    "pm.model-management": (fs(Action.MODEL_VIEW), fs(Action.MODEL_WRITE)),
+    "pm.allocation-matrix": (fs(Action.ALLOCATION_VIEW), fs(Action.ALLOCATION_WRITE)),
+    # BE-22 (C-12/D-16): `view` now reads the page (GET /pm/allotments) and nothing
+    # else; `edit` adds acknowledge/decide -- exactly what PM (the only role that
     # held this page before D-11) has today. Was: (fs(ALLOTMENT_ACKNOWLEDGE), fs()) --
     # D-11's seed grants `view` here to RM/MOBO/COMPLIANCE too, and the old bucket's
     # ALLOTMENT_ACKNOWLEDGE guarded the mutating routes as well as the read, which
     # would have been a real read/write conflation once those roles could reach it.
-    "pc.allotment-redemption": (fs(Action.ALLOTMENT_VIEW), fs(Action.ALLOTMENT_ACKNOWLEDGE)),
+    "pm.allotment-redemption": (fs(Action.ALLOTMENT_VIEW), fs(Action.ALLOTMENT_ACKNOWLEDGE)),
     # ---- COMPLIANCE ----
     # Every /compliance/* route (board read, download, verdict, approve, reject) is
     # guarded by ONBOARDING_REVIEW, so the review page's EDIT bucket carries it and
     # the overview — a read-only dashboard over the same board — carries no action of
     # its own. Empty/empty also means a `view` cell on compliance.review (which the
-    # seed gives PC) grants NOTHING -- no role gains verdict/approve rights from a
+    # seed gives PM) grants NOTHING -- no role gains verdict/approve rights from a
     # read grant. COMPLIANCE's board reads arrive via its own `edit` on that page.
     "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
     # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).

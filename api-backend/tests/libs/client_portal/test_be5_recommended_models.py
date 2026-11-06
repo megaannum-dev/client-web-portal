@@ -26,7 +26,7 @@ from app.libs.client_portal.schemas import RecommendedModelDTO
 from app.libs.client_portal.service import ClientPortalService
 from fastapi import HTTPException
 
-from app.models.pc import ModelStatus
+from app.models.pm import ModelStatus
 from tests.libs.client_portal.conftest import (
     FakeStorage,
     make_client,

@@ -1,6 +1,6 @@
 """Router-level auth test for EoM report comments — GET is open to any
 authenticated admin, PUT is gated by Action.EOM_COMMENT_WRITE (page
-shared.monthly-reports, edit bucket -- PC by seed).
+shared.monthly-reports, edit bucket -- PM by seed).
 
 Run: .venv/Scripts/python.exe -m pytest -q app/libs/reports/test_router.py
 """
@@ -47,16 +47,16 @@ def client():
         portal=Portal.ADMIN,
     )
 
-    # RM has no page_access row on shared.monthly-reports -- a non-PC role for
+    # RM has no page_access row on shared.monthly-reports -- a non-PM role for
     # the 403 assertion (proposal 019 / BE-5: require_action resolves from
     # page_access, not a role-keyed dict, so an unseeded (role, page) pair
-    # denies naturally). PC gets `edit` seeded so the mid-test role switch to
-    # PC is granted exactly as this test already expects.
+    # denies naturally). PM gets `edit` seeded so the mid-test role switch to
+    # PM is granted exactly as this test already expects.
     seed_db = Session()
     seed_db.add(stub_user)
     seed_db.add(AdminProfile(user_id=stub_user.id, role=AdminRole.RM))
     seed_db.add(
-        PageAccess(page_id="shared.monthly-reports", role=AdminRole.PC, level=AccessLevel.EDIT)
+        PageAccess(page_id="shared.monthly-reports", role=AdminRole.PM, level=AccessLevel.EDIT)
     )
     seed_db.commit()
     seed_db.close()
@@ -66,7 +66,7 @@ def client():
     ) -> User:
         """Re-queries `stub_user` by id on the CURRENT request's session rather
         than handing back one fixed Python object -- the test mutates
-        AdminProfile.role mid-test via a separate session (RM -> PC below),
+        AdminProfile.role mid-test via a separate session (RM -> PM below),
         which a cached object's `admin_profile` relationship would never
         observe (see app/libs/trade_models/test_router_symbols.py for the
         same fix, applied first)."""
@@ -80,7 +80,7 @@ def client():
         app.dependency_overrides.clear()
 
 
-def test_non_pc_role_gets_403_on_put_but_200_on_get(client):
+def test_non_pm_role_gets_403_on_put_but_200_on_get(client):
     http, _Session = client
 
     get_resp = http.get("/api/reports/eom-comments")
@@ -93,11 +93,11 @@ def test_non_pc_role_gets_403_on_put_but_200_on_get(client):
     assert put_resp.status_code == 403
 
 
-def test_pc_role_can_put_and_it_round_trips_on_get(client):
+def test_pm_role_can_put_and_it_round_trips_on_get(client):
     http, Session = client
 
     db = Session()
-    db.query(AdminProfile).update({"role": AdminRole.PC})
+    db.query(AdminProfile).update({"role": AdminRole.PM})
     db.commit()
     db.close()
 

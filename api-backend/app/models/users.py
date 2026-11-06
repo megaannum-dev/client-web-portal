@@ -17,7 +17,6 @@ class AdminRole(str, enum.Enum):
     RM = "RM"
     MOBO = "MOBO"  # Middle/Back-Office — operational processing & firm-wide oversight.
     PM = "PM"
-    PC = "PC"
     COMPLIANCE = "COMPLIANCE"
     ADMIN = "ADMIN"
 

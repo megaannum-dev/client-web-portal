@@ -16,7 +16,7 @@ vi.mock("next/headers", () => ({
 
 import { apiClient, apiClientConditional, apiClientFormData } from "@/server/api-client";
 import { downloadDocument } from "@/server/onboarding";
-import { downloadMaterial } from "@/server/pc";
+import { downloadMaterial } from "@/server/pm";
 
 // A well-formed envelope whose `detail`/`code` are deliberately NOT "Unauthorized"/"UNAUTHORIZED" —
 // if the ordering ever regresses (envelope parsed before/instead of the 401 check), this body's
@@ -75,7 +75,7 @@ describe("FE-9 — 401 short-circuit precedes envelope parsing (regression lock 
     });
   });
 
-  it("spot check — server/pc downloadMaterial (base64 proxy) keeps the same ordering", async () => {
+  it("spot check — server/pm downloadMaterial (base64 proxy) keeps the same ordering", async () => {
     mockFetchOnce(401);
     expect(await downloadMaterial("m-1", "mat-1")).toEqual({
       success: false, error: "Unauthorized", code: "UNAUTHORIZED",

@@ -6,7 +6,7 @@
 // prop, so the room's per-role avatar stays local to this folder).
 
 import clsx from "clsx";
-import { fmtTimestampParts } from "@/lib/pc/format";
+import { fmtTimestampParts } from "@/lib/pm/format";
 import { AttachmentRow } from "./AttachmentRow";
 import { CR_ROLE, type ChatAttachment, type ChatMessage, type SenderRole } from "./types";
 

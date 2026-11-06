@@ -84,12 +84,12 @@ describe("FE-5 groupsFor(grants, role) (lib/pages-config.ts)", () => {
   it("omits a page the grant map does not hold, even if it exists in PAGES", () => {
     const groups = groupsFor(COMPLIANCE_DAY_ONE_GRANTS, "COMPLIANCE");
     const hrefs = groups[0].pages.map((p) => p.href);
-    expect(hrefs).not.toContain("/pc/model-management");
+    expect(hrefs).not.toContain("/pm/model-management");
   });
 
   describe("invariants", () => {
     it("an empty grant map yields zero nav groups for every role, including ADMIN and PM", () => {
-      for (const role of ["RM", "MOBO", "PC", "COMPLIANCE", "ADMIN", "PM"] as const) {
+      for (const role of ["RM", "MOBO", "COMPLIANCE", "ADMIN", "PM"] as const) {
         expect(groupsFor({}, role)).toEqual([]);
       }
     });
@@ -101,7 +101,7 @@ describe("FE-5 groupsFor(grants, role) (lib/pages-config.ts)", () => {
 });
 
 describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
-  async function renderGuard(portalUser: unknown, pathname: string, prefix = "/pc") {
+  async function renderGuard(portalUser: unknown, pathname: string, prefix = "/pm") {
     mockUsePathname.mockReturnValue(pathname);
     mockUseAuth.mockReturnValue({ portalUser, loading: false, backendSyncing: false });
     const { RoleGuard } = await import("@/components/auth/RoleGuard");
@@ -114,23 +114,23 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("positive: renders children for a page the grants include", async () => {
     await renderGuard(
-      { role: "PC", grants: { "pc.model-management": "EDIT" } },
-      "/pc/model-management",
+      { role: "PM", grants: { "pm.model-management": "EDIT" } },
+      "/pm/model-management",
     );
     expect(screen.getByTestId("protected-children")).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("keeps children mounted during a background grant refresh (backendSyncing with a profile)", async () => {
-    mockUsePathname.mockReturnValue("/pc/model-management");
+    mockUsePathname.mockReturnValue("/pm/model-management");
     mockUseAuth.mockReturnValue({
-      portalUser: { role: "PC", grants: { "pc.model-management": "EDIT" } },
+      portalUser: { role: "PM", grants: { "pm.model-management": "EDIT" } },
       loading: false,
       backendSyncing: true,
     });
     const { RoleGuard } = await import("@/components/auth/RoleGuard");
     render(
-      <RoleGuard prefix="/pc">
+      <RoleGuard prefix="/pm">
         <div data-testid="protected-children">protected</div>
       </RoleGuard>,
     );
@@ -139,8 +139,8 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("negative: for a known page the grants omit, renders <NoAccess> and does NOT redirect", async () => {
     await renderGuard(
-      { role: "PC", grants: {} },
-      "/pc/allocation-matrix",
+      { role: "PM", grants: {} },
+      "/pm/allocation-matrix",
     );
     expect(screen.queryByTestId("protected-children")).not.toBeInTheDocument();
     // The proposal explicitly rejects a silent bounce here — assert the ABSENCE of the
@@ -151,18 +151,18 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
   });
 
   it("negative: with no portalUser, still redirects (unauthenticated case is unchanged)", async () => {
-    await renderGuard(null, "/pc/model-management");
+    await renderGuard(null, "/pm/model-management");
     await act(async () => {});
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
   it("negative: a pathname that resolves to no specific PageId, with no grant on ANY page under the prefix, redirects to redirectTo", async () => {
-    // "/pc" (the bare namespace root) matches no PAGES entry, so pageIdForPath returns
+    // "/pm" (the bare namespace root) matches no PAGES entry, so pageIdForPath returns
     // null and step 3's <NoAccess> branch never triggers — this exercises the guard's
     // OTHER negative path: nothing at all held under the namespace.
     await renderGuard(
       { role: "COMPLIANCE", grants: {} },
-      "/pc",
+      "/pm",
     );
     await act(async () => {});
     expect(mockReplace).toHaveBeenCalledWith("/");
@@ -170,8 +170,8 @@ describe("FE-5 RoleGuard (components/auth/RoleGuard.tsx)", () => {
 
   it("negative: a pathname that resolves to no PageId at all does not block (no NoAccess, no redirect)", async () => {
     await renderGuard(
-      { role: "PC", grants: { "pc.model-management": "EDIT" } },
-      "/pc/some-unmapped-subroute",
+      { role: "PM", grants: { "pm.model-management": "EDIT" } },
+      "/pm/some-unmapped-subroute",
     );
     expect(screen.getByTestId("protected-children")).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();

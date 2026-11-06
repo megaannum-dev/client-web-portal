@@ -133,7 +133,7 @@ def test_update_super_admin_caller_200(client, stub_service):
 # --- Negative: non-super-admin caller (lacks USER_MANAGE) ---------------------------
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_enroll_non_super_admin_caller_403(client, role):
     http, Session, stub_user = client
     _set_caller_role(Session, stub_user, role)
@@ -145,7 +145,7 @@ def test_enroll_non_super_admin_caller_403(client, role):
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.PC, AdminRole.COMPLIANCE])
+@pytest.mark.parametrize("role", [AdminRole.RM, AdminRole.MOBO, AdminRole.PM, AdminRole.COMPLIANCE])
 def test_update_non_super_admin_caller_403(client, role):
     http, Session, stub_user = client
     _set_caller_role(Session, stub_user, role)

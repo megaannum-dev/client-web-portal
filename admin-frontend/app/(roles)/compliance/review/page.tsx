@@ -4,10 +4,10 @@
 //   · Onboarding — review client packages + required docs, approve or send back
 //     for resubmission (nothing is ever declined outright).
 //   · Redemptions — Compliance's gate on large ( > US$300K ) redemptions;
-//     Compliance decides FIRST (awaiting_co), PC gives the final sign-off
-//     second (awaiting_pc -> approved) -- see proposal 016 D-2.
+//     Compliance decides FIRST (awaiting_co), PM gives the final sign-off
+//     second (awaiting_pm -> approved) -- see proposal 016 D-2.
 // Thin orchestrator holding UI state; queue tables + slide-in detail panels.
-// Both tabs wired to live data (FE-8: useCoRedemptions mirrors PC's FE-7).
+// Both tabs wired to live data (FE-8: useCoRedemptions mirrors PM's FE-7).
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -55,8 +55,8 @@ function ComplianceReviewContent() {
   const onboarding = onboardingData ?? [];
   const { data: redemptionsData, decide: decideRedemption } = useCoRedemptions();
   // Compliance only ever acts on redemptions above the threshold -- rows at
-  // or below it never leave PC's workflow, so filter them out here rather
-  // than showing PC-only history as noise on this page.
+  // or below it never leave PM's workflow, so filter them out here rather
+  // than showing PM-only history as noise on this page.
   const redemptions = (redemptionsData ?? []).filter((r) => r.amount > COMPLIANCE_THRESHOLD);
   const [openObId, setOpenObId] = useState<string | null>(deepLink.openObId);
   const [openCrId, setOpenCrId] = useState<string | null>(deepLink.openCrId);
@@ -184,7 +184,7 @@ function ComplianceReviewContent() {
               <CrStatStrip rows={redemptions} />
               <div className="mb-4">
                 <Notice tone="info" icon={Shield}>
-                  <b>Compliance gate</b> — these redemptions exceed US${COMPLIANCE_THRESHOLD.toLocaleString()}. Compliance decides first; PC gives the final sign-off before the redemption proceeds.
+                  <b>Compliance gate</b> — these redemptions exceed US${COMPLIANCE_THRESHOLD.toLocaleString()}. Compliance decides first; PM gives the final sign-off before the redemption proceeds.
                 </Notice>
               </div>
               <RedeemTable rows={redemptions} onRowClick={setOpenCrId} openId={openCrId} />

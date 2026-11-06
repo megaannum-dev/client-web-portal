@@ -1,0 +1,272 @@
+/* ============================================================
+   PM (Portfolio Manager) — domain type layer (backend-aligned)
+
+   These types are the PERMANENT layer of the PM workspace. Field
+   names and shapes mirror the eventual backend columns: when the
+   API lands, its payload deserializes straight into these and the
+   data-access seams (`lib/pm/models.ts`, `lib/pm/allocation.ts`)
+   flip from the mock to a fetch — with ZERO changes to types or
+   components.
+
+   The throwaway mock dataset (`lib/mock/pc-data`) does NOT survive
+   the move to the API; THESE TYPES DO. Screens depend on types +
+   seam signatures only — never on the mock.
+   ============================================================ */
+
+/* ---- Model book (Model Management) ------------------------- */
+
+/** A marketing / reference document attached to a model, versioned. */
+export interface Material {
+  /** Backend material UUID — present once loaded from the server; needed for download. */
+  id?: string;
+  file: string;
+  ver: string;
+  date: string;
+  size: string;
+}
+
+/** Raw material DTO from the backend (GET /api/pm/models/{id}/materials). */
+export interface MaterialDTO {
+  id: string;
+  model_id: string;
+  filename: string;
+  version: string;
+  size_bytes: number | null;
+  content_type: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+/** One audit-trail entry in a model's change history (view shape). */
+export interface ChangeEntry {
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
+  user: string;
+  ver: string;
+  date: string;
+}
+
+/** Lifecycle state of a model. */
+export type ModelStatus = "live" | "draft";
+
+/** One row of a model's symbol book (view shape). */
+export interface SymbolBookEntry {
+  symbol: string;
+  active: boolean;
+}
+
+/** One audit-trail entry for a symbol (view shape). */
+export interface SymbolAuditEntry {
+  symbol: string;
+  op: SymbolAuditDTO["op"];
+  note: string | null;
+  user: string;
+  date: string;
+  ver: string;
+}
+
+/**
+ * A trading model in the model book. `size` is the model size (the
+ * total figure shown in the book; the allocation matrix carries a
+ * per-unit size); `mgmt` / `incentive` are fee decimal fractions
+ * (e.g. 0.01 = 1%, 0.2 = 20%), per @/lib/fee.
+ */
+export interface Model {
+  id: string;
+  name: string;
+  size: number;
+  category: string[];
+  subscription_redemption: string | null;
+  symbols: string[];              // ACTIVE universe only (unchanged for existing callers)
+  symbolBook: SymbolBookEntry[];  // all rows, active flag
+  symbolAudit: SymbolAuditEntry[];// full trail, newest-first
+  mgmt: number;
+  incentive: number;
+  status: ModelStatus;
+  version: string;
+  materials: Material[];
+  changes: ChangeEntry[];
+  // Prospectus / fee fields (from DB B-1b)
+  description: string | null;
+  underlyings: string | null;
+  risk: string | null;
+  liquidity: string | null;
+  reporting: string | null;
+  nav_perf: string | null;
+  mgmt_fee: number | null;       // null → use DEFAULT_MGMT_FRACTION fallback
+  incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_FRACTION fallback
+  master_ib_account: string | null;
+}
+
+/** Fee figures derived from a model (see `computeFees`). */
+export interface FeeBreakdown {
+  mgmtFee: number;
+  incFee: number;
+  total: number;
+  excess: number;
+}
+
+/* ---- Allocation matrix ------------------------------------- */
+
+/**
+ * A model as it appears in the allocation matrix. `size` here is the
+ * PER-UNIT model size (account fund = units × size). `masterIb` is the
+ * model's own master IB account (shared across every client holding it) —
+ * distinct from a client's dedicated per-(client, model) account, which
+ * lives on `AllocationCell.clientIb`.
+ */
+export interface AllocationModel {
+  id: string;
+  name: string;
+  size: number;
+  live: boolean;
+  masterIb: string | null;
+}
+
+/** A client (row) in the allocation matrix. */
+export interface AllocationClient {
+  id: string;
+  name: string;
+}
+
+/**
+ * One cell of the allocation matrix. `clientIb` is this client's IB
+ * account dedicated to this specific model (per-(client, model) grain) —
+ * not a client-wide account.
+ */
+export interface AllocationCell {
+  units: number;
+  clientIb: string | null;
+}
+
+/** Sparse allocation grid keyed `"${clientId}-${modelId}"`. */
+export type AllocationMap = Record<string, AllocationCell>;
+
+/** Whether an allocation period is editable or confirmed/frozen. */
+export type PeriodStatus = "open" | "confirmed";
+
+/** One allocation period (e.g. a month). */
+export interface Period {
+  /** Backend-assigned period UUID; present once the API is wired. */
+  id?: string;
+  label: string;
+  status: PeriodStatus;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
+}
+
+/* ---- Transport DTOs (backend payload shapes) --------------- */
+
+/** Discriminant for change-log entries returned by the API. */
+export type ModelChangeKind = "created" | "published" | "material_uploaded" | "edited";
+
+/** Raw change-log entry from the backend. Mapped to `ChangeEntry` by FE-5. */
+export interface ChangeEntryDTO {
+  kind: ModelChangeKind;
+  detail: Record<string, unknown>;
+  actor: string;
+  version: string;
+  created_at: string;
+}
+
+/** Raw symbol row from the backend (`symbols[]` on `ModelDTO`), incl. inactive rows. */
+export interface SymbolDTO {
+  symbol: string;
+  weight: number | null;
+  active: boolean;
+}
+
+/** Raw symbol audit-trail entry from the backend (`ModelDTO.symbol_audit`). */
+export interface SymbolAuditDTO {
+  symbol: string;
+  op: "added" | "deactivated" | "activated" | "removed";
+  note: string | null;
+  actor: string | null;
+  version: string | null;
+  created_at: string;
+}
+
+/** Backend payload for a single model (GET /api/pm/models/:id and list). */
+export interface ModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  category: string[];
+  subscription_redemption: string | null;
+  symbols: SymbolDTO[];
+  symbol_audit?: SymbolAuditDTO[];
+  status: "live" | "draft";
+  version: string;
+  materials: { file: string; ver: string; date: string; size: string }[];
+  changes: ChangeEntryDTO[];
+  // New fields from DB B-1b (all nullable until backend populates them)
+  description?: string | null;
+  underlyings?: string | null;
+  risk?: string | null;
+  liquidity?: string | null;
+  reporting?: string | null;
+  nav_perf?: string | null;
+  mgmt_fee?: number | null;
+  incentive_fee?: number | null;
+  master_ib_account?: string | null;
+}
+
+/** Backend payload for GET /api/pm/models. */
+export interface ModelsListDTO {
+  models: ModelDTO[];
+}
+
+/** One cell in the allocation matrix as returned by the backend. */
+export interface AllocationCellDTO {
+  units: number;
+  /** Precomputed: units × model_size (BE-5). */
+  fund: number;
+  /** client_ib_accounts.ib_account for this (client, model) pair. */
+  client_ib: string | null;
+}
+
+/** One model column in the allocation matrix payload. */
+export interface AllocationModelDTO {
+  id: string;
+  name: string;
+  model_size: number;
+  live: boolean;
+  /** Sum of units across all clients (precomputed, BE-5). */
+  col_units: number;
+  /** Sum of fund across all clients (precomputed, BE-5). */
+  col_fund: number;
+  /** models.master_ib_account — always null on confirmed (snapshot) views. */
+  master_ib: string | null;
+}
+
+/** One client row in the allocation matrix payload. */
+export interface AllocationClientDTO {
+  id: string;
+  name: string;
+}
+
+/** Backend payload for a single period. */
+export interface PeriodDTO {
+  id: string;
+  label: string;
+  status: "open" | "confirmed";
+}
+
+/** Backend payload for GET /api/pm/allocation. All aggregates precomputed by BE-5. */
+export interface AllocationDTO {
+  models: AllocationModelDTO[];
+  clients: AllocationClientDTO[];
+  /** Sparse grid keyed `"${clientId}-${modelId}"`. */
+  cells: Record<string, AllocationCellDTO>;
+  /** Sum of col_fund over live models (precomputed, BE-5). */
+  total_fund: number;
+  /** # of (client, live-model) pairs with a cell (precomputed, BE-5). */
+  count: number;
+  periods: PeriodDTO[];
+  open_period_id: string;
+}
+
+/** Backend payload for GET /api/pm/periods. */
+export interface PeriodsListDTO {
+  periods: PeriodDTO[];
+}

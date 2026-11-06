@@ -12,7 +12,7 @@ import type { UseOnboardingBoardResult } from "@/hooks/api/useOnboardingBoard";
 import type { ChipTone } from "@/components/ui/Chip";
 import { KYC_ACCEPT, type DocStatus, type KycBoardClient } from "@/lib/onboarding/types";
 import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
-import { fmtTimestamp } from "@/lib/pc/format";
+import { fmtTimestamp } from "@/lib/pm/format";
 import { saveBase64File } from "@/lib/download";
 import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 

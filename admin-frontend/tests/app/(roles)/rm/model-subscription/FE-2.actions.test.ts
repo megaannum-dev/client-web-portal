@@ -52,7 +52,7 @@ describe("FE-2 submitAllotment action wrapper", () => {
 
 describe("FE-2 submitRedemption action wrapper", () => {
   it("forwards the request to server/rm.submitRedemption verbatim and returns its success result", async () => {
-    const dto = { ...FAKE_DTO, kind: "redemption" as const, status: "awaiting_pc" as const };
+    const dto = { ...FAKE_DTO, kind: "redemption" as const, status: "awaiting_pm" as const };
     const ok = { success: true, data: dto } as const;
     vi.mocked(serverRm.submitRedemption).mockResolvedValue(ok as never);
     const req = { client_id: "c-1", model_id: "m-1", multiplier: 1, expected_cash_out: "2026-08-15", emergent: false };

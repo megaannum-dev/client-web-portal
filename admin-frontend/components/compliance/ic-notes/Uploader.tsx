@@ -4,7 +4,6 @@ import type { IcNoteRole } from "@/lib/ic-notes/types";
 // same five roles pages-config.ts's Role type carries.
 export const ROLE_LABELS: Record<IcNoteRole, string> = {
   PM: "Portfolio Manager",
-  PC: "Portfolio Commander",
   COMPLIANCE: "Compliance Officer",
   MOBO: "MOBO",
   ADMIN: "Admin",

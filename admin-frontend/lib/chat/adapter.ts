@@ -2,7 +2,7 @@
 //
 // Twin of client-frontend/lib/chat/adapter.ts. The two differ only where the
 // view models do: admin's ChatDay carries a precomputed `label` and its
-// MessageBubble formats its own time off `createdAt` (via lib/pc/format), so
+// MessageBubble formats its own time off `createdAt` (via lib/pm/format), so
 // there is no per-message `time` field here.
 
 import type { ChatAttachmentDTO, ChatMessageDTO } from "@/lib/api/chat";

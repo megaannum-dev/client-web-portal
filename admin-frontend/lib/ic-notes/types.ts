@@ -1,6 +1,6 @@
 // IC meeting notes DTOs. See api-backend/app/libs/ic_notes/router.py.
 
-export type IcNoteRole = "ADMIN" | "MOBO" | "PM" | "PC" | "COMPLIANCE" | "RM";
+export type IcNoteRole = "ADMIN" | "MOBO" | "PM" | "COMPLIANCE" | "RM";
 
 export interface IcNoteDTO {
   id: string;

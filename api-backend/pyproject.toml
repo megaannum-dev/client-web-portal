@@ -1,6 +1,6 @@
 [tool.ruff]
 line-length = 100
-exclude = ["alembic", ".venv", "pc_storage"]
+exclude = ["alembic", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

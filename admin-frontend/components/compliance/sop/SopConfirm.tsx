@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/pc/Shared";
+import { Modal } from "@/components/pm/Shared";
 import { TriangleAlert, Trash2 } from "@/lib/icons";
 import { fmtDate } from "@/components/compliance/ic-notes/format";
 import { sopFormat } from "./FormatBadge";

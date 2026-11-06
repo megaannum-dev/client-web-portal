@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchAllotments, acknowledgeAllotment, pcDecideRedemption } from "@/app/(roles)/pc/allotment-redemption/actions";
+import { fetchAllotments, acknowledgeAllotment, pmDecideRedemption } from "@/app/(roles)/pm/allotment-redemption/actions";
 import { mapAllotmentsToView, mapRedemptionsToView } from "@/lib/onboarding/mappers";
 import type { AllotmentView, AllotRdmptDTO, RedemptionView, RedemptionDecisionReq } from "@/lib/onboarding/types";
 
@@ -51,7 +51,7 @@ export function useAllotments(): UseAllotmentsResult {
   }, [fetch_]);
 
   const decideRedemption = useCallback(async (id: string, body: RedemptionDecisionReq) => {
-    const result = await pcDecideRedemption(id, body);
+    const result = await pmDecideRedemption(id, body);
     if (result.success) fetch_();
     return { success: result.success, error: result.success ? undefined : result.error };
   }, [fetch_]);

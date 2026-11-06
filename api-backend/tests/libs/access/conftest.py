@@ -58,9 +58,9 @@ PAGE_IDS: frozenset[str] = frozenset(
         "mobo.trade-reconciliation",
         "mobo.commission-tracking",
         "mobo.post-trade-allocation",
-        "pc.model-management",
-        "pc.allocation-matrix",
-        "pc.allotment-redemption",
+        "pm.model-management",
+        "pm.allocation-matrix",
+        "pm.allotment-redemption",
         "compliance.overview",
         "compliance.review",
         "compliance.ic-notes",
@@ -84,13 +84,13 @@ PAGE_META_ORDER: list[str] = [
     "compliance.review",
     "compliance.ic-notes",
     "compliance.sop",
-    "pc.allotment-redemption",
-    "pc.allocation-matrix",
+    "pm.allotment-redemption",
+    "pm.allocation-matrix",
     "mobo.post-trade-allocation",
     "mobo.trade-reconciliation",
     "mobo.commission-tracking",
     "shared.monthly-reports",
-    "pc.model-management",
+    "pm.model-management",
     "admin.enroll-user",
     "admin.system-config",
     "mobo.recon-overview",
@@ -98,8 +98,8 @@ PAGE_META_ORDER: list[str] = [
 ]
 assert set(PAGE_META_ORDER) == PAGE_IDS
 
-# The literal 55-row page_access seed (30 edit + 25 view; RM 7 / MOBO 10 / PM 0 /
-# PC 10 / COMPLIANCE 12 / ADMIN 16 -- D-11), transcribed BY HAND from the already
+# The literal page_access seed: 66 rows (37 edit + 29 view), PC merged into PM (0049).
+# Originally 55 rows (RM 7 / MOBO 10 / PM 0 / PC 10 / COMPLIANCE 12 / ADMIN 16 -- D-11), transcribed BY HAND from the already
 # -committed alembic/versions/5cd1cc1948cc_0028_admin_access_control.py (DB-7)
 # INSERT statement. This is the DB layer's contract output, used here as a fixed
 # fixture -- never recomputed or "improved", so a drift between this file and the
@@ -114,7 +114,7 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("rm.onboarding-renewal", "ADMIN", "edit"),
     ("rm.model-subscription", "RM", "edit"),
     ("rm.model-subscription", "MOBO", "view"),
-    ("rm.model-subscription", "PC", "view"),
+    ("rm.model-subscription", "PM", "view"),
     ("rm.model-subscription", "COMPLIANCE", "view"),
     ("rm.model-subscription", "ADMIN", "edit"),
     ("rm.request-tickets", "RM", "edit"),
@@ -123,46 +123,45 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("rm.client-correspondents", "ADMIN", "edit"),
     ("shared.monthly-reports", "RM", "view"),
     ("shared.monthly-reports", "MOBO", "view"),
-    ("shared.monthly-reports", "PC", "edit"),
+    ("shared.monthly-reports", "PM", "edit"),
     ("shared.monthly-reports", "COMPLIANCE", "view"),
     ("shared.monthly-reports", "ADMIN", "edit"),
     ("mobo.recon-overview", "MOBO", "edit"),
-    ("mobo.recon-overview", "PC", "view"),
+    ("mobo.recon-overview", "PM", "view"),
     ("mobo.recon-overview", "COMPLIANCE", "view"),
     ("mobo.recon-overview", "ADMIN", "edit"),
     ("mobo.trade-reconciliation", "MOBO", "edit"),
-    ("mobo.trade-reconciliation", "PC", "view"),
+    ("mobo.trade-reconciliation", "PM", "view"),
     ("mobo.trade-reconciliation", "COMPLIANCE", "view"),
     ("mobo.trade-reconciliation", "ADMIN", "edit"),
     ("mobo.post-trade-allocation", "MOBO", "edit"),
-    ("mobo.post-trade-allocation", "PC", "view"),  # D-10: PC is READ-ONLY here
+    ("mobo.post-trade-allocation", "PM", "view"),  # D-10: PM is READ-ONLY here
     ("mobo.post-trade-allocation", "COMPLIANCE", "view"),
     ("mobo.post-trade-allocation", "ADMIN", "edit"),
     ("mobo.commission-tracking", "MOBO", "edit"),
     ("mobo.commission-tracking", "ADMIN", "edit"),
-    ("pc.model-management", "RM", "view"),
-    ("pc.model-management", "MOBO", "view"),
-    ("pc.model-management", "PC", "edit"),
-    ("pc.model-management", "COMPLIANCE", "view"),
-    ("pc.model-management", "ADMIN", "edit"),
-    ("pc.allocation-matrix", "MOBO", "view"),
-    ("pc.allocation-matrix", "PC", "edit"),
-    ("pc.allocation-matrix", "COMPLIANCE", "view"),
-    ("pc.allocation-matrix", "ADMIN", "edit"),
-    ("pc.allotment-redemption", "RM", "view"),
-    ("pc.allotment-redemption", "MOBO", "view"),
-    ("pc.allotment-redemption", "PC", "edit"),
-    ("pc.allotment-redemption", "COMPLIANCE", "view"),
-    ("pc.allotment-redemption", "ADMIN", "edit"),
-    ("compliance.overview", "PC", "view"),
+    ("pm.model-management", "RM", "view"),
+    ("pm.model-management", "MOBO", "view"),
+    ("pm.model-management", "PM", "edit"),
+    ("pm.model-management", "COMPLIANCE", "view"),
+    ("pm.model-management", "ADMIN", "edit"),
+    ("pm.allocation-matrix", "MOBO", "view"),
+    ("pm.allocation-matrix", "PM", "edit"),
+    ("pm.allocation-matrix", "COMPLIANCE", "view"),
+    ("pm.allocation-matrix", "ADMIN", "edit"),
+    ("pm.allotment-redemption", "RM", "view"),
+    ("pm.allotment-redemption", "MOBO", "view"),
+    ("pm.allotment-redemption", "PM", "edit"),
+    ("pm.allotment-redemption", "COMPLIANCE", "view"),
+    ("pm.allotment-redemption", "ADMIN", "edit"),
+    ("compliance.overview", "PM", "view"),
     ("compliance.overview", "COMPLIANCE", "edit"),
     ("compliance.overview", "ADMIN", "edit"),
-    ("compliance.review", "PC", "view"),
+    ("compliance.review", "PM", "view"),
     ("compliance.review", "COMPLIANCE", "edit"),
     ("compliance.review", "ADMIN", "edit"),
     ("compliance.ic-notes", "MOBO", "edit"),
     ("compliance.ic-notes", "PM", "edit"),
-    ("compliance.ic-notes", "PC", "edit"),
     ("compliance.ic-notes", "COMPLIANCE", "edit"),
     ("compliance.ic-notes", "ADMIN", "edit"),
     ("admin.enroll-user", "ADMIN", "edit"),
@@ -170,14 +169,13 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("compliance.sop", "RM", "view"),
     ("compliance.sop", "MOBO", "view"),
     ("compliance.sop", "PM", "view"),
-    ("compliance.sop", "PC", "view"),
     ("compliance.sop", "COMPLIANCE", "view"),
     ("compliance.sop", "ADMIN", "edit"),
 ]
-assert len(PAGE_ACCESS_SEED) == 68
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 38
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 30
-_ROLE_COUNTS = {"RM": 9, "MOBO": 12, "PM": 2, "PC": 12, "COMPLIANCE": 14, "ADMIN": 19}
+assert len(PAGE_ACCESS_SEED) == 66
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 37
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 29
+_ROLE_COUNTS = {"RM": 9, "MOBO": 12, "PM": 12, "COMPLIANCE": 14, "ADMIN": 19}
 for _role, _n in _ROLE_COUNTS.items():
     assert sum(1 for _, r, _ in PAGE_ACCESS_SEED if r == _role) == _n, _role
 
@@ -369,9 +367,9 @@ def make_audit(
 
 
 # --------------------------------------------------------------------------
-# The §8.1 seeded world: 55-row page_access seed + one ADMIN, one RM with 3
+# The §8.1 seeded world: 66-row page_access seed + one ADMIN, one RM with 3
 # clients (2 open + 1 resolved ticket), an empty-book RM, a second ACTIVE RM
-# (handover receiver), a DEACTIVATED RM, one PC, one COMPLIANCE, one PM, plus
+# (handover receiver), a DEACTIVATED RM, one PM (merged PC+PM, 0049), one COMPLIANCE, plus
 # one unexpired override, one expired override, and one level='none' override.
 # --------------------------------------------------------------------------
 @pytest.fixture
@@ -395,11 +393,10 @@ def world(session: Session, SessionLocal) -> SimpleNamespace:
         firebase_uid="uid-rm-deactivated",
         status=AccountStatus.DISABLED,
     )
-    pc = make_admin_user(session, AdminRole.PC, name="Penny PC", firebase_uid="uid-pc")
+    pm = make_admin_user(session, AdminRole.PM, name="Penny PM", firebase_uid="uid-pm")
     compliance = make_admin_user(
         session, AdminRole.COMPLIANCE, name="Cory Compliance", firebase_uid="uid-compliance"
     )
-    pm = make_admin_user(session, AdminRole.PM, name="Pat PM", firebase_uid="uid-pm")
 
     clients = [
         make_client_user(session, assigned_rm_uid=rm_primary.firebase_uid, name=f"Client {i}")
@@ -424,11 +421,11 @@ def world(session: Session, SessionLocal) -> SimpleNamespace:
     )
 
     now = datetime.now(timezone.utc)
-    # Unexpired VIEW override downgrading PC's seeded EDIT on pc.model-management.
+    # Unexpired VIEW override downgrading PM's seeded EDIT on pm.model-management.
     override_view_unexpired = make_override(
         session,
-        pc,
-        "pc.model-management",
+        pm,
+        "pm.model-management",
         OverrideLevel.VIEW,
         reason="temporary downgrade",
         expires_at=now + timedelta(days=30),
@@ -461,9 +458,8 @@ def world(session: Session, SessionLocal) -> SimpleNamespace:
         rm_receiver=rm_receiver,
         rm_empty=rm_empty,
         rm_deactivated=rm_deactivated,
-        pc=pc,
-        compliance=compliance,
         pm=pm,
+        compliance=compliance,
         clients=clients,
         ticket_open_new=ticket_open_new,
         ticket_open_progress=ticket_open_progress,

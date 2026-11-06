@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { NotebookText, Receipt } from "@/lib/icons";
 
-export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "PC" | "COMPLIANCE";
+export type Role = "ADMIN" | "MOBO" | "RM" | "PM" | "COMPLIANCE";
 
 /** The single access vocabulary — DB enum, wire DTOs, route guard and admin console
  *  all use these three spellings. Replaces the old two-level route-guard vocabulary
@@ -38,9 +38,9 @@ export type PageId =
   | "mobo.post-trade-allocation"
   | "mobo.commission-tracking"
   | "mobo.post-trade-allocation"
-  | "pc.model-management"
-  | "pc.allocation-matrix"
-  | "pc.allotment-redemption"
+  | "pm.model-management"
+  | "pm.allocation-matrix"
+  | "pm.allotment-redemption"
   | "compliance.overview"
   | "compliance.review"
   | "compliance.ic-notes"
@@ -132,16 +132,16 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: FolderOpen,
     subgroup: "Compliance",
   },
-  "pc.allotment-redemption": {
-    id: "pc.allotment-redemption",
-    path: "/pc/allotment-redemption",
+  "pm.allotment-redemption": {
+    id: "pm.allotment-redemption",
+    path: "/pm/allotment-redemption",
     label: "Allotment & Redemption",
     icon: Inbox,
     subgroup: "Client Management",
   },
-  "pc.allocation-matrix": {
-    id: "pc.allocation-matrix",
-    path: "/pc/allocation-matrix",
+  "pm.allocation-matrix": {
+    id: "pm.allocation-matrix",
+    path: "/pm/allocation-matrix",
     label: "Allocation Matrix",
     icon: Grid3x3,
     subgroup: "Trade Management",
@@ -174,9 +174,9 @@ export const PAGES: Record<PageId, PageDef> = {
     icon: CalendarDays,
     subgroup: "Trade Management",
   },
-  "pc.model-management": {
-    id: "pc.model-management",
-    path: "/pc/model-management",
+  "pm.model-management": {
+    id: "pm.model-management",
+    path: "/pm/model-management",
     label: "Model Management",
     icon: Layers,
     subgroup: "System",
@@ -213,22 +213,26 @@ export const PAGES: Record<PageId, PageDef> = {
 };
 
 // One nav parent per role (Yes — user req.: a role sees exactly one workspace
-// parent, never a mix of other roles' domains). Roles with no grants (PM) are
-// omitted — groupsFor returns [] for them regardless.
+// parent, never a mix of other roles' domains). Roles without an entry here are
+// omitted — groupsFor returns [] for them.
 const ROLE_NAV: Partial<Record<Role, { label: string; icon: LucideIcon }>> = {
   RM: { label: "Relationship Manager", icon: Briefcase },
   MOBO: { label: "Middle / Back Office", icon: Building2 },
-  PC: { label: "Portfolio Commander", icon: Layers },
+  PM: { label: "Portfolio Manager", icon: Layers },
   COMPLIANCE: { label: "Compliance", icon: Shield },
   ADMIN: { label: "Admin", icon: ShieldCheck },
 };
 
+/** Full role name ("PM" → "Portfolio Manager"); falls back to the raw code. */
+export function roleLabel(role: string): string {
+  return (ROLE_NAV as Record<string, { label: string } | undefined>)[role]?.label ?? role;
+}
+
 export const ROLE_DEFAULT_PAGE: Record<Role, PageId | null> = {
   RM: "rm.client-info",
   MOBO: "mobo.recon-overview",
-  PC: "pc.model-management",
   ADMIN: "rm.client-info",
-  PM: null,
+  PM: "pm.model-management",
   COMPLIANCE: "compliance.overview",
 };
 

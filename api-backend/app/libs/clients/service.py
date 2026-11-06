@@ -19,7 +19,7 @@ from app.libs.clients.schemas import (
 )
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.users.repository import AdminProfileRepository, UserRepository
-from app.models.pc import Model
+from app.models.pm import Model
 from app.models.users import AdminRole, Portal, User
 
 

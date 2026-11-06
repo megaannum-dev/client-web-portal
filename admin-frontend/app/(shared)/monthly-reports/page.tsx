@@ -27,7 +27,7 @@ async function downloadReport(url: string, filename: string) {
 
 export default function MonthlyReportsPage() {
   const { portalUser } = useAuth();
-  const isPC = portalUser?.role === "PC";
+  const isPM = portalUser?.role === "PM";
 
   const { data: comments, saveComment } = useEomComments();
 
@@ -105,12 +105,12 @@ export default function MonthlyReportsPage() {
                             type="button"
                             onClick={() => setEditingReport(r.name)}
                             title={comments?.[r.name]?.comment}
-                            aria-label={`${isPC ? "Edit" : "View"} comment on ${r.name}`}
+                            aria-label={`${isPM ? "Edit" : "View"} comment on ${r.name}`}
                             className="inline-flex flex-none items-center rounded border border-outline-variant bg-white px-2 py-[5px] text-primary transition-colors"
                           >
                             <MessageSquareText size={16} strokeWidth={1.75} />
                           </button>
-                        ) : isPC ? (
+                        ) : isPM ? (
                           /* View/Edit Gate Function */
                           <button
                             type="button"
@@ -195,7 +195,7 @@ export default function MonthlyReportsPage() {
           <CommentModal
             report={report}
             value={comments?.[editingReport]?.comment}
-            readOnly={!isPC}
+            readOnly={!isPM}
             onSave={async (text) => {
               const result = await saveComment(editingReport, text);
               if (result.success) setEditingReport(null);

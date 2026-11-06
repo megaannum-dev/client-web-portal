@@ -1,9 +1,9 @@
-// FE-6 — pure DTO->view mapping, no fetch logic, mirroring lib/pc/models.ts's
+// FE-6 — pure DTO->view mapping, no fetch logic, mirroring lib/pm/models.ts's
 // mapDtoToModel convention.
 // SubClient/SubModel/TxnRow's canonical home (moved from lib/mock/rm-data.ts,
 // which no longer has any mock subscription data to anchor them to — see
 // lib/rm/tickets.ts for the identical precedent with RequestTicket).
-import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pc/format";
+import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pm/format";
 import { formatFeePercent } from "@/lib/fee";
 import type { ChipTone } from "@/components/ui/Chip";
 import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
@@ -50,7 +50,7 @@ export function statusToChip(status: AllotRdmpStatus): { tone: ChipTone; label: 
     case "pending":
     case "acknowledged":
       return { tone: "active", label: "Confirmed" };
-    case "awaiting_pc":
+    case "awaiting_pm":
     case "awaiting_co":
       return { tone: "pending", label: "Awaiting Approval" };
     case "approved":
@@ -74,7 +74,7 @@ export function initialsFromName(name: string): string {
  *  client_subscriptions actually holds, even before allotment history has
  *  loaded. */
 function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
-  // Decimal fields arrive over JSON as strings (see lib/pc/models.ts's
+  // Decimal fields arrive over JSON as strings (see lib/pm/models.ts's
   // `Number(dto.model_size ?? 0)` for the same coercion) -- Number() first,
   // or toLocaleString()/template interpolation just echoes the raw string.
   const amt = Number(sub.amount).toLocaleString("en-US");
@@ -88,7 +88,7 @@ function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
  *  no currency field exists anywhere in the schema yet (the mock's CHF/AUD rows
  *  are decorative and have no backing concept to preserve). Dates are formatted
  *  with the SAME fmtTimestamp already used for this exact DTO's fields on the
- *  PC allotments page (AllotTable.tsx) — the mock's placeholder "DD/MM/YYYY"
+ *  PM allotments page (AllotTable.tsx) — the mock's placeholder "DD/MM/YYYY"
  *  strings are not a convention worth preserving once real data is behind it. */
 export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null): TxnRow {
   const isRedemption = dto.kind === "redemption";

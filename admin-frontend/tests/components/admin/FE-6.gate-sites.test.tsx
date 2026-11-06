@@ -180,7 +180,7 @@ describe("FE-6 components/rm/ContactLog.tsx — gated by rm.client-info", () => 
 });
 
 describe("FE-6 components/compliance/review/CrDetailPanel.tsx — gated by compliance.review", () => {
-  async function renderPanel(status: "awaiting_co" | "awaiting_pc" = "awaiting_co") {
+  async function renderPanel(status: "awaiting_co" | "awaiting_pm" = "awaiting_co") {
     const { CrDetailPanel } = await import("@/components/compliance/review/CrDetailPanel");
     const r = {
       id: "r1", ref: "RDM-1", modelName: "Global Balanced", mult: 1, amount: 50000,

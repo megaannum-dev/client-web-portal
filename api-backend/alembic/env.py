@@ -11,7 +11,7 @@ from app.core.database import Base
 # Import every model module so its tables register on Base.metadata:
 import app.models.users  # noqa: F401
 import app.models.reconciliation  # noqa: F401
-import app.models.pc  # noqa: F401
+import app.models.pm  # noqa: F401
 import app.models.pc_data  # noqa: F401
 import app.models.post_trade_allocation  # noqa: F401
 

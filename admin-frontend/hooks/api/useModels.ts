@@ -9,9 +9,9 @@ import {
   downloadMaterial as downloadMaterialAction,
   publishModel as publishModelAction,
   getMaterials as getMaterialsAction,
-} from "@/app/(roles)/pc/model-management/actions";
-import { mapDtoToModels } from "@/lib/pc/models";
-import type { Model } from "@/lib/pc/types";
+} from "@/app/(roles)/pm/model-management/actions";
+import { mapDtoToModels } from "@/lib/pm/models";
+import type { Model } from "@/lib/pm/types";
 
 export interface UseModelsResult {
   data: Model[] | null;

@@ -4,7 +4,7 @@
    useModelDetail — model detail-panel data hook
 
    NOTE: the backend has no combined "GET /models/{id}?include=
-   materials,changes" endpoint — `GET /pc/models/{id}` (ModelOut)
+   materials,changes" endpoint — `GET /pm/models/{id}` (ModelOut)
    returns neither nested array; materials and changes are each
    served by their own dedicated endpoint (already wrapped as
    `getMaterials` / `getChanges` in the model-management actions
@@ -20,9 +20,9 @@ import {
   getChanges as getChangesAction,
   uploadMaterial as uploadMaterialAction,
   downloadMaterial as downloadMaterialAction,
-} from "@/app/(roles)/pc/model-management/actions";
-import { mapDtoToModel, mapDtoToMaterial } from "@/lib/pc/models";
-import type { Model, Material } from "@/lib/pc/types";
+} from "@/app/(roles)/pm/model-management/actions";
+import { mapDtoToModel, mapDtoToMaterial } from "@/lib/pm/models";
+import type { Model, Material } from "@/lib/pm/types";
 
 export interface UseModelDetailResult {
   data: { model: Model; materials: Material[] } | null;

@@ -52,7 +52,7 @@ export default function EnrollUserPage() {
   const [kebab, setKebab] = useState<string | null>(null);
   const [draft, setDraft] = useState<EnrollDraft | null>(null);
   const [step, setStep] = useState(0);
-  const [openGroups, setOpenGroups] = useState<string[]>(["Portfolio Control"]);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [modal, setModal] = useState<ModalState | null>(null);
 
   const closeModal = () => setModal(null);

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/pc/Shared";
+import { Modal } from "@/components/pm/Shared";
 import { FormatBadgeBig } from "./FormatBadge";
 import { fmtSize, fmtTime, hkDayKey, HK_OFFSET } from "./format";
 import { ROLE_LABELS } from "./Uploader";

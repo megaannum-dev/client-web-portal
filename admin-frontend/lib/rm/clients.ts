@@ -20,7 +20,7 @@ export interface ClientListItemDTO {
   id_number?: string | null;             // NEW (FE-4)
   authorized_by_name?: string | null;    // NEW (FE-4) — resolved display name of users.authorized_by
   // NEW — client_portfolios (011/014 C-9), only populated on the single-client
-  // route. Decimal fields arrive over JSON as strings (see lib/pc/models.ts's
+  // route. Decimal fields arrive over JSON as strings (see lib/pm/models.ts's
   // Number() coercion), null if the client predates the cash-deposit flow.
   cash_deposit?: string | null;
   amount_in_trade?: string | null;
