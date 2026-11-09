@@ -98,7 +98,7 @@ PAGE_META_ORDER: list[str] = [
 ]
 assert set(PAGE_META_ORDER) == PAGE_IDS
 
-# The literal page_access seed: 66 rows (37 edit + 29 view), PC merged into PM (0049).
+# The literal page_access seed: 63 rows (37 edit + 26 view), PC merged into PM (0049).
 # Originally 55 rows (RM 7 / MOBO 10 / PM 0 / PC 10 / COMPLIANCE 12 / ADMIN 16 -- D-11), transcribed BY HAND from the already
 # -committed alembic/versions/5cd1cc1948cc_0028_admin_access_control.py (DB-7)
 # INSERT statement. This is the DB layer's contract output, used here as a fixed
@@ -149,15 +149,12 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("pm.allocation-matrix", "PM", "edit"),
     ("pm.allocation-matrix", "COMPLIANCE", "view"),
     ("pm.allocation-matrix", "ADMIN", "edit"),
-    ("pm.allotment-redemption", "RM", "view"),
     ("pm.allotment-redemption", "MOBO", "view"),
     ("pm.allotment-redemption", "PM", "edit"),
     ("pm.allotment-redemption", "COMPLIANCE", "view"),
     ("pm.allotment-redemption", "ADMIN", "edit"),
-    ("compliance.overview", "PM", "view"),
     ("compliance.overview", "COMPLIANCE", "edit"),
     ("compliance.overview", "ADMIN", "edit"),
-    ("compliance.review", "PM", "view"),
     ("compliance.review", "COMPLIANCE", "edit"),
     ("compliance.review", "ADMIN", "edit"),
     ("compliance.ic-notes", "MOBO", "edit"),
@@ -172,9 +169,9 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
     ("compliance.sop", "COMPLIANCE", "view"),
     ("compliance.sop", "ADMIN", "edit"),
 ]
-assert len(PAGE_ACCESS_SEED) == 66
+assert len(PAGE_ACCESS_SEED) == 63
 assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 37
-assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 29
+assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 26
 _ROLE_COUNTS = {"RM": 9, "MOBO": 12, "PM": 12, "COMPLIANCE": 14, "ADMIN": 19}
 for _role, _n in _ROLE_COUNTS.items():
     assert sum(1 for _, r, _ in PAGE_ACCESS_SEED if r == _role) == _n, _role
@@ -367,7 +364,7 @@ def make_audit(
 
 
 # --------------------------------------------------------------------------
-# The §8.1 seeded world: 66-row page_access seed + one ADMIN, one RM with 3
+# The §8.1 seeded world: 63-row page_access seed + one ADMIN, one RM with 3
 # clients (2 open + 1 resolved ticket), an empty-book RM, a second ACTIVE RM
 # (handover receiver), a DEACTIVATED RM, one PM (merged PC+PM, 0049), one COMPLIANCE, plus
 # one unexpired override, one expired override, and one level='none' override.
