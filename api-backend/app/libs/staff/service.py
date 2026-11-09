@@ -37,7 +37,6 @@ class StaffUpdatePatch(Protocol):
     status: Literal["ACTIVE", "DEACTIVATED"] | None
     name: str | None
     phone_number: str | None
-    email: str | None
     department: str | None
     deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
@@ -309,7 +308,7 @@ class StaffService:
 
         # Audit fragments, built from the before-values and ACTUAL changes only (a
         # no-op write adds nothing). `state` = role/status, `contact` = name/phone/
-        # email; a handover row already says role/deactivation in its own words.
+        # department (users.email mirrors the sign-in identity; never written here); a handover row already says role/deactivation in its own words.
         state: list[str] = []
         contact: list[str] = []
         reason = patch.deactivate_reason if is_disabling else None
@@ -324,8 +323,6 @@ class StaffService:
             contact.append(f"name {profile.name or '(none)'}→{patch.name}")
         if patch.phone_number is not None and patch.phone_number != profile.phone_number:
             contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
-        if patch.email is not None and patch.email != user.email:
-            contact.append(f"email {user.email or '(none)'}→{patch.email}")
         if patch.department is not None and patch.department != profile.department:
             contact.append(f"dept {profile.department or '(none)'}→{patch.department}")
 
@@ -339,8 +336,6 @@ class StaffService:
             profile.phone_number = patch.phone_number
         if patch.department is not None:
             profile.department = patch.department
-        if patch.email is not None:
-            user.email = patch.email  # local contact email only -- NOT the Firebase credential
 
         if block is not None:
             assert receiver_uid is not None  # guarded above -- 409/422 already raised otherwise

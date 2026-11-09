@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class UserOut(BaseModel):
@@ -22,7 +22,8 @@ class UserOut(BaseModel):
 class UserSelfUpdate(BaseModel):
     name: str | None = None
     phone_number: str | None = None
-    email: EmailStr | None = None
+    # email deliberately absent: users.email mirrors the Firebase sign-in identity
+    # and is re-synced from the token on every request, so a write here is lost.
     # role / status deliberately absent -- never accepted from this endpoint,
     # not merely ignored: adding them to the model would silently start
     # accepting (and Pydantic-validating) fields this endpoint must always

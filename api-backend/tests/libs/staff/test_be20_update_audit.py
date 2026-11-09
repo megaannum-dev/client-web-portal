@@ -7,7 +7,7 @@ Exercised through `PATCH /api/admin/staff/{uid}` (be019_client roster)."""
 from __future__ import annotations
 
 from app.models.access import AdminAuditEvent
-from app.models.users import AdminProfile
+from app.models.users import AdminProfile, User
 
 
 def _staff_audit(client) -> list[AdminAuditEvent]:
@@ -55,22 +55,27 @@ def test_reactivate(be019_client):
     assert row.detail == f"{target.firebase_uid}: reactivated"
 
 
-def test_name_phone_email_changes_are_all_listed(be019_client):
+def test_name_and_phone_changes_are_all_listed(be019_client):
     target = be019_client.users["pm"]
-    old_email = target.email
-    _patch(
-        be019_client,
-        target,
-        name="Pat Renamed",
-        phone_number="555-0100",
-        email="pat.new@example.com",
-    )
+    _patch(be019_client, target, name="Pat Renamed", phone_number="555-0100")
     (row,) = _staff_audit(be019_client)
     assert row.event == "staff.updated"
     assert row.detail == (
-        f"{target.firebase_uid}: name {target.firebase_uid}→Pat Renamed"
-        f"; phone (none)→555-0100; email {old_email}→pat.new@example.com"
+        f"{target.firebase_uid}: name {target.firebase_uid}→Pat Renamed; phone (none)→555-0100"
     )
+
+
+def test_email_in_patch_is_ignored(be019_client):
+    target = be019_client.users["pm"]
+    old_email = target.email
+    _patch(be019_client, target, email="pat.new@example.com")
+    assert _staff_audit(be019_client) == []
+    db = be019_client.db()
+    try:
+        stored = db.query(User).filter(User.id == target.id).one().email
+    finally:
+        db.close()
+    assert stored == old_email
 
 
 def _profile(client, user) -> AdminProfile:
@@ -101,7 +106,6 @@ def test_noop_values_write_no_audit_row(be019_client):
         status="ACTIVE",
         name=profile.name,
         department=profile.department,
-        email=target.email,
     )
     assert _staff_audit(be019_client) == []
 

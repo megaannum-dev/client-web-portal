@@ -41,7 +41,6 @@ class StaffEnrollIn(BaseModel):
 class StaffUpdateIn(BaseModel):  # all optional; omitted = unchanged
     role: AdminRole | None = None
     name: str | None = None
-    email: EmailStr | None = None
     phone_number: str | None = None
     department: str | None = None
     status: Literal["ACTIVE", "DEACTIVATED"] | None = None  # INITIATED never settable (D-4)
