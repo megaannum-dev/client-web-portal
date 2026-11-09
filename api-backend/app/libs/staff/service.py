@@ -38,6 +38,7 @@ class StaffUpdatePatch(Protocol):
     name: str | None
     phone_number: str | None
     email: str | None
+    department: str | None
     deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
@@ -325,6 +326,8 @@ class StaffService:
             contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
         if patch.email is not None and patch.email != user.email:
             contact.append(f"email {user.email or '(none)'}→{patch.email}")
+        if patch.department is not None and patch.department != profile.department:
+            contact.append(f"dept {profile.department or '(none)'}→{patch.department}")
 
         if patch.role is not None:
             profile.role = patch.role
@@ -334,6 +337,8 @@ class StaffService:
             profile.name = patch.name
         if patch.phone_number is not None:
             profile.phone_number = patch.phone_number
+        if patch.department is not None:
+            profile.department = patch.department
         if patch.email is not None:
             user.email = patch.email  # local contact email only -- NOT the Firebase credential
 
