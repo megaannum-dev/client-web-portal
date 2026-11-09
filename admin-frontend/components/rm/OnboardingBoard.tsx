@@ -15,6 +15,7 @@ import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib
 import { fmtTimestamp } from "@/lib/pm/format";
 import { saveBase64File } from "@/lib/download";
 import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -83,6 +84,7 @@ function KycPanel({
   onDownloadAll?: (onboardingId: string) => Promise<DownloadResult>;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const canEdit = useCanEdit("rm.onboarding-renewal");
   const docs = item.documents;
   const locked = item.status === "reviewing" || item.status === "active";
 
@@ -170,7 +172,7 @@ function KycPanel({
                   </>
                 )}
               </span>
-              {hov && d.can_reupload ? (
+              {hov && d.can_reupload && canEdit ? (
                 <label
                   className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-[5px] text-[12px] font-semibold text-primary"
                   style={{ background: "rgba(242,116,5,.12)" }}
@@ -178,7 +180,7 @@ function KycPanel({
                   <Upload size={13} strokeWidth={2} />Upload
                   <input type="file" accept={KYC_ACCEPT} className="hidden" onChange={handleUpload(d.doc_type)} />
                 </label>
-              ) : !d.can_reupload && d.filename ? (
+              ) : (!d.can_reupload || !canEdit) && d.filename ? (
                 <button
                   type="button"
                   onClick={() => handleDownload(d.doc_type)}
@@ -206,7 +208,7 @@ function KycPanel({
           {locked ? (
             <Button icon={Download} full onClick={handleDownloadAll}>Download All</Button>
           ) : (
-            <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
+            canEdit && <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
           )}
         </div>
         <button
