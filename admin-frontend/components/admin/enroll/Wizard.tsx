@@ -178,11 +178,12 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                     invalid={touched && !d.first.trim() ? "Required." : null} />
                   <TextField label="Last name" value={d.last} onChange={(v) => patchDraft({ last: v })} placeholder="Petrova" required
                     invalid={touched && !d.last.trim() ? "Required." : null} />
-                  <TextField label="Work email" value={d.email} onChange={(v) => patchDraft({ email: v })} placeholder="s.petrova@example.com"
-                    icon={Mail} required span
+                  <TextField label="Work email" value={d.email} onChange={isEdit ? undefined : (v) => patchDraft({ email: v })} placeholder="s.petrova@example.com"
+                    icon={Mail} required span help={isEdit ? "The sign-in identity — it can't be changed." : undefined}
                     invalid={touched && !d.email.trim() ? "Required." : null} />
                   <TextField label="Phone" value={d.phone} onChange={(v) => patchDraft({ phone: v })} placeholder="+41 44 668 21 07" icon={Phone} />
                   <TextField label="Start date" value={d.start} onChange={(v) => patchDraft({ start: v })} icon={CalendarDays} help="Defaults to today." />
+                  <TextField label="Department" value={d.dept} onChange={(v) => patchDraft({ dept: v })} placeholder="Operations" />
                   <TextField label="Correspondence address" value={d.addr} onChange={(v) => patchDraft({ addr: v })} placeholder="Bahnhofstrasse 42, 8001 Zürich, CH" icon={MapPin} span />
                 </div>
               )}

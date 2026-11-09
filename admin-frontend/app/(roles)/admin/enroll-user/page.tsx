@@ -81,7 +81,7 @@ export default function EnrollUserPage() {
 
     if (d.mode === "edit") {
       const ok = await store.updateStaff(d.orig!, {
-        name, email: d.email.trim(), role: d.role as Role,
+        name, role: d.role as Role,
         phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
         ...(d.reassign_book_to ? { reassign_book_to: d.reassign_book_to } : {}),
       });

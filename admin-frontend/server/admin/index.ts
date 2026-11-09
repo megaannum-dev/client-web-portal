@@ -44,7 +44,7 @@ export interface StaffCreatedOut {
 }
 
 export interface StaffUpdateIn {
-  role?: Role; name?: string; email?: string; phone_number?: string | null;
+  role?: Role; name?: string; phone_number?: string | null;
   department?: string | null;
   status?: "ACTIVE" | "DEACTIVATED";
   deactivate_reason?: string | null;

@@ -167,6 +167,7 @@ export function TextField({
           type={type}
           value={value}
           placeholder={placeholder}
+          readOnly={!onChange}
           onChange={(e) => onChange?.(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
