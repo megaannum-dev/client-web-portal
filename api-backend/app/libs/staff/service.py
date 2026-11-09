@@ -28,6 +28,16 @@ _STATUS_WIRE_TO_DB: dict[str, AccountStatus] = {
 }
 
 
+# (audit label, StaffUpdatePatch/AdminProfile attribute). Nullable on the profile, so an
+# explicitly sent null clears them; name/role/status are required and keep `is not None`.
+_CLEARABLE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("phone", "phone_number"),
+    ("dept", "department"),
+    ("start date", "start_date"),
+    ("address", "address"),
+)
+
+
 class StaffUpdatePatch(Protocol):
     """Structural shape of BE-17's `StaffUpdateIn` (app/schemas/staff.py) -- this
     unit does not import that schema (BE-17's file, out of BE-16 scope); any object
@@ -40,6 +50,7 @@ class StaffUpdatePatch(Protocol):
     department: str | None
     start_date: date | None
     address: str | None
+    model_fields_set: set[str]  # which fields the caller SENT (null = clear, omitted = keep)
     deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
@@ -311,8 +322,9 @@ class StaffService:
             self._assert_valid_receiver(receiver_uid, from_uid=uid)
 
         # Audit fragments, built from the before-values and ACTUAL changes only (a
-        # no-op write adds nothing). `state` = role/status, `contact` = name/phone/
-        # department (users.email mirrors the sign-in identity; never written here); a handover row already says role/deactivation in its own words.
+        # no-op write adds nothing). `state` = role/status, `contact` = name and the
+        # clearable profile fields; a handover row already says role/deactivation in
+        # its own words. users.email mirrors the sign-in identity; never written here.
         state: list[str] = []
         contact: list[str] = []
         reason = patch.deactivate_reason if is_disabling else None
@@ -325,14 +337,11 @@ class StaffService:
             state.append("reactivated")
         if patch.name is not None and patch.name != profile.name:
             contact.append(f"name {profile.name or '(none)'}→{patch.name}")
-        if patch.phone_number is not None and patch.phone_number != profile.phone_number:
-            contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
-        if patch.department is not None and patch.department != profile.department:
-            contact.append(f"dept {profile.department or '(none)'}→{patch.department}")
-        if patch.start_date is not None and patch.start_date != profile.start_date:
-            contact.append(f"start date {profile.start_date or '(none)'}→{patch.start_date}")
-        if patch.address is not None and patch.address != profile.address:
-            contact.append(f"address {profile.address or '(none)'}→{patch.address}")
+        for label, field in _CLEARABLE_FIELDS:
+            if field in patch.model_fields_set:
+                old, new = getattr(profile, field), getattr(patch, field)
+                if new != old:
+                    contact.append(f"{label} {old or '(none)'}→{new or '(none)'}")
 
         if patch.role is not None:
             profile.role = patch.role
@@ -340,14 +349,9 @@ class StaffService:
             user.status = _STATUS_WIRE_TO_DB[patch.status]
         if patch.name is not None:
             profile.name = patch.name
-        if patch.phone_number is not None:
-            profile.phone_number = patch.phone_number
-        if patch.department is not None:
-            profile.department = patch.department
-        if patch.start_date is not None:
-            profile.start_date = patch.start_date
-        if patch.address is not None:
-            profile.address = patch.address
+        for _, field in _CLEARABLE_FIELDS:
+            if field in patch.model_fields_set:
+                setattr(profile, field, getattr(patch, field))
 
         if block is not None:
             assert receiver_uid is not None  # guarded above -- 409/422 already raised otherwise

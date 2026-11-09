@@ -109,6 +109,28 @@ def test_start_date_and_address_persist_and_are_audited(be019_client):
     )
 
 
+def test_null_clears_a_field_and_is_audited(be019_client):
+    target = be019_client.users["pm"]
+    _patch(be019_client, target, phone_number="555-0100")
+    _patch(be019_client, target, phone_number=None)
+    assert _profile(be019_client, target).phone_number is None
+    details = {r.detail for r in _staff_audit(be019_client)}
+    assert f"{target.firebase_uid}: phone 555-0100→(none)" in details
+
+
+def test_omitted_field_is_left_intact(be019_client):
+    target = be019_client.users["pm"]
+    _patch(be019_client, target, phone_number="555-0100")
+    _patch(be019_client, target, name="Pat Renamed")  # phone_number omitted
+    assert _profile(be019_client, target).phone_number == "555-0100"
+
+
+def test_clearing_an_already_empty_field_writes_no_audit_row(be019_client):
+    target = be019_client.users["pm"]
+    _patch(be019_client, target, phone_number=None, department=None)
+    assert _staff_audit(be019_client) == []
+
+
 def test_noop_values_write_no_audit_row(be019_client):
     target = be019_client.users["pm_active"]
     profile = _profile(be019_client, target)
