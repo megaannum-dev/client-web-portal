@@ -457,13 +457,16 @@ class PostTradeAllocationService:
         raw_to = to_date.replace("-", "")
 
         runs = self.repo.runs_in_date_range(raw_from, raw_to)
-        if model_id is not None:
-            model_run_ids = set(self.repo.run_ids_for_model(uuid.UUID(model_id)))
-            runs = [r for r in runs if r.id in model_run_ids]
-
         totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
-        for run in runs:
-            totals[run.trade_date] += run.grand_total or ZERO
+        if model_id is not None:
+            # The model's own traded amount, not the run's all-models grand_total.
+            traded = self.repo.model_traded_by_run(uuid.UUID(model_id), [r.id for r in runs])
+            for run in runs:
+                if run.id in traded:
+                    totals[run.trade_date] += traded[run.id]
+        else:
+            for run in runs:
+                totals[run.trade_date] += run.grand_total or ZERO
 
         series = [
             PtaHistoryEntryOut(date=_format_date(td), pnl=float(total))

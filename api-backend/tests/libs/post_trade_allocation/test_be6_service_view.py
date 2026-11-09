@@ -200,3 +200,76 @@ def test_list_runs_one_entry_per_trade_date(session, repo, service):
 def test_list_runs_empty_database_returns_empty_list(service):
     result = service.list_runs()
     assert result.runs == []
+
+
+# --- get_history (D28: per-model series sums that model's own traded amount) -------
+
+
+def _seed_two_model_run(session, repo, *, model_a, model_b, users, trade_date, a=100, b=-30):
+    """One run, two models, one cell per user per model (model_traded repeats on
+    each of a model's cells, exactly as the engine stores it)."""
+    period = make_confirmed_period(session, label=f"P-CONFIRMED-{uuid.uuid4()}")
+    run = repo.create_run(
+        trade_date=trade_date,
+        period_id=period.id,
+        status=RunStatus.COMPLETED.value,
+        trigger=RunTrigger.MANUAL.value,
+        grand_total=Decimal(str(a + b)),
+        run_by=None,
+    )
+    cells = []
+    for model, traded in ((model_a, a), (model_b, b)):
+        for user in users:
+            cells.append(
+                {
+                    "run_id": run.id,
+                    "model_id": model.id,
+                    "user_id": user.id,
+                    "model_traded": Decimal(str(traded)),
+                    "units": Decimal("1"),
+                    "units_total": Decimal("2"),
+                    "allocated": Decimal(str(traded)) / 2,
+                    "pct": Decimal("50.000"),
+                    "ib_account": "U-1234567",
+                    "model_name": model.name,
+                    "model_acct": "U-1234567",
+                }
+            )
+    repo.write_cells(cells)
+    session.commit()
+    return run
+
+
+def _history_setup(session, repo):
+    model_a = make_model(session, name="A")
+    model_b = make_model(session, name="B")
+    users = [make_user(session, email=f"c{i}@example.com") for i in range(2)]
+    _seed_two_model_run(
+        session, repo, model_a=model_a, model_b=model_b, users=users, trade_date="20260604"
+    )
+    return model_a, model_b
+
+
+def test_get_history_per_model_sums_that_models_own_traded(session, repo, service):
+    model_a, model_b = _history_setup(session, repo)
+    (a,) = service.get_history("2026-06-04", "2026-06-04", str(model_a.id)).series
+    (b,) = service.get_history("2026-06-04", "2026-06-04", str(model_b.id)).series
+    assert a.pnl == 100.0  # not the 70 grand_total, not 200 from two client cells
+    assert b.pnl == -30.0
+
+
+def test_get_history_without_model_sums_grand_total(session, repo, service):
+    _history_setup(session, repo)
+    (point,) = service.get_history("2026-06-04", "2026-06-04").series
+    assert point.pnl == 70.0
+
+
+def test_get_history_second_run_same_date_folds_into_one_point(session, repo, service):
+    model_a, model_b = _history_setup(session, repo)
+    user = make_user(session, email="extra@example.com")
+    _seed_completed_run(
+        session, repo, model=model_a, user=user, trade_date="20260604", traded=25,
+        trigger=RunTrigger.SCHEDULED,
+    )
+    (point,) = service.get_history("2026-06-04", "2026-06-04", str(model_a.id)).series
+    assert point.pnl == 125.0

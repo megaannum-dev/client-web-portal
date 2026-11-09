@@ -263,11 +263,18 @@ class PostTradeAllocationRepository:
             query = query.filter(PostTradeAllocationRun.status != RunStatus.EMPTY.value)
         return query.all()
 
-    def run_ids_for_model(self, model_id: uuid.UUID) -> list[uuid.UUID]:
+    def model_traded_by_run(
+        self, model_id: uuid.UUID, run_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, Decimal]:
+        """The model's own signed traded amount per run. `model_traded` repeats on
+        every client cell of a (run, model), so DISTINCT yields one row per run."""
+        if not run_ids:
+            return {}
         rows = (
-            self.db.query(PostTradeAllocation.run_id)
+            self.db.query(PostTradeAllocation.run_id, PostTradeAllocation.model_traded)
             .filter(PostTradeAllocation.model_id == model_id)
+            .filter(PostTradeAllocation.run_id.in_(run_ids))
             .distinct()
             .all()
         )
-        return [r[0] for r in rows]
+        return {run_id: traded for run_id, traded in rows}
