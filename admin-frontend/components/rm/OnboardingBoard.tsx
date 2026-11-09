@@ -197,18 +197,19 @@ function KycPanel({
       </div>
 
       <div className="flex shrink-0 flex-col gap-2.5 border-t border-outline-variant px-5 py-3.5">
-        {!canSubmit && (
+        {canEdit && !canSubmit && (
           <div className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "#b9741f" }}>
             <AlertCircle size={14} strokeWidth={2} className="shrink-0" />
             <span>{outstanding} document{outstanding === 1 ? "" : "s"} still required before you can submit.</span>
           </div>
         )}
         <div className="flex gap-2.5">
-          {!locked && <Button variant="secondary" icon={Bell} full>Request docs</Button>}
-          {locked ? (
-            <Button icon={Download} full onClick={handleDownloadAll}>Download All</Button>
+          {canEdit && !locked && <Button variant="secondary" icon={Bell} full>Request docs</Button>}
+          {/* View-only users get the read counterpart (Download All) in place of the submit flow. */}
+          {locked || !canEdit ? (
+            <Button icon={Download} full disabled={!docs.some((d) => d.filename)} onClick={handleDownloadAll}>Download All</Button>
           ) : (
-            canEdit && <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
+            <Button icon={Check} full disabled={!canSubmit} onClick={handleSubmitAll}>Submit All</Button>
           )}
         </div>
         <button
