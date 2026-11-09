@@ -148,7 +148,7 @@ def test_pm_synthetic_view_grant_on_model_management(http_client):
         (AdminRole.RM, Action.CLIENT_VIEW),
         (AdminRole.MOBO, Action.RECON_VIEW),
         (AdminRole.PM, Action.MODEL_VIEW),
-        (AdminRole.COMPLIANCE, Action.ONBOARDING_REVIEW),
+        (AdminRole.COMPLIANCE, Action.COMPLIANCE_WRITE),
     ],
     ids=lambda v: getattr(v, "name", v),
 )

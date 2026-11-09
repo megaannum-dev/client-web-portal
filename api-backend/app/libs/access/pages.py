@@ -167,7 +167,7 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # its own. Empty/empty also means a `view` cell on compliance.review (which the
     # seed gives PM) grants NOTHING -- no role gains verdict/approve rights from a
     # read grant. COMPLIANCE's board reads arrive via its own `edit` on that page.
-    "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
+    "compliance.review": (fs(), fs(Action.COMPLIANCE_WRITE)),
     # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).
     "compliance.ic-notes": (fs(Action.IC_NOTES_VIEW), fs(Action.IC_NOTES_WRITE)),
     # /sop GET list/versions/download at VIEW; POST/PATCH/DELETE at EDIT.
