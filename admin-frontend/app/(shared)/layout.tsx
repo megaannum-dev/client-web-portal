@@ -1,4 +1,5 @@
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DashboardShell } from "@/components/DashboardShell";
 
 export default function SharedLayout({
@@ -9,7 +10,9 @@ export default function SharedLayout({
   return (
     <AuthGuard>
       <div className="min-h-screen bg-surface">
-        <DashboardShell>{children}</DashboardShell>
+        <DashboardShell>
+          <RoleGuard prefix="/monthly-reports">{children}</RoleGuard>
+        </DashboardShell>
       </div>
     </AuthGuard>
   );

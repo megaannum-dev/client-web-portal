@@ -5,7 +5,7 @@ import { FileText, Download, ChevronLeft, ChevronRight, MessageSquarePlus, Messa
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MOCK_EOM_REPORTS } from "@/lib/mock/eom-reports";
 import { CommentModal } from "@/components/monthly-reports/CommentModal";
-import { useAuth } from "@/components/auth/AuthProvider";
+import { useCanEdit } from "@/hooks/usePageAccess";
 import { useEomComments } from "@/hooks/api/useEomComments";
 import clsx from "clsx";
 
@@ -26,8 +26,7 @@ async function downloadReport(url: string, filename: string) {
 }
 
 export default function MonthlyReportsPage() {
-  const { portalUser } = useAuth();
-  const isPM = portalUser?.role === "PM";
+  const canEdit = useCanEdit("shared.monthly-reports");
 
   const { data: comments, saveComment } = useEomComments();
 
@@ -105,12 +104,12 @@ export default function MonthlyReportsPage() {
                             type="button"
                             onClick={() => setEditingReport(r.name)}
                             title={comments?.[r.name]?.comment}
-                            aria-label={`${isPM ? "Edit" : "View"} comment on ${r.name}`}
+                            aria-label={`${canEdit ? "Edit" : "View"} comment on ${r.name}`}
                             className="inline-flex flex-none items-center rounded border border-outline-variant bg-white px-2 py-[5px] text-primary transition-colors"
                           >
                             <MessageSquareText size={16} strokeWidth={1.75} />
                           </button>
-                        ) : isPM ? (
+                        ) : canEdit ? (
                           /* View/Edit Gate Function */
                           <button
                             type="button"
@@ -195,7 +194,7 @@ export default function MonthlyReportsPage() {
           <CommentModal
             report={report}
             value={comments?.[editingReport]?.comment}
-            readOnly={!isPM}
+            readOnly={!canEdit}
             onSave={async (text) => {
               const result = await saveComment(editingReport, text);
               if (result.success) setEditingReport(null);
