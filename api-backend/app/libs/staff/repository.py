@@ -33,6 +33,8 @@ class StaffDirectoryRow:
     role: AdminRole
     department: str | None
     phone_number: str | None
+    start_date: date | None
+    address: str | None
     status: AccountStatus
     last_sign_in_at: datetime | None
     override_count: int
@@ -141,6 +143,8 @@ class StaffRepository:
                 AdminProfile.role,
                 AdminProfile.department,
                 AdminProfile.phone_number,
+                AdminProfile.start_date,
+                AdminProfile.address,
                 User.status,
                 User.last_sign_in_at,
                 func.coalesce(overrides_sq.c.override_count, 0),

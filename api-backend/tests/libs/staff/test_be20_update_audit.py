@@ -6,6 +6,8 @@ Exercised through `PATCH /api/admin/staff/{uid}` (be019_client roster)."""
 
 from __future__ import annotations
 
+from datetime import date
+
 from app.models.access import AdminAuditEvent
 from app.models.users import AdminProfile, User
 
@@ -93,6 +95,18 @@ def test_department_change_persists_and_is_audited(be019_client):
     (row,) = _staff_audit(be019_client)
     assert row.event == "staff.updated"
     assert row.detail == f"{target.firebase_uid}: dept (none)→Operations"
+
+
+def test_start_date_and_address_persist_and_are_audited(be019_client):
+    target = be019_client.users["pm"]
+    _patch(be019_client, target, start_date="2026-07-27", address="1 Main St")
+    profile = _profile(be019_client, target)
+    assert profile.start_date == date(2026, 7, 27)
+    assert profile.address == "1 Main St"
+    (row,) = _staff_audit(be019_client)
+    assert row.detail == (
+        f"{target.firebase_uid}: start date (none)→2026-07-27; address (none)→1 Main St"
+    )
 
 
 def test_noop_values_write_no_audit_row(be019_client):

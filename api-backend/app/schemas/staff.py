@@ -43,6 +43,8 @@ class StaffUpdateIn(BaseModel):  # all optional; omitted = unchanged
     name: str | None = None
     phone_number: str | None = None
     department: str | None = None
+    start_date: date | None = None
+    address: str | None = None
     status: Literal["ACTIVE", "DEACTIVATED"] | None = None  # INITIATED never settable (D-4)
     deactivate_reason: str | None = None
     reassign_book_to: str | None = None  # C-11
@@ -55,6 +57,8 @@ class StaffOut(BaseModel):
     role: AdminRole
     department: str | None
     phone_number: str | None
+    start_date: date | None
+    address: str | None
     status: Literal["ACTIVE", "INITIATED", "DEACTIVATED"]  # INITIATED is DERIVED
     last_sign_in_at: datetime | None
     override_count: int

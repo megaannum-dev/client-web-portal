@@ -38,6 +38,8 @@ class StaffUpdatePatch(Protocol):
     name: str | None
     phone_number: str | None
     department: str | None
+    start_date: date | None
+    address: str | None
     deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
@@ -97,6 +99,8 @@ class StaffService:
                     role=row.role,
                     department=row.department,
                     phone_number=row.phone_number,
+                    start_date=row.start_date,
+                    address=row.address,
                     status=status,
                     last_sign_in_at=row.last_sign_in_at,
                     override_count=row.override_count,
@@ -325,6 +329,10 @@ class StaffService:
             contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
         if patch.department is not None and patch.department != profile.department:
             contact.append(f"dept {profile.department or '(none)'}→{patch.department}")
+        if patch.start_date is not None and patch.start_date != profile.start_date:
+            contact.append(f"start date {profile.start_date or '(none)'}→{patch.start_date}")
+        if patch.address is not None and patch.address != profile.address:
+            contact.append(f"address {profile.address or '(none)'}→{patch.address}")
 
         if patch.role is not None:
             profile.role = patch.role
@@ -336,6 +344,10 @@ class StaffService:
             profile.phone_number = patch.phone_number
         if patch.department is not None:
             profile.department = patch.department
+        if patch.start_date is not None:
+            profile.start_date = patch.start_date
+        if patch.address is not None:
+            profile.address = patch.address
 
         if block is not None:
             assert receiver_uid is not None  # guarded above -- 409/422 already raised otherwise
