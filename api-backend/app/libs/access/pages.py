@@ -121,9 +121,11 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # CLIENT_VIEW guarded that mutation too, and D-11's seed grants `view` here to
     # roles that never held it. See BE-22.
     "rm.client-info": (fs(Action.CLIENT_VIEW), fs(Action.CLIENT_WRITE)),
-    # /rm/onboardings — GET (board list) now accepts ONBOARDING_VIEW so a VIEW
-    # grant can load the board read-only; every mutating route (start/upload/
-    # submit) and the wizard-support/detail/download GETs stay on ONBOARDING_WRITE.
+    # /rm/onboardings — GET (board list) and the KYC document downloads (single +
+    # download-all) accept ONBOARDING_VIEW so a VIEW grant can load the board and
+    # read documents (R2); every mutating route (start/upload/submit) and the
+    # wizard-support/detail GETs stay on ONBOARDING_WRITE. Download stays
+    # book-scoped by _require_visible_onboarding.
     # MODEL_VIEW is also carried at VIEW: the onboarding/renewal wizard's "Initial
     # Model to Subscribe" dropdown calls GET /pm/models, which is otherwise gated
     # by the separate pm.model-management page -- this page's own bucket must

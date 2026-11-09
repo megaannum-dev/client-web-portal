@@ -294,7 +294,7 @@ def download_document_rm(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
@@ -311,7 +311,7 @@ def download_document_rm(
 def download_all_documents(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
