@@ -21,6 +21,7 @@ class Action(str, enum.Enum):
     # Client Onboarding — feature 013 (BE-4)
     ONBOARDING_VIEW = "onboarding:view"  # RM: read-only board access for VIEW-level grants
     ONBOARDING_WRITE = "onboarding:write"  # RM: start / upload / submit
+    SUBSCRIPTION_WRITE = "rm:subscription_write"  # RM: submit allotment / redemption, file transaction detail
     COMPLIANCE_VIEW = "compliance:view"  # COMPLIANCE: read the review queue + download KYC
     # COMPLIANCE: per-document verdict (valid / issue), approve, request resubmit
     # (reject), request reprovision, redemption decide

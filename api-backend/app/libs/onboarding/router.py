@@ -349,7 +349,7 @@ def list_client_allotments(
 def submit_allotment(
     req: SubmitAllotmentReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
@@ -361,7 +361,7 @@ def submit_allotment(
 def submit_redemption(
     req: SubmitRedemptionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
@@ -378,7 +378,7 @@ def file_transaction_detail(
     allotment_id: uuid.UUID,
     req: TransactionDetailRequest,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> TransactionDetailDTO:
