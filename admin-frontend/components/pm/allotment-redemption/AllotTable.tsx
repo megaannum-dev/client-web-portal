@@ -13,11 +13,12 @@ const TH = "whitespace-nowrap bg-surface-low px-4 py-3 text-left text-[11px] fon
 const TD = "border-t border-outline-variant px-4 py-[13px] text-[14px] text-on-surface";
 
 export function AllotTable({
-  rows, onRowClick, onAcknowledge,
+  rows, onRowClick, onAcknowledge, canEdit,
 }: {
   rows: AllotmentView[];
   onRowClick: (id: string) => void;
   onAcknowledge: (id: string) => void;
+  canEdit: boolean;
 }) {
   return (
     <Card pad={false}>
@@ -49,7 +50,7 @@ export function AllotTable({
                   <td className={`${TD} text-secondary`}>{a.rm}</td>
                   <td className={`${TD} text-right`}>
                     {pending ? (
-                      <Button
+                      canEdit && <Button
                         variant="secondary"
                         icon={Check}
                         className="px-[13px] py-1.5 text-[13px]"

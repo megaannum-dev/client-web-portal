@@ -15,9 +15,11 @@ import { AllotDetailPanel } from "@/components/pm/allotment-redemption/AllotDeta
 import { RedeemTable } from "@/components/pm/allotment-redemption/RedeemTable";
 import { RedeemDetailPanel } from "@/components/pm/allotment-redemption/RedeemDetailPanel";
 import { useAllotments } from "@/hooks/api/useAllotments";
+import { useCanEdit } from "@/hooks/usePageAccess";
 
 export default function AllotmentRedemptionPage() {
   const [tab, setTab] = useState<TabKey>("allot");
+  const canEdit = useCanEdit("pm.allotment-redemption");
   const { data: allotmentsData, redemptions: redemptionsData, acknowledge, decideRedemption } = useAllotments();
   const [openAllotId, setOpenAllotId] = useState<string | null>(null);
   const [openRedeemId, setOpenRedeemId] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function AllotmentRedemptionPage() {
           <ArTabs tab={tab} onTab={setTab} pendAllot={pendAllot} pendRedeem={pendRedeem} />
 
           {tab === "allot" ? (
-            <AllotTable rows={allotments} onRowClick={setOpenAllotId} onAcknowledge={acknowledge} />
+            <AllotTable rows={allotments} onRowClick={setOpenAllotId} onAcknowledge={acknowledge} canEdit={canEdit} />
           ) : (
             <RedeemTable rows={redemptions} onRowClick={setOpenRedeemId} />
           )}
@@ -62,12 +64,13 @@ export default function AllotmentRedemptionPage() {
       </div>
 
       {openAllot && (
-        <AllotDetailPanel a={openAllot} onClose={() => setOpenAllotId(null)} onAcknowledge={acknowledge} />
+        <AllotDetailPanel a={openAllot} onClose={() => setOpenAllotId(null)} onAcknowledge={acknowledge} canEdit={canEdit} />
       )}
       {openRedeem && (
         <RedeemDetailPanel
           r={openRedeem}
           onClose={() => setOpenRedeemId(null)}
+          canEdit={canEdit}
           onDecision={(id, verdict, reason) =>
             void decideRedemption(id, { verdict, reason }).then((r) => {
               if (!r.success) toast.error(`Could not submit decision: ${r.error}`);
