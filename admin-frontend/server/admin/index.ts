@@ -21,6 +21,8 @@ export interface StaffOut {
   override_count: number;
   client_count: number | null;        // RM only; null for every other role
   open_ticket_count: number | null;   // RM only; null for every other role
+  start_date: string | null;          // ISO date
+  address: string | null;
 }
 
 export interface StaffEnrollIn {
@@ -46,6 +48,8 @@ export interface StaffCreatedOut {
 export interface StaffUpdateIn {
   role?: Role; name?: string; phone_number?: string | null;
   department?: string | null;
+  start_date?: string | null;
+  address?: string | null;
   status?: "ACTIVE" | "DEACTIVATED";
   deactivate_reason?: string | null;
   reassign_book_to?: string | null;

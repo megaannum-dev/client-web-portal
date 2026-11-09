@@ -35,7 +35,7 @@ const STAFF_FIXTURE = [
   {
     firebase_uid: "u1", email: "a@megaannum.ai", name: "Amara Rahim", role: "RM",
     department: "RM", phone_number: null, status: "ACTIVE", last_sign_in_at: "2026-07-01T00:00:00Z",
-    override_count: 0, client_count: 12, open_ticket_count: 2,
+    override_count: 0, client_count: 12, open_ticket_count: 2, start_date: null, address: null,
   },
 ];
 const MATRIX_FIXTURE = {

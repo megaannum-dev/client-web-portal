@@ -20,7 +20,7 @@ import {
   type CreatedInfo,
 } from "@/components/admin/enroll/LifecycleModals";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
-import { expiryToIso, isoDateOrNull, todayLabel } from "@/lib/admin/today";
+import { expiryToIso, isoDateOrNull, labelFromIso, todayLabel } from "@/lib/admin/today";
 import { generatePassword } from "@/lib/admin/password";
 import type { EnrollDraft, Level, PageId, Role, StaffOut } from "@/lib/admin/types";
 
@@ -64,7 +64,7 @@ export default function EnrollUserPage() {
     const ovr: Record<string, Level> = Object.fromEntries(store.ovrFor(u.firebase_uid).map((o) => [o.page_id, o.level]));
     setDraft({
       mode: "edit", orig: u.firebase_uid, origRole: u.role, first, last: rest.join(" "), email: u.email ?? "",
-      phone: u.phone_number ?? "", start: todayLabel(), addr: "Bahnhofstrasse 42, 8001 Zürich, CH",
+      phone: u.phone_number ?? "", start: labelFromIso(u.start_date), addr: u.address ?? "",
       dept: u.department ?? "", role: u.role, ovr, ovrExpiry: "90 days", notify: false, password: "",
       client_count: u.client_count, open_ticket_count: u.open_ticket_count, // carried in — no extra fetch
       reassign_book_to: null,
@@ -83,6 +83,7 @@ export default function EnrollUserPage() {
       const ok = await store.updateStaff(d.orig!, {
         name, role: d.role as Role,
         phone_number: d.phone.trim() || null, department: d.dept.trim() || null,
+        start_date: isoDateOrNull(d.start), address: d.addr.trim() || null,
         ...(d.reassign_book_to ? { reassign_book_to: d.reassign_book_to } : {}),
       });
       if (!ok) return;

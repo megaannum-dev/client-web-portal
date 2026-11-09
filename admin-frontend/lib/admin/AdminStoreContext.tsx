@@ -274,6 +274,7 @@ export function AdminStoreProvider({
           department: body.department ?? null, phone_number: body.phone_number ?? null,
           status: created.status, last_sign_in_at: null, override_count: created.override_count,
           client_count: null, open_ticket_count: null,
+          start_date: body.start_date ?? null, address: body.address ?? null,
         },
       ]);
       await refreshAudit();

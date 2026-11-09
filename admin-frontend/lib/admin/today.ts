@@ -17,7 +17,12 @@ export function isoDateOrNull(s: string): string | null {
   const t = s.trim();
   if (!t) return null;
   const d = new Date(t);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-CA"); // local Y-M-D; toISOString would shift the day east of UTC
+}
+
+/** An ISO date ("2026-07-27") back to the console's label ("27 Jul 2026"); "" when null. */
+export function labelFromIso(iso: string | null): string {
+  return iso ? todayLabel(new Date(`${iso}T00:00`)) : "";
 }
 
 /** The Access step's expiry pick ("30 days" / "30 Sep 2026" / "No expiry") -> an ISO
