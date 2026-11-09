@@ -161,18 +161,17 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # would have been a real read/write conflation once those roles could reach it.
     "pm.allotment-redemption": (fs(Action.ALLOTMENT_VIEW), fs(Action.ALLOTMENT_ACKNOWLEDGE)),
     # ---- COMPLIANCE ----
-    # Every /compliance/* route (board read, download, verdict, approve, reject) is
-    # guarded by ONBOARDING_REVIEW, so the review page's EDIT bucket carries it and
-    # the overview — a read-only dashboard over the same board — carries no action of
-    # its own. Empty/empty also means a `view` cell on compliance.review (which the
-    # seed gives PM) grants NOTHING -- no role gains verdict/approve rights from a
-    # read grant. COMPLIANCE's board reads arrive via its own `edit` on that page.
-    "compliance.review": (fs(), fs(Action.COMPLIANCE_WRITE)),
+    # The /compliance/* and /co/* reads (queue, KYC download, redemption list) are
+    # COMPLIANCE_VIEW; the writes (verdict, approve, resubmit, reprovision, redemption
+    # decide) are COMPLIANCE_WRITE. So a `view` cell on compliance.review reads the
+    # queue + downloads KYC (R2) but cannot decide anything; `edit` adds the writes.
+    # The overview — a read-only dashboard over the same board — carries the reads only.
+    "compliance.review": (fs(Action.COMPLIANCE_VIEW), fs(Action.COMPLIANCE_WRITE)),
     # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).
     "compliance.ic-notes": (fs(Action.IC_NOTES_VIEW), fs(Action.IC_NOTES_WRITE)),
     # /sop GET list/versions/download at VIEW; POST/PATCH/DELETE at EDIT.
     "compliance.sop": (fs(Action.SOP_VIEW), fs(Action.SOP_WRITE)),
-    "compliance.overview": (fs(), fs()),
+    "compliance.overview": (fs(Action.COMPLIANCE_VIEW), fs()),
     # ---- SHARED ----
     # GET /reports/eom-comments is open to any authenticated admin (no view action
     # needed); PUT /reports/eom-comments/{name} is gated by EOM_COMMENT_WRITE, added

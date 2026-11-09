@@ -405,7 +405,7 @@ def get_transaction_detail(
 @router.get("/compliance/onboardings", response_model=list[OnboardingDTO])
 def get_compliance_queue(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> list[OnboardingDTO]:
     return svc.compliance_queue()
 
@@ -415,7 +415,7 @@ def download_document(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> StreamingResponse:
     stream, filename, content_type = svc.download_document(onboarding_id, doc_type)
     return StreamingResponse(
@@ -525,6 +525,6 @@ def co_decide_redemption(
 @router.get("/co/redemptions", response_model=list[AllotRdmptDTO])
 def get_co_redemptions(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> list[AllotRdmptDTO]:
     return svc.list_allotments()
