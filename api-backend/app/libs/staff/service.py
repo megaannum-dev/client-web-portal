@@ -1,11 +1,13 @@
 # app-backend/app/libs/staff/service.py
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date
 from typing import Literal, Protocol
 
 from fastapi import HTTPException
+from firebase_admin import auth as firebase_auth
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -19,6 +21,8 @@ from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
 from app.schemas.staff import LinkSentOut, StaffOut, StaffOverrideIn
 
+logger = logging.getLogger(__name__)
+
 # Wire status ("ACTIVE"/"DEACTIVATED", the StaffUpdateIn literal) -> DB-native
 # AccountStatus. BE-19: both the last-ADMIN guard and the handover guard compare
 # against the wire value, but the actual column write needs the DB enum.
@@ -26,6 +30,16 @@ _STATUS_WIRE_TO_DB: dict[str, AccountStatus] = {
     "ACTIVE": AccountStatus.ACTIVE,
     "DEACTIVATED": AccountStatus.DISABLED,
 }
+
+
+# (audit label, StaffUpdatePatch/AdminProfile attribute). Nullable on the profile, so an
+# explicitly sent null clears them; name/role/status are required and keep `is not None`.
+_CLEARABLE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("phone", "phone_number"),
+    ("dept", "department"),
+    ("start date", "start_date"),
+    ("address", "address"),
+)
 
 
 class StaffUpdatePatch(Protocol):
@@ -37,7 +51,10 @@ class StaffUpdatePatch(Protocol):
     status: Literal["ACTIVE", "DEACTIVATED"] | None
     name: str | None
     phone_number: str | None
-    email: str | None
+    department: str | None
+    start_date: date | None
+    address: str | None
+    model_fields_set: set[str]  # which fields the caller SENT (null = clear, omitted = keep)
     deactivate_reason: str | None  # audit detail only -- not stored on the user
     reassign_book_to: str | None  # BE-19
 
@@ -97,6 +114,8 @@ class StaffService:
                     role=row.role,
                     department=row.department,
                     phone_number=row.phone_number,
+                    start_date=row.start_date,
+                    address=row.address,
                     status=status,
                     last_sign_in_at=row.last_sign_in_at,
                     override_count=row.override_count,
@@ -249,8 +268,10 @@ class StaffService:
 
     def update(
         self, uid: str, patch: StaffUpdatePatch, settings: Settings, *, actor: User | None = None
-    ) -> User:
-        """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
+    ) -> tuple[User, str | None]:
+        """Returns the updated user plus a warning for the caller to show, or None.
+
+        Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
         must be rejected atomically -- the active-admin count is read with
         `SELECT ... FOR UPDATE` (via count_active_admins(for_update=True)) inside
         THIS transaction, so two concurrent demotions of two different admins can't
@@ -307,8 +328,9 @@ class StaffService:
             self._assert_valid_receiver(receiver_uid, from_uid=uid)
 
         # Audit fragments, built from the before-values and ACTUAL changes only (a
-        # no-op write adds nothing). `state` = role/status, `contact` = name/phone/
-        # email; a handover row already says role/deactivation in its own words.
+        # no-op write adds nothing). `state` = role/status, `contact` = name and the
+        # clearable profile fields; a handover row already says role/deactivation in
+        # its own words. users.email mirrors the sign-in identity; never written here.
         state: list[str] = []
         contact: list[str] = []
         reason = patch.deactivate_reason if is_disabling else None
@@ -321,10 +343,11 @@ class StaffService:
             state.append("reactivated")
         if patch.name is not None and patch.name != profile.name:
             contact.append(f"name {profile.name or '(none)'}→{patch.name}")
-        if patch.phone_number is not None and patch.phone_number != profile.phone_number:
-            contact.append(f"phone {profile.phone_number or '(none)'}→{patch.phone_number}")
-        if patch.email is not None and patch.email != user.email:
-            contact.append(f"email {user.email or '(none)'}→{patch.email}")
+        for label, field in _CLEARABLE_FIELDS:
+            if field in patch.model_fields_set:
+                old, new = getattr(profile, field), getattr(patch, field)
+                if new != old:
+                    contact.append(f"{label} {old or '(none)'}→{new or '(none)'}")
 
         if patch.role is not None:
             profile.role = patch.role
@@ -332,10 +355,9 @@ class StaffService:
             user.status = _STATUS_WIRE_TO_DB[patch.status]
         if patch.name is not None:
             profile.name = patch.name
-        if patch.phone_number is not None:
-            profile.phone_number = patch.phone_number
-        if patch.email is not None:
-            user.email = patch.email  # local contact email only -- NOT the Firebase credential
+        for _, field in _CLEARABLE_FIELDS:
+            if field in patch.model_fields_set:
+                setattr(profile, field, getattr(patch, field))
 
         if block is not None:
             assert receiver_uid is not None  # guarded above -- 409/422 already raised otherwise
@@ -377,7 +399,23 @@ class StaffService:
             )
 
         self.repo.db.commit()
-        if patch.role is not None:
-            set_portal_claims(uid, "admin", patch.role.value, settings)
+        # Only a real role change re-stamps the token claim: the edit wizard sends
+        # `role` on every save, and a no-op re-stamp is a pointless Firebase round-trip.
+        warning: str | None = None
+        if patch.role is not None and patch.role != role_before:
+            try:
+                set_portal_claims(uid, "admin", patch.role.value, settings)
+            except firebase_auth.UserNotFoundError:
+                # The change is already committed, and the DB role is authoritative:
+                # access resolves from page_access, nothing reads the token's role
+                # claim. A uid with no Firebase identity has no token to stamp, so a
+                # 500 here would only report a saved edit as failed. The admin is
+                # told instead: the portal record and Firebase now disagree.
+                logger.warning("Role claim not stamped: no Firebase identity for uid %s", uid)
+                warning = (
+                    f"Saved, but {target_label} has no Firebase sign-in account, so the new "
+                    "role couldn't be applied to their login and they can't sign in. "
+                    "Restore the account in Firebase or re-enrol them."
+                )
         self.repo.db.refresh(user)
-        return user
+        return user, warning

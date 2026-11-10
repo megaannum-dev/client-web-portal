@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Plus } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -78,9 +79,10 @@ function ModelSubscriptionContent() {
     const resolved = resolveDeepLink(searchParams, clients);
     if (resolved) {
       setDeepLink({ openClient: resolved.openClient, openModelKey: resolved.openModelKey });
-      setModal(resolved.modal);
+      if (canEdit) setModal(resolved.modal);
+      else toast.error("Access Denied: You have no access right to this component");
     }
-  }, [clients, searchParams]);
+  }, [clients, searchParams, canEdit]);
 
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;

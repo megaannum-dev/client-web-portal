@@ -294,7 +294,7 @@ def download_document_rm(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
@@ -311,7 +311,7 @@ def download_document_rm(
 def download_all_documents(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.ONBOARDING_VIEW))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
@@ -349,7 +349,7 @@ def list_client_allotments(
 def submit_allotment(
     req: SubmitAllotmentReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
@@ -361,7 +361,7 @@ def submit_allotment(
 def submit_redemption(
     req: SubmitRedemptionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> AllotRdmptDTO:
@@ -378,7 +378,7 @@ def file_transaction_detail(
     allotment_id: uuid.UUID,
     req: TransactionDetailRequest,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.CLIENT_WRITE))],
+    user: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
     role: Annotated[AdminRole, Depends(_get_subscriptions_caller_role)],
     db: Annotated[Session, Depends(get_db)],
 ) -> TransactionDetailDTO:
@@ -405,7 +405,7 @@ def get_transaction_detail(
 @router.get("/compliance/onboardings", response_model=list[OnboardingDTO])
 def get_compliance_queue(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> list[OnboardingDTO]:
     return svc.compliance_queue()
 
@@ -415,7 +415,7 @@ def download_document(
     onboarding_id: uuid.UUID,
     doc_type: str,
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> StreamingResponse:
     stream, filename, content_type = svc.download_document(onboarding_id, doc_type)
     return StreamingResponse(
@@ -433,7 +433,7 @@ def submit_verdicts(
     onboarding_id: uuid.UUID,
     req: VerdictBatchReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
 ) -> list[DocumentDTO]:
     return svc.verdict_batch(onboarding_id, req, reviewer_uid=user.firebase_uid)
 
@@ -442,7 +442,7 @@ def submit_verdicts(
 def approve_onboarding(
     onboarding_id: uuid.UUID,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> OnboardingDTO:
     identity = FirebaseIdentityService(settings)
@@ -459,7 +459,7 @@ def request_resubmit(
     onboarding_id: uuid.UUID,
     req: ResubmitReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
 ) -> OnboardingDTO:
     """Replaces the old /reject: a reviewed package with document issues goes
     back to the RM/client for a corrected submission -- see
@@ -475,7 +475,7 @@ def request_reprovision(
     onboarding_id: uuid.UUID,
     req: ReprovisionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
 ) -> OnboardingDTO:
     """Ad-hoc counterpart to the scheduler's periodic renewal sweep: sends an
     ACTIVE client back to pending_review instantly, for any set of KYC
@@ -517,7 +517,7 @@ def co_decide_redemption(
     allotment_id: uuid.UUID,
     req: RedemptionDecisionReq,
     svc: Annotated[OnboardingService, Depends(_service)],
-    user: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    user: Annotated[User, Depends(require_action(Action.COMPLIANCE_WRITE))],
 ) -> AllotRdmptDTO:
     return svc.co_decide_redemption(allotment_id, req, decided_by=user.firebase_uid)
 
@@ -525,6 +525,6 @@ def co_decide_redemption(
 @router.get("/co/redemptions", response_model=list[AllotRdmptDTO])
 def get_co_redemptions(
     svc: Annotated[OnboardingService, Depends(_service)],
-    _: Annotated[User, Depends(require_action(Action.ONBOARDING_REVIEW))],
+    _: Annotated[User, Depends(require_action(Action.COMPLIANCE_VIEW))],
 ) -> list[AllotRdmptDTO]:
     return svc.list_allotments()

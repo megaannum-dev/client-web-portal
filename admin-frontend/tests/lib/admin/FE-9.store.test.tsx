@@ -35,7 +35,7 @@ const STAFF_FIXTURE = [
   {
     firebase_uid: "u1", email: "a@megaannum.ai", name: "Amara Rahim", role: "RM",
     department: "RM", phone_number: null, status: "ACTIVE", last_sign_in_at: "2026-07-01T00:00:00Z",
-    override_count: 0, client_count: 12, open_ticket_count: 2,
+    override_count: 0, client_count: 12, open_ticket_count: 2, start_date: null, address: null,
   },
 ];
 const MATRIX_FIXTURE = {
@@ -152,6 +152,20 @@ describe("FE-9 AdminStoreProvider / useAdminStore", () => {
       expect(store.staff).toEqual([]);
       expect(store.overrides).toEqual([]);
       expect(store.audit).toEqual([]);
+    });
+
+    it("a successful update that carries a warning surfaces it, and keeps it out of the directory row", async () => {
+      const { toast } = await import("sonner");
+      const warning = "Saved, but X has no Firebase sign-in account";
+      mockActions.updateStaff.mockResolvedValue({ success: true, data: { ...STAFF_FIXTURE[0], warning } });
+      renderStore();
+      const store = ctx as unknown as { updateStaff: (uid: string, body: unknown) => Promise<boolean> };
+      const ok = await act(async () => store.updateStaff(STAFF_FIXTURE[0].firebase_uid, { role: "MOBO" }));
+      expect(ok).toBe(true);
+      expect(toast.warning).toHaveBeenCalledWith(warning, expect.anything());
+      const row = (ctx as unknown as { staff: Record<string, unknown>[] }).staff
+        .find((u) => u.firebase_uid === STAFF_FIXTURE[0].firebase_uid);
+      expect(row).not.toHaveProperty("warning");
     });
 
     it("a mutation keyed on a firebase_uid absent from staff is a no-op, not a crash", async () => {

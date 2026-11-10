@@ -11,11 +11,12 @@ import { ArDetailShell, ArFact, arLabelCls } from "./parts";
 import { AggBar } from "./AggBar";
 
 export function AllotDetailPanel({
-  a, onClose, onAcknowledge,
+  a, onClose, onAcknowledge, canEdit,
 }: {
   a: AllotmentView;
   onClose: () => void;
   onAcknowledge: (id: string) => void;
+  canEdit: boolean;
 }) {
   const pending = a.status === "pending";
   return (
@@ -54,7 +55,7 @@ export function AllotDetailPanel({
       </div>
       <div className="mt-5 flex justify-end">
         {pending ? (
-          <Button icon={Check} onClick={() => onAcknowledge(a.id)}>Acknowledge</Button>
+          canEdit && <Button icon={Check} onClick={() => onAcknowledge(a.id)}>Acknowledge</Button>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-secondary">
             <Check size={15} strokeWidth={2} />Acknowledged

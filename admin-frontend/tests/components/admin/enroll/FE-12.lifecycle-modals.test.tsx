@@ -26,7 +26,7 @@ beforeEach(() => {
 const STAFF_MEMBER = {
   firebase_uid: "u1", email: "s@megaannum.ai", name: "Sofia Petrova", role: "RM",
   department: "RM", phone_number: null, status: "INITIATED", last_sign_in_at: null,
-  override_count: 0, client_count: 0, open_ticket_count: 0,
+  override_count: 0, client_count: 0, open_ticket_count: 0, start_date: null, address: null,
 };
 
 describe("FE-12 SendLinkModal (was ResetModal)", () => {

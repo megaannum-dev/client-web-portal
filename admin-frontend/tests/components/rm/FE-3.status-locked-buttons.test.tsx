@@ -10,6 +10,9 @@ vi.mock("next/navigation", async (importOriginal) => ({
 vi.mock("@/hooks/api/useOnboardingBoard", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/hooks/api/useOnboardingBoard")>()), useOnboardingBoard: vi.fn() }));
 
+// KycPanel gates Upload / Submit All on useCanEdit; these tests exercise the EDIT-level UI.
+vi.mock("@/hooks/usePageAccess", () => ({ useCanEdit: () => true }));
+
 import { useOnboardingBoard } from "@/hooks/api/useOnboardingBoard";
 import { OnboardingBoard } from "@/components/rm/OnboardingBoard";
 import type { DocumentDTO, KycBoardClient, OnboardingStatus } from "@/lib/onboarding/types";

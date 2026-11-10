@@ -34,11 +34,12 @@ function WorkflowStep({ label, sub, state }: { label: string; sub: string; state
 }
 
 export function RedeemDetailPanel({
-  r, onClose, onDecision,
+  r, onClose, onDecision, canEdit,
 }: {
   r: RedemptionView;
   onClose: () => void;
   onDecision: (id: string, verdict: "approve" | "reject", reason?: string) => void;
+  canEdit: boolean;
 }) {
   const amt = r.amount;
   const comp = amt > 300000;
@@ -112,7 +113,7 @@ export function RedeemDetailPanel({
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         {pending ? (
-          <>
+          canEdit && <>
             <RejectReason onReject={(reason) => onDecision(r.id, "reject", reason)}>
               <Button icon={Check} onClick={() => onDecision(r.id, "approve")}>Approve</Button>
             </RejectReason>

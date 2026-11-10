@@ -17,8 +17,6 @@ class UserService:
         """BE-19: self-service PATCH /me, benign fields only. role/status are
         not on UserSelfUpdate at all (schema-level exclusion), so there is
         nothing here to ignore -- they simply can't arrive."""
-        if patch.email is not None:
-            user = self.repo.update_email(user, str(patch.email))
         if patch.name is not None or patch.phone_number is not None:
             self._write_profile_fields(user, patch.name, patch.phone_number)
         return user

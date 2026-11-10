@@ -4,7 +4,7 @@
 #
 # RM-scoped single-document download route -- byte-for-byte mirror of the
 # existing compliance download route, gated by ONBOARDING_MANAGE instead of
-# ONBOARDING_REVIEW. Seam mocks: none -- real app.main.app + TestClient +
+# COMPLIANCE_WRITE. Seam mocks: none -- real app.main.app + TestClient +
 # dependency-override for auth, following tests/libs/onboarding/test_be6_router.py's
 # precedent.
 #

@@ -121,9 +121,11 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # CLIENT_VIEW guarded that mutation too, and D-11's seed grants `view` here to
     # roles that never held it. See BE-22.
     "rm.client-info": (fs(Action.CLIENT_VIEW), fs(Action.CLIENT_WRITE)),
-    # /rm/onboardings — GET (board list) now accepts ONBOARDING_VIEW so a VIEW
-    # grant can load the board read-only; every mutating route (start/upload/
-    # submit) and the wizard-support/detail/download GETs stay on ONBOARDING_WRITE.
+    # /rm/onboardings — GET (board list) and the KYC document downloads (single +
+    # download-all) accept ONBOARDING_VIEW so a VIEW grant can load the board and
+    # read documents (R2); every mutating route (start/upload/submit) and the
+    # wizard-support/detail GETs stay on ONBOARDING_WRITE. Download stays
+    # book-scoped by _require_visible_onboarding.
     # MODEL_VIEW is also carried at VIEW: the onboarding/renewal wizard's "Initial
     # Model to Subscribe" dropdown calls GET /pm/models, which is otherwise gated
     # by the separate pm.model-management page -- this page's own bucket must
@@ -133,10 +135,11 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
         fs(Action.ONBOARDING_VIEW, Action.MODEL_VIEW), fs(Action.ONBOARDING_WRITE)
     ),
     # /rm/subscriptions* and GET /rm/…/transaction-detail are CLIENT_VIEW; the writes
-    # (POST /rm/allotment, /rm/redemption, /rm/…/transaction-detail) are CLIENT_WRITE,
-    # held via rm.client-info's edit grant. Either way the caller only reaches clients
-    # in their own book (assigned_rm_uid; ADMIN sees all) -- others 404.
-    "rm.model-subscription": (fs(Action.CLIENT_VIEW), fs()),
+    # (POST /rm/allotment, /rm/redemption, /rm/…/transaction-detail) are SUBSCRIPTION_WRITE,
+    # this page's own edit grant -- independent of rm.client-info's edit. Either way the
+    # caller only reaches clients in their own book (assigned_rm_uid; ADMIN sees all) --
+    # others 404.
+    "rm.model-subscription": (fs(Action.CLIENT_VIEW), fs(Action.SUBSCRIPTION_WRITE)),
     # /rm/tickets, /rm/tickets/{ref} — CLIENT_VIEW; POST /rm/tickets/{ref}/status is CLIENT_WRITE.
     "rm.request-tickets": (fs(Action.CLIENT_VIEW), fs()),
     "rm.client-correspondents": (fs(Action.CLIENT_VIEW), fs()),
@@ -159,18 +162,17 @@ PAGE_ACTIONS: Final[dict[str, tuple[frozenset[Action], frozenset[Action]]]] = {
     # would have been a real read/write conflation once those roles could reach it.
     "pm.allotment-redemption": (fs(Action.ALLOTMENT_VIEW), fs(Action.ALLOTMENT_ACKNOWLEDGE)),
     # ---- COMPLIANCE ----
-    # Every /compliance/* route (board read, download, verdict, approve, reject) is
-    # guarded by ONBOARDING_REVIEW, so the review page's EDIT bucket carries it and
-    # the overview — a read-only dashboard over the same board — carries no action of
-    # its own. Empty/empty also means a `view` cell on compliance.review (which the
-    # seed gives PM) grants NOTHING -- no role gains verdict/approve rights from a
-    # read grant. COMPLIANCE's board reads arrive via its own `edit` on that page.
-    "compliance.review": (fs(), fs(Action.ONBOARDING_REVIEW)),
+    # The /compliance/* and /co/* reads (queue, KYC download, redemption list) are
+    # COMPLIANCE_VIEW; the writes (verdict, approve, resubmit, reprovision, redemption
+    # decide) are COMPLIANCE_WRITE. So a `view` cell on compliance.review reads the
+    # queue + downloads KYC (R2) but cannot decide anything; `edit` adds the writes.
+    # The overview — a read-only dashboard over the same board — carries the reads only.
+    "compliance.review": (fs(Action.COMPLIANCE_VIEW), fs(Action.COMPLIANCE_WRITE)),
     # /ic-notes GET list + download at VIEW; POST upload at EDIT (upload-only, no delete).
     "compliance.ic-notes": (fs(Action.IC_NOTES_VIEW), fs(Action.IC_NOTES_WRITE)),
     # /sop GET list/versions/download at VIEW; POST/PATCH/DELETE at EDIT.
     "compliance.sop": (fs(Action.SOP_VIEW), fs(Action.SOP_WRITE)),
-    "compliance.overview": (fs(), fs()),
+    "compliance.overview": (fs(Action.COMPLIANCE_VIEW), fs()),
     # ---- SHARED ----
     # GET /reports/eom-comments is open to any authenticated admin (no view action
     # needed); PUT /reports/eom-comments/{name} is gated by EOM_COMMENT_WRITE, added

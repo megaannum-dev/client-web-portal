@@ -126,7 +126,7 @@ export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
         <Checkbox on><b>{held.length} override{held.length === 1 ? "" : "s"}</b> held, not revoked — they resume on reactivation, or expire, whichever comes first</Checkbox>
         <Checkbox on>Sign-in identity stays reserved — the email cannot be reused</Checkbox>
       </div>
-      <TextField label="Reason" value={why} onChange={setWhy} placeholder={`Left the firm — ${todayLabel()}`} span help="Shown on the account and in the audit log." />
+      <TextField label="Reason" value={why} onChange={setWhy} placeholder={`Left the firm — ${todayLabel()}`} span help="Recorded in the audit log." />
     </Modal>
   );
 }

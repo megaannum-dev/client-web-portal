@@ -41,9 +41,10 @@ class StaffEnrollIn(BaseModel):
 class StaffUpdateIn(BaseModel):  # all optional; omitted = unchanged
     role: AdminRole | None = None
     name: str | None = None
-    email: EmailStr | None = None
     phone_number: str | None = None
     department: str | None = None
+    start_date: date | None = None
+    address: str | None = None
     status: Literal["ACTIVE", "DEACTIVATED"] | None = None  # INITIATED never settable (D-4)
     deactivate_reason: str | None = None
     reassign_book_to: str | None = None  # C-11
@@ -56,6 +57,8 @@ class StaffOut(BaseModel):
     role: AdminRole
     department: str | None
     phone_number: str | None
+    start_date: date | None
+    address: str | None
     status: Literal["ACTIVE", "INITIATED", "DEACTIVATED"]  # INITIATED is DERIVED
     last_sign_in_at: datetime | None
     override_count: int
@@ -63,6 +66,14 @@ class StaffOut(BaseModel):
     open_ticket_count: int | None  # RM only; None for every other role
     # invite_link: DELETED (§ Dead code purged) — no consumer ever read it and
     # delivery is the mailer's job now.
+
+
+class StaffUpdatedOut(StaffOut):
+    """PATCH reply: the directory row plus a non-fatal warning when the save
+    succeeded but left the portal and Firebase out of step (e.g. no Firebase
+    identity to stamp a new role on). None when there is nothing to report."""
+
+    warning: str | None = None
 
 
 class StaffCreatedOut(BaseModel):

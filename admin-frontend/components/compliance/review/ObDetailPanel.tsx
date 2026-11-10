@@ -199,7 +199,7 @@ export function ObDetailPanel({
                  (Valid/Issue/Awaiting chips, or "Not reviewed"), which is the
                  same path a decided cycle already takes. onDownload stays
                  ungated on purpose — reading a document IS view access, and the
-                 backend gates the download route on Action.ONBOARDING_REVIEW
+                 backend gates the download route on Action.COMPLIANCE_VIEW
                  independently of this page grant. */
               onToggle={pending && canEdit ? (v) => onVerdict(d.doc_type, v) : undefined}
               onDownload={() => onDownload(d.doc_type)}

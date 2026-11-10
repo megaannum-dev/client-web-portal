@@ -25,7 +25,7 @@ beforeEach(() => {
 const RM_WITH_BOOK = {
   firebase_uid: "rm-1", email: "rm1@megaannum.ai", name: "Jane Doe", role: "RM",
   department: "RM", phone_number: null, status: "ACTIVE", last_sign_in_at: "2026-07-01T00:00:00Z",
-  override_count: 0, client_count: 23, open_ticket_count: 4,
+  override_count: 0, client_count: 23, open_ticket_count: 4, start_date: null, address: null,
 };
 const RM_NO_BOOK = { ...RM_WITH_BOOK, firebase_uid: "rm-2", client_count: 0, open_ticket_count: 0 };
 const OTHER_RM = { ...RM_WITH_BOOK, firebase_uid: "rm-3", name: "Active Receiver", client_count: 5 };
