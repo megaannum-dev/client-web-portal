@@ -112,11 +112,13 @@ export function ChatRoomPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }
 
-  // Auto-scroll to the live end on mount.
+  // Follow the live end while the reader is there. Runs on every messages
+  // change, not just mount: history arrives after mount, and atLatest starts
+  // true, so the first load lands on the newest message.
   useEffect(() => {
-    requestAnimationFrame(scrollToEnd);
+    if (atLatest) requestAnimationFrame(scrollToEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [messages]);
 
   // Deep-link: once the target attachment is rendered, put it ~1/3 down the
   // thread and ring it for 3s. Not found (outside the loaded window) = no-op.

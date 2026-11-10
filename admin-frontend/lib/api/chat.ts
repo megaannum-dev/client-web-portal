@@ -80,7 +80,7 @@ export async function mintWsTicket(token: string | null): Promise<WsTicket> {
   return (await res.json()) as WsTicket;
 }
 
-/** GET /api/chat/messages — oldest first. `since` is INCLUSIVE, so the caller
+/** GET /api/chat/messages — the newest `limit` messages, oldest first. `since` is INCLUSIVE, so the caller
  *  must dedupe by id (which it must do anyway for the sender's own WS echo). */
 export async function fetchMessages(
   token: string | null,
