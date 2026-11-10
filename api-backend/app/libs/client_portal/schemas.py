@@ -148,6 +148,14 @@ class RmTicketStatusReq(BaseModel):
     status: TicketStatus
     note: str | None = None  # persisted to client_tickets.response_note
 
+    @model_validator(mode="after")
+    def _decline_needs_reason(self) -> "RmTicketStatusReq":
+        # D22: a decline must tell the client why; blank notes are dropped.
+        self.note = (self.note or "").strip() or None
+        if self.status == TicketStatus.DECLINED and self.note is None:
+            raise ValueError("note is required when declining")
+        return self
+
 
 class RmTicketDTO(BaseModel):
     ref: str

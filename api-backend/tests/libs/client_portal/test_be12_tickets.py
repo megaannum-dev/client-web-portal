@@ -135,6 +135,19 @@ def test_allotment_ticket_without_model_id_raises_validation_error():
         RaiseTicketReq(kind=TicketKind.ALLOTMENT, model_id=None, message="x")
 
 
+# --- Negative: declining without a reason 422s at the wire boundary (D22) -------
+
+
+@pytest.mark.parametrize("note", [None, "", "   "])
+def test_decline_without_a_note_raises_validation_error(note):
+    with pytest.raises(ValidationError):
+        RmTicketStatusReq(status=TicketStatus.DECLINED, note=note)
+
+
+def test_decline_note_is_stripped():
+    assert RmTicketStatusReq(status=TicketStatus.DECLINED, note="  Too large ").note == "Too large"
+
+
 # --- Negative: a status change on a terminal ticket 409s -------------------------
 
 
@@ -151,7 +164,7 @@ def test_status_change_on_a_terminal_ticket_409s(session, terminal_status):
     )
     svc.set_rm_ticket_status(
         created.ref,
-        RmTicketStatusReq(status=terminal_status),
+        RmTicketStatusReq(status=terminal_status, note="Closing"),
         rm_uid=rm.firebase_uid,
         role=AdminRole.RM,
     )

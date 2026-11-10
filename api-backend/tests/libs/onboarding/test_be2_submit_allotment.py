@@ -345,3 +345,32 @@ if __name__ == "__main__":
     import sys
 
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# --- D21: an allotment ticket for a model the client doesn't hold still links ----------
+
+
+def test_new_subscription_from_a_ticket_links_the_ticket(session):
+    from app.models.onboarding import ClientTicket, TicketKind
+
+    client = make_client(session)
+    model = make_model(session, model_size=Decimal("1000000"))
+    make_portfolio(session, client, cash_deposit=Decimal("5000000"))
+    ticket = ClientTicket(
+        user_id=client.id, reference="TCK-D21", kind=TicketKind.ALLOTMENT,
+        model_id=model.id, message="Please allot",
+    )
+    session.add(ticket)
+    session.commit()
+    assert session.get(ClientSubscription, (client.id, model.id)) is None
+
+    svc = OnboardingService(session)
+    dto = svc.submit_allotment(
+        SubmitAllotmentReq(
+            client_id=client.id, model_id=model.id, multiplier=Decimal("2"),
+            source_ticket_ref="TCK-D21",
+        )
+    )
+
+    session.refresh(ticket)
+    assert str(ticket.linked_allotment_id) == str(dto.id)

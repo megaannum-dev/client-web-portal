@@ -18,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Inbox, Loader2, CheckCheck, ChevronRight, ChevronDown,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeft, ArrowRight,
-  Mail, Printer, Info, X,
+  Bell, Printer, Info, X,
 } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -287,22 +287,35 @@ function ActOnTradePanel({
   const [reasonOpen, setReasonOpen] = useState(false);
   const [customNote, setCustomNote] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const isCustomReason = reason === "Other — add a note";
-  const declineDisabled = closed || (isCustomReason && !customNote.trim());
+  // A decline always carries a reason the client can read (D22).
+  const declineNote = isCustomReason ? customNote.trim() : (reason ?? "");
+  const declineDisabled = closed || pending || !declineNote;
   const canEdit = useCanEdit("rm.request-tickets");
 
+  // Only opens Model Subscription once the ticket is marked In Progress (D21).
   async function handleAct() {
+    setInlineError(null);
+    setPending(true);
     const result = await setTicketStatus(ticket.ref, { status: "in_progress" });
-    if (result.success) onStatusChange();
-    else setInlineError(result.error);
+    setPending(false);
+    if (!result.success) {
+      setInlineError(result.error ?? "Couldn't start this request. Please try again.");
+      return;
+    }
+    onStatusChange();
     onAct();
   }
 
   async function handleDecline() {
-    const note = isCustomReason ? customNote.trim() : (reason ?? undefined);
-    const result = await setTicketStatus(ticket.ref, { status: "declined", note });
+    if (!declineNote) return;
+    setInlineError(null);
+    setPending(true);
+    const result = await setTicketStatus(ticket.ref, { status: "declined", note: declineNote });
+    setPending(false);
     if (result.success) onStatusChange();
-    else setInlineError(result.error);
+    else setInlineError(result.error ?? "Couldn't decline this request. Please try again.");
   }
 
   return (
@@ -323,7 +336,7 @@ function ActOnTradePanel({
 
         {/* View/Edit Gate Function */}
         {canEdit && (
-          <Button iconRight={ArrowRight} full disabled={disabled} onClick={handleAct}>
+          <Button iconRight={ArrowRight} full disabled={disabled || pending} onClick={handleAct}>
             Act on request — open Model Subscription
           </Button>
         )}
@@ -393,7 +406,7 @@ function ActOnTradePanel({
         )}
 
         <div className="flex items-center gap-2 text-[12px] text-secondary">
-          <Mail size={14} strokeWidth={1.75} /> The client is notified by email either way.
+          <Bell size={14} strokeWidth={1.75} /> The client sees the outcome, and your reason if declined, in their portal&apos;s Events feed.
         </div>
       </div>
     </Card>
