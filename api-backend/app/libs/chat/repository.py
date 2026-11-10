@@ -59,8 +59,25 @@ class ChatRepository:
         needs `assigned_rm_uid`/`asst_rm_uid` for the WebSocket fan-out targets."""
         return self.db.get(ClientProfile, client_id)
 
+    def message_cursor(
+        self, client_id: uuid.UUID, message_id: uuid.UUID
+    ) -> tuple[datetime, uuid.UUID] | None:
+        """(created_at, id) of a message in THIS thread, for `history(before=)`.
+        Scoped to `client_id`, so another thread's id reads as not found."""
+        ts = (
+            self.db.query(ChatMessage.created_at)
+            .filter(ChatMessage.id == message_id, ChatMessage.client_id == client_id)
+            .scalar()
+        )
+        return (ts, message_id) if ts is not None else None
+
     def history(
-        self, client_id: uuid.UUID, *, since: datetime | None, limit: int
+        self,
+        client_id: uuid.UUID,
+        *,
+        since: datetime | None,
+        limit: int,
+        before: tuple[datetime, uuid.UUID] | None = None,
     ) -> list[tuple[ChatMessage, str, str | None, bool]]:
         """One statement: (message, sender_firebase_uid, sender_display_name,
         sender_is_staff) per message: the newest `limit` messages, returned
@@ -95,6 +112,16 @@ class ChatRepository:
         )
         if since is not None:
             query = query.filter(ChatMessage.created_at >= since)
+        if before is not None:
+            # Strictly older than the `before` message, in the same (created_at, id)
+            # total order the sort uses -- same predicate as `documents()`.
+            ts, msg_id = before
+            query = query.filter(
+                or_(
+                    ChatMessage.created_at < ts,
+                    and_(ChatMessage.created_at == ts, ChatMessage.id < msg_id),
+                )
+            )
         # Newest `limit` rows (a long thread must not return its oldest), then
         # flipped back to oldest-first.
         newest = ChatMessage.created_at.desc(), ChatMessage.id.desc()
