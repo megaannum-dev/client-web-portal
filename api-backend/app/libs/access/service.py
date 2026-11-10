@@ -166,8 +166,11 @@ class AccessService:
             if expires_at and expires_at.tzinfo is None
             else expires_at
         )
-        expiring_soon = compare_expires_at is not None and compare_expires_at <= now + timedelta(
-            days=30
+        is_expired = compare_expires_at is not None and compare_expires_at <= now
+        expiring_soon = (
+            compare_expires_at is not None
+            and not is_expired
+            and compare_expires_at <= now + timedelta(days=30)
         )
         return OverrideOut(
             id=override.id,
@@ -182,6 +185,7 @@ class AccessService:
             reason=override.reason,
             granted_by=self._user_name(override.granted_by),
             expires_at=expires_at,
+            is_expired=is_expired,
             expiring_soon=expiring_soon,
         )
 

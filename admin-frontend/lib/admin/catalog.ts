@@ -58,4 +58,5 @@ export const LEVEL_LABEL: Record<Level, string> = { NONE: "None", VIEW: "View", 
 
 /** Shared expiry choices for an override — the wizard's Access step (FE-14) and
  *  the override modals (currently enroll/LifecycleModals.tsx) read one list from here. */
-export const EXPIRY_OPTS = ["30 days", "90 days", "30 Sep 2026", "31 Dec 2026", "No expiry"];
+/** Relative only — a fixed calendar date goes stale and lands in the past (D24). */
+export const EXPIRY_OPTS = ["30 days", "90 days", "180 days", "365 days", "No expiry"];

@@ -15,6 +15,7 @@
    ============================================================ */
 import { X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
 import { Card } from "@/components/ui/Card";
 import { Help, Label, LevelDiff, Row, Td, Th, UserCell } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
@@ -32,12 +33,14 @@ function expiryLabel(iso: string | null): string {
 
 export function OverridesLedger() {
   const { overrides, revokeOverride } = useAdminStore();
-  const soon = overrides.filter((o) => o.expiring_soon).length;
+  // Expired rows stay listed (so they can be revoked) but no longer count as active (D24).
+  const active = overrides.filter((o) => !o.is_expired);
+  const soon = active.filter((o) => o.expiring_soon).length;
   const stats: [string, number, boolean][] = [
-    ["Active overrides", overrides.length, false],
+    ["Active overrides", active.length, false],
     ["Expiring in 30 days", soon, soon > 0],
-    ["Users affected", new Set(overrides.map((o) => o.firebase_uid)).size, false],
-    ["Roles affected", new Set(overrides.map((o) => o.user_role)).size, false],
+    ["Users affected", new Set(active.map((o) => o.firebase_uid)).size, false],
+    ["Roles affected", new Set(active.map((o) => o.user_role)).size, false],
   ];
 
   return (
@@ -63,7 +66,7 @@ export function OverridesLedger() {
           </thead>
           <tbody>
             {overrides.map((o) => (
-              <Row key={o.id}>
+              <Row key={o.id} dim={o.is_expired}>
                 <Td><UserCell initials={initialsFor(o.user_name)} name={o.user_name} sub={o.user_role} /></Td>
                 <Td>
                   <div className="text-[13px] font-semibold">{o.page_label}</div>
@@ -76,6 +79,7 @@ export function OverridesLedger() {
                   <span style={{ color: o.expiring_soon ? "var(--primary)" : "var(--secondary)", fontWeight: o.expiring_soon ? 700 : 400 }}>
                     {expiryLabel(o.expires_at)}
                   </span>
+                  {o.is_expired && <span className="ml-2"><Chip tone="failed" dot={false}>Expired</Chip></span>}
                 </Td>
                 <Td className="text-right">
                   <Button variant="secondary" icon={X} onClick={() => revokeOverride(o.id)}>Revoke</Button>

@@ -37,13 +37,20 @@ const OVERRIDES_FIXTURE = [
     id: "o1", firebase_uid: "u1", user_name: "Amara Rahim", user_role: "RM",
     page_id: "pm.model-management", page_label: "Model Management", page_path: "/pm/model-management",
     role_default: "NONE", level: "VIEW", reason: "x", granted_by: "Omar Bakri",
-    expires_at: "2026-08-01T00:00:00Z", expiring_soon: true,
+    expires_at: "2026-12-01T00:00:00Z", is_expired: false, expiring_soon: true,
   },
   {
     id: "o2", firebase_uid: "u2", user_name: "Dana Okafor", user_role: "MOBO",
     page_id: "rm.client-info", page_label: "Client Information", page_path: "/rm/client-info",
     role_default: "NONE", level: "VIEW", reason: "y", granted_by: "Omar Bakri",
-    expires_at: null, expiring_soon: false,
+    expires_at: null, is_expired: false, expiring_soon: false,
+  },
+  {
+    // D24: past its expiry — still listed for revoking, but not counted as active.
+    id: "o3", firebase_uid: "u3", user_name: "Lee Chan", user_role: "PM",
+    page_id: "rm.request-tickets", page_label: "Request Tickets", page_path: "/rm/requests",
+    role_default: "NONE", level: "EDIT", reason: "z", granted_by: "Omar Bakri",
+    expires_at: "2026-09-30T00:00:00Z", is_expired: true, expiring_soon: false,
   },
 ];
 
@@ -63,6 +70,18 @@ describe("FE-13 components/admin/config/OverridesLedger.tsx (moved, header strip
     expect(within(activeCard).getByText("2")).toBeInTheDocument(); // Active overrides = 2
     const expiringCard = screen.getByText("Expiring in 30 days").closest("section")!;
     expect(within(expiringCard).getByText("1")).toBeInTheDocument(); // Expiring in 30 days = 1
+  });
+
+  it("D24: an expired override shows an Expired chip and is left out of the active counts", async () => {
+    mockUseAdminStore.mockReturnValue({ overrides: OVERRIDES_FIXTURE, revokeOverride: vi.fn() });
+    const { OverridesLedger } = await import("@/components/admin/config/OverridesLedger");
+    render(<OverridesLedger />);
+    const row = screen.getByText("Lee Chan").closest("tr")!;
+    expect(within(row).getByText("Expired")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: /revoke/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Expired")).toHaveLength(1);
+    const rolesCard = screen.getByText("Roles affected").closest("section")!;
+    expect(within(rolesCard).getByText("2")).toBeInTheDocument(); // RM + MOBO, not PM
   });
 
   it("negative: renders no PageHeader of its own and no 'Back to directory' button", async () => {

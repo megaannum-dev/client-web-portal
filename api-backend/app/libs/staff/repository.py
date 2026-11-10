@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Final
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.access import PageAccessOverride
@@ -111,6 +111,13 @@ class StaffRepository:
             self.db.query(
                 PageAccessOverride.user_id.label("user_id"),
                 func.count().label("override_count"),
+            )
+            # D24: "N active" counts only overrides that still apply.
+            .filter(
+                or_(
+                    PageAccessOverride.expires_at.is_(None),
+                    PageAccessOverride.expires_at > datetime.now(timezone.utc),
+                )
             )
             .group_by(PageAccessOverride.user_id)
             .subquery()

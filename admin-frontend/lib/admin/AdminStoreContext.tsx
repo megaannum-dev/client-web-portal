@@ -137,13 +137,15 @@ export function AdminStoreProvider({
 
   const roleUsers = useCallback((role: Role) => roles.find((r) => r.code === role)?.user_count ?? 0, [roles]);
 
+  // Expired overrides no longer apply (D24): they stay in the ledger for revoking,
+  // but never count as held, pre-fill an edit, or mark a matrix cell.
   const ovrFor = useCallback(
-    (firebaseUid: string) => overrides.filter((o) => o.firebase_uid === firebaseUid),
+    (firebaseUid: string) => overrides.filter((o) => o.firebase_uid === firebaseUid && !o.is_expired),
     [overrides],
   );
 
   const ovrOn = useCallback(
-    (pageId: PageId, role: Role) => overrides.some((o) => o.page_id === pageId && o.user_role === role),
+    (pageId: PageId, role: Role) => overrides.some((o) => o.page_id === pageId && o.user_role === role && !o.is_expired),
     [overrides],
   );
 
