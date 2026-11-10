@@ -34,13 +34,13 @@ export default function AllocationMatrixPage() {
   const historical = !!OPEN && period !== OPEN;
   const canEdit = useCanEdit("pm.allocation-matrix");
 
-  const handleConfirm = () => {
+  // Closes the modal only on success; on failure the modal stays open and shows the error (D23).
+  const handleConfirm = async (): Promise<{ success: boolean; error?: string }> => {
     const openPeriodId = data?.periods.find((p) => p.status === "open")?.id;
-    if (!openPeriodId) return;
-    void confirmPeriod(openPeriodId).then((r) => {
-      if (r.success) { setConfirmModal(false); setJustConfirmed(true); }
-      else { setConfirmModal(false); }
-    });
+    if (!openPeriodId) return { success: false, error: "There is no open allocation period to confirm." };
+    const r = await confirmPeriod(openPeriodId);
+    if (r.success) { setConfirmModal(false); setJustConfirmed(true); }
+    return r;
   };
 
   if (loading && !data) return <AllocationMatrixSkeleton />;
