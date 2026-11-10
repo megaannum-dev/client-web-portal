@@ -25,9 +25,9 @@ const currencyFmt = (n: number) =>
 
 function fieldCls(err?: string) {
   return clsx(
-    "w-full border rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-white",
+    "w-full border rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-surface-lowest",
     "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors",
-    err ? "border-red-400" : "border-outline-variant",
+    err ? "border-error" : "border-outline-variant",
   );
 }
 
@@ -114,7 +114,7 @@ function AllotmentForm({ onClose, onConfirm }: {
             ))}
           </select>
         </div>
-        {errors.model && <p id="allotment-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
+        {errors.model && <p id="allotment-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
       </div>
 
       {/* Multiplier */}
@@ -125,7 +125,7 @@ function AllotmentForm({ onClose, onConfirm }: {
           className={fieldCls(errors.multiplier)}
           aria-invalid={!!errors.multiplier}
           aria-describedby={errors.multiplier ? "allotment-multiplier-error" : undefined} />
-        {errors.multiplier && <p id="allotment-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+        {errors.multiplier && <p id="allotment-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
       </div>
 
       {/* Computed notional summary */}
@@ -146,7 +146,7 @@ function AllotmentForm({ onClose, onConfirm }: {
         <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.funding_source")}</label>
         <div className="relative">
           <select value={fundingSource} onChange={(e) => setFundingSource(e.target.value)}
-            className="w-full border border-outline-variant rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-white appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer">
+            className="w-full border border-outline-variant rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-surface-lowest appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer">
             <option>{cashOption}</option>
             <option>{t("ticket.external_transfer")}</option>
           </select>
@@ -162,7 +162,7 @@ function AllotmentForm({ onClose, onConfirm }: {
           className={fieldCls(errors.subject)}
           aria-invalid={!!errors.subject}
           aria-describedby={errors.subject ? "allotment-subject-error" : undefined} />
-        {errors.subject && <p id="allotment-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+        {errors.subject && <p id="allotment-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
       </div>
 
       {/* Description */}
@@ -173,19 +173,19 @@ function AllotmentForm({ onClose, onConfirm }: {
           className={clsx("resize-none", fieldCls(errors.description))}
           aria-invalid={!!errors.description}
           aria-describedby={errors.description ? "allotment-description-error" : undefined} />
-        {errors.description && <p id="allotment-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
+        {errors.description && <p id="allotment-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
             className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
+            className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_allotment")}
           </button>
         </div>
@@ -276,7 +276,7 @@ function RedemptionForm({ onClose, onConfirm }: {
             <option key={m.model_id} value={m.model_name}>{m.model_name}</option>
           ))}
         </select>
-        {errors.model && <p id="redemption-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
+        {errors.model && <p id="redemption-model-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.model}</p>}
       </div>
 
       {/* Selected model card */}
@@ -323,7 +323,7 @@ function RedemptionForm({ onClose, onConfirm }: {
           className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.multiplier))}
           aria-invalid={!!errors.multiplier}
           aria-describedby={errors.multiplier ? "redemption-multiplier-error" : undefined} />
-        {errors.multiplier && <p id="redemption-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+        {errors.multiplier && <p id="redemption-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
       </div>
 
       {/* Computed notional summary */}
@@ -344,7 +344,7 @@ function RedemptionForm({ onClose, onConfirm }: {
         <label className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.returning_to")}</label>
         <div className="relative">
           <select value={returnTo} onChange={(e) => setReturnTo(e.target.value)}
-            className="w-full border border-outline-variant rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-white appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer">
+            className="w-full border border-outline-variant rounded-lg px-3 py-2.5 text-body-sm text-on-surface bg-surface-lowest appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer">
             <option>{t("portfolio.cash")}</option>
             <option>{t("ticket.external_transfer")}</option>
           </select>
@@ -365,7 +365,7 @@ function RedemptionForm({ onClose, onConfirm }: {
           className={fieldCls(errors.subject)}
           aria-invalid={!!errors.subject}
           aria-describedby={errors.subject ? "redemption-subject-error" : undefined} />
-        {errors.subject && <p id="redemption-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
+        {errors.subject && <p id="redemption-subject-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.subject}</p>}
       </div>
 
       {/* Description */}
@@ -376,19 +376,19 @@ function RedemptionForm({ onClose, onConfirm }: {
           className={clsx("resize-none", fieldCls(errors.description))}
           aria-invalid={!!errors.description}
           aria-describedby={errors.description ? "redemption-description-error" : undefined} />
-        {errors.description && <p id="redemption-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
+        {errors.description && <p id="redemption-description-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.description}</p>}
       </div>
 
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-outline-variant">
-        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
+        {submitError && <p role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{submitError}</p>}
         <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
             className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
+            className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_redemption")}
           </button>
         </div>
@@ -427,7 +427,7 @@ export function RaiseTicketModal({ onClose, onConfirm }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-surface-lowest text-on-surface border border-outline-variant [color-scheme:light] dark:[color-scheme:dark] rounded-2xl shadow-xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-4 border-b border-outline-variant shrink-0">
