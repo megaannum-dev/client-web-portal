@@ -68,6 +68,14 @@ class StaffOut(BaseModel):
     # delivery is the mailer's job now.
 
 
+class StaffUpdatedOut(StaffOut):
+    """PATCH reply: the directory row plus a non-fatal warning when the save
+    succeeded but left the portal and Firebase out of step (e.g. no Firebase
+    identity to stamp a new role on). None when there is nothing to report."""
+
+    warning: str | None = None
+
+
 class StaffCreatedOut(BaseModel):
     firebase_uid: str
     email: str

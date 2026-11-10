@@ -1,11 +1,13 @@
 # app-backend/app/libs/staff/service.py
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date
 from typing import Literal, Protocol
 
 from fastapi import HTTPException
+from firebase_admin import auth as firebase_auth
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -18,6 +20,8 @@ from app.libs.staff.repository import StaffRepository
 from app.libs.users.repository import AdminProfileRepository, UserRepository
 from app.models.users import AccountStatus, AdminRole, Portal, User
 from app.schemas.staff import LinkSentOut, StaffOut, StaffOverrideIn
+
+logger = logging.getLogger(__name__)
 
 # Wire status ("ACTIVE"/"DEACTIVATED", the StaffUpdateIn literal) -> DB-native
 # AccountStatus. BE-19: both the last-ADMIN guard and the handover guard compare
@@ -264,8 +268,10 @@ class StaffService:
 
     def update(
         self, uid: str, patch: StaffUpdatePatch, settings: Settings, *, actor: User | None = None
-    ) -> User:
-        """Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
+    ) -> tuple[User, str | None]:
+        """Returns the updated user plus a warning for the caller to show, or None.
+
+        Risk A2 last-ADMIN TOCTOU guard: demoting/disabling the sole active ADMIN
         must be rejected atomically -- the active-admin count is read with
         `SELECT ... FOR UPDATE` (via count_active_admins(for_update=True)) inside
         THIS transaction, so two concurrent demotions of two different admins can't
@@ -393,7 +399,23 @@ class StaffService:
             )
 
         self.repo.db.commit()
-        if patch.role is not None:
-            set_portal_claims(uid, "admin", patch.role.value, settings)
+        # Only a real role change re-stamps the token claim: the edit wizard sends
+        # `role` on every save, and a no-op re-stamp is a pointless Firebase round-trip.
+        warning: str | None = None
+        if patch.role is not None and patch.role != role_before:
+            try:
+                set_portal_claims(uid, "admin", patch.role.value, settings)
+            except firebase_auth.UserNotFoundError:
+                # The change is already committed, and the DB role is authoritative:
+                # access resolves from page_access, nothing reads the token's role
+                # claim. A uid with no Firebase identity has no token to stamp, so a
+                # 500 here would only report a saved edit as failed. The admin is
+                # told instead: the portal record and Firebase now disagree.
+                logger.warning("Role claim not stamped: no Firebase identity for uid %s", uid)
+                warning = (
+                    f"Saved, but {target_label} has no Firebase sign-in account, so the new "
+                    "role couldn't be applied to their login and they can't sign in. "
+                    "Restore the account in Firebase or re-enrol them."
+                )
         self.repo.db.refresh(user)
-        return user
+        return user, warning

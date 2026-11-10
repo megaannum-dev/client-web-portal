@@ -11,7 +11,14 @@ from app.libs.identity.deps import get_identity_service
 from app.libs.identity.service import FirebaseIdentityService
 from app.libs.staff.service import StaffService
 from app.models.users import User
-from app.schemas.staff import LinkSentOut, StaffCreatedOut, StaffEnrollIn, StaffOut, StaffUpdateIn
+from app.schemas.staff import (
+    LinkSentOut,
+    StaffCreatedOut,
+    StaffEnrollIn,
+    StaffOut,
+    StaffUpdatedOut,
+    StaffUpdateIn,
+)
 
 router = APIRouter(prefix="/admin/staff", tags=["staff"])
 
@@ -74,20 +81,20 @@ def send_set_password_link(
     return service.send_set_password_link(uid, actor=actor, identity=identity, settings=settings)
 
 
-@router.patch("/{uid}", response_model=StaffOut)
+@router.patch("/{uid}", response_model=StaffUpdatedOut)
 def update_staff(
     uid: str,
     body: StaffUpdateIn,
     service: Annotated[StaffService, Depends(_get_service)],
     settings: Annotated[Settings, Depends(get_settings)],
     actor: Annotated[User, Depends(require_action(Action.USER_WRITE))],
-) -> StaffOut:
+) -> StaffUpdatedOut:
     """Response model widened for BE-19: a PATCH can now move a book/tickets, so
     the reply is the full directory row (StaffOut), not a 3-field sliver -- built
     by re-deriving through list_directory() rather than duplicating its status/
-    count derivation here."""
-    service.update(uid, body, settings, actor=actor)
+    count derivation here. `warning` carries a non-fatal discrepancy to show."""
+    _, warning = service.update(uid, body, settings, actor=actor)
     for row in service.list_directory():
         if row.firebase_uid == uid:
-            return row
+            return StaffUpdatedOut(**row.model_dump(), warning=warning)
     raise HTTPException(404, "User not found")  # pragma: no cover -- unreachable (update() 404s)

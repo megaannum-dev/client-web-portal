@@ -16,6 +16,7 @@ import {
   type StaffEnrollIn,
   type StaffCreatedOut,
   type StaffUpdateIn,
+  type StaffUpdatedOut,
   type LinkSentOut,
   type MatrixOut,
   type MatrixPublishIn,
@@ -58,7 +59,7 @@ export async function enrollStaff(body: StaffEnrollIn): Promise<APIResult<StaffC
   }
 }
 
-export async function updateStaff(uid: string, body: StaffUpdateIn): Promise<APIResult<StaffOut>> {
+export async function updateStaff(uid: string, body: StaffUpdateIn): Promise<APIResult<StaffUpdatedOut>> {
   try {
     logger.json("🔄 Updating staff with body:", { uid, body });
     const response = await _updateStaff(uid, body);

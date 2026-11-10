@@ -25,6 +25,12 @@ export interface StaffOut {
   address: string | null;
 }
 
+/** PATCH reply: the directory row plus a non-fatal warning (saved, but the portal
+ *  and Firebase now disagree), null when there is nothing to report. */
+export interface StaffUpdatedOut extends StaffOut {
+  warning: string | null;
+}
+
 export interface StaffEnrollIn {
   email: string;
   first_name: string;
@@ -102,8 +108,8 @@ export async function enrollStaff(body: StaffEnrollIn): Promise<APIResult<StaffC
   });
 }
 
-export async function updateStaff(uid: string, body: StaffUpdateIn): Promise<APIResult<StaffOut>> {
-  return apiClient<StaffOut>(ENDPOINTS.ADMIN.STAFF_MEMBER(uid), {
+export async function updateStaff(uid: string, body: StaffUpdateIn): Promise<APIResult<StaffUpdatedOut>> {
+  return apiClient<StaffUpdatedOut>(ENDPOINTS.ADMIN.STAFF_MEMBER(uid), {
     method: "PATCH", body: JSON.stringify(body),
   });
 }

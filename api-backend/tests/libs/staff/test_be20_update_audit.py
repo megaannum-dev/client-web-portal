@@ -7,6 +7,9 @@ Exercised through `PATCH /api/admin/staff/{uid}` (be019_client roster)."""
 from __future__ import annotations
 
 from datetime import date
+from unittest.mock import patch
+
+from firebase_admin import auth as firebase_auth
 
 from app.models.access import AdminAuditEvent
 from app.models.users import AdminProfile, User
@@ -160,3 +163,33 @@ def test_handover_keeps_a_single_row_and_carries_the_reason(be019_client):
     assert row.event == "staff.book_handover"
     assert row.detail.startswith(f"Deactivated {booked.firebase_uid} · book of 3 clients")
     assert row.detail.endswith(" · reason: left the firm")
+
+
+def test_unchanged_role_does_not_restamp_the_firebase_claim(be019_client):
+    # The edit wizard sends `role` on every save; only a real change may call Firebase.
+    target = be019_client.users["pm_active"]
+    with patch("app.libs.staff.service.set_portal_claims") as claims:
+        resp = be019_client.http.patch(
+            f"/api/admin/staff/{target.firebase_uid}", json={"role": "PM", "department": "Ops"}
+        )
+    assert resp.status_code == 200, resp.text
+    claims.assert_not_called()
+    assert resp.json()["warning"] is None
+
+
+def test_missing_firebase_identity_does_not_fail_a_committed_role_change(be019_client):
+    # An orphaned uid (no Firebase record) made every edit 500 after the commit.
+    target = be019_client.users["rm_empty"]
+    missing = firebase_auth.UserNotFoundError("No user record found (USER_NOT_FOUND).")
+    with patch("app.libs.staff.service.set_portal_claims", side_effect=missing) as claims:
+        resp = be019_client.http.patch(f"/api/admin/staff/{target.firebase_uid}", json={"role": "PM"})
+    assert resp.status_code == 200, resp.text
+    claims.assert_called_once()
+    # The admin is told the portal and Firebase now disagree.
+    assert "no Firebase sign-in account" in resp.json()["warning"]
+    db = be019_client.db()
+    try:
+        role = db.query(AdminProfile.role).filter(AdminProfile.user_id == target.id).scalar()
+    finally:
+        db.close()
+    assert role.value == "PM"

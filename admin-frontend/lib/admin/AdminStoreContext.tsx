@@ -287,8 +287,10 @@ export function AdminStoreProvider({
   const updateStaff = useCallback(async (uid: string, body: StaffUpdateIn): Promise<boolean> => {
     const result = await updateStaffAction(uid, body);
     if (result.success) {
-      const updated = result.data;
+      const { warning, ...updated } = result.data; // the row goes into the directory; the warning doesn't
       setStaff((l) => l.map((u) => (u.firebase_uid === uid ? updated : u)));
+      // Saved, but something is out of step (e.g. no Firebase account): the admin must see it.
+      if (warning) toast.warning(warning, { duration: 12000 });
       await refreshAudit();
       return true;
     }
