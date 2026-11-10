@@ -182,9 +182,9 @@ export function Wizard({ draft: d, step, setStep, patchDraft, openGroups, onTogg
                     icon={Mail} required span help={isEdit ? "The sign-in identity — it can't be changed." : undefined}
                     invalid={touched && !d.email.trim() ? "Required." : null} />
                   <TextField label="Phone" value={d.phone} onChange={(v) => patchDraft({ phone: v })} placeholder="+41 44 668 21 07" icon={Phone} />
-                  <TextField label="Start date" value={d.start} onChange={(v) => patchDraft({ start: v })} icon={CalendarDays} help="Defaults to today." />
+                  <TextField label="Start date" type="date" value={d.start} onChange={(v) => patchDraft({ start: v })} icon={CalendarDays} />
                   <TextField label="Department" value={d.dept} onChange={(v) => patchDraft({ dept: v })} placeholder="Operations" />
-                  <TextField label="Correspondence address" value={d.addr} onChange={(v) => patchDraft({ addr: v })} placeholder="Bahnhofstrasse 42, 8001 Zürich, CH" icon={MapPin} span />
+                  <TextField label="Correspondence address" value={d.addr} onChange={(v) => patchDraft({ addr: v })} placeholder="Bahnhofstrasse 42, 8001 Zürich, CH" icon={MapPin} />
                 </div>
               )}
 

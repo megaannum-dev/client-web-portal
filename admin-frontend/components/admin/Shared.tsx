@@ -147,6 +147,9 @@ export function TextField({
 }) {
   const [focus, setFocus] = useState(false);
   const bad = !!invalid && !focus;
+  const ro = !onChange; // no handler = read-only, styled as such
+  const date = type === "date"; // picker-only: typing is blocked, the native picker is the input
+  const lit = focus && !ro;
   return (
     <div style={span ? { gridColumn: "1 / -1" } : undefined}>
       {label && (
@@ -155,11 +158,11 @@ export function TextField({
         </div>
       )}
       <div
-        className="box-border flex min-h-[42px] w-full items-center gap-[9px] rounded px-[13px] py-2.5 transition-all"
+        className={`box-border flex min-h-[42px] w-full items-center gap-[9px] rounded px-[13px] py-2.5 transition-all${ro ? " cursor-not-allowed" : ""}`}
         style={{
-          background: "#fff",
-          border: `1px solid ${bad ? "var(--error)" : focus ? "var(--primary)" : "var(--outline)"}`,
-          boxShadow: focus ? "var(--focus-ring)" : "none",
+          background: ro ? "var(--surface-low)" : "#fff",
+          border: `1px solid ${bad ? "var(--error)" : lit ? "var(--primary)" : ro ? "var(--outline-variant)" : "var(--outline)"}`,
+          boxShadow: lit ? "var(--focus-ring)" : "none",
         }}
       >
         {Icon && <Icon size={15} strokeWidth={1.75} className="shrink-0 text-secondary" />}
@@ -167,11 +170,20 @@ export function TextField({
           type={type}
           value={value}
           placeholder={placeholder}
-          readOnly={!onChange}
+          readOnly={ro}
+          aria-readonly={ro || undefined}
           onChange={(e) => onChange?.(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
-          className="min-w-0 flex-1 border-none bg-transparent text-[14px] font-medium leading-5 text-on-surface outline-none"
+          onClick={date && !ro ? (e) => e.currentTarget.showPicker?.() : undefined}
+          onKeyDown={date ? (e) => {
+            if (e.key === "Tab") return; // keep keyboard navigation
+            e.preventDefault();
+            if (!ro && (e.key === "Enter" || e.key === " ")) e.currentTarget.showPicker?.();
+          } : undefined}
+          className={`min-w-0 flex-1 border-none bg-transparent text-[14px] font-medium leading-5 outline-none ${
+            ro ? "cursor-not-allowed text-secondary" : "text-on-surface"
+          }${date && !ro ? " cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden" : ""}`}
           style={mono ? { fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" } : undefined}
         />
         {trail}
