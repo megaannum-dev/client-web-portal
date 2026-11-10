@@ -192,7 +192,7 @@ def test_history_ordering_is_id_tie_broken_and_since_is_inclusive(session, repo)
     assert {m.id for m, *_ in repo.history(client.id, since=later.created_at, limit=50)} == {
         later.id
     }
-    assert [m.id for m, *_ in repo.history(client.id, since=None, limit=1)] == [ids[0]]
+    assert [m.id for m, *_ in repo.history(client.id, since=None, limit=1)] == [ids[-1]]  # newest
 
 
 # --- 6. attachment carries the owning thread --------------------------------

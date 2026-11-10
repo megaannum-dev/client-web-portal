@@ -63,7 +63,8 @@ class ChatRepository:
         self, client_id: uuid.UUID, *, since: datetime | None, limit: int
     ) -> list[tuple[ChatMessage, str, str | None, bool]]:
         """One statement: (message, sender_firebase_uid, sender_display_name,
-        sender_is_staff) per message, oldest first.
+        sender_is_staff) per message: the newest `limit` messages, returned
+        oldest first.
 
         ORDER BY (created_at, id) -- DateTime(timezone=True) is second-resolution
         on MariaDB, so `id` is the tie-break.
@@ -94,8 +95,14 @@ class ChatRepository:
         )
         if since is not None:
             query = query.filter(ChatMessage.created_at >= since)
-        rows = query.order_by(ChatMessage.created_at, ChatMessage.id).limit(limit).all()
-        return [(msg, uid, sender_name, bool(is_staff)) for msg, uid, sender_name, is_staff in rows]
+        # Newest `limit` rows (a long thread must not return its oldest), then
+        # flipped back to oldest-first.
+        newest = ChatMessage.created_at.desc(), ChatMessage.id.desc()
+        rows = query.order_by(*newest).limit(limit).all()
+        return [
+            (msg, uid, sender_name, bool(is_staff))
+            for msg, uid, sender_name, is_staff in reversed(rows)
+        ]
 
     def create(
         self, *, client_id: uuid.UUID, sender_id: uuid.UUID, body: str | None
