@@ -4,7 +4,7 @@
 // WebSocket, no lib/api import — the wiring branch changes call sites only.
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MessagesSquare,
@@ -166,6 +166,13 @@ export function AdvisoryRoom({
     setJumpedTo(null);
     setAtLatest(true);
   }
+
+  // Open at, and follow, the latest message while the reader is at the end.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (thread && atLatest) thread.scrollTop = thread.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   function onThreadScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
