@@ -20,7 +20,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { fetchMessages, sendMessage, type NewMessageFrame } from "@/lib/api/chat";
 import { useChatSocket } from "@/lib/chat/useChatSocket";
 import { groupByDay, toViewMessage } from "@/lib/chat/adapter";
-import type { ChatDay, ChatMessage } from "@/components/messaging/types";
+import { listFailed, putFailed, removeFailed } from "@/lib/chat/failedStore";
+import type { ChatAttachment, ChatDay, ChatMessage } from "@/components/messaging/types";
 
 /** An optimistic message we have shown but the server has not confirmed. */
 interface Pending {
@@ -34,12 +35,24 @@ function byCreatedAt(a: ChatMessage, b: ChatMessage): number {
   return d !== 0 ? d : a.id.localeCompare(b.id);
 }
 
+function fmtTime(d: Date): string {
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}
+
+// Shown as plain rows until the server names them; the real DTO replaces this.
+function localAttachments(tempId: string, files: File[]): ChatAttachment[] {
+  return files.map((f, i) => ({ id: `${tempId}:${i}`, name: f.name, kind: "file-check" as const, size: "" }));
+}
+
 export interface UseChatThread {
   days: ChatDay[];
   loading: boolean;
+  /** Load errors only -- a failed send is a `status: "failed"` bubble instead. */
   error: string | null;
   sending: boolean;
   send: (body: string, files: File[]) => Promise<void>;
+  retry: (tempId: string) => void;
+  discard: (tempId: string) => void;
 }
 
 export function useChatThread(): UseChatThread {
@@ -61,6 +74,8 @@ export function useChatThread(): UseChatThread {
   const newestRef = useRef<string | null>(null);
   const loadInFlight = useRef(false);
   const sendInFlight = useRef(false);
+  // Messages that never reached the backend, mirrored in IndexedDB (failedStore).
+  const failedRef = useRef(new Map<string, { body: string; files: File[] }>());
 
   const merge = useCallback((incoming: ChatMessage[]) => {
     if (!incoming.length) return;
@@ -148,21 +163,10 @@ export function useChatThread(): UseChatThread {
         senderName: user?.displayName ?? null,
         role: "client",
         body: trimmed || null,
-        // Shown as plain rows until the server names them; the real DTO
-        // replaces this wholesale moments later.
-        attachments: files.map((f, i) => ({
-          id: `${tempId}:${i}`,
-          name: f.name,
-          kind: "file-check" as const,
-          size: "",
-        })),
+        attachments: localAttachments(tempId, files),
         createdAt: now.toISOString(),
         own: true,
-        time: new Intl.DateTimeFormat(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }).format(now),
+        time: fmtTime(now),
       };
       pendingRef.current.push({ tempId, body: trimmed || null, fileCount: files.length });
       setMessages((prev) => [...prev, optimistic].sort(byCreatedAt));
@@ -172,12 +176,15 @@ export function useChatThread(): UseChatThread {
         const token = await getTokenRef.current();
         const dto = await sendMessage(token, { body: trimmed || null, files });
         merge([toViewMessage(dto, ownUid)]);
-      } catch (e) {
-        // Drop the optimistic bubble and surface why, rather than leaving a
-        // message on screen that no one will ever receive.
+      } catch {
+        // It never reached the backend: keep the bubble, marked failed, and
+        // keep the content (in IndexedDB too, so it survives a reload) until
+        // the user retries or deletes it. No pendingRef entry, so nothing can
+        // retire it by a lookalike message.
         pendingRef.current = pendingRef.current.filter((p) => p.tempId !== tempId);
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setError(e instanceof Error ? e.message : "Message not sent");
+        failedRef.current.set(tempId, { body: trimmed, files });
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: "failed" as const } : m)));
+        if (ownUid) void putFailed({ tempId, owner: ownUid, body: trimmed, files, createdAt: optimistic.createdAt });
       } finally {
         sendInFlight.current = false;
         setSending(false);
@@ -186,5 +193,54 @@ export function useChatThread(): UseChatThread {
     [merge, ownUid, user],
   );
 
-  return { days: groupByDay(messages), loading, error, sending, send };
+  // Restore failed messages saved by an earlier visit.
+  useEffect(() => {
+    if (!ownUid) return;
+    let alive = true;
+    void listFailed(ownUid).then((recs) => {
+      if (!alive || !recs.length) return;
+      const bubbles = recs.map<ChatMessage>((r) => {
+        failedRef.current.set(r.tempId, { body: r.body, files: r.files });
+        return {
+          id: r.tempId,
+          senderUid: ownUid,
+          senderName: user?.displayName ?? null,
+          role: "client",
+          body: r.body || null,
+          attachments: localAttachments(r.tempId, r.files),
+          createdAt: r.createdAt,
+          own: true,
+          time: fmtTime(new Date(r.createdAt)),
+          status: "failed",
+        };
+      });
+      setMessages((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m]));
+        for (const b of bubbles) byId.set(b.id, b);
+        return Array.from(byId.values()).sort(byCreatedAt);
+      });
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownUid]);
+
+  const discard = useCallback((tempId: string) => {
+    failedRef.current.delete(tempId);
+    void removeFailed(tempId);
+    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+  }, []);
+
+  const retry = useCallback(
+    (tempId: string) => {
+      const f = failedRef.current.get(tempId);
+      if (!f || sendInFlight.current) return;
+      discard(tempId);
+      void send(f.body, f.files);
+    },
+    [discard, send],
+  );
+
+  return { days: groupByDay(messages), loading, error, sending, send, retry, discard };
 }

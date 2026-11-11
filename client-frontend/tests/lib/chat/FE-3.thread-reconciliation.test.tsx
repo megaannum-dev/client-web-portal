@@ -13,6 +13,16 @@ vi.mock("@/lib/api/chat", () => ({
   sendMessage: (...a: unknown[]) => sendMessage(...a),
 }));
 
+const listFailed = vi.fn();
+const putFailed = vi.fn();
+const removeFailed = vi.fn();
+
+vi.mock("@/lib/chat/failedStore", () => ({
+  listFailed: (...a: unknown[]) => listFailed(...a),
+  putFailed: (...a: unknown[]) => putFailed(...a),
+  removeFailed: (...a: unknown[]) => removeFailed(...a),
+}));
+
 // The socket is exercised by its own suite; here it only needs to hand back a
 // frame pusher so the echo path can be driven.
 let push: (frame: NewMessageFrame) => void = () => {};
@@ -64,6 +74,71 @@ function Probe() {
 beforeEach(() => {
   fetchMessages.mockReset().mockResolvedValue([]);
   sendMessage.mockReset();
+  listFailed.mockReset().mockResolvedValue([]);
+  putFailed.mockReset().mockResolvedValue(undefined);
+  removeFailed.mockReset().mockResolvedValue(undefined);
+});
+
+describe("failed sends stay until retried or deleted", () => {
+  const flagged = () => api.days.flatMap((d) => d.msgs).filter((m) => m.status === "failed");
+
+  async function failOne() {
+    sendMessage.mockRejectedValueOnce(new Error("boom"));
+    render(<Probe />);
+    await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
+    await act(async () => {
+      await api.send("Sup", []);
+    });
+  }
+
+  it("keeps the bubble marked failed, saves it, and leaves error null", async () => {
+    await failOne();
+    expect(screen.getByTestId("count").textContent).toBe("1");
+    expect(flagged()).toHaveLength(1);
+    expect(api.error).toBeNull();
+    expect(putFailed).toHaveBeenCalledWith(expect.objectContaining({ owner: "uid-me", body: "Sup" }));
+  });
+
+  it("restores saved failed messages on mount", async () => {
+    listFailed.mockResolvedValue([
+      { tempId: "temp:old", owner: "uid-me", body: "Earlier", files: [], createdAt: "2026-09-03T04:00:00.000Z" },
+    ]);
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByText("temp:old|Earlier")).toBeInTheDocument());
+    expect(flagged()[0].id).toBe("temp:old");
+  });
+
+  it("retry removes the saved copy and re-sends once; it is delivered once", async () => {
+    await failOne();
+    const id = flagged()[0].id;
+    sendMessage.mockResolvedValueOnce(dto({ id: "real" }));
+    await act(async () => api.retry(id));
+    await waitFor(() => expect(screen.getByText("real|Sup")).toBeInTheDocument());
+    expect(removeFailed).toHaveBeenCalledWith(id);
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("count").textContent).toBe("1");
+    expect(flagged()).toHaveLength(0);
+  });
+
+  it("discard removes the bubble and the saved copy", async () => {
+    await failOne();
+    const id = flagged()[0].id;
+    await act(async () => api.discard(id));
+    expect(screen.getByTestId("count").textContent).toBe("0");
+    expect(removeFailed).toHaveBeenCalledWith(id);
+  });
+
+  it("a failed 'Sup' is left alone when a new 'Sup' arrives twice (201 + echo)", async () => {
+    await failOne();
+    sendMessage.mockResolvedValueOnce(dto({ id: "real" }));
+    await act(async () => {
+      await api.send("Sup", []);
+    });
+    await act(async () => push({ type: "new_message", client_id: "c-1", message: dto({ id: "real" }) }));
+    expect(screen.getByTestId("count").textContent).toBe("2");
+    expect(flagged()).toHaveLength(1);
+    expect(screen.getByText("real|Sup")).toBeInTheDocument();
+  });
 });
 
 describe("the sender sees ONE bubble, not two", () => {

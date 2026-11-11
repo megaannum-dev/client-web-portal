@@ -32,6 +32,7 @@ export interface ChatMessage {
   createdAt: string; // ISO timestamp
   own?: boolean; // senderUid === current user
   time: string; // pre-formatted display time, e.g. "11:40"
+  status?: "failed"; // never reached the backend; kept locally until retried or deleted
 }
 
 export interface ChatDay {

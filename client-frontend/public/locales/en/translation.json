@@ -283,6 +283,10 @@
     "close": "Close chat",
     "maximize": "Expand to full page",
     "restore": "Shrink to window",
+    "notSent": "Not sent",
+    "retry": "Retry",
+    "delete": "Delete",
+    "loadFailed": "Couldn't load this conversation.",
     "assistant": {
       "name": "Help Assistant",
       "subtitle": "Quick answers before connecting you with your RM",

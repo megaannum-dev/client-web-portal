@@ -12,6 +12,7 @@ import {
   CalendarSearch,
   Paperclip,
   ArrowDown,
+  AlertCircle,
   X,
   FileText,
   FileSpreadsheet,
@@ -86,6 +87,9 @@ export function AdvisoryRoom({
   participants = [],
   onSend = () => {},
   sending = false,
+  error = null,
+  onRetry,
+  onDiscard,
   onClose,
   maximized = false,
   onToggleMaximize,
@@ -97,6 +101,11 @@ export function AdvisoryRoom({
   onSend?: (body: string, files: File[]) => void;
   /** True while that POST is in flight; disables only the send button. */
   sending?: boolean;
+  /** A thread-load failure; shown inline at the top of the thread. */
+  error?: string | null;
+  /** Retry / delete a message that failed to send (`status: "failed"`). */
+  onRetry?: (id: string) => void;
+  onDiscard?: (id: string) => void;
   /** When set, a close button ends the header (the room is hosted in ChatPopup). */
   onClose?: () => void;
   /** Whether ChatPopup is filling the page; picks the maximize/restore icon. */
@@ -289,6 +298,12 @@ export function AdvisoryRoom({
             onScroll={onThreadScroll}
             className="flex-1 overflow-auto py-[18px] px-6 bg-surface-low"
           >
+            {error && (
+              <p role="alert" className="flex items-center gap-1 pb-3 text-[11px] font-semibold text-error">
+                <AlertCircle size={12} strokeWidth={2} />
+                {t("messaging.loadFailed")}
+              </p>
+            )}
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-secondary">
                 <MessagesSquare size={32} strokeWidth={1.5} className="opacity-40" />
@@ -310,7 +325,14 @@ export function AdvisoryRoom({
                     <span className={["flex-1 h-px bg-outline-variant", jumpedTo === day.iso ? "opacity-90" : "opacity-55"].join(" ")} />
                   </div>
                   {day.msgs.map((m) => (
-                    <MessageBubble key={m.id} message={m} onDownload={download} animate={isNewMessage(m, mountedAt.current)} />
+                    <MessageBubble
+                      key={m.id}
+                      message={m}
+                      onDownload={download}
+                      onRetry={onRetry && (() => onRetry(m.id))}
+                      onDiscard={onDiscard && (() => onDiscard(m.id))}
+                      animate={isNewMessage(m, mountedAt.current)}
+                    />
                   ))}
                 </div>
               ))

@@ -11,6 +11,7 @@ import {
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { BackendAuthError, postBackendLogin, postBackendLogout } from "@/lib/auth-api";
+import { clearFailedForUser } from "@/lib/chat/failedStore";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import type { PortalUser } from "@/types/portal";
 
@@ -119,6 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* non-blocking */
     }
     const auth = getFirebaseAuth();
+    // Saved unsent chat messages belong to this user only; never leave them behind.
+    if (auth.currentUser) await clearFailedForUser(auth.currentUser.uid);
     await signOut(auth);
   }, [firebaseReady]);
 

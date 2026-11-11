@@ -284,6 +284,10 @@
     "close": "關閉對話",
     "maximize": "展開至全頁",
     "restore": "縮小為視窗",
+    "notSent": "未送出",
+    "retry": "重試",
+    "delete": "刪除",
+    "loadFailed": "無法載入此對話。",
     "assistant": {
       "name": "智能助手",
       "subtitle": "為您聯繫客戶關係經理前的快速解答",
