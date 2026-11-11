@@ -250,7 +250,8 @@ class ClientPortalService:
                 model_size=float(m.model_size) if m.model_size is not None else None,
                 subscription_redemption=m.subscription_redemption,
                 description=m.description,
-                has_material=self.repo.has_material(m.id),
+                # "Downloadable by this client": same gate as model_material_stream.
+                has_material=m.id in subscribed_ids and self.repo.has_material(m.id),
             )
             for m in self.repo.recommended_models(set() if include_subscribed else subscribed_ids)
         ]

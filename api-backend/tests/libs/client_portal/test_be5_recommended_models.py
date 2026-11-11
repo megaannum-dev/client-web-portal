@@ -99,17 +99,24 @@ def test_recommended_model_dto_carries_category_and_model_limit_verbatim(session
     assert dto.description == "A model"
 
 
-def test_has_material_true_iff_at_least_one_model_materials_row_exists(session):
+def test_has_material_true_iff_held_and_a_model_materials_row_exists(session):
     client_user = make_client(session, name="Cathy Client")
     with_material = make_model(session, name="With Material", status=ModelStatus.LIVE)
-    make_model(session, name="Without Material", status=ModelStatus.LIVE)
+    held_bare = make_model(session, name="Held Without Material", status=ModelStatus.LIVE)
+    not_held = make_model(session, name="Not Held With Material", status=ModelStatus.LIVE)
     make_model_material(session, with_material, version_no=0)
+    make_model_material(session, not_held, version_no=0)
+    make_subscription(session, client_user, with_material)
+    make_subscription(session, client_user, held_bare)
 
     svc = ClientPortalService(session)
-    result = svc.recommended_models(client_user.id)
+    result = svc.recommended_models(client_user.id, include_subscribed=True)
 
-    assert next(r for r in result if r.name == "With Material").has_material is True
-    assert next(r for r in result if r.name == "Without Material").has_material is False
+    flag = {r.name: r.has_material for r in result}
+    assert flag["With Material"] is True
+    assert flag["Held Without Material"] is False
+    # Material exists but the client can't download it (404 gate) -> not flagged.
+    assert flag["Not Held With Material"] is False
 
 
 # --- Positive: material download streams the highest version_no row ---------------
