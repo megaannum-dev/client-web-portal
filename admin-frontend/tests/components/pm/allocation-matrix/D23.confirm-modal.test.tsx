@@ -1,6 +1,9 @@
-// D23 — a failed period confirmation must keep the modal open and show the error.
-import { describe, expect, it, vi } from "vitest";
+// D23 — a failed period confirmation must keep the modal open and raise the error as a toast.
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/pm/allocation-matrix/ConfirmModal";
 import type { AllocationView } from "@/lib/pm/allocation";
 
@@ -13,13 +16,15 @@ function renderModal(onConfirm: () => Promise<{ success: boolean; error?: string
 }
 
 describe("D23 ConfirmModal", () => {
-  it("shows the server error and stays open when confirming fails", async () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("toasts the server error and stays open when confirming fails", async () => {
     const onConfirm = vi.fn().mockResolvedValue({ success: false, error: "Period is already confirmed" });
     const { onClose } = renderModal(onConfirm);
 
     fireEvent.click(screen.getByRole("button", { name: /confirm allocation/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Period is already confirmed");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Period is already confirmed"));
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText(/Confirm Nov 2026 allocation\?/)).toBeInTheDocument();
   });
@@ -27,7 +32,7 @@ describe("D23 ConfirmModal", () => {
   it("falls back to a generic message when the failure has no detail", async () => {
     renderModal(vi.fn().mockResolvedValue({ success: false }));
     fireEvent.click(screen.getByRole("button", { name: /confirm allocation/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/failed to confirm/i);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/failed to confirm/i)));
   });
 
   it("disables the buttons while confirming so a double click sends one request", async () => {
@@ -43,6 +48,7 @@ describe("D23 ConfirmModal", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
     resolve({ success: true });
-    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /confirm allocation/i })).toBeEnabled());
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
