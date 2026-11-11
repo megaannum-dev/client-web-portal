@@ -54,13 +54,16 @@ export async function mintWsTicket(token: string | null): Promise<WsTicket> {
 }
 
 /** GET /api/chat/messages — the newest `limit` messages, oldest first. `since` is INCLUSIVE, so the caller
- *  must dedupe by id (which it must do anyway for the sender's own WS echo). */
+ *  must dedupe by id (which it must do anyway for the sender's own WS echo).
+ *  `before` is a message id: the page returned is strictly older than it (up
+ *  to `limit`, oldest first); fewer than `limit` rows means no more. */
 export async function fetchMessages(
   token: string | null,
-  opts: { since?: string | null; limit?: number } = {},
+  opts: { since?: string | null; before?: string | null; limit?: number } = {},
 ): Promise<ChatMessageDTO[]> {
   const qs = new URLSearchParams();
   if (opts.since) qs.set("since", opts.since);
+  if (opts.before) qs.set("before", opts.before);
   if (opts.limit != null) qs.set("limit", String(opts.limit));
   const q = qs.toString();
   return authedGet<ChatMessageDTO[]>(`/api/chat/messages${q ? `?${q}` : ""}`, token);

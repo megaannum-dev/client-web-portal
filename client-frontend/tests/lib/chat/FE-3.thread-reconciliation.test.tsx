@@ -79,6 +79,48 @@ beforeEach(() => {
   removeFailed.mockReset().mockResolvedValue(undefined);
 });
 
+describe("earlier messages page in on demand", () => {
+  const page = (n: number, from = 0) =>
+    Array.from({ length: n }, (_, i) =>
+      dto({
+        id: `m${String(from + i).padStart(4, "0")}`,
+        sender_uid: "someone",
+        body: `b${from + i}`,
+        created_at: new Date(Date.UTC(2026, 8, 4, 0, 0, from + i)).toISOString(),
+      }),
+    );
+
+  it("a full first page means more exists; a short one means no more", async () => {
+    fetchMessages.mockResolvedValueOnce(page(200, 200));
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(api.hasOlder).toBe(true));
+    unmount();
+    fetchMessages.mockResolvedValueOnce(page(3));
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("3"));
+    expect(api.hasOlder).toBe(false);
+  });
+
+  it("loadOlder asks for the page before the oldest real id, then updates hasOlder", async () => {
+    fetchMessages.mockResolvedValueOnce(page(200, 200));
+    render(<Probe />);
+    await waitFor(() => expect(api.hasOlder).toBe(true));
+
+    let resolve!: (v: ChatMessageDTO[]) => void;
+    fetchMessages.mockReturnValueOnce(new Promise<ChatMessageDTO[]>((r) => (resolve = r)));
+    await act(async () => {
+      void api.loadOlder();
+    });
+    expect(api.loadingOlder).toBe(true);
+    expect(fetchMessages).toHaveBeenLastCalledWith("tok", { before: "m0200", limit: 200 });
+
+    await act(async () => resolve(page(5)));
+    expect(api.loadingOlder).toBe(false);
+    expect(api.hasOlder).toBe(false);
+    expect(screen.getByTestId("count").textContent).toBe("205");
+  });
+});
+
 describe("failed sends stay until retried or deleted", () => {
   const flagged = () => api.days.flatMap((d) => d.msgs).filter((m) => m.status === "failed");
 

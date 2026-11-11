@@ -4,7 +4,7 @@
 // WebSocket, no lib/api import — the wiring branch changes call sites only.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MessagesSquare,
@@ -13,6 +13,7 @@ import {
   Paperclip,
   ArrowDown,
   AlertCircle,
+  Loader2,
   X,
   FileText,
   FileSpreadsheet,
@@ -90,6 +91,9 @@ export function AdvisoryRoom({
   error = null,
   onRetry,
   onDiscard,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
   onClose,
   maximized = false,
   onToggleMaximize,
@@ -106,6 +110,10 @@ export function AdvisoryRoom({
   /** Retry / delete a message that failed to send (`status: "failed"`). */
   onRetry?: (id: string) => void;
   onDiscard?: (id: string) => void;
+  /** Older history exists on the server; scrolling to the top asks for it. */
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
   /** When set, a close button ends the header (the room is hosted in ChatPopup). */
   onClose?: () => void;
   /** Whether ChatPopup is filling the page; picks the maximize/restore icon. */
@@ -183,9 +191,32 @@ export function AdvisoryRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  // scrollHeight when an older page was requested; once it lands, shift
+  // scrollTop by what was added above so the reader stays on the same message.
+  const prependFrom = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const thread = threadRef.current;
+    if (thread && prependFrom.current != null) {
+      thread.scrollTop += thread.scrollHeight - prependFrom.current;
+      prependFrom.current = null;
+    }
+  }, [messages]);
+  // A load that added nothing must not leave a stale anchor for a later live message.
+  useEffect(() => {
+    if (loadingOlder) return;
+    const id = requestAnimationFrame(() => {
+      prependFrom.current = null;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [loadingOlder]);
+
   function onThreadScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     setAtLatest(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+    if (el.scrollTop < 64 && hasOlder && !loadingOlder && onLoadOlder) {
+      prependFrom.current = el.scrollHeight;
+      onLoadOlder();
+    }
   }
 
   function send() {
@@ -298,6 +329,11 @@ export function AdvisoryRoom({
             onScroll={onThreadScroll}
             className="flex-1 overflow-auto py-[18px] px-6 bg-surface-low"
           >
+            {loadingOlder && (
+              <div role="status" aria-label={t("messaging.loadingEarlier")} className="flex justify-center pb-3 text-secondary">
+                <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+              </div>
+            )}
             {error && (
               <p role="alert" className="flex items-center gap-1 pb-3 text-[11px] font-semibold text-error">
                 <AlertCircle size={12} strokeWidth={2} />

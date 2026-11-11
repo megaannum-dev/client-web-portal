@@ -288,6 +288,7 @@
     "retry": "重試",
     "delete": "刪除",
     "loadFailed": "無法載入此對話。",
+    "loadingEarlier": "正在載入較早的訊息",
     "assistant": {
       "name": "智能助手",
       "subtitle": "為您聯繫客戶關係經理前的快速解答",

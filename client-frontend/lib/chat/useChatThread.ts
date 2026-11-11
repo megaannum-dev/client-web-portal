@@ -35,6 +35,8 @@ function byCreatedAt(a: ChatMessage, b: ChatMessage): number {
   return d !== 0 ? d : a.id.localeCompare(b.id);
 }
 
+const PAGE = 200;
+
 function fmtTime(d: Date): string {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 }
@@ -53,6 +55,10 @@ export interface UseChatThread {
   send: (body: string, files: File[]) => Promise<void>;
   retry: (tempId: string) => void;
   discard: (tempId: string) => void;
+  /** The server has messages older than the oldest one loaded. */
+  hasOlder: boolean;
+  loadingOlder: boolean;
+  loadOlder: () => Promise<void>;
 }
 
 export function useChatThread(): UseChatThread {
@@ -63,6 +69,11 @@ export function useChatThread(): UseChatThread {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const olderInFlight = useRef(false);
 
   // Refs, not deps: AuthProvider memoises getIdToken, but a caller that did
   // not would otherwise re-run the load effect on every render forever.
@@ -114,8 +125,9 @@ export function useChatThread(): UseChatThread {
       loadInFlight.current = true;
       try {
         const token = await getTokenRef.current();
-        const dtos = await fetchMessages(token, { since, limit: 200 });
+        const dtos = await fetchMessages(token, { since, limit: PAGE });
         merge(dtos.map((d) => toViewMessage(d, ownUid)));
+        if (!since) setHasOlder(dtos.length === PAGE);
         setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not load this conversation");
@@ -193,6 +205,26 @@ export function useChatThread(): UseChatThread {
     [merge, ownUid, user],
   );
 
+  // Next page back from the oldest CONFIRMED message (temp: bubbles have no server id).
+  const loadOlder = useCallback(async () => {
+    if (olderInFlight.current) return;
+    const oldest = messagesRef.current.find((m) => !m.id.startsWith("temp:"));
+    if (!oldest) return;
+    olderInFlight.current = true;
+    setLoadingOlder(true);
+    try {
+      const token = await getTokenRef.current();
+      const dtos = await fetchMessages(token, { before: oldest.id, limit: PAGE });
+      merge(dtos.map((d) => toViewMessage(d, ownUid)));
+      setHasOlder(dtos.length === PAGE);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load earlier messages");
+    } finally {
+      olderInFlight.current = false;
+      setLoadingOlder(false);
+    }
+  }, [merge, ownUid]);
+
   // Restore failed messages saved by an earlier visit.
   useEffect(() => {
     if (!ownUid) return;
@@ -242,5 +274,5 @@ export function useChatThread(): UseChatThread {
     [discard, send],
   );
 
-  return { days: groupByDay(messages), loading, error, sending, send, retry, discard };
+  return { days: groupByDay(messages), loading, error, sending, send, retry, discard, hasOlder, loadingOlder, loadOlder };
 }
