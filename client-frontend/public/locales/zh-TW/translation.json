@@ -177,6 +177,7 @@
     "return_tooltip": "報酬",
     "cash": "現金",
     "subscribed_models": "已申購模型",
+    "download_failed": "下載失敗，請再試一次。",
     "recommended_models": "推薦模型",
     "ticket_history": "申請紀錄",
     "search_placeholder": "依編號、模型、類型搜尋⋯",

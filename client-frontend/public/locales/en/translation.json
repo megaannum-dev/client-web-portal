@@ -176,6 +176,7 @@
     "return_tooltip": "Return",
     "cash": "Cash",
     "subscribed_models": "Subscribed Models",
+    "download_failed": "Download failed. Please try again.",
     "recommended_models": "Recommended Models",
     "ticket_history": "Ticket History",
     "search_placeholder": "Search by ID, model, type…",
