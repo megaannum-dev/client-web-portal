@@ -10,7 +10,7 @@
    ============================================================ */
 
 import { useState, type ReactNode } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Check, Info } from "@/lib/icons";
+import { ArrowDownToLine, ArrowUpFromLine, Check, Info, TriangleAlert } from "@/lib/icons";
 import { Modal } from "@/components/rm/Shared";
 import { Button } from "@/components/ui/Button";
 import type { TransactionDetailDTO } from "@/lib/onboarding/types";
@@ -44,8 +44,10 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 export function TransactionDetailModal({
-  type, clientName, modelName, rawAmount, mode = "edit", details, loading = false, onClose, onSave,
+  type, clientName, modelName, rawAmount, mode = "edit", details, loading = false, error = null, saving = false, onClose, onSave,
 }: {
+  error?: string | null;
+  saving?: boolean;
   type: "Allotment" | "Redemption";
   clientName: string;
   modelName: string;
@@ -92,7 +94,7 @@ export function TransactionDetailModal({
           <>
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             {/* View/Edit Gate Function */}
-            {canEdit && <Button icon={Check} disabled={!canSave} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>}
+            {canEdit && <Button icon={Check} disabled={!canSave || saving} onClick={() => onSave({ bankAccount, amount, date, time, ccy, ref })}>Save</Button>}
           </>
         )
       }
@@ -143,6 +145,12 @@ export function TransactionDetailModal({
               ? <div className={viewValueClass}>{details?.reference_no || "—"}</div>
               : <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. TXN-20260301-001" className={fieldClass} />}
           </Field>
+        </div>
+      )}
+      {!isView && error && (
+        <div className="mt-3.5 flex items-start gap-2.5 rounded-md bg-[#fce4e0] p-3">
+          <TriangleAlert size={16} strokeWidth={2} className="mt-px shrink-0 text-[#b71c1c]" />
+          <div className="text-[12.5px] leading-[1.55] text-[#7f1313]">{error}</div>
         </div>
       )}
     </Modal>

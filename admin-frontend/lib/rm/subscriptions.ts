@@ -48,6 +48,7 @@ export type SubClient = {
 export function statusToChip(status: AllotRdmpStatus): { tone: ChipTone; label: string } {
   switch (status) {
     case "pending":
+      return { tone: "pending", label: "Pending Acknowledgement" };
     case "acknowledged":
       return { tone: "active", label: "Confirmed" };
     case "awaiting_pm":
@@ -58,6 +59,13 @@ export function statusToChip(status: AllotRdmpStatus): { tone: ChipTone; label: 
     case "rejected":
       return { tone: "overdue", label: "Rejected" };
   }
+}
+
+/** Whether the RM may file transaction details for a row. Mirrors api-backend
+ *  onboarding/service.py `_SETTLEMENT_ELIGIBLE_STATUS`: only an acknowledged
+ *  allotment or an approved redemption (the backend 403s anything else). */
+export function canFileTransactionDetail(kind: string, status: AllotRdmpStatus | ""): boolean {
+  return (kind === "Allotment" && status === "acknowledged") || (kind === "Redemption" && status === "approved");
 }
 
 /** "Ardent Capital Partners" -> "AC" — first letter of the first two words,

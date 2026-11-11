@@ -53,7 +53,7 @@ beforeEach(() => {
 
 describe("FE-5 clicking an unfiled eligible row opens edit mode with no fetch", () => {
   it("does not call getTransactionDetail; Save calls fileTransactionDetail and closes on success", async () => {
-    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "pending", "a-1", false];
+    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "acknowledged", "a-1", false];
     vi.mocked(actions.fileTransactionDetail).mockResolvedValue({ success: true, data: DETAILS } as never);
     const onFiled = vi.fn();
     render(
@@ -81,7 +81,7 @@ describe("FE-5 clicking an unfiled eligible row opens edit mode with no fetch", 
 
 describe("FE-5 clicking an already-filed row opens view mode via getTransactionDetail", () => {
   it("fetches and displays the exact previously-filed values as read-only text, no Save button", async () => {
-    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "pending", "a-1", true];
+    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "acknowledged", "a-1", true];
     vi.mocked(actions.getTransactionDetail).mockResolvedValue({ success: true, data: DETAILS } as never);
     render(
       <SubscriptionAccordion clients={[makeClient(row)]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />,
@@ -98,7 +98,7 @@ describe("FE-5 clicking an already-filed row opens view mode via getTransactionD
 
 describe("FE-5 a failed Save leaves the modal open", () => {
   it("does not call onTransactionDetailFiled and keeps the Save button present", async () => {
-    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "pending", "a-1", false];
+    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "acknowledged", "a-1", false];
     vi.mocked(actions.fileTransactionDetail).mockResolvedValue({ success: false, error: "409 already filed", code: "HTTP_409" } as never);
     const onFiled = vi.fn();
     render(
@@ -120,7 +120,7 @@ describe("FE-5 a failed Save leaves the modal open", () => {
 
 describe("FE-5 removed ephemeral 'filled' state", () => {
   it("the done/eligible icon reads row[11] directly — a filed row (12th element true) shows the check icon with no prior click", () => {
-    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "pending", "a-1", true];
+    const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "180,000", "2×", "180,000", "01/01/2026", "—", "acknowledged", "a-1", true];
     render(
       <SubscriptionAccordion clients={[makeClient(row)]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />,
     );
