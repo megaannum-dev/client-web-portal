@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Final
 
 from fastapi import HTTPException
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.libs.access.pages import PAGE_IDS, PAGE_META
 from app.libs.access.repository import AccessRepository, from_wire, to_wire
 from app.libs.access.schemas import (
+    EXPIRING_SOON_WINDOW,
     AccessLevel,
     AuditOut,
     MatrixCellOut,
@@ -170,7 +171,7 @@ class AccessService:
         expiring_soon = (
             compare_expires_at is not None
             and not is_expired
-            and compare_expires_at <= now + timedelta(days=30)
+            and compare_expires_at <= now + EXPIRING_SOON_WINDOW
         )
         return OverrideOut(
             id=override.id,

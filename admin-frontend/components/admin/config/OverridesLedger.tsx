@@ -16,6 +16,7 @@
 import { X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
+import { EXPIRING_SOON_DAYS } from "@/lib/admin/catalog";
 import { Card } from "@/components/ui/Card";
 import { Help, Label, LevelDiff, Row, Td, Th, UserCell } from "@/components/admin/Shared";
 import { useAdminStore } from "@/lib/admin/AdminStoreContext";
@@ -38,7 +39,7 @@ export function OverridesLedger() {
   const soon = active.filter((o) => o.expiring_soon).length;
   const stats: [string, number, boolean][] = [
     ["Active overrides", active.length, false],
-    ["Expiring in 30 days", soon, soon > 0],
+    [`Expiring in ${EXPIRING_SOON_DAYS} days`, soon, soon > 0],
     ["Users affected", new Set(active.map((o) => o.firebase_uid)).size, false],
     ["Roles affected", new Set(active.map((o) => o.user_role)).size, false],
   ];
