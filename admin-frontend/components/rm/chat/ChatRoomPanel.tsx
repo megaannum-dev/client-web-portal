@@ -65,6 +65,11 @@ export interface ChatRoomPanelProps {
   /** Called once the focus has been applied, so the caller clears it. */
   onFocusConsumed?: () => void;
   onClose: () => void;
+  /** Load error for the thread; shown at the top, even with no messages. */
+  error?: string | null;
+  /** Retry / delete a failed message by its id. */
+  onRetry?: (id: string) => void;
+  onDiscard?: (id: string) => void;
 }
 
 const STAGED_ICON = {
@@ -75,6 +80,7 @@ const STAGED_ICON = {
 
 export function ChatRoomPanel({
   participants, messages = [], onSend = () => {}, sending = false, canSend = true, focusAttachmentId = null, onFocusConsumed, onClose,
+  error = null, onRetry, onDiscard,
 }: ChatRoomPanelProps) {
   const [root, setRoot] = useState<Element | null>(null);
   useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
@@ -323,6 +329,11 @@ export function ChatRoomPanel({
             onScroll={handleThreadScroll}
             className={clsx("flex-1 overflow-auto bg-surface-low", full ? "py-[18px] px-6" : "py-3.5 px-3")}
           >
+            {error && (
+              <p role="alert" className="pb-2 text-[13px] font-semibold text-red-600">
+                {error}
+              </p>
+            )}
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center opacity-60">
                 <span className="flex h-11 w-11 items-center justify-center rounded-md bg-surface-container text-secondary">
@@ -358,7 +369,14 @@ export function ChatRoomPanel({
                     </div>
                     <div className="flex flex-col gap-4">
                       {day.messages.map((m) => (
-                        <MessageBubble key={m.id} message={m} mode={full ? "full" : "mini"} onDownload={download} />
+                        <MessageBubble
+                          key={m.id}
+                          message={m}
+                          mode={full ? "full" : "mini"}
+                          onDownload={download}
+                          onRetry={() => onRetry?.(m.id)}
+                          onDiscard={() => onDiscard?.(m.id)}
+                        />
                       ))}
                     </div>
                   </div>

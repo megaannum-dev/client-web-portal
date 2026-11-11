@@ -168,6 +168,13 @@ describe("EDIT: attachment staging — picking a file composes, it does not send
   });
 });
 
+describe("load error", () => {
+  it("an `error` prop renders as an alert even with no messages", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} error="Could not load this conversation" onClose={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load this conversation");
+  });
+});
+
 describe("negative — VIEW grant hides the composer, never disables it", () => {
   it("the read-only notice renders and no textarea is in the tree", () => {
     withGrant("VIEW");

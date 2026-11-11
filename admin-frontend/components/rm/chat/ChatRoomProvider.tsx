@@ -125,7 +125,7 @@ function OpenRoom({
   }, []);
   const { status } = useChatSocket({ enabled: true, onFrame });
 
-  const { days, sending, send } = useChatThread({
+  const { days, sending, send, error, retry, discard } = useChatThread({
     clientId: client.id,
     subscribe,
     socketOpen: status === "open",
@@ -143,6 +143,9 @@ function OpenRoom({
       sending={sending}
       onSend={(body, files) => void send(body, files)}
       onClose={onClose}
+      error={error}
+      onRetry={retry}
+      onDiscard={discard}
       focusAttachmentId={focusAttachmentId}
       onFocusConsumed={onFocusConsumed}
     />

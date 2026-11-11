@@ -14,6 +14,16 @@ vi.mock("@/lib/api/chat", () => ({
   sendMessage: (...a: unknown[]) => sendMessage(...a),
 }));
 
+const listFailed = vi.fn();
+const putFailed = vi.fn();
+const removeFailed = vi.fn();
+
+vi.mock("@/lib/chat/failedStore", () => ({
+  listFailed: (...a: unknown[]) => listFailed(...a),
+  putFailed: (...a: unknown[]) => putFailed(...a),
+  removeFailed: (...a: unknown[]) => removeFailed(...a),
+}));
+
 vi.mock("@/components/auth/AuthProvider", () => ({
   useAuth: () => ({
     getIdToken: async () => "tok",
@@ -54,7 +64,7 @@ function Probe({ socketOpen = false }: { socketOpen?: boolean }) {
       <span data-testid="count">{all.length}</span>
       <ul>
         {all.map((m) => (
-          <li key={m.id}>{`${m.id}|${m.body}`}</li>
+          <li key={m.id} data-status={m.status}>{`${m.id}|${m.body}`}</li>
         ))}
       </ul>
     </div>
@@ -64,6 +74,9 @@ function Probe({ socketOpen = false }: { socketOpen?: boolean }) {
 beforeEach(() => {
   fetchMessages.mockReset().mockResolvedValue([]);
   sendMessage.mockReset();
+  listFailed.mockReset().mockResolvedValue([]);
+  putFailed.mockReset().mockResolvedValue(undefined);
+  removeFailed.mockReset().mockResolvedValue(undefined);
 });
 
 describe("opening a thread", () => {
@@ -144,7 +157,7 @@ describe("sending — the optimistic bubble, the 201 and the echo", () => {
     expect(screen.getByText("real|Hello room")).toBeInTheDocument();
   });
 
-  it("a failed send withdraws the optimistic bubble and reports why", async () => {
+  it("a failed send keeps the bubble, marked failed, saves it, and leaves `error` alone", async () => {
     sendMessage.mockRejectedValue(new Error("Message exceeds the attachment budget"));
     render(<Probe />);
     await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
@@ -152,8 +165,74 @@ describe("sending — the optimistic bubble, the 201 and the echo", () => {
     await act(async () => {
       await api.send("Hello room", []);
     });
-    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("0"));
-    expect(api.error).toMatch(/attachment budget/);
+    expect(screen.getByTestId("count").textContent).toBe("1");
+    expect(screen.getByText(/\|Hello room/)).toHaveAttribute("data-status", "failed");
+    expect(api.error).toBeNull();
+    expect(putFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: "uid-me:c-1", body: "Hello room", files: [] }),
+    );
+  });
+
+  it("failed messages saved earlier render as failed bubbles on mount", async () => {
+    listFailed.mockResolvedValue([
+      { tempId: "temp:old", owner: "uid-me:c-1", body: "Saved one", files: [], createdAt: "2026-09-02T08:00:00.000Z" },
+    ]);
+    render(<Probe />);
+    expect(await screen.findByText("temp:old|Saved one")).toHaveAttribute("data-status", "failed");
+    expect(listFailed).toHaveBeenCalledWith("uid-me:c-1");
+  });
+
+  it("retry removes the saved copy and re-sends once, delivering the message once", async () => {
+    sendMessage.mockRejectedValueOnce(new Error("offline"));
+    render(<Probe />);
+    await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
+    await act(async () => {
+      await api.send("Hello room", []);
+    });
+    const failedId = putFailed.mock.calls[0][0].tempId;
+
+    sendMessage.mockResolvedValueOnce(dto({ id: "real" }));
+    await act(async () => {
+      api.retry(failedId);
+    });
+    expect(removeFailed).toHaveBeenCalledWith(failedId);
+    await waitFor(() => expect(screen.getByText("real|Hello room")).toBeInTheDocument());
+    expect(screen.getByTestId("count").textContent).toBe("1");
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("discard removes the bubble and the saved copy", async () => {
+    sendMessage.mockRejectedValue(new Error("offline"));
+    render(<Probe />);
+    await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
+    await act(async () => {
+      await api.send("Hello room", []);
+    });
+    const failedId = putFailed.mock.calls[0][0].tempId;
+
+    act(() => api.discard(failedId));
+    expect(screen.getByTestId("count").textContent).toBe("0");
+    expect(removeFailed).toHaveBeenCalledWith(failedId);
+  });
+
+  it("a failed bubble is never matched to a later identical message (201 + echo, same id)", async () => {
+    sendMessage.mockRejectedValueOnce(new Error("offline"));
+    render(<Probe />);
+    await waitFor(() => expect(fetchMessages).toHaveBeenCalled());
+    await act(async () => {
+      await api.send("Hello room", []);
+    });
+
+    sendMessage.mockResolvedValueOnce(dto({ id: "real" }));
+    await act(async () => {
+      await api.send("Hello room", []);
+    });
+    await act(async () => {
+      push({ type: "new_message", client_id: "c-1", message: dto({ id: "real" }) });
+    });
+    await waitFor(() => expect(screen.getByText("real|Hello room")).toBeInTheDocument());
+    expect(screen.getByTestId("count").textContent).toBe("2");
+    expect(screen.getByText(/^temp:.*\|Hello room/)).toHaveAttribute("data-status", "failed");
   });
 
   it("an empty draft with no files sends nothing", async () => {
