@@ -245,6 +245,50 @@ describe("sending — the optimistic bubble, the 201 and the echo", () => {
   });
 });
 
+describe("earlier history", () => {
+  const page = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      dto({ id: `m${String(i).padStart(3, "0")}`, body: `b${i}`, created_at: `2026-09-02T10:${String(i % 60).padStart(2, "0")}:00.000Z` }),
+    );
+
+  it("a full first page means there may be more; a short one means there is not", async () => {
+    fetchMessages.mockResolvedValueOnce(page(200));
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(api.hasOlder).toBe(true));
+    unmount();
+
+    fetchMessages.mockResolvedValueOnce(page(3));
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("3"));
+    expect(api.hasOlder).toBe(false);
+  });
+
+  it("loadOlder pages back from the oldest real id, shows loading, then merges and updates hasOlder", async () => {
+    // A failed bubble is "older" by timestamp but must never be the cursor.
+    listFailed.mockResolvedValue([
+      { tempId: "temp:old", owner: "uid-me:c-1", body: "Saved", files: [], createdAt: "2026-09-02T00:00:00.000Z" },
+    ]);
+    fetchMessages.mockResolvedValueOnce([dto({ id: "m5", created_at: "2026-09-02T10:05:00.000Z" })]);
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("2"));
+
+    let resolve!: (v: ChatMessageDTO[]) => void;
+    fetchMessages.mockReturnValueOnce(new Promise<ChatMessageDTO[]>((r) => (resolve = r)));
+    await act(async () => {
+      void api.loadOlder();
+    });
+    expect(api.loadingOlder).toBe(true);
+    expect(fetchMessages.mock.calls.at(-1)![1]).toMatchObject({ clientId: "c-1", before: "m5", limit: 200 });
+
+    await act(async () => {
+      resolve([dto({ id: "m4", body: "earlier", created_at: "2026-09-02T10:04:00.000Z" })]);
+    });
+    expect(api.loadingOlder).toBe(false);
+    expect(api.hasOlder).toBe(false); // short page
+    expect(screen.getByText("m4|earlier")).toBeInTheDocument();
+  });
+});
+
 describe("catch-up", () => {
   it("a socket that opens after messages exist refetches from the newest timestamp", async () => {
     fetchMessages.mockResolvedValueOnce([dto({ id: "old", created_at: "2026-09-02T09:00:00.000Z" })]);

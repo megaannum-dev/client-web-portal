@@ -81,13 +81,16 @@ export async function mintWsTicket(token: string | null): Promise<WsTicket> {
 }
 
 /** GET /api/chat/messages — the newest `limit` messages, oldest first. `since` is INCLUSIVE, so the caller
- *  must dedupe by id (which it must do anyway for the sender's own WS echo). */
+ *  must dedupe by id (which it must do anyway for the sender's own WS echo).
+ *  `before` (a message id) instead returns the page strictly older than that
+ *  message, still oldest first; fewer than `limit` rows means no more history. */
 export async function fetchMessages(
   token: string | null,
-  { clientId, since, limit }: { clientId: string; since?: string | null; limit?: number },
+  { clientId, since, before, limit }: { clientId: string; since?: string | null; before?: string | null; limit?: number },
 ): Promise<ChatMessageDTO[]> {
   const qs = new URLSearchParams({ client_id: clientId });
   if (since) qs.set("since", since);
+  if (before) qs.set("before", before);
   if (limit != null) qs.set("limit", String(limit));
   const path = `/api/chat/messages?${qs.toString()}`;
   const res = await fetch(`${getApiBase()}${path}`, {
