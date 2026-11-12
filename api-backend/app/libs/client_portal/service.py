@@ -250,8 +250,8 @@ class ClientPortalService:
                 model_size=float(m.model_size) if m.model_size is not None else None,
                 subscription_redemption=m.subscription_redemption,
                 description=m.description,
-                # "Downloadable by this client": same gate as model_material_stream.
-                has_material=m.id in subscribed_ids and self.repo.has_material(m.id),
+                # Every listed model is LIVE, so model_material_stream serves it.
+                has_material=self.repo.has_material(m.id),
             )
             for m in self.repo.recommended_models(set() if include_subscribed else subscribed_ids)
         ]
@@ -262,7 +262,11 @@ class ClientPortalService:
         # Security boundary (BE-15) -- gate lives here, not the router, so any
         # future caller inherits it. Same 404 as the not-found case below so an
         # unentitled client cannot distinguish "no material" from "no access".
-        if not self.repo.has_subscription(user_id, model_id):
+        # Entitled = holds the model, OR the model is LIVE (it is on the
+        # recommended list, whose material clients read before subscribing).
+        if not (
+            self.repo.has_subscription(user_id, model_id) or self.repo.is_live_model(model_id)
+        ):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No material uploaded for this model")
         material = self.repo.latest_material(model_id)
         if material is None or material.storage_key is None:

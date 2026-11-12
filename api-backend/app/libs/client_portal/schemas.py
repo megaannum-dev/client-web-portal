@@ -87,7 +87,7 @@ class RecommendedModelDTO(BaseModel):
     model_size: float | None  # models.model_size -- prices one unit
     subscription_redemption: str | None
     description: str | None
-    has_material: bool  # material exists AND the client holds the model
+    has_material: bool  # a model_materials row exists (LIVE models: downloadable by any client)
 
 
 # ---------- Documents (BE-7) ----------
