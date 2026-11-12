@@ -35,7 +35,7 @@ function makeClient(rows: TxnRow[]): SubClient {
 
 describe("FE-4 TxnTable renders the status-driven chip instead of hardcoded 'Confirmed'", () => {
   it.each([
-    ["pending", "Confirmed"],
+    ["pending", "Pending Acknowledgement"],
     ["acknowledged", "Confirmed"],
     ["awaiting_pm", "Awaiting Approval"],
     ["awaiting_co", "Awaiting Approval"],

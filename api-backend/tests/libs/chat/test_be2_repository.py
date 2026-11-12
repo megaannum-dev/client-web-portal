@@ -192,7 +192,42 @@ def test_history_ordering_is_id_tie_broken_and_since_is_inclusive(session, repo)
     assert {m.id for m, *_ in repo.history(client.id, since=later.created_at, limit=50)} == {
         later.id
     }
-    assert [m.id for m, *_ in repo.history(client.id, since=None, limit=1)] == [ids[0]]
+    assert [m.id for m, *_ in repo.history(client.id, since=None, limit=1)] == [ids[-1]]  # newest
+
+
+def test_history_before_pages_back_through_every_message_once(session, repo):
+    rm = make_admin(session, AdminRole.RM)
+    client = make_client(session, assigned_rm_uid=rm.firebase_uid)
+    now = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    # 7 messages; seconds 0,0,0,1,2,2,3 -> several share a created_at second
+    secs = [0, 0, 0, 1, 2, 2, 3]
+    msgs = [
+        _msg(session, client_id=client.id, sender_id=rm.id, created_at=now + timedelta(seconds=s))
+        for s in secs
+    ]
+    full = [m.id for m, *_ in repo.history(client.id, since=None, limit=50)]
+    assert sorted(m.id for m in msgs) == sorted(full)
+
+    got: list = []
+    before = None
+    for _ in range(10):
+        cursor = repo.message_cursor(client.id, before) if before else None
+        page = [m.id for m, *_ in repo.history(client.id, since=None, limit=3, before=cursor)]
+        if not page:
+            break
+        got = page + got  # each page is oldest-first and strictly older than the last
+        before = page[0]
+    assert got == full
+
+
+def test_message_cursor_is_scoped_to_the_thread(session, repo):
+    rm = make_admin(session, AdminRole.RM)
+    mine = make_client(session, assigned_rm_uid=rm.firebase_uid)
+    other = make_client(session, assigned_rm_uid=rm.firebase_uid)
+    now = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    theirs = _msg(session, client_id=other.id, sender_id=rm.id, created_at=now)
+    assert repo.message_cursor(mine.id, theirs.id) is None
+    assert repo.message_cursor(other.id, theirs.id) is not None
 
 
 # --- 6. attachment carries the owning thread --------------------------------

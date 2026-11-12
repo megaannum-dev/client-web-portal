@@ -6,6 +6,23 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ChatRoomProvider, useChatRoom } from "@/components/rm/chat/ChatRoomProvider";
 
 const mockUseAuth = vi.fn(() => ({ portalUser: { role: "RM", grants: { "rm.client-info": "EDIT" } } }));
+// Counts socket connects/disconnects; the real handshake has its own suite.
+const socket = vi.hoisted(() => ({ opens: 0, closes: 0 }));
+vi.mock("@/lib/chat/useChatSocket", async () => {
+  const { useEffect } = await import("react");
+  return {
+    useChatSocket: ({ enabled }: { enabled: boolean }) => {
+      useEffect(() => {
+        if (!enabled) return;
+        socket.opens++;
+        return () => {
+          socket.closes++;
+        };
+      }, [enabled]);
+      return { status: "idle" };
+    },
+  };
+});
 vi.mock("@/components/auth/AuthProvider", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/components/auth/AuthProvider")>()),
   useAuth: () => mockUseAuth(),
@@ -58,6 +75,26 @@ describe("positive", () => {
     fireEvent.click(screen.getByText("Open Vela"));
     expect(screen.getByText("Vela Holdings · Client Room")).toBeInTheDocument();
     expect(screen.queryByText("Alex Thompson · Client Room")).not.toBeInTheDocument();
+  });
+
+  it("the socket opens with a room, is replaced when switching clients, and closes with the panel", () => {
+    socket.opens = 0;
+    socket.closes = 0;
+    render(
+      <ChatRoomProvider>
+        <Consumer />
+      </ChatRoomProvider>,
+    );
+    expect(socket.opens).toBe(0); // no room, no socket
+
+    fireEvent.click(screen.getByText("Open Alex"));
+    expect([socket.opens, socket.closes]).toEqual([1, 0]);
+
+    fireEvent.click(screen.getByText("Open Vela")); // old socket closed, fresh one opened
+    expect([socket.opens, socket.closes]).toEqual([2, 1]);
+
+    fireEvent.click(screen.getByText("Close"));
+    expect([socket.opens, socket.closes]).toEqual([2, 2]);
   });
 });
 

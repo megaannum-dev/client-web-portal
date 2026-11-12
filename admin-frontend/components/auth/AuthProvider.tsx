@@ -12,6 +12,7 @@ import {
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { BackendAuthError, postBackendLogin, postBackendLogout } from "@/lib/auth-api";
+import { clearFailedForUser } from "@/lib/chat/failedStore";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { writeIdTokenCookie } from "@/lib/id-token";
 import type { PortalUser } from "@/types/portal";
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // No account staged for this uid, or account disabled — do not leave
             // the user Firebase-signed-in but backend-rejected.
             try {
+              await clearFailedForUser(next.uid);
               await signOut(auth);
             } catch {
               /* noop */
@@ -137,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* non-blocking */
     }
     const auth = getFirebaseAuth();
+    if (auth.currentUser) await clearFailedForUser(auth.currentUser.uid);
     await signOut(auth);
   }, [firebaseReady]);
 
@@ -163,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /\b401\b/.test(msg) || /\b403\b/.test(msg) || /Unauthorized/i.test(msg);
       if (unauthorized && firebaseReady) {
         try {
+          await clearFailedForUser(user.uid);
           await signOut(getFirebaseAuth());
         } catch {
           /* noop */

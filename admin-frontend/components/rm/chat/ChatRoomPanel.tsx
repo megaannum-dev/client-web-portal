@@ -9,12 +9,12 @@
 // This replaces the design's `inset` prop + ResizeObserver-measured region
 // entirely: the overlay root already *is* that region (plan §4/§9).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import {
   CalendarSearch, Eye, Maximize2, Minimize2, MessagesSquare, Paperclip, SendHorizontal, X, ArrowDown,
-  FileText, FileSpreadsheet, FileCheck2,
+  FileText, FileSpreadsheet, FileCheck2, Loader2,
 } from "@/lib/icons";
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { AttachmentRow } from "./AttachmentRow";
@@ -65,6 +65,15 @@ export interface ChatRoomPanelProps {
   /** Called once the focus has been applied, so the caller clears it. */
   onFocusConsumed?: () => void;
   onClose: () => void;
+  /** Load error for the thread; shown at the top, even with no messages. */
+  error?: string | null;
+  /** Retry / delete a failed message by its id. */
+  onRetry?: (id: string) => void;
+  onDiscard?: (id: string) => void;
+  /** Older history exists on the server; scrolling to the top loads it. */
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
 }
 
 const STAGED_ICON = {
@@ -75,6 +84,7 @@ const STAGED_ICON = {
 
 export function ChatRoomPanel({
   participants, messages = [], onSend = () => {}, sending = false, canSend = true, focusAttachmentId = null, onFocusConsumed, onClose,
+  error = null, onRetry, onDiscard, hasOlder = false, loadingOlder = false, onLoadOlder,
 }: ChatRoomPanelProps) {
   const [root, setRoot] = useState<Element | null>(null);
   useEffect(() => setRoot(document.getElementById("content-overlay-root")), []);
@@ -89,6 +99,9 @@ export function ChatRoomPanel({
   const [atLatest, setAtLatest] = useState(true);
 
   const threadRef = useRef<HTMLDivElement>(null);
+  // scrollHeight at the moment older messages were requested; when they land
+  // above the viewport the scroll position is shifted by what was added.
+  const prependFrom = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,11 +125,13 @@ export function ChatRoomPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }
 
-  // Auto-scroll to the live end on mount.
+  // Follow the live end while the reader is there. Runs on every messages
+  // change, not just mount: history arrives after mount, and atLatest starts
+  // true, so the first load lands on the newest message.
   useEffect(() => {
-    requestAnimationFrame(scrollToEnd);
+    if (atLatest) requestAnimationFrame(scrollToEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [messages]);
 
   // Deep-link: once the target attachment is rendered, put it ~1/3 down the
   // thread and ring it for 3s. Not found (outside the loaded window) = no-op.
@@ -136,9 +151,32 @@ export function ChatRoomPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusAttachmentId, messages, root]);
 
+  // Keep the reader on the same message when older ones are prepended.
+  useLayoutEffect(() => {
+    const el = threadRef.current;
+    if (el && prependFrom.current != null) {
+      el.scrollTop += el.scrollHeight - prependFrom.current;
+      prependFrom.current = null;
+    }
+  }, [messages]);
+
+  // A load that added nothing (end of history, or an error) must not leave a
+  // stale baseline for the next live message to be "corrected" against.
+  useEffect(() => {
+    if (loadingOlder) return;
+    const id = requestAnimationFrame(() => {
+      prependFrom.current = null;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [loadingOlder]);
+
   function handleThreadScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     setAtLatest(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+    if (el.scrollTop < 64 && hasOlder && !loadingOlder && onLoadOlder) {
+      prependFrom.current = el.scrollHeight;
+      onLoadOlder();
+    }
   }
 
   function jumpLatest() {
@@ -321,6 +359,16 @@ export function ChatRoomPanel({
             onScroll={handleThreadScroll}
             className={clsx("flex-1 overflow-auto bg-surface-low", full ? "py-[18px] px-6" : "py-3.5 px-3")}
           >
+            {loadingOlder && (
+              <div className="flex justify-center pb-3" role="status" aria-label="Loading earlier messages">
+                <Loader2 size={16} strokeWidth={2} className="animate-spin text-secondary" />
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="pb-2 text-[13px] font-semibold text-red-600">
+                {error}
+              </p>
+            )}
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center opacity-60">
                 <span className="flex h-11 w-11 items-center justify-center rounded-md bg-surface-container text-secondary">
@@ -356,7 +404,14 @@ export function ChatRoomPanel({
                     </div>
                     <div className="flex flex-col gap-4">
                       {day.messages.map((m) => (
-                        <MessageBubble key={m.id} message={m} mode={full ? "full" : "mini"} onDownload={download} />
+                        <MessageBubble
+                          key={m.id}
+                          message={m}
+                          mode={full ? "full" : "mini"}
+                          onDownload={download}
+                          onRetry={() => onRetry?.(m.id)}
+                          onDiscard={() => onDiscard?.(m.id)}
+                        />
                       ))}
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import uuid
 
 import pytest
 from fastapi import FastAPI
@@ -152,3 +153,12 @@ def test_history_route(world):
     tc.post("/api/chat/messages", data={"client_id": str(client_user.id), "body": "hi"})
     rows = tc.get("/api/chat/messages", params={"client_id": str(client_user.id)}).json()
     assert [r["body"] for r in rows] == ["hi"]
+
+
+def test_history_before_unknown_message_is_404(world):
+    tc, _, client_user = world
+    resp = tc.get(
+        "/api/chat/messages",
+        params={"client_id": str(client_user.id), "before": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 404

@@ -4,7 +4,7 @@
 // WebSocket, no lib/api import — the wiring branch changes call sites only.
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MessagesSquare,
@@ -12,6 +12,8 @@ import {
   CalendarSearch,
   Paperclip,
   ArrowDown,
+  AlertCircle,
+  Loader2,
   X,
   FileText,
   FileSpreadsheet,
@@ -86,6 +88,12 @@ export function AdvisoryRoom({
   participants = [],
   onSend = () => {},
   sending = false,
+  error = null,
+  onRetry,
+  onDiscard,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
   onClose,
   maximized = false,
   onToggleMaximize,
@@ -97,6 +105,15 @@ export function AdvisoryRoom({
   onSend?: (body: string, files: File[]) => void;
   /** True while that POST is in flight; disables only the send button. */
   sending?: boolean;
+  /** A thread-load failure; shown inline at the top of the thread. */
+  error?: string | null;
+  /** Retry / delete a message that failed to send (`status: "failed"`). */
+  onRetry?: (id: string) => void;
+  onDiscard?: (id: string) => void;
+  /** Older history exists on the server; scrolling to the top asks for it. */
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
   /** When set, a close button ends the header (the room is hosted in ChatPopup). */
   onClose?: () => void;
   /** Whether ChatPopup is filling the page; picks the maximize/restore icon. */
@@ -167,9 +184,39 @@ export function AdvisoryRoom({
     setAtLatest(true);
   }
 
+  // Open at, and follow, the latest message while the reader is at the end.
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (thread && atLatest) thread.scrollTop = thread.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  // scrollHeight when an older page was requested; once it lands, shift
+  // scrollTop by what was added above so the reader stays on the same message.
+  const prependFrom = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const thread = threadRef.current;
+    if (thread && prependFrom.current != null) {
+      thread.scrollTop += thread.scrollHeight - prependFrom.current;
+      prependFrom.current = null;
+    }
+  }, [messages]);
+  // A load that added nothing must not leave a stale anchor for a later live message.
+  useEffect(() => {
+    if (loadingOlder) return;
+    const id = requestAnimationFrame(() => {
+      prependFrom.current = null;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [loadingOlder]);
+
   function onThreadScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     setAtLatest(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+    if (el.scrollTop < 64 && hasOlder && !loadingOlder && onLoadOlder) {
+      prependFrom.current = el.scrollHeight;
+      onLoadOlder();
+    }
   }
 
   function send() {
@@ -282,6 +329,17 @@ export function AdvisoryRoom({
             onScroll={onThreadScroll}
             className="flex-1 overflow-auto py-[18px] px-6 bg-surface-low"
           >
+            {loadingOlder && (
+              <div role="status" aria-label={t("messaging.loadingEarlier")} className="flex justify-center pb-3 text-secondary">
+                <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="flex items-center gap-1 pb-3 text-[11px] font-semibold text-error">
+                <AlertCircle size={12} strokeWidth={2} />
+                {t("messaging.loadFailed")}
+              </p>
+            )}
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-secondary">
                 <MessagesSquare size={32} strokeWidth={1.5} className="opacity-40" />
@@ -303,7 +361,14 @@ export function AdvisoryRoom({
                     <span className={["flex-1 h-px bg-outline-variant", jumpedTo === day.iso ? "opacity-90" : "opacity-55"].join(" ")} />
                   </div>
                   {day.msgs.map((m) => (
-                    <MessageBubble key={m.id} message={m} onDownload={download} animate={isNewMessage(m, mountedAt.current)} />
+                    <MessageBubble
+                      key={m.id}
+                      message={m}
+                      onDownload={download}
+                      onRetry={onRetry && (() => onRetry(m.id))}
+                      onDiscard={onDiscard && (() => onDiscard(m.id))}
+                      animate={isNewMessage(m, mountedAt.current)}
+                    />
                   ))}
                 </div>
               ))

@@ -1,10 +1,11 @@
 "use client";
 
-// 021 U8 — the chat WebSocket, opened once per session.
+// 021 U8 — the chat WebSocket, opened by the one open chat room (ChatRoomProvider's
+// OpenRoom) and closed with it.
 //
-// The socket is keyed server-side by firebase_uid, not by thread, so ONE
+// The socket is keyed server-side by firebase_uid, not by thread, so the
 // connection carries frames for every room the signed-in user sits in.
-// Consumers filter on frame.client_id; they must not open a socket per thread.
+// Consumers filter on frame.client_id.
 //
 // Push-only by design (realtime.py park()): nothing is ever sent
 // client -> server. Sending a message is always the HTTP POST.

@@ -168,6 +168,45 @@ describe("EDIT: attachment staging — picking a file composes, it does not send
   });
 });
 
+describe("load error", () => {
+  it("an `error` prop renders as an alert even with no messages", () => {
+    render(<ChatRoomPanel participants={PARTICIPANTS} error="Could not load this conversation" onClose={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load this conversation");
+  });
+});
+
+describe("earlier history", () => {
+  const days = [{
+    iso: "2026-01-02", label: "Jan 2",
+    messages: [{ id: "m1", role: "rm", createdAt: "2026-01-02T10:00:00Z", body: "hi", own: false, senderName: "Sarah Mitchell", attachments: [] }],
+  }] as unknown as import("@/components/rm/chat/types").ChatDay[];
+
+  function scrollTo(top: number) {
+    const thread = document.querySelector(".overflow-auto") as HTMLElement;
+    Object.defineProperty(thread, "scrollTop", { value: top, writable: true, configurable: true });
+    fireEvent.scroll(thread);
+  }
+
+  it("scrolling near the top loads older messages once the server has more", () => {
+    const onLoadOlder = vi.fn();
+    render(<ChatRoomPanel participants={PARTICIPANTS} messages={days} hasOlder onLoadOlder={onLoadOlder} onClose={vi.fn()} />);
+    scrollTo(10);
+    expect(onLoadOlder).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing without older history, mid-thread, or while already loading", () => {
+    const onLoadOlder = vi.fn();
+    const { rerender } = render(<ChatRoomPanel participants={PARTICIPANTS} messages={days} onLoadOlder={onLoadOlder} onClose={vi.fn()} />);
+    scrollTo(10);
+    rerender(<ChatRoomPanel participants={PARTICIPANTS} messages={days} hasOlder onLoadOlder={onLoadOlder} onClose={vi.fn()} />);
+    scrollTo(300);
+    rerender(<ChatRoomPanel participants={PARTICIPANTS} messages={days} hasOlder loadingOlder onLoadOlder={onLoadOlder} onClose={vi.fn()} />);
+    scrollTo(10);
+    expect(onLoadOlder).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Loading earlier messages")).toBeInTheDocument();
+  });
+});
+
 describe("negative — VIEW grant hides the composer, never disables it", () => {
   it("the read-only notice renders and no textarea is in the tree", () => {
     withGrant("VIEW");

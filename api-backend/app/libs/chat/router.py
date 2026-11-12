@@ -79,8 +79,9 @@ def get_messages(
     client_id: uuid.UUID | None = None,
     since: datetime | None = None,
     limit: int = 50,
+    before: uuid.UUID | None = None,  # a message id: return messages older than it
 ) -> list[ChatMessageDTO]:
-    return svc.history(user, client_id, since=since, limit=limit)
+    return svc.history(user, client_id, since=since, limit=limit, before=before)
 
 
 @router.post("/chat/messages", response_model=ChatMessageDTO, status_code=201)

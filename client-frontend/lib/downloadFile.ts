@@ -10,9 +10,10 @@ export async function downloadAs(
 ): Promise<void> {
   const res  = await fetch(url, headers ? { headers } : undefined);
   if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? filename;
   const blob = await res.blob();
   const href = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement("a"), { href, download: filename });
+  const a    = Object.assign(document.createElement("a"), { href, download: name });
   document.body.appendChild(a);
   a.click();
   a.remove();

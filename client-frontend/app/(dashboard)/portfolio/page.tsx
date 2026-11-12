@@ -34,7 +34,8 @@ import { useRequests } from "@/lib/hooks/useRequests";
 import { usePortfolio } from "@/lib/hooks/usePortfolio";
 import { usePortfolioHistory } from "@/lib/hooks/usePortfolioHistory";
 import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
-import { modelMaterialDownloadUrl } from "@/lib/api/models";
+import { downloadModelMaterial } from "@/lib/api/models";
+import { useAuth } from "@/components/auth/AuthProvider";
 import type { ClientRequestDTO, TicketStatus, TicketKind } from "@/lib/api/requests";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard }   from "@/components/ui/StatCard";
@@ -216,6 +217,16 @@ export default function PortfolioPage() {
   const { data: requests, refetch: refetchRequests } = useRequests();
   const { data: recommended, loading: recommendedLoading } = useRecommendedModels();
   const mask = (v: string) => (censored ? "********" : v);
+  const { getIdToken } = useAuth();
+  const [downloadError, setDownloadError] = useState(false);
+  const download = async (id: string, name: string) => {
+    setDownloadError(false);
+    try {
+      await downloadModelMaterial(await getIdToken(), id, name);
+    } catch {
+      setDownloadError(true);
+    }
+  };
 
   // ── Charts + stat cards (FE-2) — derived once per render from usePortfolio/usePortfolioHistory ──
   const { data: portfolio } = usePortfolio();
@@ -424,6 +435,9 @@ export default function PortfolioPage() {
       {/* ── Subscribed Models ────────────────────────────────────────────── */}
       <section id="subscribed-models">
         <h2 className="text-headline-md font-semibold text-on-surface mb-4">{t("portfolio.subscribed_models")}</h2>
+        {downloadError && (
+          <p role="alert" className="text-body-sm text-error mb-3">{t("portfolio.download_failed")}</p>
+        )}
         <ModelTable columns={SUBSCRIBED_COL_KEYS.map((k) => t(k))} gridTemplate="15rem repeat(5, 1fr)">
           {!portfolio ? (
             <div className="px-6 py-8 text-center text-body-sm text-secondary">Loading…</div>
@@ -439,12 +453,13 @@ export default function PortfolioPage() {
                 <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{p.model_limit != null ? formatMoney(p.model_limit) : "—"}</div>
                 <div className="px-5 py-4 flex items-center">
                   {p.has_material && (
-                    <a
-                      href={modelMaterialDownloadUrl(p.model_id)}
-                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all"
+                    <button
+                      type="button"
+                      onClick={() => download(p.model_id, p.model_name)}
+                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all cursor-pointer"
                     >
                       <Download size={15} strokeWidth={2.5} />{t("common.download")}
-                    </a>
+                    </button>
                   )}
                 </div>
               </ModelRow>
@@ -471,12 +486,13 @@ export default function PortfolioPage() {
                 <div className="px-5 py-4 flex items-center text-body-sm text-on-surface">{m.model_limit != null ? formatMoney(m.model_limit) : "—"}</div>
                 <div className="px-5 py-4 flex items-center">
                   {m.has_material && (
-                    <a
-                      href={modelMaterialDownloadUrl(m.model_id)}
-                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all"
+                    <button
+                      type="button"
+                      onClick={() => download(m.model_id, m.name)}
+                      className="inline-flex items-center gap-1.5 text-primary text-[12.5px] font-semibold hover:underline transition-all cursor-pointer"
                     >
                       <Download size={15} strokeWidth={2.5} />{t("common.download")}
-                    </a>
+                    </button>
                   )}
                 </div>
               </ModelRow>

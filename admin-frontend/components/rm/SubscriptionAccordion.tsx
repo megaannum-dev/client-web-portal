@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { Layers, ChevronDown, ChevronUp, ChevronRight, Bell, Plus, ArrowDownToLine, Check, ClipboardCheck } from "@/lib/icons";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { statusToChip } from "@/lib/rm/subscriptions";
+import { statusToChip, canFileTransactionDetail } from "@/lib/rm/subscriptions";
 import type { AllotRdmpStatus, TransactionDetailDTO } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/rm/subscriptions";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
@@ -86,11 +86,9 @@ function TxnTable({
             const txnId = r[10];
             const status = r[9];
             // Eligible for settlement-detail filing: a real transaction (has an
-            // id — mock/legacy rows don't) whose status resolves to the
-            // "settled" tone (Confirmed allotment or Approved redemption) —
-            // matches the prototype's `r[9] !== "Confirmed"` gate exactly,
-            // just expressed against the real AllotRdmpStatus enum.
-            const eligible = !isNet && txnId !== undefined && status !== "" && statusToChip(status as AllotRdmpStatus).tone === "active";
+            // id — mock/legacy rows don't) that the backend will accept details
+            // for — an acknowledged allotment or an approved redemption only.
+            const eligible = !isNet && txnId !== undefined && canFileTransactionDetail(r[0], status);
             // FE-5: "filled" is derived straight from has_transaction_detail
             // (the 12th TxnRow element), not from any client-side cache.
             const done = eligible && !!r[11];
@@ -327,6 +325,8 @@ export function SubscriptionAccordion({
   const [activeTxn, setActiveTxn] = useState<ActiveTxn | null>(null);
   const [viewDetails, setViewDetails] = useState<TransactionDetailDTO | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const toggle = (id: string) => {
     const next = openClient === id ? null : id;
     setOpenClient(next);
@@ -335,6 +335,7 @@ export function SubscriptionAccordion({
 
   const handleFileDetails = (txn: TxnClick) => {
     const mode: "edit" | "view" = txn.hasTransactionDetail ? "view" : "edit";
+    setSaveError(null);
     setActiveTxn({
       id: txn.id, type: txn.type, clientName: txn.clientName, modelName: txn.modelName,
       rawAmount: txn.rawAmount, clientId: txn.clientId, mode,
@@ -375,8 +376,12 @@ export function SubscriptionAccordion({
           mode={activeTxn.mode}
           details={viewDetails}
           loading={viewLoading}
-          onClose={() => setActiveTxn(null)}
+          error={saveError}
+          saving={saving}
+          onClose={() => { setActiveTxn(null); setSaveError(null); }}
           onSave={async (details) => {
+            setSaving(true);
+            setSaveError(null);
             const r = await fileTransactionDetail(activeTxn.id, {
               bank_account: details.bankAccount,
               settlement_amount: parseFloat(details.amount.replace(/,/g, "")) || 0,
@@ -385,15 +390,17 @@ export function SubscriptionAccordion({
               currency: details.ccy,
               reference_no: details.ref || null,
             });
+            setSaving(false);
             if (r.success) {
               setActiveTxn(null);
               // Refresh this client's ledger so has_transaction_detail flips true
               // on the row — reuses useSubscriptions().invalidateClientAllotments
               // (016), threaded down from page.tsx.
               onTransactionDetailFiled?.(activeTxn.clientId);
+            } else {
+              // modal stays open (never close on a failed submit) and shows why.
+              setSaveError(r.error);
             }
-            // on failure, the modal stays open — matches SubscriptionFormModal's
-            // (016) existing "never close on a failed submit" convention.
           }}
         />
       )}

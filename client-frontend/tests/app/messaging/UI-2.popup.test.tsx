@@ -195,6 +195,27 @@ describe("UI-2 AdvisoryRoom participant stack is dynamic (2 or 3, never position
   });
 });
 
+describe("UI-2 AdvisoryRoom scroll-to-top loads earlier messages", () => {
+  function scrollNearTop(hasOlder: boolean, onLoadOlder: () => void) {
+    const { container } = render(<AdvisoryRoom hasOlder={hasOlder} onLoadOlder={onLoadOlder} />);
+    const thread = container.querySelector<HTMLElement>(".overflow-auto")!;
+    thread.scrollTop = 10;
+    fireEvent.scroll(thread);
+  }
+
+  it("calls onLoadOlder once when scrolled near the top and older messages exist", () => {
+    const onLoadOlder = vi.fn();
+    scrollNearTop(true, onLoadOlder);
+    expect(onLoadOlder).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing when there are no older messages", () => {
+    const onLoadOlder = vi.fn();
+    scrollNearTop(false, onLoadOlder);
+    expect(onLoadOlder).not.toHaveBeenCalled();
+  });
+});
+
 describe("UI-2 both translation.json files carry identical messaging + nav.messaging keys", () => {
   function collectKeys(obj: Record<string, unknown>, prefix = ""): string[] {
     return Object.entries(obj).flatMap(([k, v]) =>

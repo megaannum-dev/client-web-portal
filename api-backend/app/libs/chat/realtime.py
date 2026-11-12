@@ -13,11 +13,21 @@ from fastapi import WebSocket
 logger = logging.getLogger(__name__)
 
 # ponytail: both singletons below are per-process. Correct today because
-# Dockerfile:18 runs a single `uvicorn app.main:app` with no --workers, so every
-# socket and every fan-out live in the same interpreter. Upgrade trigger: a
-# second replica or a --workers flag. Then tickets need a shared store (Redis)
-# and fan-out needs a broker/pubsub so a message published on worker A reaches a
-# socket parked on worker B.
+# Dockerfile:18 pins `--workers 1`, so every socket and every fan-out live in
+# the same interpreter. Upgrade trigger: a second replica or more workers. Then
+# tickets need a shared store (Redis) and fan-out needs a broker/pubsub so a
+# message published on worker A reaches a socket parked on worker B. See
+# api-backend/README.md "Deployment: single worker".
+try:
+    _workers = int(os.getenv("WEB_CONCURRENCY", "1"))
+except ValueError:
+    _workers = 1
+if _workers > 1:
+    logger.warning(
+        "WEB_CONCURRENCY=%s: chat (WS tickets, fan-out) and the in-app schedulers "
+        "require a single worker; see api-backend/README.md",
+        _workers,
+    )
 
 # Feature-local tunable, bare os.getenv rather than a Settings field --
 # same convention as CLIENT_UPLOAD_WINDOW_DAYS (client_portal/service.py:76).

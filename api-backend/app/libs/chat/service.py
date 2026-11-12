@@ -123,6 +123,7 @@ class ChatService:
         *,
         since: datetime | None,
         limit: int,
+        before: uuid.UUID | None = None,
     ) -> list[ChatMessageDTO]:
         client_id = self.resolve_client_id(user, client_id)
         # The gate's profile is reused for the role derivation -- the same row,
@@ -131,6 +132,12 @@ class ChatService:
         self._require_action(user, Action.CLIENT_VIEW)
         # A `limit` straight off the query string is a trust boundary too.
         capped = max(1, min(limit, CHAT_HISTORY_MAX_LIMIT))
+        cursor = None
+        if before is not None:
+            # Scoped to this thread: another thread's message id is a 404.
+            cursor = self.repo.message_cursor(client_id, before)
+            if cursor is None:
+                raise HTTPException(404, "Unknown message")
         return [
             ChatMessageDTO.from_row(
                 msg,
@@ -138,7 +145,9 @@ class ChatService:
                 sender_name=name,
                 sender_role=sender_role(is_staff=is_staff, sender_uid=uid, profile=profile),
             )
-            for msg, uid, name, is_staff in self.repo.history(client_id, since=since, limit=capped)
+            for msg, uid, name, is_staff in self.repo.history(
+                client_id, since=since, limit=capped, before=cursor
+            )
         ]
 
     def _documents_scope(self, user: User) -> str | None:

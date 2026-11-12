@@ -29,6 +29,7 @@ from app.libs.auth.deps import get_current_client_user
 from app.libs.client_portal.repository import ClientPortalRepository
 from app.libs.client_portal.service import ClientPortalService
 from app.main import app
+from app.models.pm import ModelStatus
 from tests.libs.client_portal.conftest import make_client, make_model, make_model_material, make_subscription
 
 _NOT_FOUND_MSG = "No material uploaded for this model"
@@ -71,12 +72,26 @@ def test_subscribed_client_receives_the_stream_unchanged(session, spy_storage):
     assert spy_storage.open_calls == ["marketing/alpha-v0.pdf"]
 
 
-# --- Negative: unsubscribed client gets the SAME 404 as an unknown model ----------
+def test_unsubscribed_client_can_read_a_live_models_material(session, spy_storage):
+    """D15: a LIVE model is on every client's recommended list, and its
+    material is what they read before deciding to subscribe."""
+    client_user = make_client(session, name="Cathy Client")
+    model = make_model(session, name="Alpha Model", status=ModelStatus.LIVE)
+    make_model_material(session, model, storage_key="marketing/alpha-v0.pdf")
+
+    svc = ClientPortalService(session)
+    stream, _filename, _ct = svc.model_material_stream(model.id, user_id=client_user.id)
+
+    assert stream.read() == b"material bytes"
+    assert spy_storage.open_calls == ["marketing/alpha-v0.pdf"]
+
+
+# --- Negative: unsubscribed client of a NON-live model gets the SAME 404 as an unknown model
 
 
 def test_unsubscribed_client_gets_404_identical_to_unknown_model(session, spy_storage):
     client_user = make_client(session, name="Cathy Client")
-    model = make_model(session, name="Alpha Model")
+    model = make_model(session, name="Alpha Model", status=ModelStatus.DRAFT)
     make_model_material(session, model, storage_key="marketing/alpha-v0.pdf")  # material EXISTS
 
     svc = ClientPortalService(session)
@@ -98,7 +113,7 @@ def test_unsubscribed_client_gets_404_identical_to_unknown_model(session, spy_st
 def test_client_subscribed_to_a_different_model_is_also_rejected(session, spy_storage):
     client_user = make_client(session, name="Cathy Client")
     subscribed_model = make_model(session, name="Subscribed Model")
-    other_model = make_model(session, name="Other Model")
+    other_model = make_model(session, name="Other Model", status=ModelStatus.DRAFT)
     make_subscription(session, client_user, subscribed_model)
     make_model_material(session, other_model, storage_key="marketing/other-v0.pdf")
 
@@ -118,7 +133,7 @@ def test_client_subscribed_to_a_different_model_is_also_rejected(session, spy_st
 )
 def test_no_403_is_ever_emitted_on_rejection(session, spy_storage, seed_material):
     client_user = make_client(session, name="Cathy Client")
-    model = make_model(session, name="Alpha Model")
+    model = make_model(session, name="Alpha Model", status=ModelStatus.DRAFT)
     if seed_material:
         make_model_material(session, model, storage_key="marketing/alpha-v0.pdf")
 
@@ -137,7 +152,7 @@ def test_latest_material_not_called_and_no_filesystem_read_on_rejection(
     session, spy_storage, monkeypatch
 ):
     client_user = make_client(session, name="Cathy Client")
-    model = make_model(session, name="Alpha Model")
+    model = make_model(session, name="Alpha Model", status=ModelStatus.DRAFT)
     make_model_material(session, model, storage_key="marketing/alpha-v0.pdf")
 
     spy_latest_material = MagicMock(wraps=ClientPortalRepository.latest_material)
@@ -156,7 +171,7 @@ def test_fully_redeemed_client_loses_material_access(session, spy_storage):
     than deleting the row (permanent client_ib_accounts anchor) -- entitlement
     must not survive that as a plain row-existence check would let it."""
     client_user = make_client(session, name="Cathy Client")
-    model = make_model(session, name="Alpha Model")
+    model = make_model(session, name="Alpha Model", status=ModelStatus.DRAFT)
     make_subscription(session, client_user, model, multiplier=Decimal("0"))
     make_model_material(session, model, storage_key="marketing/alpha-v0.pdf")
 
@@ -223,7 +238,7 @@ def test_router_download_404s_identically_for_an_unsubscribed_client(
 ):
     db = db_factory()
     client_user = make_client(db, name="Cathy Client")
-    model = make_model(db, name="Alpha Model")
+    model = make_model(db, name="Alpha Model", status=ModelStatus.DRAFT)
     make_model_material(db, model, storage_key="marketing/alpha-v0.pdf")
 
     http = client(client_user)

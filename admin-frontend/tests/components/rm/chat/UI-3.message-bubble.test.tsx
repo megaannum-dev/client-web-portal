@@ -2,8 +2,8 @@
 // With the running app shipping an empty thread (plan §6), these are the
 // only check that the bubble's asymmetric radii/tones/attachment variant
 // are actually correct.
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MessageBubble } from "@/components/rm/chat/MessageBubble";
 import { CR_DAYS } from "./fixtures/chat-days";
 
@@ -37,6 +37,26 @@ describe("positive", () => {
   it("a message with an attachment renders the AttachmentRow with the doc name", () => {
     render(<MessageBubble message={docMsg} mode="full" />);
     expect(screen.getByText(docMsg.attachments[0].name)).toBeInTheDocument();
+  });
+});
+
+describe("failed messages", () => {
+  it("a failed bubble shows 'Not sent' with Retry and Delete wired to the callbacks", () => {
+    const onRetry = vi.fn();
+    const onDiscard = vi.fn();
+    render(
+      <MessageBubble message={{ ...ownMsg, status: "failed" }} mode="full" onRetry={onRetry} onDiscard={onDiscard} />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Not sent");
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it("a normal bubble shows no alert", () => {
+    render(<MessageBubble message={ownMsg} mode="full" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

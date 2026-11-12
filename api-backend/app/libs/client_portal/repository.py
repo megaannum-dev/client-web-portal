@@ -122,6 +122,13 @@ class ClientPortalRepository:
             q = q.filter(~Model.id.in_(exclude_ids))
         return q.order_by(Model.name).all()
 
+    def is_live_model(self, model_id: uuid.UUID) -> bool:
+        """True iff the model is LIVE -- i.e. it appears in every client's
+        recommended list, so its marketing material is open for reference."""
+        return self.db.query(
+            exists().where(Model.id == model_id, Model.status == ModelStatus.LIVE)
+        ).scalar()
+
     def has_material(self, model_id: uuid.UUID) -> bool:
         return self.db.query(exists().where(ModelMaterial.model_id == model_id)).scalar()
 

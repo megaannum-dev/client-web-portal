@@ -36,6 +36,8 @@ export interface ChatMessage {
   attachments: ChatAttachment[];
   createdAt: string; // ISO
   own?: boolean; // senderUid === current user
+  /** Never reached the backend; kept locally until the user retries or deletes it. */
+  status?: "failed";
 }
 
 export interface ChatDay {
