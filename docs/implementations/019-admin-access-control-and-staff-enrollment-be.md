@@ -977,7 +977,7 @@ def list_audit(
 
 **Behavior / invariants:** newest first (`ORDER BY at DESC`), keyset-paged on `before` (`at < before`) — not offset-paged, so a concurrent insert cannot duplicate or skip a row across pages. `actor_name` falls back to `"(deleted user)"` when the stored value is `NULL` (pre-existing rows or a NULL-actor write) rather than serialising `null` into a display-only field. `event` and `detail` are free text, display-only, composed at write time by whichever service wrote them — this route never re-composes them.
 
-**Audit events written by this layer** (the complete set, so a reviewer can check coverage of § Objectives "every state-changing admin act is on the record"): `account.created` (BE-17), `account.updated` / `account.deactivated` (BE-19), `account.link_sent` (BE-17, BE-18), `access.published` (BE-9), `override.granted` / `override.revoked` (BE-10).
+**Audit events written by this layer** (the complete set, so a reviewer can check coverage of § Objectives "every state-changing admin act is on the record"): `account.created` (BE-17), `account.updated` / `account.deactivated` (BE-19), `account.link_sent` (BE-17, BE-18), `access.published` (BE-9), `override.granted` / `override.revoked` (BE-10), `override.expired` (system actor "System"; written by the hourly sweeper in `app/libs/access/scheduler.py` and before a re-grant).
 
 **Done when:** the route returns rows newest-first; `before` excludes rows at or after it; `limit` is clamped to 200; every event name above appears after exercising its unit.
 
