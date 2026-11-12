@@ -49,19 +49,19 @@ describe("D21 Model Subscription ticket deep link", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it("opens the locked mode for a model the client already holds", async () => {
-    params = new URLSearchParams("client=c-1&model=m-held&mode=add-allotment&ticket=TCK-1");
+    params = new URLSearchParams("client=c-1&model=m-held&mode=add-allotment&ticket=TCK-1&multiplier=3");
     render(<ModelSubscriptionPage />);
     await screen.findByTestId("sub-modal");
     expect(lastModal().mode).toBe("add-allotment");
-    expect(lastModal().context).toMatchObject({ clientId: "c-1", modelId: "m-held", sourceTicketRef: "TCK-1" });
+    expect(lastModal().context).toMatchObject({ clientId: "c-1", modelId: "m-held", multiplier: 3, sourceTicketRef: "TCK-1" });
   });
 
   it("falls back to New Subscription, still linked to the ticket, for a model the client doesn't hold", async () => {
-    params = new URLSearchParams("client=c-1&model=m-new&mode=add-allotment&ticket=TCK-2");
+    params = new URLSearchParams("client=c-1&model=m-new&mode=add-allotment&ticket=TCK-2&multiplier=4");
     render(<ModelSubscriptionPage />);
     await screen.findByTestId("sub-modal");
     expect(lastModal().mode).toBe("new-subscription");
-    expect(lastModal().context).toMatchObject({ clientId: "c-1", modelId: "m-new", modelName: "Beta", sourceTicketRef: "TCK-2" });
+    expect(lastModal().context).toMatchObject({ clientId: "c-1", modelId: "m-new", modelName: "Beta", multiplier: 4, sourceTicketRef: "TCK-2" });
   });
 
   it("does the same for a client with no subscriptions at all", async () => {
@@ -69,6 +69,13 @@ describe("D21 Model Subscription ticket deep link", () => {
     render(<ModelSubscriptionPage />);
     await screen.findByTestId("sub-modal");
     expect(lastModal()).toMatchObject({ mode: "new-subscription", context: { clientId: "c-9", sourceTicketRef: "TCK-3" } });
+  });
+
+  it("pre-fills a redemption with the unsigned ticket multiplier", async () => {
+    params = new URLSearchParams("client=c-1&model=m-held&mode=redemption&ticket=TCK-5&multiplier=-1");
+    render(<ModelSubscriptionPage />);
+    await screen.findByTestId("sub-modal");
+    expect(lastModal()).toMatchObject({ mode: "redemption", context: { multiplier: 1 } });
   });
 
   it("shows an error instead of silently dropping a redemption ticket for a model not held", async () => {

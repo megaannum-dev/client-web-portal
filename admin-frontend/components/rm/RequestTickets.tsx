@@ -202,7 +202,8 @@ function Fact({ k, v }: { k: string; v: string }) {
 function resolveActTarget(t: RequestTicket): string | null {
   if (!t.modelId) return null;
   const mode = t.type === "Redemption" ? "redemption" : "add-allotment";
-  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}`;
+  const mult = t.multiplier != null ? `&multiplier=${t.multiplier}` : "";
+  return `/rm/model-subscription?client=${t.clientId}&model=${t.modelId}&mode=${mode}&ticket=${t.ref}${mult}`;
 }
 
 export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTicket; onRefetch: () => void }) {

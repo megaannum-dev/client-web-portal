@@ -31,7 +31,7 @@ type DeepLinkResult =
   | { kind: "ok"; open: { openClient: string; openModelKey: string } | null; modal: ModalState };
 
 /** Resolve the "Request Tickets" deep-link contract: ?client=<real client_id>
- *  &model=<real model_id>&mode=<add-allotment|redemption>&ticket=<ref>.
+ *  &model=<real model_id>&mode=<add-allotment|redemption>&ticket=<ref>&multiplier=<n>.
  *  - Held model → the requested locked mode, against the live subscription.
  *  - Allotment into a model the client doesn't hold yet → New Subscription,
  *    pre-filled, still carrying the ticket ref so the ticket is linked (D21).
@@ -46,6 +46,9 @@ function resolveDeepLink(
   const clientId = params.get("client");
   const modelId = params.get("model");
   const ticket = params.get("ticket") ?? undefined;
+  // The ticket's requested multiplier pre-fills the form; redemptions arrive signed.
+  const mult = Math.abs(Number(params.get("multiplier")));
+  const multiplier = Number.isFinite(mult) && mult > 0 ? mult : undefined;
   const fail = (message: string): DeepLinkResult => (ticket ? { kind: "error", message } : { kind: "none" });
   if (!clientId || !modelId) return fail(`Couldn't open request ${ticket}: it has no client or model.`);
 
@@ -68,6 +71,7 @@ function resolveDeepLink(
           modelAccount: held.account,
           mgmtFee: held.mgmtFee,
           incentiveFee: held.incentiveFee,
+          multiplier,
           sourceTicketRef: ticket,
         },
       },
@@ -91,6 +95,7 @@ function resolveDeepLink(
         modelName: live.name,
         mgmtFee: live.mgmtFee,
         incentiveFee: live.incentiveFee,
+        multiplier,
         sourceTicketRef: ticket,
       },
     },

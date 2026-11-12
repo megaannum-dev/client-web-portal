@@ -17,6 +17,8 @@ export type RequestTicket = {
   ccy: string;
   cash: string;
   mult: string;
+  /** Raw requested multiplier (signed for redemptions); `mult` is its display form. */
+  multiplier?: number;
   date: string;
   status: string;
   tone: ChipTone;
@@ -112,6 +114,7 @@ export function mapDtoToRequestTicket(dto: RmTicketDTO): RequestTicket {
     ccy: dto.currency,
     cash: fmtAmount(dto.amount),
     mult: fmtMultiplier(dto.multiplier),
+    multiplier: dto.multiplier ?? undefined,
     date: fmtDate(dto.created_at),
     status: STATUS_LABEL[dto.status],
     tone: STATUS_TONE[dto.status],
