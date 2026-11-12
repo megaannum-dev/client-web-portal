@@ -71,6 +71,18 @@ describe("fetchMessages", () => {
     await fetchMessages("tok", { clientId: "c-1", since: null });
     expect(lastCall()[0]).not.toContain("since=");
   });
+
+  it("sends before when set — it pages back from a message id", async () => {
+    fetchMock.mockResolvedValue(ok([]));
+    await fetchMessages("tok", { clientId: "c-1", before: "m-9", limit: 200 });
+    expect(lastCall()[0]).toContain("before=m-9");
+  });
+
+  it("omits before when absent", async () => {
+    fetchMock.mockResolvedValue(ok([]));
+    await fetchMessages("tok", { clientId: "c-1" });
+    expect(lastCall()[0]).not.toContain("before=");
+  });
 });
 
 describe("sendMessage", () => {

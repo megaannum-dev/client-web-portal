@@ -4,11 +4,12 @@
 // renders once and survives client-book -> client-detail navigation
 // (plan §7's whole reason for a provider instead of page-local state).
 //
-// U8 also makes this the home of the session WebSocket. The socket is keyed
-// server-side by firebase_uid, not by thread, so one connection serves every
-// client in this RM's book: the first openRoom connects it, and closeRoom
-// deliberately does NOT close it -- closing a panel and opening another must
-// not re-handshake. It is torn down only when the RM section unmounts.
+// The WebSocket lives and dies with the open room: OpenRoom (keyed by client)
+// owns it, so opening a room connects, closing the panel disconnects, and
+// switching to another client closes the old room's socket and opens a fresh
+// one. The cost is one ticket + handshake per room opened; the gain is no
+// socket held open while no chat is on screen. The server still keys sockets
+// by firebase_uid, so the room filters frames on client_id.
 
 import {
   createContext,
@@ -21,7 +22,7 @@ import {
 } from "react";
 import { ChatRoomPanel } from "./ChatRoomPanel";
 import type { Participant } from "./types";
-import { useChatSocket, type ChatSocketStatus } from "@/lib/chat/useChatSocket";
+import { useChatSocket } from "@/lib/chat/useChatSocket";
 import type { NewMessageFrame } from "@/lib/api/chat";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useChatThread } from "@/lib/chat/useChatThread";
@@ -54,10 +55,6 @@ interface ChatRoomContextValue {
   /** `focusAttachmentId` scrolls to and flashes that attachment once the thread loads. */
   openRoom: (client: RoomClient, opts?: { focusAttachmentId?: string }) => void;
   closeRoom: () => void;
-  /** Register a listener for pushes. Returns its unsubscribe. Frames arrive for
-   *  every thread this RM is in, so listeners must filter on client_id. */
-  subscribe: (handler: FrameHandler) => () => void;
-  socketStatus: ChatSocketStatus;
 }
 
 // ponytail: default is a no-op set, not null-plus-throw. Several existing
@@ -68,57 +65,30 @@ interface ChatRoomContextValue {
 const ChatRoomContext = createContext<ChatRoomContextValue>({
   openRoom: () => {},
   closeRoom: () => {},
-  subscribe: () => () => {},
-  socketStatus: "idle",
 });
 
 export function ChatRoomProvider({ children }: { children: ReactNode }) {
   const [client, setClient] = useState<RoomClient | null>(null);
   const [focusAttachmentId, setFocusAttachmentId] = useState<string | null>(null);
-  // Latched, never cleared: the socket outlives any single room (see header).
-  const [everOpened, setEverOpened] = useState(false);
-
-  const listeners = useRef(new Set<FrameHandler>());
-
-  const subscribe = useCallback((handler: FrameHandler) => {
-    listeners.current.add(handler);
-    return () => {
-      listeners.current.delete(handler);
-    };
-  }, []);
-
-  const onFrame = useCallback((frame: NewMessageFrame) => {
-    // Copy: a handler may unsubscribe itself while we iterate.
-    for (const handler of Array.from(listeners.current)) handler(frame);
-  }, []);
-
-  const { status: socketStatus } = useChatSocket({ enabled: everOpened, onFrame });
 
   const openRoom = useCallback((c: RoomClient, opts?: { focusAttachmentId?: string }) => {
-    setEverOpened(true);
     setClient(c);
     setFocusAttachmentId(opts?.focusAttachmentId ?? null);
   }, []);
   const closeRoom = useCallback(() => setClient(null), []);
 
-  const value = useMemo(
-    () => ({ openRoom, closeRoom, subscribe, socketStatus }),
-    [openRoom, closeRoom, subscribe, socketStatus],
-  );
+  const value = useMemo(() => ({ openRoom, closeRoom }), [openRoom, closeRoom]);
 
   return (
     <ChatRoomContext.Provider value={value}>
       {children}
       {client && (
-        // Keyed so switching clients starts a clean thread and a clean draft,
-        // rather than leaking the previous room's messages — or worse, its
-        // half-typed message — into the new one. The SOCKET is unaffected:
-        // it lives here, above the key.
+        // Keyed so switching clients starts a clean thread, a clean draft and
+        // a fresh socket, rather than leaking the previous room's messages --
+        // or worse, its half-typed message -- into the new one.
         <OpenRoom
           key={client.id}
           client={client}
-          subscribe={subscribe}
-          socketOpen={socketStatus === "open"}
           onClose={closeRoom}
           focusAttachmentId={focusAttachmentId}
           onFocusConsumed={() => setFocusAttachmentId(null)}
@@ -128,28 +98,37 @@ export function ChatRoomProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** The open room. Split out purely so the thread hook can be keyed to one
- *  client — hooks cannot be called conditionally, and the provider itself must
- *  outlive every room it opens. */
+/** The open room. Split out so the socket and thread hook are keyed to one
+ *  client -- hooks cannot be called conditionally, and the provider itself must
+ *  outlive every room it opens. Unmounting this closes the socket. */
 function OpenRoom({
   client,
-  subscribe,
-  socketOpen,
   onClose,
   focusAttachmentId,
   onFocusConsumed,
 }: {
   client: RoomClient;
-  subscribe: (handler: FrameHandler) => () => void;
-  socketOpen: boolean;
   onClose: () => void;
   focusAttachmentId: string | null;
   onFocusConsumed: () => void;
 }) {
-  const { days, sending, send } = useChatThread({
+  const listeners = useRef(new Set<FrameHandler>());
+  const subscribe = useCallback((handler: FrameHandler) => {
+    listeners.current.add(handler);
+    return () => {
+      listeners.current.delete(handler);
+    };
+  }, []);
+  const onFrame = useCallback((frame: NewMessageFrame) => {
+    // Copy: a handler may unsubscribe itself while we iterate.
+    for (const handler of Array.from(listeners.current)) handler(frame);
+  }, []);
+  const { status } = useChatSocket({ enabled: true, onFrame });
+
+  const { days, sending, send, error, retry, discard, hasOlder, loadingOlder, loadOlder } =useChatThread({
     clientId: client.id,
     subscribe,
-    socketOpen,
+    socketOpen: status === "open",
   });
   const { portalUser } = useAuth();
   const meUid = portalUser?.firebase_uid;
@@ -164,6 +143,12 @@ function OpenRoom({
       sending={sending}
       onSend={(body, files) => void send(body, files)}
       onClose={onClose}
+      error={error}
+      onRetry={retry}
+      onDiscard={discard}
+      hasOlder={hasOlder}
+      loadingOlder={loadingOlder}
+      onLoadOlder={() => void loadOlder()}
       focusAttachmentId={focusAttachmentId}
       onFocusConsumed={onFocusConsumed}
     />

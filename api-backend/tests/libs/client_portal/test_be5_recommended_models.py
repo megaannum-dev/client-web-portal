@@ -104,12 +104,30 @@ def test_has_material_true_iff_at_least_one_model_materials_row_exists(session):
     with_material = make_model(session, name="With Material", status=ModelStatus.LIVE)
     make_model(session, name="Without Material", status=ModelStatus.LIVE)
     make_model_material(session, with_material, version_no=0)
+    make_model_material(session, with_material, version_no=1)
 
     svc = ClientPortalService(session)
     result = svc.recommended_models(client_user.id)
 
-    assert next(r for r in result if r.name == "With Material").has_material is True
-    assert next(r for r in result if r.name == "Without Material").has_material is False
+    flag = {r.name: r.has_material for r in result}
+    assert flag["With Material"] is True
+    assert flag["Without Material"] is False
+
+
+def test_recommended_models_material_is_downloadable_without_a_subscription(session, fake_storage):
+    """D15: clients read a recommended model's material before deciding to
+    subscribe, so the flag shown on the recommended list must be honoured."""
+    client_user = make_client(session, name="Cathy Client")
+    model = make_model(session, name="Prospect Model", status=ModelStatus.LIVE)
+    key = fake_storage.save(io.BytesIO(b"deck"), suggested_name="deck.pdf")
+    make_model_material(session, model, version_no=0, storage_key=key, filename="deck.pdf")
+
+    svc = ClientPortalService(session)
+    assert next(r for r in svc.recommended_models(client_user.id) if r.name == "Prospect Model").has_material
+    stream, filename, _ct = svc.model_material_stream(model.id, user_id=client_user.id)
+
+    assert filename == "deck.pdf"
+    assert stream.read() == b"deck"
 
 
 # --- Positive: material download streams the highest version_no row ---------------

@@ -6,6 +6,7 @@
 // prop, so the room's per-role avatar stays local to this folder).
 
 import clsx from "clsx";
+import { AlertCircle, RotateCcw } from "@/lib/icons";
 import { fmtTimestampParts } from "@/lib/pm/format";
 import { AttachmentRow } from "./AttachmentRow";
 import { CR_ROLE, type ChatAttachment, type ChatMessage, type SenderRole } from "./types";
@@ -57,9 +58,14 @@ export function MessageBubble({
   message,
   mode,
   onDownload,
+  onRetry,
+  onDiscard,
 }: {
   message: ChatMessage;
   mode: "mini" | "full";
+  /** Only used when `message.status === "failed"`. */
+  onRetry?: () => void;
+  onDiscard?: () => void;
   /** Download one attachment. A prop, not a hook call: this component stays
    *  presentational so it renders in a test with no AuthProvider. */
   onDownload?: (attachment: ChatAttachment) => void;
@@ -106,6 +112,19 @@ export function MessageBubble({
             />
           ))}
         </div>
+        {message.status === "failed" && (
+          <p role="alert" className="flex items-center gap-2 text-[11.5px] font-semibold text-red-600">
+            <AlertCircle size={13} strokeWidth={2} />
+            <span>Not sent</span>
+            <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 underline">
+              <RotateCcw size={12} strokeWidth={2} />
+              Retry
+            </button>
+            <button type="button" onClick={onDiscard} className="underline">
+              Delete
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

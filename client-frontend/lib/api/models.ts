@@ -1,5 +1,6 @@
 import { getApiBase } from "@/lib/auth-api";
 import { authedGet } from "@/lib/api/onboarding";
+import { downloadAs } from "@/lib/downloadFile";
 
 export interface RecommendedModelDTO {
   model_id: string;
@@ -18,7 +19,15 @@ export async function fetchRecommendedModels(token: string | null, includeSubscr
   return authedGet<RecommendedModelDTO[]>(path, token);
 }
 
-/** GET /api/client/models/{model_id}/material — file stream, not JSON; caller fetches with a Bearer header. */
-export function modelMaterialDownloadUrl(modelId: string): string {
-  return `${getApiBase()}/api/client/models/${modelId}/material`;
+/** GET /api/client/models/{model_id}/material — Bearer-gated file stream, so it must go through fetch, not a link. */
+export async function downloadModelMaterial(
+  token: string | null,
+  modelId: string,
+  fallbackName: string,
+): Promise<void> {
+  await downloadAs(
+    `${getApiBase()}/api/client/models/${modelId}/material`,
+    fallbackName,
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
 }

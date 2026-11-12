@@ -4,7 +4,7 @@
 // app rendering an empty thread (plan §6), this is the only place these
 // values are checked at all.
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -78,6 +78,22 @@ describe("UI-1 MessageBubble", () => {
     const { container } = render(<MessageBubble message={sheetDoc} />);
     expect(container.querySelector(".lucide-file-spreadsheet")).toBeTruthy();
     expect(container.querySelector(".lucide-file-text")).toBeFalsy();
+  });
+
+  it("a failed message shows Not sent with working Retry and Delete; a normal one shows no alert", () => {
+    const onRetry = vi.fn();
+    const onDiscard = vi.fn();
+    const { unmount } = render(
+      <MessageBubble message={{ ...ownWithDoc, status: "failed" }} onRetry={onRetry} onDiscard={onDiscard} />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("messaging.notSent");
+    fireEvent.click(screen.getByText("messaging.retry"));
+    fireEvent.click(screen.getByText("messaging.delete"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+    unmount();
+    render(<MessageBubble message={ownWithDoc} />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("row direction reverses for own messages so the avatar sits on the right", () => {

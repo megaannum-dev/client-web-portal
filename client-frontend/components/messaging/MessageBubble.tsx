@@ -2,6 +2,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { AlertCircle, RotateCcw } from "@/lib/icons";
 import { AttachmentRow } from "./AttachmentRow";
 import { bubbleInClass } from "./bubbleAnimation";
 import type { ChatAttachment, ChatMessage } from "./types";
@@ -38,6 +39,8 @@ const ROLE_LABEL_KEY: Partial<Record<ChatMessage["role"], string>> = {
 export function MessageBubble({
   message,
   onDownload,
+  onRetry,
+  onDiscard,
   animate = false,
 }: {
   message: ChatMessage;
@@ -46,6 +49,9 @@ export function MessageBubble({
   /** Download one attachment. A prop, not a hook call: this component stays
    *  presentational so it renders in a test with no AuthProvider. */
   onDownload?: (attachment: ChatAttachment) => void;
+  /** Only used when `message.status === "failed"`. */
+  onRetry?: () => void;
+  onDiscard?: () => void;
 }) {
   const { t } = useTranslation();
   const mine = !!message.own;
@@ -89,6 +95,20 @@ export function MessageBubble({
             <AttachmentRow key={a.id} attachment={a} meta={`${a.size} · ${message.time}`} onDark={mine} onClick={onDownload ? () => onDownload(a) : undefined} />
           ))}
         </div>
+
+        {message.status === "failed" && (
+          <p role="alert" className="flex items-center gap-1.5 text-[11px] font-semibold text-error">
+            <AlertCircle size={12} strokeWidth={2} />
+            <span>{t("messaging.notSent")}</span>
+            <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 border-none bg-transparent p-0 text-[11px] font-semibold text-primary cursor-pointer">
+              <RotateCcw size={11} strokeWidth={2} />
+              {t("messaging.retry")}
+            </button>
+            <button type="button" onClick={onDiscard} className="border-none bg-transparent p-0 text-[11px] font-semibold text-secondary cursor-pointer">
+              {t("messaging.delete")}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

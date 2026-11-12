@@ -23,7 +23,7 @@ function makeAllot(overrides: Partial<AllotRdmptDTO> = {}): AllotRdmptDTO {
 
 describe("FE-4 statusToChip", () => {
   it.each([
-    ["pending", "active", "Confirmed"],
+    ["pending", "pending", "Pending Acknowledgement"],
     ["acknowledged", "active", "Confirmed"],
     ["awaiting_pm", "pending", "Awaiting Approval"],
     ["awaiting_co", "pending", "Awaiting Approval"],
@@ -63,5 +63,18 @@ describe("FE-4 netRow's 10th element is always '' (no chip on the Net row)", () 
     const netRow = client.models[0].rows[client.models[0].rows.length - 1];
     expect(netRow[0]).toBe("Net");
     expect(netRow[9]).toBe("");
+  });
+});
+
+describe("canFileTransactionDetail (mirrors backend _SETTLEMENT_ELIGIBLE_STATUS)", () => {
+  it.each([
+    ["Allotment", "acknowledged", true],
+    ["Allotment", "pending", false],
+    ["Redemption", "approved", true],
+    ["Redemption", "awaiting_pm", false],
+    ["Net", "", false],
+  ] as const)("%s/%s -> %s", async (kind, status, expected) => {
+    const { canFileTransactionDetail } = await import("@/lib/rm/subscriptions");
+    expect(canFileTransactionDetail(kind, status)).toBe(expected);
   });
 });

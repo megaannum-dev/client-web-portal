@@ -21,7 +21,7 @@ export function RmRoom({
   maximized: boolean;
   onToggleMaximize: () => void;
 }) {
-  const { days, sending, send } = useChatThread();
+  const { days, sending, send, error, retry, discard, hasOlder, loadingOlder, loadOlder } = useChatThread();
 
   const participants = useMemo<Participant[]>(
     () => (rm ? [self, { uid: "rm", name: rm.name, role: "rm" }] : [self]),
@@ -33,6 +33,12 @@ export function RmRoom({
       messages={days}
       participants={participants}
       sending={sending}
+      error={error}
+      onRetry={retry}
+      onDiscard={discard}
+      hasOlder={hasOlder}
+      loadingOlder={loadingOlder}
+      onLoadOlder={() => void loadOlder()}
       onSend={(body, files) => void send(body, files)}
       onClose={onClose}
       maximized={maximized}
