@@ -40,6 +40,8 @@ ROLE_NAMES: Final[dict[AdminRole, str]] = {
 
 
 ADMIN_FIXED_MSG: Final = "ADMIN access is fixed at Edit on every page"
+# list_audit renders a NULL actor_name as "(deleted user)", so system events name themselves.
+SYSTEM_ACTOR: Final = "System"
 
 
 class AccessService:
@@ -229,6 +231,8 @@ class AccessService:
         if role == AdminRole.ADMIN:
             raise HTTPException(422, ADMIN_FIXED_MSG)
 
+        # An expired row still holds the UNIQUE (user_id, page_id) slot -- clear it first.
+        self.expire_overrides(user_id=user.id, page_id=body.page_id)
         if self.repo.find_override(user_id=user.id, page_id=body.page_id) is not None:
             raise HTTPException(409, "An override already exists for this user and page")
 
@@ -288,6 +292,40 @@ class AccessService:
         except Exception as exc:
             self.repo.db.rollback()
             raise HTTPException(409, "Failed to revoke override") from exc
+
+    def expire_overrides(
+        self,
+        *,
+        now: datetime | None = None,
+        user_id: uuid.UUID | None = None,
+        page_id: str | None = None,
+    ) -> int:
+        """Delete expired overrides (one audit row each, one commit); returns the count.
+        The audit `at` is sweep time, hence the expiry date in `detail`."""
+        now = now or datetime.now(timezone.utc)
+        rows = self.repo.expired_overrides(now, user_id=user_id, page_id=page_id)
+        if not rows:
+            return 0
+        try:
+            for row in rows:
+                # Same grantee label as revoke_override; read before the row is deleted.
+                owner = self.repo.db.query(User).filter(User.id == row.user_id).one_or_none()
+                grantee = (
+                    (owner.name or owner.firebase_uid) if owner is not None else "(deleted user)"
+                )
+                detail = (
+                    f"override {to_wire(row.level)} on {row.page_id} for {grantee}"
+                    f" expired {row.expires_at.date().isoformat()}"
+                )
+                self.repo.delete_override(row)
+                self.repo.insert_audit(
+                    actor_uid=None, actor_name=SYSTEM_ACTOR, event="override.expired", detail=detail
+                )
+            self.repo.db.commit()
+        except Exception:
+            self.repo.db.rollback()
+            raise
+        return len(rows)
 
     # --- audit (BE-11) ---
     def list_audit(
