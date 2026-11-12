@@ -29,8 +29,16 @@ const MODELS = [
   { id: "m-new", name: "Beta", size: 250_000, status: "live", mgmt_fee: 0.015, incentive_fee: 0.2 },
 ];
 vi.mock("@/hooks/api/useModels", () => ({ useModels: () => ({ data: MODELS }) }));
-vi.mock("@/hooks/api/useClientBook", () => ({ useClientBook: () => ({ data: [{ id: "c-1", name: "Cathy Client" }] }) }));
-vi.mock("@/hooks/api/useOnboardingBoard", () => ({ useOnboardingBoard: () => ({ data: [] }) }));
+vi.mock("@/hooks/api/useClientBook", () => ({
+  useClientBook: () => ({ data: [
+    { id: "c-1", name: "Cathy Client" }, { id: "c-2", name: "Renny Renewal" }, { id: "c-3", name: "Nina New" },
+  ] }),
+}));
+// c-2 is an approved client reopened for renewal; c-3 is still in first onboarding.
+const BOARD = [{ label: "Pending", status: "pending_review", clients: [
+  { userId: "c-2", kind: "renewal" }, { userId: "c-3", kind: "initial" },
+] }];
+vi.mock("@/hooks/api/useOnboardingBoard", () => ({ useOnboardingBoard: () => ({ data: BOARD }) }));
 vi.mock("@/components/rm/SubscriptionAccordion", () => ({ SubscriptionAccordion: () => null }));
 
 const modalProps = vi.fn();
@@ -76,6 +84,14 @@ describe("D21 Model Subscription ticket deep link", () => {
     render(<ModelSubscriptionPage />);
     await screen.findByTestId("sub-modal");
     expect(lastModal()).toMatchObject({ mode: "redemption", context: { multiplier: 1 } });
+  });
+
+  it("offers clients reopened for renewal but not those still in first onboarding", async () => {
+    params = new URLSearchParams("client=c-2&model=m-new&mode=add-allotment&ticket=TCK-6");
+    render(<ModelSubscriptionPage />);
+    await screen.findByTestId("sub-modal");
+    const ids = (modalProps.mock.calls.at(-1)?.[0] as { availableClients: { id: string }[] }).availableClients.map((c) => c.id);
+    expect(ids).toEqual(["c-1", "c-2"]);
   });
 
   it("shows an error instead of silently dropping a redemption ticket for a model not held", async () => {

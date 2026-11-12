@@ -119,12 +119,15 @@ function ModelSubscriptionContent() {
   const totalClients = clients?.length ?? 0;
   const totalModels = clients?.reduce((s, c) => s + c.models.length, 0) ?? 0;
 
-  // A client who is still mid-onboarding (any board column except "active")
-  // shouldn't be offered here yet; a client absent from the board entirely is
-  // either legacy or already fully onboarded, so keep them — same fallback
+  // Only a client still in their FIRST onboarding (kind "initial", not yet
+  // active) is held back. A renewal or reprovision also moves an approved
+  // client off "active", but they stay subscribable. A client absent from the
+  // board entirely is legacy or fully onboarded, so keep them — same fallback
   // client-info/page.tsx uses for the same board-overlay gap.
   const nonActiveUserIds = new Set(
-    (board ?? []).filter((col) => col.status !== "active").flatMap((col) => col.clients.map((c) => c.userId)),
+    (board ?? [])
+      .filter((col) => col.status !== "active")
+      .flatMap((col) => col.clients.filter((c) => c.kind !== "renewal").map((c) => c.userId)),
   );
   const availableClients = (clientBook ?? [])
     .filter((c) => !nonActiveUserIds.has(c.id))

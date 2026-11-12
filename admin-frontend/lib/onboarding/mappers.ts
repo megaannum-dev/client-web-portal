@@ -25,7 +25,7 @@ export function mapRow(o: OnboardingDTO): KycBoardClient {
     phone: o.primary_phone, address: o.address, country: o.country_of_residence,
     idType: o.id_type, idNumber: o.id_number,
     ibhkAccount: o.client_ib, swAccount: o.sw_account,
-    status: o.status,
+    status: o.status, kind: o.kind,
     verifiedCount: o.verified_count, requiredCount: o.required_count,
     documents: o.documents,
   };

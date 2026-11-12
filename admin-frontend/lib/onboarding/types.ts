@@ -189,6 +189,8 @@ export interface KycBoardClient {
   idType: string; idNumber: string;
   ibhkAccount: string; swAccount: string;
   status: OnboardingStatus;
+  /** "renewal" once an approved client is reopened (renewal or reprovision). */
+  kind?: OnboardingKind;
   verifiedCount: number; requiredCount: number;
   documents: DocumentDTO[];
 }
