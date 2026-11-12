@@ -834,6 +834,12 @@ class OnboardingService:
             )
         if req.emergent:
             multiplier = sub.multiplier  # D-3: emergent redeems the FULL current holding
+        # Same guard as submit_allotment: 0 is a no-op ticket, and a negative
+        # value would ADD units on approval (agg_after = agg_before - multiplier).
+        if multiplier <= 0:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Redemption units must be positive"
+            )
         if multiplier > sub.multiplier:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY, "Redemption exceeds current subscription"

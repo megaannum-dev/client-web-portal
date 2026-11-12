@@ -128,6 +128,37 @@ def test_redemption_exceeding_current_subscription_raises_422(session):
     assert exc.value.status_code == 422
 
 
+@pytest.mark.parametrize("units", [Decimal("0"), Decimal("-1")], ids=["zero", "negative"])
+def test_standard_redemption_with_non_positive_units_raises_422(session, units):
+    """D20: same positivity rule as submit_allotment; nothing is written."""
+    client = make_client(session)
+    model = make_model(session, model_size=Decimal("1"))
+    make_subscription(session, client, model, multiplier=Decimal("5"))
+    make_portfolio(session, client)
+
+    svc = OnboardingService(session)
+    req = SubmitRedemptionReq(client_id=client.id, model_id=model.id, multiplier=units)
+    with pytest.raises(HTTPException) as exc:
+        svc.submit_redemption(req)
+    assert exc.value.status_code == 422
+    assert exc.value.detail == "Redemption units must be positive"
+
+
+def test_emergent_redemption_ignores_a_zero_requested_multiplier(session):
+    """Emergent redeems the full holding, so the requested units don't matter."""
+    client = make_client(session)
+    model = make_model(session, model_size=Decimal("1"))
+    make_subscription(session, client, model, multiplier=Decimal("7"))
+    make_portfolio(session, client)
+
+    svc = OnboardingService(session)
+    req = SubmitRedemptionReq(
+        client_id=client.id, model_id=model.id, multiplier=Decimal("0"), emergent=True
+    )
+    dto = svc.submit_redemption(req)
+    assert svc.repo.get_allotment(dto.id).multiplier == Decimal("7")
+
+
 def test_redemption_with_no_subscription_raises_404(session):
     client = make_client(session)
     model = make_model(session, model_size=Decimal("1"))
