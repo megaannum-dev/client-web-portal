@@ -172,7 +172,7 @@ PAGE_ACCESS_SEED: list[tuple[str, str, str]] = [
 assert len(PAGE_ACCESS_SEED) == 63
 assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "edit") == 37
 assert sum(1 for _, _, lvl in PAGE_ACCESS_SEED if lvl == "view") == 26
-_ROLE_COUNTS = {"RM": 9, "MOBO": 12, "PM": 12, "COMPLIANCE": 14, "ADMIN": 19}
+_ROLE_COUNTS = {"RM": 8, "MOBO": 12, "PM": 10, "COMPLIANCE": 14, "ADMIN": 19}
 for _role, _n in _ROLE_COUNTS.items():
     assert sum(1 for _, r, _ in PAGE_ACCESS_SEED if r == _role) == _n, _role
 

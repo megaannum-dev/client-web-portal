@@ -77,5 +77,5 @@ async def _try_open_period(label: str) -> None:
 def start_scheduler() -> asyncio.Task:  # type: ignore[type-arg]
     """Register the background task in the running event loop. Call from lifespan."""
     task = asyncio.create_task(_auto_open_job(), name="pc_period_scheduler")
-    logger.info("PC scheduler started (tick every %d s)", _TICK_SECONDS)
+    logger.info("PC scheduler started (tick every %d s), open days before end: %d", _TICK_SECONDS, _OPEN_DAYS_BEFORE_END)
     return task

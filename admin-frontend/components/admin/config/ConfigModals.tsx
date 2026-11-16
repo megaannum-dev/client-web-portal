@@ -181,14 +181,19 @@ export function AddOverrideModal({ onClose }: { onClose: () => void }) {
   const [pageId, setPageId] = useState<PageId | "">("");
   const [lv, setLv] = useState<Level>("VIEW");
   const [why, setWhy] = useState("");
-  const [exp, setExp] = useState("30 Sep 2026");
+  const [exp, setExp] = useState("90 days");
   const [touched, setTouched] = useState(false);
   const u = candidates.find((x) => x.firebase_uid === uid);
   const from: Level = pageId && u ? store.eff(pageId, u.role) : "NONE";
 
   const submit = async () => {
     if (!u || !pageId || !why.trim()) { setTouched(true); toast.warning("User, page and reason are all required."); return; }
-    const ok = await store.addOverride({ firebase_uid: u.firebase_uid, page_id: pageId, level: lv, reason: why.trim(), expires_at: expiryToIso(exp) });
+    const expiresAt = expiryToIso(exp);
+    if (exp !== "No expiry" && (!expiresAt || new Date(expiresAt) <= new Date())) {
+      toast.warning("The expiry date must be in the future.");
+      return;
+    }
+    const ok = await store.addOverride({ firebase_uid: u.firebase_uid, page_id: pageId, level: lv, reason: why.trim(), expires_at: expiresAt });
     if (ok) onClose();
   };
 

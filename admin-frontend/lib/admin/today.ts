@@ -17,7 +17,7 @@ export function todayIso(d: Date = new Date()): string {
   return d.toLocaleDateString("en-CA");
 }
 
-/** The Access step's expiry pick ("30 days" / "30 Sep 2026" / "No expiry") -> an ISO
+/** The Access step's expiry pick ("30 days" / "No expiry") -> an ISO
  *  instant, or null for "No expiry". Mirrors LifecycleModals.tsx's expiryToISO. */
 export function expiryToIso(exp: string): string | null {
   if (exp === "No expiry") return null;

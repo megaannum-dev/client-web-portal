@@ -39,6 +39,8 @@ export interface SubscriptionModalContext {
   modelAccount?: string;
   mgmtFee?: string;
   incentiveFee?: string;
+  /** Requested by the source ticket; pre-fills the Multiplier field. */
+  multiplier?: number;
   sourceTicketRef?: string;
 }
 
@@ -93,7 +95,9 @@ export function SubscriptionFormModal({
   const [model, setModel] = useState(context.modelName ?? "");
   const [clientId, setClientId] = useState(context.clientId ?? "");
   const [modelId, setModelId] = useState(context.modelId ?? "");
-  const [multiplier, setMultiplier] = useState(isRedemption ? "1" : "2");
+  const [multiplier, setMultiplier] = useState(
+    context.multiplier != null ? String(context.multiplier) : isRedemption ? "1" : "2",
+  );
   const [mgmtFee, setMgmtFee] = useState(context.mgmtFee ?? "");
   const [incentiveFee, setIncentiveFee] = useState(context.incentiveFee ?? "");
   const [dateVal, setDateVal] = useState("");

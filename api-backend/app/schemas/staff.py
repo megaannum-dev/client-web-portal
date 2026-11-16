@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.libs.access.schemas import future_expiry
 from app.models.users import AdminRole
 
 # ponytail: AccessLevel's canonical (uppercase-wire) home is app/libs/access/schemas.py
@@ -17,6 +18,11 @@ class StaffOverrideIn(BaseModel):
     level: _OverrideLevel
     reason: str = Field(min_length=1)
     expires_at: datetime | None = None
+
+    @field_validator("expires_at")
+    @classmethod
+    def _future_expiry(cls, v: datetime | None) -> datetime | None:
+        return future_expiry(v)  # D24: past expiries are refused (422)
 
 
 class StaffEnrollIn(BaseModel):

@@ -87,6 +87,8 @@ export interface OverrideOut {
   reason: string;
   granted_by: string;
   expires_at: string | null;
+  /** Server-computed: past its expiry, so it no longer applies (D24). */
+  is_expired: boolean;
   expiring_soon: boolean;
 }
 

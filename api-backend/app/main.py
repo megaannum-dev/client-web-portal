@@ -22,6 +22,7 @@ from app.core.errors import GENERIC_500
 from app.core.portfolio_api import PortfolioApiUnavailable
 from app.core.portfolio_api import health as portfolio_api_health
 from app.libs.access.router import router as access_router
+from app.libs.access.scheduler import start_scheduler as start_override_expiry_scheduler
 from app.libs.allocation_matrix.router import router as allocation_matrix_router
 from app.libs.allocation_matrix.scheduler import start_scheduler
 from app.libs.auth.router import router as auth_router
@@ -69,11 +70,13 @@ async def lifespan(_: FastAPI):  # type: ignore[type-arg]
     scheduler_task = start_scheduler()
     pta_scheduler_task = start_pta_scheduler()
     onboarding_scheduler_task = start_onboarding_scheduler()
+    override_expiry_scheduler_task = start_override_expiry_scheduler()
     yield
     scheduler_task.cancel()
     if pta_scheduler_task is not None:
         pta_scheduler_task.cancel()
     onboarding_scheduler_task.cancel()
+    override_expiry_scheduler_task.cancel()
 
 
 settings = get_settings()

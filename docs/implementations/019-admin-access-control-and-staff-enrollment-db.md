@@ -334,7 +334,7 @@ class PageAccessOverride(Base):
 - At most one override per `(user_id, page_id)` — the 409 the Backend returns on a duplicate grant is this constraint's contract.
 - Deleting a `users` row removes its overrides (`CASCADE`); deleting the granter leaves the override with `granted_by = NULL` (`SET NULL`).
 - `level` may be `'none'`, `'view'` or `'edit'`. `'none'` is a stored, meaningful value **on this table only**.
-- `expires_at IS NULL` means "no expiry"; an expired override is still stored (history) and is filtered out by the Backend resolver, not deleted by the DB. `ix_page_access_overrides_expires_at` serves that filter and the ledger's `expiring_soon` computation.
+- `expires_at IS NULL` means "no expiry"; an expired override is filtered out by the Backend resolver, and expired rows are swept hourly by the Backend and recorded as `override.expired` in `admin_audit_events` (still not deleted by the DB itself). `ix_page_access_overrides_expires_at` serves that filter and the ledger's `expiring_soon` computation.
 - `reason` is `NOT NULL` at the DB level; emptiness is an application-layer rule, so a blank reason is a 422 rather than a 500.
 
 **Done when:** the table exists with a `CHAR`-rendered UUID PK, `CASCADE` on `user_id`, `SET NULL` on `granted_by`, the named unique constraint and the named `expires_at` index; `OverrideLevel` has exactly three members with lowercase values.

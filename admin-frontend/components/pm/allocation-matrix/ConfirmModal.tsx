@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
 import { Check, Lock, TriangleAlert } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/pm/Shared";
@@ -7,6 +9,7 @@ import { type AllocationView } from "@/lib/pm/allocation";
 
 /* ============================================================
    CONFIRM MODAL  (irreversible until next period) — F3 Modal shell
+   Stays open and raises the error as a toast when confirming fails (D23).
    ============================================================ */
 export function ConfirmModal({
   data, period, onClose, onConfirm,
@@ -14,19 +17,34 @@ export function ConfirmModal({
   data: AllocationView;
   period: string;
   onClose: () => void;
-  onConfirm: () => void;
+  /** Resolves with the outcome; the parent closes the modal on success. */
+  onConfirm: () => Promise<{ success: boolean; error?: string }>;
 }) {
+  const [busy, setBusy] = useState(false);
+
+  const close = () => { if (!busy) onClose(); };
+
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await onConfirm();
+    setBusy(false);
+    if (!r.success) toast.error(r.error ?? "Failed to confirm the allocation. Please try again.");
+  };
+
   return (
     <Modal
       title={`Confirm ${period} allocation?`}
       subtitle="Confirming freezes the matrix for the period so trading can open."
-      onClose={onClose}
+      onClose={close}
       width={470}
       centered
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} className="ml-auto">Cancel</Button>
-          <Button icon={Check} onClick={onConfirm}>Confirm allocation</Button>
+          <Button variant="secondary" onClick={close} disabled={busy} className="ml-auto">Cancel</Button>
+          <Button icon={Check} onClick={() => void submit()} disabled={busy}>
+            {busy ? "Confirming…" : "Confirm allocation"}
+          </Button>
         </>
       }
     >

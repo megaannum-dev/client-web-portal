@@ -175,6 +175,20 @@ class AccessRepository:
         self.db.flush()
         return row
 
+    def expired_overrides(
+        self, now: datetime, *, user_id: uuid.UUID | None = None, page_id: str | None = None
+    ) -> list[PageAccessOverride]:
+        """Rows with expires_at <= now (NULL never expires), optionally for one
+        user / page. Uses INDEX (expires_at)."""
+        query = self.db.query(PageAccessOverride).filter(
+            PageAccessOverride.expires_at.is_not(None), PageAccessOverride.expires_at <= now
+        )
+        if user_id is not None:
+            query = query.filter(PageAccessOverride.user_id == user_id)
+        if page_id is not None:
+            query = query.filter(PageAccessOverride.page_id == page_id)
+        return query.all()
+
     def delete_override(self, override: PageAccessOverride) -> None:
         self.db.delete(override)
 

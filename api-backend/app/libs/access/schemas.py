@@ -2,14 +2,19 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.libs.access.pages import PAGE_IDS
 from app.models.users import AdminRole
+
+# An unexpired override counts as "expiring soon" once its expires_at falls
+# within this window. Mirrored by EXPIRING_SOON_DAYS in
+# admin-frontend/lib/admin/catalog.ts (the ledger's stat-card label).
+EXPIRING_SOON_WINDOW: Final[timedelta] = timedelta(days=30)
 
 
 class AccessLevel(str, Enum):
@@ -81,7 +86,8 @@ class OverrideOut(BaseModel):
     reason: str
     granted_by: str  # granter's display name
     expires_at: datetime | None
-    expiring_soon: bool  # server-computed: expires_at <= now + 30 days
+    is_expired: bool  # server-computed: expires_at <= now -- no longer applies (D24)
+    expiring_soon: bool  # server-computed: now < expires_at <= now + EXPIRING_SOON_WINDOW
 
 
 class AuditOut(BaseModel):
@@ -90,6 +96,17 @@ class AuditOut(BaseModel):
     actor_name: str  # denormalised -- reads correctly after the actor is deleted
     event: str
     detail: str
+
+
+def future_expiry(v: datetime | None) -> datetime | None:
+    """D24: an override's expiry must be in the future (None = no expiry).
+    A naive datetime is read as UTC, matching how the resolver compares it."""
+    if v is None:
+        return None
+    aware = v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
+    if aware <= datetime.now(timezone.utc):
+        raise ValueError("expiry date must be in the future")
+    return aware
 
 
 class OverrideIn(BaseModel):
@@ -105,3 +122,8 @@ class OverrideIn(BaseModel):
         if v not in PAGE_IDS:
             raise ValueError(f"unknown page_id: {v}")
         return v
+
+    @field_validator("expires_at")
+    @classmethod
+    def _future_expiry(cls, v: datetime | None) -> datetime | None:
+        return future_expiry(v)
