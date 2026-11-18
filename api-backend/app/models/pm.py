@@ -100,6 +100,12 @@ class Model(Base):
     # Distinct from ClientIbAccount.ib_account, which is the per-client
     # account for that client's subscription to this model.
     master_ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Books a subscribed client must hold an account in. Stored codes only:
+    # dt = Day Trade, pt = Position Trade, inb = Investment Book.
+    # Existing rows backfill to ["dt"]. Frozen once the model is live.
+    required_books: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=lambda: ["dt"]
+    )
     description:   Mapped[str | None]      = mapped_column(Text, nullable=True)
     underlyings:   Mapped[str | None]      = mapped_column(Text, nullable=True)
     risk:          Mapped[str | None]      = mapped_column(Text, nullable=True)
