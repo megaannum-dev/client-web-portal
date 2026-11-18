@@ -49,6 +49,9 @@ export interface ChangeEntry {
 /** Lifecycle state of a model. */
 export type ModelStatus = "live" | "draft";
 
+/** Book codes stored on a model. The UI renders the full names, never these codes. */
+export type BookCode = "dt" | "pt" | "inb";
+
 /** One row of a model's symbol book (view shape). */
 export interface SymbolBookEntry {
   symbol: string;
@@ -96,6 +99,7 @@ export interface Model {
   mgmt_fee: number | null;       // null → use DEFAULT_MGMT_FRACTION fallback
   incentive_fee: number | null;  // null → use DEFAULT_INCENTIVE_FRACTION fallback
   master_ib_account: string | null;
+  required_books: BookCode[];
 }
 
 /** Fee figures derived from a model (see `computeFees`). */
@@ -209,6 +213,7 @@ export interface ModelDTO {
   mgmt_fee?: number | null;
   incentive_fee?: number | null;
   master_ib_account?: string | null;
+  required_books?: BookCode[];
 }
 
 /** Backend payload for GET /api/pm/models. */
