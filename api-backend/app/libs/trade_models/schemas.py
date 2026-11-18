@@ -162,6 +162,11 @@ class ModelStatusUpdate(BaseModel):
     status: ModelStatus
 
 
+class IbAccountOption(BaseModel):
+    master: str
+    free_count: int
+
+
 # ---------------------------------------------------------------------------
 # Material schemas
 # ---------------------------------------------------------------------------

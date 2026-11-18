@@ -19,6 +19,7 @@ from app.libs.auth.deps import require_action
 from app.libs.trade_models.service import ModelService
 from app.libs.trade_models.schemas import (
     ChangeOut,
+    IbAccountOption,
     MaterialOut,
     ModelCreate,
     ModelDetailOut,
@@ -107,6 +108,14 @@ def _detail_with_audit(service: ModelService, model_id: uuid.UUID) -> ModelDetai
     result = ModelDetailOut.model_validate(service.get_model(model_id))
     result.symbol_audit = _resolve_symbol_audit(service, model_id)
     return result
+
+
+@router.get("/ib-account-registry", response_model=list[IbAccountOption])
+def ib_account_registry(
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    _: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
+) -> list:
+    return service.ib_account_registry()
 
 
 @router.post("/models", response_model=ModelOut, status_code=status.HTTP_201_CREATED)

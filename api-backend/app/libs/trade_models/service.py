@@ -5,6 +5,7 @@ ModelService: all business logic for trade models, materials, and changes.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -14,9 +15,11 @@ from typing import IO, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.storage import FileStorage
 from app.libs.trade_models.repository import ModelRepository
 from app.models.pm import (
+    ClientIbAccount,
     Model,
     ModelChange,
     ModelChangeKind,
@@ -43,6 +46,49 @@ _TRACKED_FIELDS = (
 
 _BOOK_ORDER = ("dt", "pt", "inb")
 _LIVE_BOOKS = "Books can't change once a model is live."
+_LIVE_MASTER = "Master IB account can't change once a model is live."
+_MASTER_UNKNOWN = "Master IB account is not a configured account."
+
+
+def _configured_masters() -> dict[str, list[str]]:
+    """IB_ACCOUNTS as {master: unique client accounts}. Empty string is no masters."""
+    raw = get_settings().ib_accounts or ""
+    if not str(raw).strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "IB_ACCOUNTS must be a JSON object of master accounts.",
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "IB_ACCOUNTS must be a JSON object of master accounts.",
+        )
+    masters: dict[str, list[str]] = {}
+    for master, accounts in parsed.items():
+        if not isinstance(master, str) or not isinstance(accounts, list):
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "IB_ACCOUNTS must be a JSON object of master accounts.",
+            )
+        seen: set[str] = set()
+        unique: list[str] = []
+        for account in accounts:
+            if not isinstance(account, str) or account in seen:
+                continue
+            seen.add(account)
+            unique.append(account)
+        masters[master] = unique
+    return masters
+
+
+def _normalize_master(value: str | None) -> str | None:
+    if value is None or value == "":
+        return None
+    return value
 
 
 def _canonical_books(books: list[str]) -> list[str]:
@@ -138,6 +184,26 @@ class ModelService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
         return model
 
+    def ib_account_registry(self) -> list[dict]:
+        """Configured masters and how many of their client accounts are unassigned.
+
+        An account already stored on any client_ib_accounts row is not free,
+        so models that share a master show the same count.
+        """
+        assigned = {
+            account
+            for (account,) in self.db.query(ClientIbAccount.ib_account)
+            .filter(ClientIbAccount.ib_account.isnot(None))
+            .all()
+        }
+        return [
+            {
+                "master": master,
+                "free_count": sum(1 for account in accounts if account not in assigned),
+            }
+            for master, accounts in _configured_masters().items()
+        ]
+
     def create_model(
         self,
         *,
@@ -158,6 +224,15 @@ class ModelService:
         master_ib_account: str | None = None,
         required_books: list[str] | None = None,
     ) -> Model:
+        master_ib_account = _normalize_master(master_ib_account)
+        if (
+            master_ib_account is not None
+            and master_ib_account not in _configured_masters()
+        ):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                _MASTER_UNKNOWN,
+            )
         model = self.repo.create(
             name=name,
             category=category,
@@ -251,6 +326,25 @@ class ModelService:
                 )
             else:
                 updates["required_books"] = _canonical_books(requested)
+
+        if "master_ib_account" in updates:
+            requested_master = _normalize_master(updates["master_ib_account"])
+            updates["master_ib_account"] = requested_master
+            stored_master = model.master_ib_account
+            if model.status == ModelStatus.LIVE and requested_master != stored_master:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    _LIVE_MASTER,
+                )
+            if (
+                requested_master is not None
+                and requested_master != stored_master
+                and requested_master not in _configured_masters()
+            ):
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    _MASTER_UNKNOWN,
+                )
 
         # Diff tracked fields before applying update.
         changed_fields = []
