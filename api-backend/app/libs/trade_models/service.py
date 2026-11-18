@@ -5,7 +5,6 @@ ModelService: all business logic for trade models, materials, and changes.
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -45,39 +44,17 @@ _TRACKED_FIELDS = (
 )
 
 _BOOK_ORDER = ("dt", "pt", "inb")
-_LIVE_BOOKS = "Books can't change once a model is live."
-_LIVE_MASTER = "Master IB account can't change once a model is live."
 _MASTER_UNKNOWN = "Master IB account is not a configured account."
 
 
 def _configured_masters() -> dict[str, list[str]]:
-    """IB_ACCOUNTS as {master: unique client accounts}. Empty string is no masters."""
-    raw = get_settings().ib_accounts or ""
-    if not str(raw).strip():
-        return {}
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "IB_ACCOUNTS must be a JSON object of master accounts.",
-        ) from exc
-    if not isinstance(parsed, dict):
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "IB_ACCOUNTS must be a JSON object of master accounts.",
-        )
+    """IB_ACCOUNTS as {master: unique client accounts}. Empty dict is no masters."""
     masters: dict[str, list[str]] = {}
-    for master, accounts in parsed.items():
-        if not isinstance(master, str) or not isinstance(accounts, list):
-            raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "IB_ACCOUNTS must be a JSON object of master accounts.",
-            )
+    for master, accounts in (get_settings().ib_accounts or {}).items():
         seen: set[str] = set()
         unique: list[str] = []
         for account in accounts:
-            if not isinstance(account, str) or account in seen:
+            if account in seen:
                 continue
             seen.add(account)
             unique.append(account)
@@ -86,6 +63,7 @@ def _configured_masters() -> dict[str, list[str]]:
 
 
 def _normalize_master(value: str | None) -> str | None:
+    """Blank form values become None; a set master is left as-is for registry checks."""
     if value is None or value == "":
         return None
     return value
@@ -94,8 +72,6 @@ def _normalize_master(value: str | None) -> str | None:
 def _canonical_books(books: list[str]) -> list[str]:
     present = set(books)
     return [code for code in _BOOK_ORDER if code in present]
-
-_LONG_TEXT_FIELDS = frozenset({"description", "underlyings", "risk"})
 
 
 def _diff_field(field: str, before: Any, after: Any) -> dict | None:
@@ -112,7 +88,7 @@ def _diff_field(field: str, before: Any, after: Any) -> dict | None:
             return None
         return {"name": field, "before": norm_b, "after": norm_a}
 
-    if field in _LONG_TEXT_FIELDS:
+    if field in frozenset({"description", "underlyings", "risk"}):
         if before == after:
             return None
         return {"name": field, "changed": True}
@@ -316,7 +292,7 @@ class ModelService:
                 if incoming != stored:
                     raise HTTPException(
                         status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        _LIVE_BOOKS,
+                        "Books can't change once a model is live.",
                     )
                 updates.pop("required_books")
             elif not requested:
@@ -334,7 +310,7 @@ class ModelService:
             if model.status == ModelStatus.LIVE and requested_master != stored_master:
                 raise HTTPException(
                     status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    _LIVE_MASTER,
+                    "Master IB account can't change once a model is live.",
                 )
             if (
                 requested_master is not None

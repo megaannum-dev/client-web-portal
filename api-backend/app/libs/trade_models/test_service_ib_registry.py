@@ -155,6 +155,6 @@ def test_free_count_drops_an_assigned_u_account(service, ib_accounts):
 
 def test_empty_ib_accounts_setting_has_no_masters(service, monkeypatch):
     get_settings.cache_clear()
-    monkeypatch.delenv("IB_ACCOUNTS", raising=False)
+    monkeypatch.setenv("IB_ACCOUNTS", "{}")
     get_settings.cache_clear()
     assert service.ib_account_registry() == []
