@@ -15,6 +15,7 @@ from sqlalchemy import (
     JSON,
     Numeric,
     String,
+    CheckConstraint,
     Text,
     UniqueConstraint,
     Uuid,
@@ -267,12 +268,13 @@ class ClientSubscription(Base):
 
 
 class ClientIbAccount(Base):
-    """A client's IB account for one specific model. Distinct from
+    """A client's IB account for one book of one model. Distinct from
     Model.master_ib_account (the model's own trading account) and, unlike
     client_subscriptions, this row is NOT FK'd to the subscription itself --
     only to users/models -- so it deliberately survives a client
     unsubscribing (client_subscriptions row deleted). It is only removed if
-    the user or model is actually deleted."""
+    the user or model is actually deleted. One client holds one permanent
+    account per (model, book)."""
 
     __tablename__ = "client_ib_accounts"
 
@@ -286,9 +288,11 @@ class ClientIbAccount(Base):
         ForeignKey("models.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    # Nullable for now during rollout/backfill; expected to become required
-    # once every (client, model) pair has an assigned account (a follow-up
-    # NOT NULL migration once the BE/FE layers can guarantee assignment).
+    # dt, pt, or inb. Part of the primary key: a client can hold a different
+    # account for each book the model requires.
+    book: Mapped[str] = mapped_column(String(3), primary_key=True)
+    # Nullable during rollout; a follow-up can require it once every
+    # (client, model, book) triple has an assigned account.
     ib_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -307,6 +311,10 @@ class ClientIbAccount(Base):
         # metadata via create_all(), so without it no test can prove a
         # duplicate ib_account is actually rejected at the DB level.
         UniqueConstraint("ib_account", name="uq_client_ib_accounts_ib_account"),
+        CheckConstraint(
+            "book IN ('dt', 'pt', 'inb')",
+            name="ck_client_ib_accounts_book",
+        ),
     )
 
 

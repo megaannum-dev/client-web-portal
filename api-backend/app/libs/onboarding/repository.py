@@ -103,7 +103,7 @@ class OnboardingRepository:
         )
         self.db.add(onboarding)
         client_ib_accounts.ensure(
-            self.db, user_id=user_id, model_id=model_id, account=client_ib
+            self.db, user_id=user_id, model_id=model_id, book="dt", account=client_ib
         )
         self.db.flush()
         for spec in REQUIRED_DOCS:

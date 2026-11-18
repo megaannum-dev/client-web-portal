@@ -157,7 +157,11 @@ class ClientService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
 
         row = client_ib_accounts.reassign(
-            self.repo.db, user_id=client_id, model_id=model_id, account=account_id
+            self.repo.db,
+            user_id=client_id,
+            model_id=model_id,
+            book="dt",
+            account=account_id,
         )
         stored = row.ib_account  # read before commit expires the instance
         self.repo.db.commit()

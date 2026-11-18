@@ -193,7 +193,7 @@ class OnboardingService:
         # Same reason: create_cycle -> client_ib_accounts.ensure would raise on
         # a duplicate/malformed account only AFTER the client exists. This is
         # the pre-flight; ensure() re-checks at the real write.
-        client_ib_accounts.check(self.db, req.client_ib)
+        client_ib_accounts.check(self.db, req.client_ib, book="dt")
 
         client_service = ClientService(self.db)
         staged_user, _invite_link = client_service.onboard(
@@ -732,6 +732,7 @@ class OnboardingService:
                     self.db,
                     user_id=req.client_id,
                     model_id=req.model_id,
+                    book="dt",
                     account=req.client_ib,
                 )
             allotment = self.repo.create_allotment(

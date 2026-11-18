@@ -140,6 +140,7 @@ def test_free_count_drops_an_assigned_u_account(service, ib_accounts):
         ClientIbAccount(
             user_id=uuid.uuid4(),
             model_id=model.id,
+            book="dt",
             ib_account="U2222222",
         )
     )
