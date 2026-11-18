@@ -91,7 +91,10 @@ def client():
 
 
 def _create_model(http) -> str:
-    resp = http.post("/api/pm/models", json={"name": "M", "symbols": []})
+    resp = http.post(
+        "/api/pm/models",
+        json={"name": "M", "symbols": [], "required_books": ["dt"]},
+    )
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 

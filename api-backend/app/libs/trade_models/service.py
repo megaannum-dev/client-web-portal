@@ -38,7 +38,16 @@ _TRACKED_FIELDS = (
     # The account a model actually trades through — at least as audit-worthy as
     # its name or fee, and previously changeable with no trace.
     "master_ib_account",
+    "required_books",
 )
+
+_BOOK_ORDER = ("dt", "pt", "inb")
+_LIVE_BOOKS = "Books can't change once a model is live."
+
+
+def _canonical_books(books: list[str]) -> list[str]:
+    present = set(books)
+    return [code for code in _BOOK_ORDER if code in present]
 
 _LONG_TEXT_FIELDS = frozenset({"description", "underlyings", "risk"})
 
@@ -147,6 +156,7 @@ class ModelService:
         incentive_fee: Decimal | None = None,
         actor: str | None = None,
         master_ib_account: str | None = None,
+        required_books: list[str] | None = None,
     ) -> Model:
         model = self.repo.create(
             name=name,
@@ -163,6 +173,9 @@ class ModelService:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
             master_ib_account=master_ib_account,
+            required_books=(
+                _canonical_books(required_books) if required_books is not None else None
+            ),
         )
         for s in model.symbols:
             self._log_symbol(
@@ -219,6 +232,25 @@ class ModelService:
         elif "symbols" in updates:
             # explicit None sent — treat as no-op for symbols
             updates.pop("symbols")
+
+        if "required_books" in updates:
+            requested = updates["required_books"]
+            if model.status == ModelStatus.LIVE:
+                stored = _canonical_books(list(model.required_books or []))
+                incoming = _canonical_books(list(requested or []))
+                if incoming != stored:
+                    raise HTTPException(
+                        status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        _LIVE_BOOKS,
+                    )
+                updates.pop("required_books")
+            elif not requested:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    "Select one to three books.",
+                )
+            else:
+                updates["required_books"] = _canonical_books(requested)
 
         # Diff tracked fields before applying update.
         changed_fields = []

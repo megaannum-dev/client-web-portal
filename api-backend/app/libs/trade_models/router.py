@@ -130,7 +130,8 @@ def create_model(
         mgmt_fee=body.mgmt_fee,
         incentive_fee=body.incentive_fee,
         actor=actor.firebase_uid,
-        master_ib_account=body.master_ib_account
+        master_ib_account=body.master_ib_account,
+        required_books=body.required_books,
     )
 
 

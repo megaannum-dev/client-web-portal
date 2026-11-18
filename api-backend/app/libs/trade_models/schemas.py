@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -31,6 +31,22 @@ def _coerce_symbols(v):
     if v is None:
         return v
     return [{"symbol": s} if isinstance(s, str) else s for s in v]
+
+
+_BOOK_CODES = ("dt", "pt", "inb")
+
+
+def _validate_required_books(v):
+    """One to three unique book codes. None means the caller omitted the field."""
+    if v is None:
+        return v
+    if not isinstance(v, list) or len(v) < 1 or len(v) > 3:
+        raise ValueError("Select one to three books.")
+    if len(set(v)) != len(v):
+        raise ValueError("Duplicate book codes are not allowed.")
+    if any(code not in _BOOK_CODES for code in v):
+        raise ValueError("Unknown book code.")
+    return [code for code in _BOOK_CODES if code in v]
 
 
 class SymbolOut(BaseModel):
@@ -74,12 +90,14 @@ class ModelCreate(BaseModel):
     mgmt_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolIn] | None = None
+    required_books: list[Literal["dt", "pt", "inb"]]
     # Optional, matching the nullable column and ModelUpdate: making it required
     # was an unversioned break -- a draft model is created before its master IB
     # account is known, and existing clients never sent the field.
     master_ib_account: str | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
+    _books = field_validator("required_books", mode="before")(_validate_required_books)
 
 
 class ModelUpdate(BaseModel):
@@ -97,9 +115,11 @@ class ModelUpdate(BaseModel):
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     status: str | None = None  # "live" | "deleted" — triggers state machine
     symbols: list[SymbolIn] | None = None
+    required_books: list[Literal["dt", "pt", "inb"]] | None = None
     master_ib_account: str | None = None
 
     _coerce_symbols = field_validator("symbols", mode="before")(_coerce_symbols)
+    _books = field_validator("required_books", mode="before")(_validate_required_books)
 
 
 class ModelOut(BaseModel):
@@ -122,6 +142,7 @@ class ModelOut(BaseModel):
     incentive_fee: float | None = Field(default=None, ge=0, lt=1, description=_FEE_DESC)
     symbols: list[SymbolOut] = []
     master_ib_account: str | None = None
+    required_books: list[Literal["dt", "pt", "inb"]]
 
     model_config = {"from_attributes": True}
 

@@ -7,8 +7,13 @@ Run: .venv/Scripts/python.exe -m pytest -q app/libs/trade_models/test_schemas.py
 
 from datetime import datetime
 
+import pytest
+from pydantic import ValidationError
+
 from app.libs.trade_models.schemas import (
+    ModelCreate,
     ModelDetailOut,
+    ModelUpdate,
     SymbolAddIn,
     SymbolAuditOut,
     SymbolOut,
@@ -58,6 +63,7 @@ def test_model_detail_out_symbol_audit_field():
         version=None,
         created_at=datetime(2026, 7, 7),
         updated_at=datetime(2026, 7, 7),
+        required_books=["dt"],
         symbol_audit=[audit],
     )
     assert detail.symbol_audit == [audit]
@@ -72,6 +78,7 @@ def test_model_detail_out_symbol_audit_field():
         version=None,
         created_at=datetime(2026, 7, 7),
         updated_at=datetime(2026, 7, 7),
+        required_books=["dt"],
     )
     assert detail_no_audit.symbol_audit is None
 
@@ -79,6 +86,47 @@ def test_model_detail_out_symbol_audit_field():
 def test_symbol_add_and_patch_in_bodies():
     assert SymbolAddIn(symbol="qqq").symbol == "qqq"
     assert SymbolPatchIn(active=False).active is False
+
+
+def test_model_create_rejects_empty_books():
+    with pytest.raises(ValidationError):
+        ModelCreate(name="M", required_books=[])
+
+
+def test_model_create_rejects_duplicate_books():
+    with pytest.raises(ValidationError):
+        ModelCreate(name="M", required_books=["dt", "dt"])
+
+
+def test_model_create_rejects_unknown_book_code():
+    with pytest.raises(ValidationError):
+        ModelCreate(name="M", required_books=["xx"])
+
+
+def test_model_create_rejects_ib_as_a_book_code():
+    with pytest.raises(ValidationError):
+        ModelCreate(name="M", required_books=["ib"])
+
+
+def test_model_create_requires_books():
+    with pytest.raises(ValidationError):
+        ModelCreate(name="M")
+
+
+def test_model_create_accepts_unique_book_codes():
+    body = ModelCreate(name="M", required_books=["inb", "dt"])
+    assert body.required_books == ["dt", "inb"]
+
+
+def test_model_update_checks_books_only_when_present():
+    assert ModelUpdate(name="Renamed").required_books is None
+    assert ModelUpdate(required_books=["pt"]).required_books == ["pt"]
+    with pytest.raises(ValidationError):
+        ModelUpdate(required_books=[])
+    with pytest.raises(ValidationError):
+        ModelUpdate(required_books=["dt", "dt"])
+    with pytest.raises(ValidationError):
+        ModelUpdate(required_books=["ib"])
 
 
 if __name__ == "__main__":
