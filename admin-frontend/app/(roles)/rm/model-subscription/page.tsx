@@ -68,7 +68,7 @@ function resolveDeepLink(
           modelName: held.name,
           modelId: held.modelId,
           modelSize: held.modelSize,
-          modelAccount: held.account,
+          accounts: held.accounts,
           mgmtFee: held.mgmtFee,
           incentiveFee: held.incentiveFee,
           multiplier,
@@ -146,6 +146,8 @@ function ModelSubscriptionContent() {
       id: m.id, name: m.name, size: m.size,
       mgmtFee: formatFeePercent(m.mgmt_fee ?? DEFAULT_MGMT_FRACTION),
       incentiveFee: formatFeePercent(m.incentive_fee ?? DEFAULT_INCENTIVE_FRACTION),
+      requiredBooks: m.required_books,
+      master: m.master_ib_account,
     }));
 
   // Wait for subscriptions, models and the client book: a new-subscription

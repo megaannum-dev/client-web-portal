@@ -1,7 +1,7 @@
 "use server";
 
 import { logger } from "@/lib/logger";
-import { getSubscriptions as _getSubscriptions, getClientAllotments as _getClientAllotments, submitAllotment as _submitAllotment, submitRedemption as _submitRedemption, fileTransactionDetail as _fileTransactionDetail, getTransactionDetail as _getTransactionDetail } from "@/server/rm";
+import { getSubscriptions as _getSubscriptions, getClientAllotments as _getClientAllotments, getFreeAccounts as _getFreeAccounts, submitAllotment as _submitAllotment, submitRedemption as _submitRedemption, fileTransactionDetail as _fileTransactionDetail, getTransactionDetail as _getTransactionDetail } from "@/server/rm";
 import type { SubmitAllotmentReq, SubmitRedemptionReq, TransactionDetailRequest } from "@/lib/onboarding/types";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -26,6 +26,16 @@ export async function fetchClientAllotments(clientId: string) {
   try {
     const r = await _getClientAllotments(clientId);
     logger.json("rm.fetchClientAllotments", r.success ? { clientId, count: r.data.length } : r);
+    return r;
+  } catch (e) {
+    return toErrorResult(e);
+  }
+}
+
+export async function fetchFreeAccounts(modelId: string) {
+  try {
+    const r = await _getFreeAccounts(modelId);
+    logger.json("rm.fetchFreeAccounts", r.success ? { modelId, count: r.data.length } : r);
     return r;
   } catch (e) {
     return toErrorResult(e);

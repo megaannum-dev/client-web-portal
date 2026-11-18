@@ -44,6 +44,7 @@ export const ENDPOINTS = {
       `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs/${encodeURIComponent(logId)}/download`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
+    FREE_ACCOUNTS: (modelId: string) => `${RM}/models/${encodeURIComponent(modelId)}/free-accounts`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
     SUBMIT_REDEMPTION: `${RM}/redemption`,
     TRANSACTION_DETAIL: (allotmentId: string) => `${RM}/allotments/${allotmentId}/transaction-detail`,

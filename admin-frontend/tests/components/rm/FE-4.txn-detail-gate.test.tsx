@@ -19,7 +19,7 @@ function renderRow(status: "pending" | "acknowledged") {
   const row: TxnRow = ["Allotment", "01/01/2026", "IB-4471", "USD", "200,000", "2×", "200,000", "01/01/2026", "—", status, "txn-1", false];
   const client: SubClient = {
     id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$2.0M",
-    models: [{ name: "Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "m-1", units: 5, rows: [row] }],
+    models: [{ name: "Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", accounts: [], modelId: "m-1", units: 5, rows: [row] }],
   };
   render(<SubscriptionAccordion clients={[client]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />);
 }
