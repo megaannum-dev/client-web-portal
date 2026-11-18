@@ -75,7 +75,7 @@ class ClientPortalRepository:
             .join(Model, Model.id == ClientSubscription.model_id)
             .outerjoin(
                 ClientIbAccount,
-                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id, ClientIbAccount.book == "dt"),
             )
             .filter(ClientSubscription.user_id == user_id, ClientSubscription.multiplier > 0)
             .order_by(Model.name)  # § 4.1: "name-sorted"

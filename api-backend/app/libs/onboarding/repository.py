@@ -237,7 +237,9 @@ class OnboardingRepository:
             approved_by=approved_by,
             client_ib=(
                 self.db.query(ClientIbAccount.ib_account)
-                .filter_by(user_id=onboarding.user_id, model_id=onboarding.model_id)
+                .filter_by(
+                    user_id=onboarding.user_id, model_id=onboarding.model_id, book="dt"
+                )
                 .scalar()
             ),
         )
@@ -475,7 +477,7 @@ class OnboardingRepository:
 
     def list_all_subscriptions(
         self,
-    ) -> list[tuple[ClientProfile, ClientSubscription, Model, str | None]]:
+    ) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
         """014 D (BE-9): every (client profile, subscription, model) row,
         joined -- unfiltered by RM-book visibility (the SERVICE layer applies
         that via ClientRepository.list_visible).
@@ -491,16 +493,9 @@ class OnboardingRepository:
         counterexample: those two ARE safe to filter here because nothing
         downstream of them needs to see a 0-unit row."""
         rows = (
-            self.db.query(ClientProfile, ClientSubscription, Model, ClientIbAccount.ib_account)
+            self.db.query(ClientProfile, ClientSubscription, Model)
             .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
             .join(Model, Model.id == ClientSubscription.model_id)
-            .outerjoin(
-                ClientIbAccount,
-                and_(
-                    ClientIbAccount.user_id == ClientProfile.user_id,
-                    ClientIbAccount.model_id == Model.id,
-                ),
-            )
             .all()
         )
         return rows  # type: ignore[return-value]
@@ -585,7 +580,7 @@ class OnboardingRepository:
             .join(Model, Model.id == ClientSubscription.model_id)
             .outerjoin(
                 ClientIbAccount,
-                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id, ClientIbAccount.book == "dt"),
             )
             .filter(ClientSubscription.user_id == user_id)
             .all()

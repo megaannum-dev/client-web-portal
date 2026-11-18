@@ -171,7 +171,7 @@ class ClientRepository:
             .join(ClientSubscription, ClientSubscription.model_id == Model.id)
             .outerjoin(
                 ClientIbAccount,
-                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == client_id),
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == client_id, ClientIbAccount.book == "dt"),
             )
             .filter(
                 ClientSubscription.user_id == client_id,

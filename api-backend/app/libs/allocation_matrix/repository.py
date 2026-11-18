@@ -152,9 +152,10 @@ class MatrixReadRepository:
 
         client_ib (the CLIENT's account for one MODEL, not the model's own
         master account) is only well-defined at (user_id, model_id) grain
-        (client_ib_accounts, composite PK) — the 'cell' branch LEFT JOINs it
-        on the full key; the 'client' roster branch has no model_id, so it
-        always reports NULL.
+        (client_ib_accounts, composite PK) — the 'cell' branch LEFT JOINs the
+        day-trade row so several books stay one cell and the unit math does
+        not change; the 'client' roster branch has no model_id, so it always
+        reports NULL.
         """
         sql = text("""
             SELECT 'cell'   AS row_kind,
@@ -164,6 +165,7 @@ class MatrixReadRepository:
               JOIN models          m  ON m.id = cs.model_id AND m.status = 'live'
               LEFT JOIN client_ib_accounts cia
                      ON cia.user_id = cs.user_id AND cia.model_id = cs.model_id
+                    AND cia.book = 'dt'
             UNION ALL
             SELECT 'client' AS row_kind,
                    u.id     AS user_id, NULL AS model_id, NULL AS multiplier,

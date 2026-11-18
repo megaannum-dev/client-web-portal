@@ -17,6 +17,13 @@ AllotRdmpStatus = Literal[
 AllotRdmpKind = Literal["allotment", "redemption"]
 
 
+class BookAccount(BaseModel):
+    """One stored client account. Lists on the wire are ordered dt, pt, inb."""
+
+    book: Literal["dt", "pt", "inb"]
+    account: str
+
+
 class StartOnboardingReq(BaseModel):
     """POST /api/rm/onboardings body. `mgmt_fee`/`incentive_fee` are fractions
     (e.g. 0.015) -- the FE converts its '1.5%' display string before sending."""
@@ -175,10 +182,9 @@ class SubmitAllotmentReq(BaseModel):
     mgmt_fee: Decimal | None = None
     incentive_fee: Decimal | None = None
     source_ticket_ref: str | None = None
-    # The client's IB account for this model, captured when the allotment is a
-    # NEW subscription. Optional because the FE doesn't send it yet; when
-    # absent, an existing client_ib_accounts row simply stays as it is.
-    client_ib: str | None = None
+    # New subscription only: one account per book in the model's required_books.
+    # Add allotment leaves this unset; sending it is rejected.
+    accounts: dict[str, str] | None = None
 
 
 class SubmitRedemptionReq(BaseModel):
@@ -229,10 +235,9 @@ class AllotRdmptDTO(BaseModel):
     # --- widened 2026-07-27 (proposal 017, BE-4): True when a
     # transaction_details row exists for this allotment/redemption.
     has_transaction_detail: bool = False
-    # The client's IB account for this row's model -- resolved at read time from
-    # client_ib_accounts via (user_id, model_id); no column of its own here.
-    # None when no account has been assigned for that pair yet.
-    client_ib: str | None = None
+    # Assigned accounts for this client and model, ordered dt, pt, inb.
+    # Empty when none are stored.
+    accounts: list[BookAccount] = []
 
 
 class TransactionDetailRequest(BaseModel):
@@ -290,7 +295,7 @@ class ClientSubscriptionRowDTO(BaseModel):
     units: Decimal
     mgmt_fee: Decimal  # effective = override ?? Model default
     incentive_fee: Decimal  # effective = override ?? Model default
-    client_ib: str | None  # client_ib_accounts.ib_account, on (user_id, model_id)
+    accounts: list[BookAccount]  # ordered dt, pt, inb; empty when none are stored
     amount: Decimal  # = units * model.model_size -- mirrors AllotRdmptDTO.amount
 
 

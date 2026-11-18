@@ -311,6 +311,7 @@ class SubscriptionRepository:
                 and_(
                     ClientIbAccount.user_id == ClientSubscription.user_id,
                     ClientIbAccount.model_id == ClientSubscription.model_id,
+                    ClientIbAccount.book == "dt",
                 ),
             )
             .filter(Model.status == ModelStatus.LIVE)

@@ -167,3 +167,47 @@ def reassign(
     else:
         row.ib_account = account
     return row
+
+
+def assigned_for(
+    db: Session, *, user_id: uuid.UUID, model_id: uuid.UUID
+) -> list[dict[str, str]]:
+    """Stored accounts for one client and model, ordered dt, pt, inb.
+    Rows with no account string are omitted. Empty when nothing is assigned."""
+    rows = (
+        db.query(ClientIbAccount.book, ClientIbAccount.ib_account)
+        .filter(
+            ClientIbAccount.user_id == user_id,
+            ClientIbAccount.model_id == model_id,
+            ClientIbAccount.ib_account.isnot(None),
+        )
+        .all()
+    )
+    return _ordered({book: account for book, account in rows if account})
+
+
+def assigned_by_pair(db: Session) -> dict[tuple[uuid.UUID, uuid.UUID], list[dict[str, str]]]:
+    """Every stored account, grouped by (user_id, model_id) and ordered dt, pt, inb."""
+    rows = (
+        db.query(
+            ClientIbAccount.user_id,
+            ClientIbAccount.model_id,
+            ClientIbAccount.book,
+            ClientIbAccount.ib_account,
+        )
+        .filter(ClientIbAccount.ib_account.isnot(None))
+        .all()
+    )
+    grouped: dict[tuple[uuid.UUID, uuid.UUID], dict[str, str]] = {}
+    for user_id, model_id, book, account in rows:
+        if account:
+            grouped.setdefault((user_id, model_id), {})[book] = account
+    return {key: _ordered(books) for key, books in grouped.items()}
+
+
+def _ordered(by_book: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        {"book": book, "account": by_book[book]}
+        for book in BOOKS
+        if book in by_book
+    ]
