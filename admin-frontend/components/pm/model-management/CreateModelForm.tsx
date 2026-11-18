@@ -8,7 +8,8 @@ import { fmtMoney } from "@/lib/pm/format";
 import type { BookCode, ModelStatus } from "@/lib/pm/types";
 import { RequiredBooksField, canonicalBooks } from "./BookChips";
 import { parseFeePercent, formatFeePercent } from "@/lib/fee";
-import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
+import { useIbAccountRegistry } from "@/hooks/api/useIbAccountRegistry";
+import { MasterAccountField } from "./MasterAccountField";
 
 /* ============================================================
    MODALS — create / edit model
@@ -277,6 +278,7 @@ export function CreateModelForm({
   const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? formatFeePercent(initial.mgmt_fee).replace("%", "") : "");
   const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? formatFeePercent(initial.incentive_fee).replace("%", "") : "");
   const [masterIbAccount, setMasterIbAccount] = useState(initial?.master_ib_account ?? "");
+  const { options: masterOptions, loading: mastersLoading } = useIbAccountRegistry();
   const [requiredBooks, setRequiredBooks] = useState<BookCode[]>(
     initial?.required_books?.length ? canonicalBooks(initial.required_books) : ["dt"],
   );
@@ -313,7 +315,7 @@ export function CreateModelForm({
       nav_perf: navPerf.trim() || undefined,
       mgmt_fee: mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee),
       incentive_fee: incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee),
-      master_ib_account: masterIbAccount.trim() === "" ? null : normalizeIbAccount(masterIbAccount),
+      master_ib_account: masterIbAccount === "" ? null : masterIbAccount,
       required_books: canonicalBooks(requiredBooks),
     });
   };
@@ -354,17 +356,12 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <RequiredBooksField value={requiredBooks} onChange={setRequiredBooks} />
         </div>
-        <div>
-          <CreateField
-            label="Master IB Account"
-            value={masterIbAccount}
-            onChange={setMasterIbAccount}
-            placeholder="e.g. U1234567"
-          />
-          {masterIbAccount.trim() !== "" && !isValidIbAccount(masterIbAccount) && (
-            <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
-          )}
-        </div>
+        <MasterAccountField
+          value={masterIbAccount}
+          onChange={setMasterIbAccount}
+          options={masterOptions}
+          loading={mastersLoading}
+        />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

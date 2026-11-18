@@ -52,6 +52,12 @@ export type ModelStatus = "live" | "draft";
 /** Book codes stored on a model. The UI renders the full names, never these codes. */
 export type BookCode = "dt" | "pt" | "inb";
 
+/** One configured master account and how many of its client accounts are unassigned. */
+export interface IbAccountOption {
+  master: string;
+  free_count: number;
+}
+
 /** One row of a model's symbol book (view shape). */
 export interface SymbolBookEntry {
   symbol: string;

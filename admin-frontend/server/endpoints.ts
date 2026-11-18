@@ -9,6 +9,7 @@ const ADMIN = "/api/admin";
 export const ENDPOINTS = {
   PM: {
     MODELS:              `${PM}/models`,
+    IB_ACCOUNT_REGISTRY: `${PM}/ib-account-registry`,
     MODEL:               (id: string) => `${PM}/models/${id}`,
     MATERIALS:           (id: string) => `${PM}/models/${id}/materials`,
     SYMBOLS:             (id: string) => `${PM}/models/${id}/symbols`,
