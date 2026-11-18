@@ -61,14 +61,6 @@ def _configured_masters() -> dict[str, list[str]]:
         masters[master] = unique
     return masters
 
-
-def _normalize_master(value: str | None) -> str | None:
-    """Blank form values become None; a set master is left as-is for registry checks."""
-    if value is None or value == "":
-        return None
-    return value
-
-
 def _canonical_books(books: list[str]) -> list[str]:
     present = set(books)
     return [code for code in _BOOK_ORDER if code in present]
@@ -200,15 +192,8 @@ class ModelService:
         master_ib_account: str | None = None,
         required_books: list[str] | None = None,
     ) -> Model:
-        master_ib_account = _normalize_master(master_ib_account)
-        if (
-            master_ib_account is not None
-            and master_ib_account not in _configured_masters()
-        ):
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                _MASTER_UNKNOWN,
-            )
+        if master_ib_account and master_ib_account not in _configured_masters():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, _MASTER_UNKNOWN)
         model = self.repo.create(
             name=name,
             category=category,
@@ -244,6 +229,86 @@ class ModelService:
         self.db.refresh(model)
         return model
 
+    def _apply_symbol_updates(
+        self,
+        model: Model,
+        updates: dict[str, Any],
+        *,
+        actor: str | None,
+    ) -> None:
+        # Symbols are a relationship, not a scalar — handle separately so the
+        # setattr loop in repo.update() doesn't clobber the collection with a
+        # raw list of SymbolIn. Bulk set here never hard-deletes: a symbol
+        # dropped from the form is deactivated (row + audit trail preserved).
+        if "symbols" not in updates:
+            return
+        if updates["symbols"] is None:
+            # explicit None sent — treat as no-op for symbols
+            updates.pop("symbols")
+            return
+
+        new_symbols = updates.pop("symbols")
+        new_set = {
+            (s["symbol"] if isinstance(s, dict) else s.symbol) for s in new_symbols
+        }
+        existing_by_symbol = {s.symbol: s for s in model.symbols}
+
+        for symbol, row in existing_by_symbol.items():
+            if symbol not in new_set and row.active:
+                row.active = False
+                self._log_symbol(
+                    model.id, symbol, SymbolAuditOp.DEACTIVATED,
+                    note="Deactivated", actor=actor, version=model.version,
+                )
+                self._log_symbol_change(
+                    model.id, symbol, "deactivated", actor=actor, version=model.version
+                )
+
+        for symbol in new_set - existing_by_symbol.keys():
+            model.symbols.append(ModelSymbol(symbol=symbol, active=True))
+            self._log_symbol(
+                model.id, symbol, SymbolAuditOp.ADDED,
+                note="Added to universe", actor=actor, version=model.version,
+            )
+            self._log_symbol_change(
+                model.id, symbol, "added", actor=actor, version=model.version
+            )
+
+    def _apply_required_books_updates(
+        self, model: Model, updates: dict[str, Any]
+    ) -> None:
+        if "required_books" not in updates:
+            return
+        requested = updates["required_books"]
+        if model.status == ModelStatus.LIVE:
+            stored = _canonical_books(list(model.required_books or []))
+            incoming = _canonical_books(list(requested or []))
+            if incoming != stored:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    "Books can't change once a model is live.",
+                )
+            updates.pop("required_books")
+        elif not requested:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Select one to three books.",
+            )
+        else:
+            updates["required_books"] = _canonical_books(requested)
+
+    def _apply_master_ib_account_updates(
+        self, model: Model, updates: dict[str, Any]
+    ) -> None:
+        if "master_ib_account" not in updates:
+            return
+        requested_master = updates.get("master_ib_account", None)
+        stored_master = model.master_ib_account
+        if model.status == ModelStatus.LIVE and requested_master != stored_master:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Master IB account can't change once a model is live.")
+        if requested_master is not None and requested_master not in _configured_masters():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, _MASTER_UNKNOWN)
+
     def edit_model(
         self,
         model_id: uuid.UUID,
@@ -253,74 +318,9 @@ class ModelService:
     ) -> Model:
         model = self.get_model(model_id)
 
-        # Symbols are a relationship, not a scalar — handle separately so the
-        # setattr loop in repo.update() doesn't clobber the collection with a
-        # raw list of SymbolIn. Bulk set here never hard-deletes: a symbol
-        # dropped from the form is deactivated (row + audit trail preserved).
-        if "symbols" in updates and updates["symbols"] is not None:
-            new_symbols = updates.pop("symbols")
-            new_set = {
-                (s["symbol"] if isinstance(s, dict) else s.symbol) for s in new_symbols
-            }
-            existing_by_symbol = {s.symbol: s for s in model.symbols}
-
-            for symbol, row in existing_by_symbol.items():
-                if symbol not in new_set and row.active:
-                    row.active = False
-                    self._log_symbol(
-                        model_id, symbol, SymbolAuditOp.DEACTIVATED,
-                        note="Deactivated", actor=actor, version=model.version,
-                    )
-                    self._log_symbol_change(model_id, symbol, "deactivated", actor=actor, version=model.version)
-
-            for symbol in new_set - existing_by_symbol.keys():
-                model.symbols.append(ModelSymbol(symbol=symbol, active=True))
-                self._log_symbol(
-                    model_id, symbol, SymbolAuditOp.ADDED,
-                    note="Added to universe", actor=actor, version=model.version,
-                )
-                self._log_symbol_change(model_id, symbol, "added", actor=actor, version=model.version)
-        elif "symbols" in updates:
-            # explicit None sent — treat as no-op for symbols
-            updates.pop("symbols")
-
-        if "required_books" in updates:
-            requested = updates["required_books"]
-            if model.status == ModelStatus.LIVE:
-                stored = _canonical_books(list(model.required_books or []))
-                incoming = _canonical_books(list(requested or []))
-                if incoming != stored:
-                    raise HTTPException(
-                        status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        "Books can't change once a model is live.",
-                    )
-                updates.pop("required_books")
-            elif not requested:
-                raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    "Select one to three books.",
-                )
-            else:
-                updates["required_books"] = _canonical_books(requested)
-
-        if "master_ib_account" in updates:
-            requested_master = _normalize_master(updates["master_ib_account"])
-            updates["master_ib_account"] = requested_master
-            stored_master = model.master_ib_account
-            if model.status == ModelStatus.LIVE and requested_master != stored_master:
-                raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    "Master IB account can't change once a model is live.",
-                )
-            if (
-                requested_master is not None
-                and requested_master != stored_master
-                and requested_master not in _configured_masters()
-            ):
-                raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    _MASTER_UNKNOWN,
-                )
+        self._apply_symbol_updates(model, updates, actor=actor)
+        self._apply_required_books_updates(model, updates)
+        self._apply_master_ib_account_updates(model, updates)
 
         # Diff tracked fields before applying update.
         changed_fields = []
