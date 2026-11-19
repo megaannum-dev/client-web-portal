@@ -123,7 +123,7 @@ export interface FeeBreakdown {
  * PER-UNIT model size (account fund = units × size). `masterIb` is the
  * model's own master IB account (shared across every client holding it) —
  * distinct from a client's dedicated per-(client, model) account, which
- * lives on `AllocationCell.clientIb`.
+ * lives on `AllocationCell.accounts`.
  */
 export interface AllocationModel {
   id: string;
@@ -131,6 +131,7 @@ export interface AllocationModel {
   size: number;
   live: boolean;
   masterIb: string | null;
+  requiredBooks: BookCode[];
 }
 
 /** A client (row) in the allocation matrix. */
@@ -140,13 +141,18 @@ export interface AllocationClient {
 }
 
 /**
- * One cell of the allocation matrix. `clientIb` is this client's IB
- * account dedicated to this specific model (per-(client, model) grain) —
- * not a client-wide account.
+ * One cell of the allocation matrix. `accounts` is one IB account per book
+ * the model requires, ordered dt, pt, inb. A missing account is null.
+ * Units stay one pooled number.
  */
+export interface AllocationBookAccount {
+  book: BookCode;
+  account: string | null;
+}
+
 export interface AllocationCell {
   units: number;
-  clientIb: string | null;
+  accounts: AllocationBookAccount[];
 }
 
 /** Sparse allocation grid keyed `"${clientId}-${modelId}"`. */
@@ -232,8 +238,8 @@ export interface AllocationCellDTO {
   units: number;
   /** Precomputed: units × model_size (BE-5). */
   fund: number;
-  /** client_ib_accounts.ib_account for this (client, model) pair. */
-  client_ib: string | null;
+  /** Current accounts for the model's required books, ordered dt, pt, inb. */
+  accounts: { book: BookCode; account: string | null }[];
 }
 
 /** One model column in the allocation matrix payload. */
@@ -246,8 +252,10 @@ export interface AllocationModelDTO {
   col_units: number;
   /** Sum of fund across all clients (precomputed, BE-5). */
   col_fund: number;
-  /** models.master_ib_account — always null on confirmed (snapshot) views. */
+  /** models.master_ib_account — on open and confirmed views. */
   master_ib: string | null;
+  /** Book codes the model requires, ordered dt, pt, inb. */
+  required_books: BookCode[];
 }
 
 /** One client row in the allocation matrix payload. */

@@ -14,7 +14,7 @@ export function HowToRead({ view }: { view: Toggle }) {
   const rows: [typeof Rows3, string, string][] = [
     [Rows3, "Each row", "one client — name"],
     [Columns3, "Each column", "one live model — name, master IB account & size per unit"],
-    [Grid3x3, "Each cell", (view === "pct" ? "the client’s share of that model" : "units the client holds of that model") + ", plus that client’s dedicated IB account for this model"],
+    [Grid3x3, "Each cell", (view === "pct" ? "the client’s share of that model" : "units the client holds of that model") + ", plus that client’s dedicated account for each of the model’s books."],
   ];
   return (
     <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-1.5 px-1 text-[12px] text-outline">

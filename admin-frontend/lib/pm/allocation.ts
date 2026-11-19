@@ -53,6 +53,7 @@ export function mapDtoToAllocationView(dto: AllocationDTO): AllocationView {
     size: m.model_size,
     live: m.live,
     masterIb: m.master_ib,
+    requiredBooks: m.required_books ?? [],
   }));
 
   const clients: AllocationClient[] = dto.clients.map((c) => ({
@@ -62,7 +63,7 @@ export function mapDtoToAllocationView(dto: AllocationDTO): AllocationView {
 
   const alloc: AllocationMap = {};
   for (const [key, cell] of Object.entries(dto.cells)) {
-    alloc[key] = { units: cell.units, clientIb: cell.client_ib };
+    alloc[key] = { units: cell.units, accounts: cell.accounts ?? [] };
   }
 
   const periods: Period[] = dto.periods.map((p) => ({
