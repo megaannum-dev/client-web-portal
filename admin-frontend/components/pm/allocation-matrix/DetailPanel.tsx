@@ -67,7 +67,7 @@ export function DetailPanel({
             {cell.accounts.map((row) => (
               <Fact
                 key={row.book}
-                label={<BookChip code={row.book} />}
+                label={<BookChip code={row.book} is_full_label={true} />}
                 value={row.account ?? "—"}
                 sub="dedicated"
               />

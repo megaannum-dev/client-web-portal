@@ -1,6 +1,8 @@
 "use client";
 
 import type { BookCode } from "@/lib/pm/types";
+import { BOOK_LABEL } from "../pm/model-management/BookChips";
+
 
 /** Short labels for this page. Codes stay dt, pt, inb. INB is Investment Book. */
 export const BOOK_CHIP: Record<BookCode, string> = {
@@ -11,10 +13,10 @@ export const BOOK_CHIP: Record<BookCode, string> = {
 
 export const BOOK_ORDER: BookCode[] = ["dt", "pt", "inb"];
 
-export function BookChip({ code }: { code: BookCode }) {
+export function BookChip({ code, is_full_label = false }: { code: BookCode, is_full_label?: boolean }) {
   return (
     <span className="inline-flex shrink-0 items-center rounded-[6px] bg-primary px-1.5 py-[2px] text-[10px] font-bold tracking-[0.04em] text-white">
-      {BOOK_CHIP[code]}
+      {is_full_label ? BOOK_LABEL[code] : BOOK_CHIP[code]}
     </span>
   );
 }

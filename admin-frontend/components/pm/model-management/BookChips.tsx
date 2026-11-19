@@ -4,7 +4,7 @@ import { Lock } from "@/lib/icons";
 import type { BookCode } from "@/lib/pm/types";
 
 /** Display order. Codes stay in state; only the full names are rendered. */
-const BOOK_LABEL: Record<BookCode, string> = {
+export const BOOK_LABEL: Record<BookCode, string> = {
   dt: "Day Trade",
   pt: "Position Trade",
   inb: "Investment Book",

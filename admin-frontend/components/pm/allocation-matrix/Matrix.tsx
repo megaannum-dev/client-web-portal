@@ -99,13 +99,6 @@ export function Matrix({
                   <div className="mt-0.5 text-[11px] font-semibold normal-case tracking-[0.02em] text-secondary">
                     {fmtMoneyShort(m.size)} / unit
                   </div>
-                  {m.requiredBooks.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {m.requiredBooks.map((code) => (
-                        <BookChip key={code} code={code} />
-                      ))}
-                    </div>
-                  )}
                 </th>
               ))}
             </tr>
