@@ -195,6 +195,27 @@ def test_transaction_with_no_accounts_is_an_empty_list(db):
     assert dto.accounts == []
 
 
+def test_eight_digit_accounts_submit_for_every_required_book(db, monkeypatch):
+    monkeypatch.setenv(
+        "IB_ACCOUNTS",
+        json.dumps({"F1234567": ["U17828576", "U18018569", "U17935787"]}),
+    )
+    get_settings.cache_clear()
+    client = _client(db)
+    model = _model(db, ["dt", "pt", "inb"], master="F1234567")
+    dto = _subscribe(
+        db,
+        client,
+        model,
+        {"dt": "U17828576", "pt": "U18018569", "inb": "U17935787"},
+    )
+    assert [(row.book, row.account) for row in dto.accounts] == [
+        ("dt", "U17828576"),
+        ("pt", "U18018569"),
+        ("inb", "U17935787"),
+    ]
+
+
 def test_free_accounts_are_the_unassigned_pool(db):
     client = _client(db)
     model = _model(db, ["dt"])

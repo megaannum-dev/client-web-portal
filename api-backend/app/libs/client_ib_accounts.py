@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.models.pm import ClientIbAccount
 
-_IB_FORMAT = re.compile(r"^U[A-Z0-9]{7}$")
+_IB_FORMAT = re.compile(r"^U[A-Z0-9]{7,8}$")
 BOOKS = ("dt", "pt", "inb")
 
 
@@ -83,7 +83,7 @@ def check(
     if not _IB_FORMAT.match(account):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "IB account must be the letter U followed by 7 letters or digits, e.g. U1234567",
+            "IB account must be the letter U followed by 7 or 8 letters or digits, e.g. U1234567",
         )
     held_by = owner_of(db, account)
     if held_by is not None and held_by != (user_id, model_id, book):

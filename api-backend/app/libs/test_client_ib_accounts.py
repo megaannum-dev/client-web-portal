@@ -79,6 +79,20 @@ def test_global_uniqueness_clash(db):
     assert other_book.value.status_code == 409
 
 
+def test_eight_digit_account_passes_and_other_lengths_do_not(db):
+    user_id, model_id = uuid.uuid4(), uuid.uuid4()
+    assert (
+        client_ib_accounts.check(
+            db, "u17828576", book="dt", user_id=user_id, model_id=model_id
+        )
+        == "U17828576"
+    )
+    for bad in ("U123456", "U123456789", "U17828576U18018569"):
+        with pytest.raises(HTTPException) as exc:
+            client_ib_accounts.check(db, bad, book="dt")
+        assert exc.value.status_code == 422
+
+
 def test_different_account_for_a_stored_book_is_rejected(db):
     user_id, model_id = uuid.uuid4(), uuid.uuid4()
     client_ib_accounts.ensure(
