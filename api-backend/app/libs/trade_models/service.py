@@ -51,14 +51,7 @@ def _configured_masters() -> dict[str, list[str]]:
     """IB_ACCOUNTS as {master: unique client accounts}. Empty dict is no masters."""
     masters: dict[str, list[str]] = {}
     for master, accounts in (get_settings().ib_accounts or {}).items():
-        seen: set[str] = set()
-        unique: list[str] = []
-        for account in accounts:
-            if account in seen:
-                continue
-            seen.add(account)
-            unique.append(account)
-        masters[master] = unique
+        masters[master] = list(set(accounts))
     return masters
 
 def _canonical_books(books: list[str]) -> list[str]:
