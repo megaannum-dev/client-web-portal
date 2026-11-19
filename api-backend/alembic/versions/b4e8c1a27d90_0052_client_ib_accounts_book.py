@@ -26,6 +26,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    insp = sa.inspect(op.get_bind())
+    if any(col["name"] == "book" for col in insp.get_columns("client_ib_accounts")):
+        return
+
     op.add_column(
         "client_ib_accounts",
         sa.Column("book", sa.String(length=3), nullable=True),
@@ -42,7 +46,7 @@ def upgrade() -> None:
         "ADD INDEX ix_client_ib_accounts_user_id (user_id), "
         "DROP PRIMARY KEY, "
         "ADD PRIMARY KEY (user_id, model_id, book), "
-        "DROP INDEX ix_client_ib_accounts_user_id"
+        "DROP INDEX IF EXISTS ix_client_ib_accounts_user_id"
     )
     op.execute(
         "ALTER TABLE client_ib_accounts "
@@ -52,8 +56,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    insp = sa.inspect(op.get_bind())
+    if not any(col["name"] == "book" for col in insp.get_columns("client_ib_accounts")):
+        return
+
     op.execute(
-        "ALTER TABLE client_ib_accounts DROP CONSTRAINT ck_client_ib_accounts_book"
+        "ALTER TABLE client_ib_accounts DROP CONSTRAINT IF EXISTS ck_client_ib_accounts_book"
     )
     # Rows added for pt/inb have no home in the old (user_id, model_id) key.
     # The dt row is the one this migration backfilled, so it is the one kept.
