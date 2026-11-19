@@ -9,7 +9,11 @@ Key schema:
 ETag formula (open matrix):
     sha1(f"{subs.max_updated_at}:{subs.count}|"
          f"{models.max_updated_at}:{models.live_count}|"
-         f"{clients.max_updated_at}:{clients.count}")[:16]
+         f"{clients.max_updated_at}:{clients.count}|"
+         f"{accounts.max_updated_at}:{accounts.count}")[:16]
+
+Confirmed cache keys are `{period_id}|{accounts watermark}|{models watermark}`
+so a reassign or a master-account edit misses. Units stay on the snapshot.
 """
 
 from __future__ import annotations
@@ -20,7 +24,7 @@ import time
 from typing import Any
 
 _OPEN_TTL = 300  # seconds — safety net; correctness comes from ETag checks
-_CONFIRMED_TTL = 86_400 * 7  # 7 days — confirmed periods are immutable
+_CONFIRMED_TTL = 86_400 * 7  # 7 days — units are frozen; the key includes account freshness
 
 
 class AllocationCache:
@@ -60,12 +64,13 @@ class AllocationCache:
             self._store.clear()
 
     @staticmethod
-    def compute_open_etag(subs: Any, models: Any, clients: Any) -> str:
-        """Derive ETag from the three watermark probes."""
+    def compute_open_etag(subs: Any, models: Any, clients: Any, accounts: Any) -> str:
+        """Derive ETag from the watermark probes, including client IB accounts."""
         raw = (
             f"{subs.max_updated_at}:{subs.count}|"
             f"{models.max_updated_at}:{models.count}|"
-            f"{clients.max_updated_at}:{clients.count}"
+            f"{clients.max_updated_at}:{clients.count}|"
+            f"{accounts.max_updated_at}:{accounts.count}"
         )
         return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
@@ -90,5 +95,5 @@ def put_confirmed(period_id: str, value: Any) -> None:
     _cache.put_confirmed(period_id, value)
 
 
-def compute_open_etag(subs: Any, models: Any, clients: Any) -> str:
-    return _cache.compute_open_etag(subs, models, clients)
+def compute_open_etag(subs: Any, models: Any, clients: Any, accounts: Any) -> str:
+    return _cache.compute_open_etag(subs, models, clients, accounts)

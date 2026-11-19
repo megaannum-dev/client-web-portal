@@ -147,29 +147,30 @@ class MatrixReadRepository:
         """
         UNION ALL: subscription cells (LIVE models only) + client roster.
         Returns raw Row objects with fields:
-          row_kind, user_id, model_id, multiplier, model_size, client_ib,
+          row_kind, user_id, model_id, multiplier, model_size, book, client_ib,
           name, email
 
-        client_ib (the CLIENT's account for one MODEL, not the model's own
-        master account) is only well-defined at (user_id, model_id) grain
-        (client_ib_accounts, composite PK) — the 'cell' branch LEFT JOINs the
-        day-trade row so several books stay one cell and the unit math does
-        not change; the 'client' roster branch has no model_id, so it always
-        reports NULL.
+        The cell branch LEFT JOINs every client_ib_accounts row for that
+        client and model (books dt, pt, inb — not only dt). One subscription
+        can therefore emit several rows that share the same multiplier.
+        _build_matrix keeps units as that single multiplier and collects the
+        book rows. The roster branch has no model, so book and client_ib
+        are NULL.
         """
         sql = text("""
             SELECT 'cell'   AS row_kind,
                    cs.user_id, cs.model_id, cs.multiplier, m.model_size,
+                   cia.book AS book,
                    cia.ib_account AS client_ib, NULL AS name, NULL AS email
               FROM client_subscriptions cs
               JOIN models          m  ON m.id = cs.model_id AND m.status = 'live'
               LEFT JOIN client_ib_accounts cia
                      ON cia.user_id = cs.user_id AND cia.model_id = cs.model_id
-                    AND cia.book = 'dt'
             UNION ALL
             SELECT 'client' AS row_kind,
                    u.id     AS user_id, NULL AS model_id, NULL AS multiplier,
-                   NULL     AS model_size, NULL AS client_ib, cp.name, u.email
+                   NULL     AS model_size, NULL AS book, NULL AS client_ib,
+                   cp.name, u.email
               FROM users u
               JOIN client_profiles cp ON cp.user_id = u.id
              WHERE u.portal = 'client'
@@ -180,24 +181,33 @@ class MatrixReadRepository:
         """
         LIVE models with pre-aggregated col_units / col_fund.
         Returns raw Row objects with fields:
-          id, name, model_size, master_ib, col_units, col_fund
+          id, name, model_size, master_ib, required_books, col_units, col_fund
+
+        required_books is the model's book list (dt, pt, inb). The aggregate
+        does not join client_ib_accounts, so column units stay one sum of
+        subscription multipliers.
         """
         sql = text("""
             SELECT m.id, m.name, m.model_size,
                    m.master_ib_account AS master_ib,
+                   m.required_books AS required_books,
                    COALESCE(SUM(cs.multiplier), 0)                AS col_units,
                    COALESCE(SUM(cs.multiplier * m.model_size), 0) AS col_fund
               FROM models m
               LEFT JOIN client_subscriptions cs ON cs.model_id = m.id
              WHERE m.status = 'live'
-             GROUP BY m.id, m.name, m.model_size, m.master_ib_account
+             GROUP BY m.id, m.name, m.model_size, m.master_ib_account, m.required_books
         """)
         return self.db.execute(sql).fetchall()
 
     def combined_watermarks(self) -> dict:
         """
-        Three (max_updated_at, count) probes in one round-trip.
-        Returns dict with keys: subs, models, clients — each a _WatermarkResult.
+        Four (max_updated_at, count) probes in one round-trip.
+        Returns dict with keys: subs, models, clients, accounts — each a _WatermarkResult.
+
+        `accounts` is client_ib_accounts. A reassign does not touch the
+        subscription or the snapshot, so the open ETag and the confirmed
+        cache key both have to see it.
         """
         sql = text("""
             SELECT
@@ -206,11 +216,14 @@ class MatrixReadRepository:
               (SELECT MAX(updated_at) FROM models WHERE status = 'live') AS models_max,
               (SELECT COUNT(*)        FROM models WHERE status = 'live') AS models_cnt,
               (SELECT MAX(updated_at) FROM client_profiles)      AS clients_max,
-              (SELECT COUNT(*)        FROM client_profiles)      AS clients_cnt
+              (SELECT COUNT(*)        FROM client_profiles)      AS clients_cnt,
+              (SELECT MAX(updated_at) FROM client_ib_accounts)   AS accounts_max,
+              (SELECT COUNT(*)        FROM client_ib_accounts)   AS accounts_cnt
         """)
         row = self.db.execute(sql).one()
         return {
-            "subs":    _WatermarkResult(row.subs_max,    row.subs_cnt    or 0),
-            "models":  _WatermarkResult(row.models_max,  row.models_cnt  or 0),
-            "clients": _WatermarkResult(row.clients_max, row.clients_cnt or 0),
+            "subs":     _WatermarkResult(row.subs_max,     row.subs_cnt     or 0),
+            "models":   _WatermarkResult(row.models_max,   row.models_cnt   or 0),
+            "clients":  _WatermarkResult(row.clients_max,  row.clients_cnt  or 0),
+            "accounts": _WatermarkResult(row.accounts_max, row.accounts_cnt or 0),
         }
