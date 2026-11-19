@@ -108,7 +108,7 @@ class ClientService:
         dto = self._to_dto(row)
         subs = self.repo.list_subscriptions(client_id)
         dto.subscriptions = [
-            SubscriptionOut(model=s.model, status=s.status, client_ib=s.client_ib) for s in subs
+            SubscriptionOut(model=s.model, status=s.status, accounts=s.accounts) for s in subs
         ]
         portfolio = self.repo.get_portfolio(client_id)
         if portfolio is not None:

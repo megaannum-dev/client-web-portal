@@ -136,3 +136,31 @@ describe("FE-4 invariant: Account Balance card is untouched", () => {
     expect(screen.getByText("Total Portfolio Value")).toBeInTheDocument();
   });
 });
+
+
+describe("Linked Account cell stacks every assigned book", () => {
+  it("renders DT, PT, and INB accounts for a model that has all three", () => {
+    mockClient(baseRow({
+      subscriptions: [
+        {
+          model: "Diversified",
+          status: "live",
+          accounts: [
+            { book: "dt", account: "U17828576" },
+            { book: "pt", account: "U18018569" },
+            { book: "inb", account: "U17935787" },
+          ],
+        },
+        { model: "Zero", status: "live", accounts: [{ book: "dt", account: "U1111111" }] },
+      ],
+    }));
+    render(<ClientDetailPage />);
+    expect(screen.getByText("U17828576")).toBeInTheDocument();
+    expect(screen.getByText("U18018569")).toBeInTheDocument();
+    expect(screen.getByText("U17935787")).toBeInTheDocument();
+    expect(screen.getByText("U1111111")).toBeInTheDocument();
+    expect(screen.getAllByText("DT")).toHaveLength(2);
+    expect(screen.getByText("PT")).toBeInTheDocument();
+    expect(screen.getByText("INB")).toBeInTheDocument();
+  });
+});

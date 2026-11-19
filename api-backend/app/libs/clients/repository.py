@@ -5,12 +5,13 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.core.config import FULL_VISIBILITY_ROLES
+from app.libs import client_ib_accounts
 from app.models.onboarding import ClientOnboarding
-from app.models.pm import ClientIbAccount, ClientSubscription, Model, ModelStatus
+from app.models.pm import ClientSubscription, Model, ModelStatus
 from app.models.post_trade_allocation import ClientPortfolio
 from app.models.users import AdminProfile, AdminRole, ClientProfile, Portal, User
 
@@ -59,14 +60,13 @@ class ClientRow:
 
 @dataclass(frozen=True)
 class SubscriptionRow:
-    """One client_subscriptions row joined to its model — `client_ib` is the
-    client's IB account for THAT model, read from client_ib_accounts on
-    (user_id, model_id). Nullable: a subscription whose (client, model) pair
-    has no account row yet still lists, with client_ib=None."""
+    """One client_subscriptions row joined to its model. `accounts` is every
+    stored client_ib_accounts row for that pair, ordered dt, pt, inb. Empty
+    when none are stored."""
 
     model: str
     status: str
-    client_ib: str | None
+    accounts: list[dict[str, str]]
 
 
 class ClientRepository:
@@ -167,12 +167,8 @@ class ClientRepository:
 
     def list_subscriptions(self, client_id: uuid.UUID) -> list[SubscriptionRow]:
         rows = (
-            self.db.query(Model.name, Model.status, ClientIbAccount.ib_account)
+            self.db.query(Model.id, Model.name, Model.status)
             .join(ClientSubscription, ClientSubscription.model_id == Model.id)
-            .outerjoin(
-                ClientIbAccount,
-                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == client_id, ClientIbAccount.book == "dt"),
-            )
             .filter(
                 ClientSubscription.user_id == client_id,
                 Model.status != ModelStatus.DELETED,
@@ -180,7 +176,13 @@ class ClientRepository:
             .all()
         )
         return [
-            SubscriptionRow(model=r.name, status=r.status.value, client_ib=r.ib_account)
+            SubscriptionRow(
+                model=r.name,
+                status=r.status.value,
+                accounts=client_ib_accounts.assigned_for(
+                    self.db, user_id=client_id, model_id=r.id
+                ),
+            )
             for r in rows
         ]
 
