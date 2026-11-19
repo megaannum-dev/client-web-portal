@@ -22,7 +22,8 @@ export interface StartOnboardingReq {
   client_name: string; email: string; primary_phone: string;
   address: string; country_of_residence: string;
   id_type: string; id_number: string;
-  client_ib: string; sw_account: string;
+  accounts: Record<string, string>;
+  sw_account: string;
   model_id: string; units: number;
   initial_cash_deposit: number;              // Decimal-as-number, see BE-8
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
@@ -59,6 +60,7 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   primary_phone: string; address: string; country_of_residence: string;   // joined from ClientProfile, not duplicated onto client_onboardings
   id_type: string; id_number: string;                          // genuinely new columns on client_onboardings (D-9)
   client_ib: string; sw_account: string;                       // already existed on client_onboardings; this widening only adds them to the DTO
+  accounts: BookAccount[];             // ordered dt, pt, inb; empty when none are stored
   status: OnboardingStatus; kind: OnboardingKind;
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
@@ -193,6 +195,7 @@ export interface KycBoardClient {
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhkAccount: string; swAccount: string;
+  accounts: BookAccount[];
   status: OnboardingStatus;
   /** "renewal" once an approved client is reopened (renewal or reprovision). */
   kind?: OnboardingKind;
@@ -209,6 +212,7 @@ export interface AdminOnboardingRow {
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhk: string; silverwate: string;
+  accounts: BookAccount[];
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
   complNote: string | null;

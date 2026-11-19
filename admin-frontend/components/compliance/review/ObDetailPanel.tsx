@@ -8,6 +8,7 @@ import { DetailShell, Fact, Notice, SectionLabel, ObStatusChip } from "@/compone
 import { useCanEdit } from "@/hooks/usePageAccess";
 import { todayLabel } from "@/lib/admin/today";
 import type { AdminOnboardingRow, DocumentDTO, DocVerdict } from "@/lib/onboarding/types";
+import { BookChip } from "@/components/rm/BookAccountStack";
 
 /** decidedAt is a raw ISO instant off the wire; the design shows "07 Jul 2026".
  *  todayLabel is a pure Date -> "dd Mon yyyy" formatter despite its name, so
@@ -163,7 +164,20 @@ export function ObDetailPanel({
       <div className="grid grid-cols-2 gap-[11px]">
         <Fact k="Email" v={o.email} vSize={13} />
         <Fact k="Phone" v={o.phone} vSize={13} />
-        <Fact k="IBHK Account" v={o.ibhk} vSize={14} />
+        <Fact
+          k="Accounts"
+          vSize={14}
+          v={(o.accounts ?? []).length === 0 ? "—" : (
+            <span className="flex flex-col items-start gap-1">
+              {(o.accounts ?? []).map((row) => (
+                <span key={row.book} className="inline-flex items-center gap-1.5">
+                  <BookChip code={row.book} />
+                  <span className="tabular-nums">{row.account}</span>
+                </span>
+              ))}
+            </span>
+          )}
+        />
         <Fact k="Silverwate Account" v={o.silverwate} vSize={14} />
       </div>
       <div className="mt-5">
