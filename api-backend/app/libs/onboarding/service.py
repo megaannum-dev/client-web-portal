@@ -33,6 +33,7 @@ from app.libs.onboarding.schemas import (
     RedemptionDecisionReq,
     ReprovisionReq,
     ResubmitReq,
+    BookAccount,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
@@ -192,8 +193,11 @@ class OnboardingService:
             )
         # Same reason: create_cycle -> client_ib_accounts.ensure would raise on
         # a duplicate/malformed account only AFTER the client exists. This is
-        # the pre-flight; ensure() re-checks at the real write.
-        client_ib_accounts.check(self.db, req.client_ib, book="dt")
+        # the pre-flight; ensure() re-checks at the real write. user_id is
+        # still unknown, so a stored account cannot be treated as this client's.
+        chosen = self._validate_subscription_accounts(
+            user_id=None, model=model, accounts=req.accounts
+        )
 
         client_service = ClientService(self.db)
         staged_user, _invite_link = client_service.onboard(
@@ -224,7 +228,7 @@ class OnboardingService:
                 units=req.units,
                 mgmt_fee=req.mgmt_fee,
                 incentive_fee=req.incentive_fee,
-                client_ib=req.client_ib,
+                accounts=dict(chosen),
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
@@ -702,16 +706,17 @@ class OnboardingService:
             free.append(normalized)
         return free
 
-    def _bind_new_subscription_accounts(
+    def _validate_subscription_accounts(
         self,
         *,
-        user_id: uuid.UUID,
+        user_id: uuid.UUID | None,
         model: Model,
         accounts: dict[str, str] | None,
-    ) -> None:
-        """Write one permanent account per required book. The set must match
-        the model exactly. A resubscribe that finds the same account already
-        stored inherits it; a different account for that book is a 409."""
+    ) -> list[tuple[str, str]]:
+        """Check one account per required book without writing. The set must
+        match the model exactly. Pass user_id when the client already exists
+        so a resubscribe can re-assert its own account; a new onboarding has
+        no user yet, so any stored account is a conflict."""
         from app.libs.trade_models.service import _configured_masters
 
         stored = list(model.required_books or [])
@@ -765,6 +770,21 @@ class OnboardingService:
                 )
             seen.add(account)
             chosen.append((book, account))
+        return chosen
+
+    def _bind_new_subscription_accounts(
+        self,
+        *,
+        user_id: uuid.UUID,
+        model: Model,
+        accounts: dict[str, str] | None,
+    ) -> None:
+        """Write one permanent account per required book. The set must match
+        the model exactly. A resubscribe that finds the same account already
+        stored inherits it; a different account for that book is a 409."""
+        chosen = self._validate_subscription_accounts(
+            user_id=user_id, model=model, accounts=accounts
+        )
         for book, account in chosen:
             client_ib_accounts.ensure(
                 self.db,
@@ -1363,6 +1383,12 @@ class OnboardingService:
             id_type=onboarding.id_type,
             id_number=onboarding.id_number,
             client_ib=display.client_ib or "",
+            accounts=[
+                BookAccount(book=row["book"], account=row["account"])
+                for row in client_ib_accounts.assigned_for(
+                    self.db, user_id=onboarding.user_id, model_id=onboarding.model_id
+                )
+            ],
             sw_account=onboarding.sw_account or "",
             status=onboarding.status.value,
             kind=onboarding.kind.value,

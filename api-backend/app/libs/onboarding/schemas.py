@@ -35,7 +35,8 @@ class StartOnboardingReq(BaseModel):
     country_of_residence: str
     id_type: str
     id_number: str
-    client_ib: str
+    # One account per required book (dt, pt, inb). The set must match the model.
+    accounts: dict[str, str]
     sw_account: str
     model_id: uuid.UUID
     units: Decimal  # -> onboarding.multiplier
@@ -113,9 +114,11 @@ class OnboardingDTO(BaseModel):
     country_of_residence: str  # joined from ClientProfile
     id_type: str  # -> client_onboardings.id_type
     id_number: str  # -> client_onboardings.id_number
-    # Sourced from client_ib_accounts.ib_account for (user_id, model_id), not
-    # from a client_onboardings column (dropped in migration 0034).
+    # Sourced from client_ib_accounts.ib_account for (user_id, model_id) book dt,
+    # not from a client_onboardings column (dropped in migration 0034).
     client_ib: str
+    # Every stored account for this client and model, ordered dt, pt, inb.
+    accounts: list[BookAccount] = []
     sw_account: str  # -> client_onboardings.sw_account
     status: OnboardingStatus
     kind: OnboardingKind

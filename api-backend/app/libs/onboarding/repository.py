@@ -77,7 +77,7 @@ class OnboardingRepository:
         units: Decimal,
         mgmt_fee: Decimal,
         incentive_fee: Decimal,
-        client_ib: str,
+        accounts: dict[str, str],
         sw_account: str,
         id_type: str,
         id_number: str,
@@ -86,10 +86,10 @@ class OnboardingRepository:
         onboarding_documents row per REQUIRED_DOCS entry, all not_started. No
         commit here -- caller's txn boundary (OnboardingService.start).
 
-        `client_ib` is NOT a client_onboardings column: client_ib_accounts is
-        the single home of a client's per-model IB account, so the value is
-        handed to client_ib_accounts.ensure() (create-if-absent, never a transfer)
-        instead of being duplicated onto this row."""
+        Accounts are NOT client_onboardings columns: client_ib_accounts is
+        the single home of a client's per-model IB account, so each required
+        book is handed to client_ib_accounts.ensure() (create-if-absent, never
+        a transfer) instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -102,9 +102,16 @@ class OnboardingRepository:
             id_number=id_number,
         )
         self.db.add(onboarding)
-        client_ib_accounts.ensure(
-            self.db, user_id=user_id, model_id=model_id, book="dt", account=client_ib
-        )
+        for book in client_ib_accounts.BOOKS:
+            if book not in accounts:
+                continue
+            client_ib_accounts.ensure(
+                self.db,
+                user_id=user_id,
+                model_id=model_id,
+                book=book,
+                account=accounts[book],
+            )
         self.db.flush()
         for spec in REQUIRED_DOCS:
             self.db.add(
