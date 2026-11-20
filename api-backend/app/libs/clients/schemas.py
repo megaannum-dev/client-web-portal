@@ -5,14 +5,17 @@ from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr
 
+from app.libs.onboarding.schemas import BookAccount
+
 
 class SubscriptionOut(BaseModel):
     """One client_subscriptions row joined to its model. status is the raw
-    ModelStatus value ("live" | "draft") — the frontend maps it to a label."""
+    ModelStatus value ("live" | "draft") — the frontend maps it to a label.
+    `accounts` is every stored IB account for this pair, ordered dt, pt, inb."""
 
     model: str
     status: str
-    client_ib: str | None  # client_ib_accounts.ib_account for (this client, this model)
+    accounts: list[BookAccount] = []
 
 
 class ClientListItemOut(BaseModel):

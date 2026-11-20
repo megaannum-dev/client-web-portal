@@ -38,17 +38,20 @@ describe("FE-4 allotmentToTxnRow carries status as the 10th element", () => {
   it.each([
     "pending", "acknowledged", "awaiting_pm", "awaiting_co", "approved", "rejected",
   ] as const)("a DTO with status=%s produces a TxnRow whose 10th element is that status", (status) => {
-    const row = allotmentToTxnRow(makeAllot({ status }), "IB-4471");
+    const row = allotmentToTxnRow(makeAllot({ status }));
     expect(row[9]).toBe(status);
   });
 
   it("the row still has its original 9 fields unchanged (append, not rewrite)", () => {
-    const row = allotmentToTxnRow(makeAllot({ kind: "allotment", units: 2, amount: 200_000 }), "IB-4471");
+    const row = allotmentToTxnRow(makeAllot({
+      kind: "allotment", units: 2, amount: 200_000,
+      accounts: [{ book: "dt", account: "IB-4471" }],
+    }));
     // 017/FE-3 appended dto.id (11th) and dto.has_transaction_detail (12th) after this
     // proposal's status element — 12 total, not 10.
-    expect(row).toHaveLength(12);
+    expect(row).toHaveLength(13);
     expect(row[0]).toBe("Allotment");
-    expect(row[2]).toBe("IB-4471");
+    expect(row[12]).toEqual([{ book: "dt", account: "IB-4471" }]);
   });
 });
 
@@ -57,7 +60,7 @@ describe("FE-4 netRow's 10th element is always '' (no chip on the Net row)", () 
     const { mapSubscriptionsToSubClients } = await import("@/lib/rm/subscriptions");
     const dto: ClientSubscriptionsDTO = {
       client_id: "c-1", client_name: "Ardent Capital",
-      subscriptions: [{ model_id: "m-1", model_name: "Balanced", units: 2, mgmt_fee: 0.015, incentive_fee: 0.2, client_ib: "IB-4471", amount: 200_000 }],
+      subscriptions: [{ model_id: "m-1", model_name: "Balanced", units: 2, mgmt_fee: 0.015, incentive_fee: 0.2, accounts: [{ book: "dt", account: "IB-4471" }], amount: 200_000 }],
     };
     const [client] = mapSubscriptionsToSubClients([dto], {});
     const netRow = client.models[0].rows[client.models[0].rows.length - 1];

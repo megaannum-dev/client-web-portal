@@ -31,7 +31,7 @@ import { SubscriptionFormModal } from "@/components/rm/SubscriptionFormModal";
 function makeSub(overrides: Partial<ClientSubscriptionsDTO["subscriptions"][number]> = {}): ClientSubscriptionsDTO["subscriptions"][number] {
   return {
     model_id: "m-1", model_name: "Balanced", units: 2,
-    mgmt_fee: 0.015, incentive_fee: 0.2, client_ib: "IB-4471", amount: 200_000,
+    mgmt_fee: 0.015, incentive_fee: 0.2, accounts: [{ book: "dt", account: "IB-4471" }], amount: 200_000,
     ...overrides,
   };
 }
@@ -67,9 +67,9 @@ describe("FE-6 initialsFromName", () => {
 
 describe("FE-6 allotmentToTxnRow", () => {
   it("an allotment DTO maps to the Allotment TxnRow shape (unsigned amount, positive multiplier, Expected Cash In populated)", () => {
-    const row = allotmentToTxnRow(makeAllot({ kind: "allotment", units: 2, amount: 200_000 }), "IB-4471");
+    const row = allotmentToTxnRow(makeAllot({ kind: "allotment", units: 2, amount: 200_000, accounts: [{ book: "dt", account: "IB-4471" }] }));
     expect(row[0]).toBe("Allotment");
-    expect(row[2]).toBe("IB-4471");
+    expect(row[12]).toEqual([{ book: "dt", account: "IB-4471" }]);
     expect(row[3]).toBe("USD");
     expect(row[5]).toBe("2×");
     expect(row[7]).not.toBe("—");   // Expected Cash In populated
@@ -77,7 +77,7 @@ describe("FE-6 allotmentToTxnRow", () => {
   });
 
   it("a redemption DTO maps to the parenthesized/negative-multiplier form with the last two columns swapped", () => {
-    const row = allotmentToTxnRow(makeAllot({ kind: "redemption", units: 1, amount: 100_000, expected_cash_in: "2026-07-01T00:00:00Z" }), "IB-4471");
+    const row = allotmentToTxnRow(makeAllot({ kind: "redemption", units: 1, amount: 100_000, expected_cash_in: "2026-07-01T00:00:00Z" }));
     expect(row[0]).toBe("Redemption");
     expect(row[4]).toMatch(/^\(.*\)$/);
     expect(row[5]).toBe("−1×");
@@ -85,9 +85,9 @@ describe("FE-6 allotmentToTxnRow", () => {
     expect(row[8]).not.toBe("—");   // Expected Redemption populated
   });
 
-  it("falls back to '—' for the IB account column when the client_ib account is null", () => {
-    const row = allotmentToTxnRow(makeAllot(), null);
-    expect(row[2]).toBe("—");
+  it("returns an empty account list when the transaction has no stored accounts", () => {
+    const row = allotmentToTxnRow(makeAllot({ accounts: [] }));
+    expect(row[12]).toEqual([]);
   });
 });
 

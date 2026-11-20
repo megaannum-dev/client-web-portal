@@ -77,7 +77,7 @@ class OnboardingRepository:
         units: Decimal,
         mgmt_fee: Decimal,
         incentive_fee: Decimal,
-        client_ib: str,
+        accounts: dict[str, str],
         sw_account: str,
         id_type: str,
         id_number: str,
@@ -86,10 +86,10 @@ class OnboardingRepository:
         onboarding_documents row per REQUIRED_DOCS entry, all not_started. No
         commit here -- caller's txn boundary (OnboardingService.start).
 
-        `client_ib` is NOT a client_onboardings column: client_ib_accounts is
-        the single home of a client's per-model IB account, so the value is
-        handed to client_ib_accounts.ensure() (create-if-absent, never a transfer)
-        instead of being duplicated onto this row."""
+        Accounts are NOT client_onboardings columns: client_ib_accounts is
+        the single home of a client's per-model IB account, so each required
+        book is handed to client_ib_accounts.ensure() (create-if-absent, never
+        a transfer) instead of being duplicated onto this row."""
         onboarding = ClientOnboarding(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -102,9 +102,16 @@ class OnboardingRepository:
             id_number=id_number,
         )
         self.db.add(onboarding)
-        client_ib_accounts.ensure(
-            self.db, user_id=user_id, model_id=model_id, account=client_ib
-        )
+        for book in client_ib_accounts.BOOKS:
+            if book not in accounts:
+                continue
+            client_ib_accounts.ensure(
+                self.db,
+                user_id=user_id,
+                model_id=model_id,
+                book=book,
+                account=accounts[book],
+            )
         self.db.flush()
         for spec in REQUIRED_DOCS:
             self.db.add(
@@ -237,7 +244,9 @@ class OnboardingRepository:
             approved_by=approved_by,
             client_ib=(
                 self.db.query(ClientIbAccount.ib_account)
-                .filter_by(user_id=onboarding.user_id, model_id=onboarding.model_id)
+                .filter_by(
+                    user_id=onboarding.user_id, model_id=onboarding.model_id, book="dt"
+                )
                 .scalar()
             ),
         )
@@ -475,7 +484,7 @@ class OnboardingRepository:
 
     def list_all_subscriptions(
         self,
-    ) -> list[tuple[ClientProfile, ClientSubscription, Model, str | None]]:
+    ) -> list[tuple[ClientProfile, ClientSubscription, Model]]:
         """014 D (BE-9): every (client profile, subscription, model) row,
         joined -- unfiltered by RM-book visibility (the SERVICE layer applies
         that via ClientRepository.list_visible).
@@ -491,16 +500,9 @@ class OnboardingRepository:
         counterexample: those two ARE safe to filter here because nothing
         downstream of them needs to see a 0-unit row."""
         rows = (
-            self.db.query(ClientProfile, ClientSubscription, Model, ClientIbAccount.ib_account)
+            self.db.query(ClientProfile, ClientSubscription, Model)
             .join(ClientSubscription, ClientSubscription.user_id == ClientProfile.user_id)
             .join(Model, Model.id == ClientSubscription.model_id)
-            .outerjoin(
-                ClientIbAccount,
-                and_(
-                    ClientIbAccount.user_id == ClientProfile.user_id,
-                    ClientIbAccount.model_id == Model.id,
-                ),
-            )
             .all()
         )
         return rows  # type: ignore[return-value]
@@ -585,7 +587,7 @@ class OnboardingRepository:
             .join(Model, Model.id == ClientSubscription.model_id)
             .outerjoin(
                 ClientIbAccount,
-                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id),
+                and_(ClientIbAccount.model_id == Model.id, ClientIbAccount.user_id == user_id, ClientIbAccount.book == "dt"),
             )
             .filter(ClientSubscription.user_id == user_id)
             .all()

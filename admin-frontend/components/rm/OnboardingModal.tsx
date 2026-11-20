@@ -27,15 +27,67 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { formatFeePercent, parseFeePercent } from "@/lib/fee";
 import { KYC_ACCEPT, type DocSpecDTO, type RmOptionDTO } from "@/lib/onboarding/types";
 import { useCanEdit } from "@/hooks/usePageAccess";
-import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
+import { BookChip, BOOK_CHIP, BOOK_ORDER } from "@/components/rm/BookAccountStack";
+import type { BookCode } from "@/lib/pm/types";
+import { fetchFreeAccounts } from "@/app/(roles)/rm/model-subscription/actions";
 import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 
 const OB_ID_TYPES = ["Hong Kong ID Card", "Passport"];
-const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents"];
+const OB_STEPS = ["Basic Info", "Client Preference", "Trade Info", "Documents", "Review"];
 
 const inputCls =
   "h-10 rounded border border-outline-variant bg-white px-3 text-[14px] font-semibold text-on-surface outline-none placeholder:font-normal placeholder:text-secondary focus:border-primary";
 const selectCls = clsx(inputCls, "cursor-pointer");
+
+function AccountPicker({
+  value, options, onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (account: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const shown = options.filter((account) => account.includes(query.trim().toUpperCase()));
+  return (
+    <div className="relative">
+      <input
+        value={open ? query : value}
+        onFocus={() => { setOpen(true); setQuery(""); }}
+        onBlur={() => setOpen(false)}
+        onChange={(event) => { setQuery(event.target.value.toUpperCase()); setOpen(true); }}
+        placeholder="Search free accounts"
+        className={inputCls}
+        role="combobox"
+        aria-expanded={open}
+      />
+      {open && (
+        <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-auto rounded border border-outline bg-white shadow-card">
+          {shown.length === 0 ? (
+            <li className="px-3 py-2 text-[13px] font-medium text-secondary">No matching accounts</li>
+          ) : (
+            shown.map((account) => (
+              <li key={account}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-[14px] font-semibold text-on-surface hover:bg-surface-low"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    onChange(account);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                >
+                  {account}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 interface ObForm {
   clientName: string;
@@ -49,7 +101,6 @@ interface ObForm {
   assistantRm: string;
   birthday: string;
   occupation: string;
-  ibhkId: string;
   swId: string;
   model: string;
   modelUnit: string;
@@ -96,13 +147,17 @@ export function OnboardingModal({
   const [form, setForm] = useState<ObForm>({
     clientName: "", phone: "", email: "", address: "", country: "",
     idType: OB_ID_TYPES[0], idNumber: "", assignedRm: "", assistantRm: "", birthday: "", occupation: "",
-    ibhkId: "", swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
+    swId: "", model: "", modelUnit: "", initialCashDeposit: "", mgmtFee: "", incentiveFee: "",
     anniversary: "", spouseName: "", childrenNames: "", personalInterests: "", commPrefs: "", giftPrefs: "", otherPrefNotes: "",
   });
   // Keyed by doc_type (not label) — staged Files to upload against the real
   // onboarding id once it exists, right before closing (FE bug: this used to
   // be a filename-only preview that never reached the server at all).
   const [docs, setDocs] = useState<Record<string, File>>({});
+  const [chosen, setChosen] = useState<Partial<Record<BookCode, string>>>({});
+  const [freeAccounts, setFreeAccounts] = useState<string[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const canEdit = useCanEdit("rm.onboarding-renewal");
 
   // Endpoint now returns every RM (Assistant RM needs the full roster) --
@@ -125,10 +180,34 @@ export function OnboardingModal({
     fetchDocSpecs().then((r) => { if (r.success && r.data) setDocSpecs(r.data); });
   }, [fetchDocSpecs]);
 
+  useEffect(() => {
+    if (!form.model) {
+      setFreeAccounts([]);
+      setAccountsError(null);
+      setAccountsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAccountsLoading(true);
+    setAccountsError(null);
+    fetchFreeAccounts(form.model).then((r) => {
+      if (cancelled) return;
+      if (!r.success) {
+        setAccountsError(r.error ?? "Could not load free accounts");
+        setFreeAccounts([]);
+      } else {
+        setFreeAccounts(r.data ?? []);
+      }
+      setAccountsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [form.model]);
+
   const set = (k: keyof ObForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const onModel = (e: ChangeEvent<HTMLSelectElement>) => {
+    setChosen({});
     const m = liveModels.find((x) => x.id === e.target.value);
     setForm((f) => ({
       ...f,
@@ -152,16 +231,21 @@ export function OnboardingModal({
     form.address.trim() && form.country.trim() && form.idType && form.idNumber.trim()
   );
   const selectedModel = liveModels.find((m) => m.id === form.model);
+  const requiredBooks = BOOK_ORDER.filter((code) => (selectedModel?.required_books ?? []).includes(code));
+  const master = selectedModel?.master_ib_account ?? "";
+  const poolShort = !!form.model && (master === "" || freeAccounts.length < requiredBooks.length);
+  const missingBooks = requiredBooks.filter((book) => !chosen[book]);
+  const accountsReady = requiredBooks.length > 0 && missingBooks.length === 0 && !poolShort && !accountsLoading && accountsError == null;
   // Floor mirrors the backend's BE-8 check exactly (N=0): deposit >= units * model size.
   // An unknown/null size is treated as 0, same as the backend's own fallback for this field.
   const depositFloor = Number(form.modelUnit || 0) * (selectedModel?.size ?? 0);
   const depositMeetsFloor = form.initialCashDeposit.trim() !== "" && Number(form.initialCashDeposit) >= depositFloor;
   const page2Valid = !!(
-    isValidIbAccount(form.ibhkId) && form.swId.trim() && form.model &&
+    accountsReady && form.swId.trim() && form.model &&
     /^[1-9]\d*$/.test(form.modelUnit.trim()) && form.mgmtFee.trim() && form.incentiveFee.trim() &&
     depositMeetsFloor
   );
-  const stepValid = [page1Valid, true, page2Valid, true];
+  const stepValid = [page1Valid, true, page2Valid, true, page2Valid];
   const canSubmit = page1Valid && page2Valid;
 
   async function handleSubmit() {
@@ -174,7 +258,8 @@ export function OnboardingModal({
         client_name: form.clientName, email: form.email, primary_phone: form.phone,
         address: form.address, country_of_residence: form.country,
         id_type: form.idType, id_number: form.idNumber,
-        client_ib: normalizeIbAccount(form.ibhkId), sw_account: form.swId,
+        accounts: Object.fromEntries(requiredBooks.map((book) => [book, chosen[book] as string])),
+        sw_account: form.swId,
         model_id: model.id,
         units: Number(form.modelUnit),
         initial_cash_deposit: Number(form.initialCashDeposit),
@@ -236,8 +321,8 @@ export function OnboardingModal({
         <>
           <Button variant="secondary" onClick={onClose} className="mr-auto" disabled={submitting}>Cancel</Button>
           {page > 1 && <Button variant="secondary" onClick={() => setPage(page - 1)} disabled={submitting}>Back</Button>}
-          {page < 4 ? (
-            <Button onClick={() => setPage(page + 1)}>Next</Button>
+          {page < 5 ? (
+            <Button onClick={() => setPage(page + 1)} disabled={page === 3 && !page2Valid}>Next</Button>
           ) : (
             <Button icon={UserRoundPlus} disabled={!canSubmit || submitting} onClick={handleSubmit}>
               {submitting ? "Onboarding…" : "Onboard Client"}
@@ -387,17 +472,6 @@ export function OnboardingModal({
 
       {page === 3 && (
         <div className="grid grid-cols-2 gap-4">
-          <ObField label="IBHK Account ID" required>
-            <input
-              className={inputCls}
-              value={form.ibhkId}
-              onChange={(e) => setForm((f) => ({ ...f, ibhkId: e.target.value.toUpperCase() }))}
-              placeholder="e.g. U1234567"
-            />
-            {form.ibhkId.trim() !== "" && !isValidIbAccount(form.ibhkId) && (
-              <span className="text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</span>
-            )}
-          </ObField>
           <ObField label="Silverwater Account ID" required>
             <input className={inputCls} value={form.swId} onChange={set("swId")} placeholder="e.g. SW-4420" />
           </ObField>
@@ -412,6 +486,43 @@ export function OnboardingModal({
               )}
             </ObField>
           </div>
+          {form.model && (
+            <div className="col-span-2 flex flex-col gap-2.5">
+              {accountsLoading ? (
+                <p className="text-[13px] font-medium text-secondary">Loading free accounts…</p>
+              ) : (
+                requiredBooks.map((book) => (
+                  <div key={book} className="flex items-center gap-2">
+                    <BookChip code={book} />
+                    <div className="min-w-0 flex-1">
+                      <AccountPicker
+                        value={chosen[book] ?? ""}
+                        options={freeAccounts.filter(
+                          (account) =>
+                            account === chosen[book] ||
+                            !requiredBooks.some((other) => other !== book && chosen[other] === account),
+                        )}
+                        onChange={(account) => setChosen((prev) => ({ ...prev, [book]: account }))}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+              {accountsError && (
+                <p className="text-[11.5px] font-semibold text-primary">{accountsError}</p>
+              )}
+              {poolShort && (
+                <p className="rounded-[8px] border border-[#f0d3a8] bg-[#fff8f0] px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-[#8a5a12]">
+                  {`Not enough free accounts under ${master || "—"} — ask Ops to add accounts`}
+                </p>
+              )}
+              {!poolShort && !accountsLoading && missingBooks.length > 0 && (
+                <p className="text-[11.5px] font-semibold text-primary">
+                  {`Missing: ${missingBooks.map((book) => BOOK_CHIP[book]).join(", ")}`}
+                </p>
+              )}
+            </div>
+          )}
           <ObField label="Model Unit" required>
             <input
               className={inputCls}
@@ -459,7 +570,7 @@ export function OnboardingModal({
       {page === 4 && (
         <div>
           <p className="mb-3.5 text-[13px] leading-relaxed text-secondary">
-            Upload any of the documents below now, or skip and click <b className="text-on-surface">Onboard Client</b> — documents
+            Upload any of the documents below now, or skip them and continue. Documents
             can also be added later from the KYC panel.
           </p>
           <div className="flex flex-col gap-2">
@@ -493,6 +604,17 @@ export function OnboardingModal({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {page === 5 && (
+        <div className="flex flex-col gap-2.5">
+          {requiredBooks.map((book) => (
+            <div key={book} className="flex items-center gap-2">
+              <BookChip code={book} />
+              <span className="text-[14px] font-semibold tabular-nums text-on-surface">{chosen[book] ?? "—"}</span>
+            </div>
+          ))}
         </div>
       )}
     </Modal>

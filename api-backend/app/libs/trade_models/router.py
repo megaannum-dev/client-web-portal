@@ -19,6 +19,7 @@ from app.libs.auth.deps import require_action
 from app.libs.trade_models.service import ModelService
 from app.libs.trade_models.schemas import (
     ChangeOut,
+    IbAccountOption,
     MaterialOut,
     ModelCreate,
     ModelDetailOut,
@@ -109,6 +110,14 @@ def _detail_with_audit(service: ModelService, model_id: uuid.UUID) -> ModelDetai
     return result
 
 
+@router.get("/ib-account-registry", response_model=list[IbAccountOption])
+def ib_account_registry(
+    service: Annotated[ModelService, Depends(_get_model_service)],
+    _: Annotated[User, Depends(require_action(Action.MODEL_WRITE))],
+) -> list:
+    return service.ib_account_registry()
+
+
 @router.post("/models", response_model=ModelOut, status_code=status.HTTP_201_CREATED)
 def create_model(
     body: ModelCreate,
@@ -130,7 +139,8 @@ def create_model(
         mgmt_fee=body.mgmt_fee,
         incentive_fee=body.incentive_fee,
         actor=actor.firebase_uid,
-        master_ib_account=body.master_ib_account
+        master_ib_account=body.master_ib_account,
+        required_books=body.required_books,
     )
 
 

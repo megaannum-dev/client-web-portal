@@ -5,6 +5,7 @@ AllocationService: all business logic for allocation periods and the matrix deri
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.libs import client_ib_accounts
 from app.libs.allocation_matrix.repository import AllocationRepository, MatrixReadRepository
 from app.libs.trade_models.repository import ModelRepository, SubscriptionRepository
 from app.models.pm import (
@@ -23,6 +25,33 @@ from app.models.pm import (
 )
 
 logger = logging.getLogger(__name__)
+
+_BOOKS = ("dt", "pt", "inb")
+
+
+def _required_books(value: Any) -> list[str]:
+    """Canonical book list: dt, then pt, then inb. Unknown codes are dropped.
+
+    Raw SQL returns models.required_books as a JSON string on some drivers
+    and as a list on others. None (model row gone) falls back to dt, the
+    column default.
+    """
+    if value is None:
+        return ["dt"]
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode()
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ["dt"]
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            return ["dt"]
+    if not isinstance(value, (list, tuple)):
+        return ["dt"]
+    present = {str(item).strip().lower() for item in value}
+    return [code for code in _BOOKS if code in present]
 
 
 class ModelLookup(Protocol):
@@ -146,7 +175,14 @@ class AllocationService:
         return _build_matrix(rows, model_rows, is_open=True)
 
     def derive_confirmed_matrix(self, period_id: uuid.UUID) -> dict:
-        """Rebuild AllocationViewOut from frozen snapshots."""
+        """Rebuild AllocationViewOut from frozen snapshots.
+
+        Units, fund, name, and size stay on the snapshot. The column's
+        master account and required books, and the cell's per-book accounts,
+        are read from the live model row and client_ib_accounts. A later
+        reassign therefore changes what a past matrix shows. The snapshot's
+        stored ib_account is left untouched and is not copied onto the cell.
+        """
         self.get_period(period_id)  # raises 404 if the period does not exist
         snapshots = self.alloc_repo.read_snapshots(period_id)
 
@@ -179,39 +215,57 @@ class AllocationService:
         # Construct synthetic row objects compatible with _build_matrix.
         class _Row:
             __slots__ = ("row_kind", "user_id", "model_id", "multiplier",
-                         "model_size", "client_ib", "name", "email")
+                         "model_size", "book", "client_ib", "name", "email")
 
             def __init__(self, **kwargs: Any) -> None:
                 for k, v in kwargs.items():
                     setattr(self, k, v)
 
         class _ModelAggRow:
-            __slots__ = ("id", "name", "model_size", "master_ib", "col_units", "col_fund")
+            __slots__ = (
+                "id", "name", "model_size", "master_ib", "required_books",
+                "col_units", "col_fund",
+            )
 
             def __init__(self, **kwargs: Any) -> None:
                 for k, v in kwargs.items():
                     setattr(self, k, v)
 
-        # Cell rows from snapshots.
-        cell_rows = [
-            _Row(
+        live_by_id = self.model_repo.bulk_get(
+            [info["id"] for info in model_ids_seen.values()]
+        )
+        stored_accounts = client_ib_accounts.assigned_by_pair(self.db)
+
+        # One row per stored book account. Units are the snapshot multiplier
+        # on every row; _build_matrix counts that multiplier once.
+        cell_rows: list[_Row] = []
+        for snap in snapshots:
+            model_size = (
+                model_by_id[snap.model_id].model_size
+                if snap.model_id in model_by_id
+                else ZERO
+            )
+            items = stored_accounts.get((snap.user_id, snap.model_id), [])
+            common = dict(
                 row_kind="cell",
                 user_id=snap.user_id,
                 model_id=snap.model_id,
                 multiplier=snap.multiplier,
-                model_size=(
-                    model_by_id[snap.model_id].model_size
-                    if snap.model_id in model_by_id
-                    else ZERO
-                ),
-                # AllocationModelSnapshot.ib_account is the frozen CLIENT account
-                # for this (client, model) pair — the DB field keeps the old name.
-                client_ib=snap.ib_account,
+                model_size=model_size,
                 name=None,
                 email=None,
             )
-            for snap in snapshots
-        ]
+            if not items:
+                cell_rows.append(_Row(**common, book=None, client_ib=None))
+            else:
+                for item in items:
+                    cell_rows.append(
+                        _Row(
+                            **common,
+                            book=item["book"],
+                            client_ib=item["account"],
+                        )
+                    )
 
         # Roster rows from live DB.
         roster = self.sub_repo.roster()
@@ -222,6 +276,7 @@ class AllocationService:
                 model_id=None,
                 multiplier=None,
                 model_size=None,
+                book=None,
                 client_ib=None,
                 name=r.name,
                 email=r.email,
@@ -229,22 +284,23 @@ class AllocationService:
             for r in roster
         ]
 
-        # Model aggregate rows from frozen snapshot calculations.
-        model_agg_rows = [
-            _ModelAggRow(
-                id=info["id"],
-                name=info["name"],
-                model_size=info["model_size"],
-                # ponytail: confirmed views emit master_ib=None — allocation_period_models
-                # freezes only name/size, and reading it live from `models` would break the
-                # snapshot guarantee. Upgrade path: add a master_ib snapshot column in a
-                # future migration if confirmed views ever need it.
-                master_ib=None,
-                col_units=float(model_col_units.get(mid, ZERO)),
-                col_fund=float(model_col_fund.get(mid, ZERO)),
+        # Model aggregate rows: frozen name/size, live master account and books.
+        model_agg_rows = []
+        for mid, info in model_ids_seen.items():
+            live = live_by_id.get(info["id"])
+            model_agg_rows.append(
+                _ModelAggRow(
+                    id=info["id"],
+                    name=info["name"],
+                    model_size=info["model_size"],
+                    master_ib=live.master_ib_account if live is not None else None,
+                    required_books=_required_books(
+                        live.required_books if live is not None else None
+                    ),
+                    col_units=float(model_col_units.get(mid, ZERO)),
+                    col_fund=float(model_col_fund.get(mid, ZERO)),
+                )
             )
-            for mid, info in model_ids_seen.items()
-        ]
 
         result = _build_matrix(
             cell_rows + roster_rows, model_agg_rows, is_open=False
@@ -255,9 +311,12 @@ class AllocationService:
     # --- ETag watermarks ---
 
     def compute_etag_components(self) -> tuple:
-        """Return the three watermark results used for ETag computation."""
+        """Return the watermark results used for ETag computation.
+
+        Order: subscriptions, live models, clients, client IB accounts.
+        """
         wm = self.matrix_repo.combined_watermarks()
-        return wm["subs"], wm["models"], wm["clients"]
+        return wm["subs"], wm["models"], wm["clients"], wm["accounts"]
 
 
 def _build_matrix(
@@ -272,10 +331,13 @@ def _build_matrix(
       - rows: UNION ALL result from cell_and_roster_stream() (row_kind='cell'|'client')
       - model_rows: pre-aggregated result from live_models_with_aggregates()
 
+    A cell may arrive as several rows (one per book). Units are the
+    subscription multiplier, taken once — not summed across books.
+
     Emits the AllocationDTO-shaped payload the frontend consumes:
       - `clients` is the full client-portal roster (not just clients with subs)
-      - `cells` is a flat `"{clientId}-{modelId}"` map of {units, fund}
-      - column-level aggregates ride on each `models[]` entry
+      - `cells` is a flat `"{clientId}-{modelId}"` map of {units, fund, accounts}
+      - column-level aggregates and required_books ride on each `models[]` entry
     """
     ZERO = Decimal("0")
 
@@ -294,20 +356,41 @@ def _build_matrix(
         col_units[mid] = Decimal(mr.col_units or 0)
         col_fund[mid] = Decimal(mr.col_fund or 0)
 
-    # Build flat cell map from cell rows.
-    flat_cells: dict[str, dict] = {}
+    # Several book rows share one (client, model). Keep the multiplier once.
+    grouped: dict[str, dict] = {}
     for cell in cell_rows:
         uid = str(cell.user_id)
         mid = str(cell.model_id)
         if mid not in model_map:
             continue
-        multiplier = cell.multiplier or ZERO
-        model_size = cell.model_size or ZERO
-        fund = Decimal(multiplier) * Decimal(model_size)
-        flat_cells[f"{uid}-{mid}"] = {
-            "units": float(multiplier),
-            "fund": float(fund),
-            "client_ib": cell.client_ib,
+        key = f"{uid}-{mid}"
+        slot = grouped.get(key)
+        if slot is None:
+            multiplier = cell.multiplier or ZERO
+            model_size = cell.model_size or ZERO
+            slot = {
+                "model_id": mid,
+                "units": float(multiplier),
+                "fund": float(Decimal(multiplier) * Decimal(model_size)),
+                "by_book": {},
+            }
+            grouped[key] = slot
+        book = getattr(cell, "book", None)
+        if book:
+            slot["by_book"][str(book).strip().lower()] = cell.client_ib
+
+    flat_cells: dict[str, dict] = {}
+    for key, slot in grouped.items():
+        required = _required_books(
+            getattr(model_map[slot["model_id"]], "required_books", None)
+        )
+        flat_cells[key] = {
+            "units": slot["units"],
+            "fund": slot["fund"],
+            "accounts": [
+                {"book": book, "account": slot["by_book"].get(book)}
+                for book in required
+            ],
         }
 
     total_fund = sum(col_fund.values(), ZERO)
@@ -323,6 +406,7 @@ def _build_matrix(
                 "name": mr.name,
                 "model_size": ms_val,
                 "master_ib": mr.master_ib,
+                "required_books": _required_books(getattr(mr, "required_books", None)),
                 "live": True,  # only LIVE models reach this list
                 "col_units": float(col_units.get(mid, ZERO)),
                 "col_fund": float(col_fund.get(mid, ZERO)),

@@ -2,6 +2,7 @@
 
 import { X } from "@/lib/icons";
 import { Fact } from "@/components/pm/Shared";
+import { BookChip } from "@/components/rm/BookAccountStack";
 import { type AllocationView } from "@/lib/pm/allocation";
 import { fmtMoney, fmtMoneyShort } from "@/lib/pm/format";
 
@@ -60,7 +61,17 @@ export function DetailPanel({
             <Fact label="Model size" value={fmtMoneyShort(m.size)} sub="/ unit" />
             <Fact label="Min account fund" value={fmtMoney(m.size)} sub="= 1 unit" />
             <Fact label="Model IB account" value={m.masterIb ?? "—"} sub="master" />
-            <Fact label="Client IB account" value={cell.clientIb ?? "—"} sub="dedicated" />
+            <div className="col-span-2 text-[10.5px] font-bold uppercase tracking-[0.05em] text-secondary">
+              Client accounts
+            </div>
+            {cell.accounts.map((row) => (
+              <Fact
+                key={row.book}
+                label={<BookChip code={row.book} is_full_label={true} />}
+                value={row.account ?? "—"}
+                sub="dedicated"
+              />
+            ))}
           </div>
         </div>
       </div>

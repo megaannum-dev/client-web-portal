@@ -6,6 +6,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 vi.mock("@/app/(roles)/pm/model-management/actions", async (importOriginal) => ({
     ...(await importOriginal<typeof import("@/app/(roles)/pm/model-management/actions")>()),
   updateModel: vi.fn(),
+  getIbAccountRegistry: vi.fn(async () => ({ success: true, data: [] })),
 }));
 
 import * as actions from "@/app/(roles)/pm/model-management/actions";
@@ -20,6 +21,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
     materials: [], changes: [], description: null, underlyings: null,
     risk: null, liquidity: null, reporting: null, nav_perf: null,
     mgmt_fee: null, incentive_fee: null, master_ib_account: null,
+    required_books: ["dt"],
     ...overrides,
   };
 }

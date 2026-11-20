@@ -1,16 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Briefcase } from "@/lib/icons";
 import { type AllocationView } from "@/lib/pm/allocation";
+import type { BookCode } from "@/lib/pm/types";
 import { fmtMoneyShort } from "@/lib/pm/format";
+import { BOOK_CHIP, BookChip } from "@/components/rm/BookAccountStack";
 import { type Toggle } from "./ViewToggle";
+
+type BookAccount = { book: BookCode; account: string | null };
 
 /* ============================================================
    THE MATRIX  (client rows × active-model columns)
    ============================================================ */
 export const TH =
   "border-b-0 bg-surface-low px-4 py-[13px] text-left align-top text-[11px] font-bold uppercase tracking-[0.05em] text-secondary whitespace-nowrap";
+
+function accountTitle(accounts: BookAccount[]): string {
+  return accounts.map((row) => `${BOOK_CHIP[row.book]} ${row.account ?? "—"}`).join("\n");
+}
+
+function AccountLine({ row }: { row: BookAccount }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <BookChip code={row.book} />
+      <span>{row.account ?? "—"}</span>
+    </span>
+  );
+}
+
+function CellAccounts({ accounts }: { accounts: BookAccount[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const signature = accounts.map((row) => `${row.book}:${row.account ?? ""}`).join("|");
+  const [collapsedFor, setCollapsedFor] = useState<string | null>(null);
+  const collapsed = collapsedFor === signature;
+
+  useLayoutEffect(() => {
+    if (collapsed) return;
+    const el = ref.current;
+    if (!el) return;
+    setCollapsedFor(el.scrollHeight > el.clientHeight + 1 ? signature : null);
+  }, [signature, collapsed]);
+
+  if (accounts.length === 0) return null;
+  const title = accountTitle(accounts);
+  const lineClass = "mt-0.5 flex flex-col items-start gap-0.5 text-[10.5px] font-semibold tabular-nums text-outline";
+
+  if (collapsed) {
+    return (
+      <div title={title} className={lineClass}>
+        <AccountLine row={accounts[0]} />
+        <span>+{accounts.length - 1}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} title={title} className={`${lineClass} max-h-16 overflow-hidden`}>
+      {accounts.map((row) => (
+        <AccountLine key={row.book} row={row} />
+      ))}
+    </div>
+  );
+}
 
 export function Matrix({
   data, view, onOpen,
@@ -128,9 +180,7 @@ export function MatrixCell({
       <div className="mt-[3px] text-[12.5px] font-semibold tabular-nums text-secondary">
         {fmtMoneyShort(data.cellFund(cid, mid))}
       </div>
-      <div className="mt-0.5 text-[10.5px] font-semibold tabular-nums text-outline">
-        {cell.clientIb ?? "—"}
-      </div>
+      <CellAccounts accounts={cell.accounts} />
     </td>
   );
 }

@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     ib_flex_query_id: str | None = None
     ib_flex_cache_ttl_seconds: int = 900
 
+    # Master accounts and the client accounts configured under each.
+    # JSON object, for example {"F1234567": ["U1111111", "U2222222"]}.
+    # Empty dict means no masters are configured. get_settings is cached,
+    # so a change needs an API process restart.
+    ib_accounts: dict[str, list[str]] = {"F18869283": ["U18018569", "U17828576", "U15738525", "U17935787"]}
+
 
 # D-4: roles in this set see every client_profiles row, unfiltered. Only ADMIN is
 # firm-wide; every other role with CLIENT_VIEW (RM, COMPLIANCE, ...) is scoped to

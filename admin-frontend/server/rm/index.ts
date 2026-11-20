@@ -35,6 +35,10 @@ export async function getClientAllotments(clientId: string): Promise<APIResult<A
   return apiClient<AllotRdmptDTO[]>(ENDPOINTS.RM.SUBSCRIPTION_ALLOTMENTS(clientId));
 }
 
+export async function getFreeAccounts(modelId: string): Promise<APIResult<string[]>> {
+  return apiClient<string[]>(ENDPOINTS.RM.FREE_ACCOUNTS(modelId));
+}
+
 export async function submitAllotment(req: SubmitAllotmentReq): Promise<APIResult<AllotRdmptDTO>> {
   return apiClient<AllotRdmptDTO>(ENDPOINTS.RM.SUBMIT_ALLOTMENT, {
     method: "POST",

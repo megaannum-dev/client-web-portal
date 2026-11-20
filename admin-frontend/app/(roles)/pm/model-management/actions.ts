@@ -2,6 +2,7 @@
 
 import {
   getModels as _getModels,
+  getIbAccountRegistry as _getIbAccountRegistry,
   getModel as _getModel,
   createModel as _createModel,
   updateModel as _updateModel,
@@ -13,7 +14,7 @@ import {
   getChanges as _getChanges,
   type APIResult,
 } from "@/server/pm";
-import type { MaterialDTO, ModelDTO, ModelsListDTO } from "@/lib/pm/types";
+import type { IbAccountOption, MaterialDTO, ModelDTO, ModelsListDTO } from "@/lib/pm/types";
 import { logger } from "@/lib/logger";
 
 function toErrorResult(error: unknown): { success: false; error: string; code: string } {
@@ -32,6 +33,15 @@ export async function getModels(): Promise<APIResult<ModelsListDTO>> {
     return response;
   } catch (error) {
     console.error("❌ Error fetching PM models:", { error });
+    return toErrorResult(error);
+  }
+}
+
+export async function getIbAccountRegistry(): Promise<APIResult<IbAccountOption[]>> {
+  try {
+    return await _getIbAccountRegistry();
+  } catch (error) {
+    console.error("Error fetching IB account registry:", { error });
     return toErrorResult(error);
   }
 }

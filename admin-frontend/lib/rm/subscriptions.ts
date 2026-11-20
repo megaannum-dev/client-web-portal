@@ -6,7 +6,7 @@
 import { fmtMoney, fmtMoneyShort, fmtTimestamp } from "@/lib/pm/format";
 import { formatFeePercent } from "@/lib/fee";
 import type { ChipTone } from "@/components/ui/Chip";
-import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus } from "@/lib/onboarding/types";
+import type { ClientSubscriptionsDTO, AllotRdmptDTO, AllotRdmpStatus, BookAccount } from "@/lib/onboarding/types";
 
 export type TxnRow = [
   string, string, string, string, string, string, string, string, string,
@@ -15,6 +15,7 @@ export type TxnRow = [
                            // absent for Net rows and mock/legacy rows (nothing to file against)
   boolean?,               // NEW 12th element — has_transaction_detail; absent/undefined for
                           // Net rows and any legacy mock row (nothing to file against)
+  BookAccount[]?,         // 13th — accounts for this transaction; absent on Net rows
 ];
 export type SubModel = {
   name: string;
@@ -22,7 +23,7 @@ export type SubModel = {
   tone: ChipTone;
   mgmtFee: string;
   incentiveFee: string;
-  account: string;
+  accounts: BookAccount[];
   modelId: string;   // NEW
   modelSize?: number;   // NEW — actual size for this live subscription; mock fixtures omit it
   // NEW — raw multiplier. A full redemption floors client_subscriptions at
@@ -98,7 +99,7 @@ function netRow(sub: ClientSubscriptionsDTO["subscriptions"][number]): TxnRow {
  *  with the SAME fmtTimestamp already used for this exact DTO's fields on the
  *  PM allotments page (AllotTable.tsx) — the mock's placeholder "DD/MM/YYYY"
  *  strings are not a convention worth preserving once real data is behind it. */
-export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null): TxnRow {
+export function allotmentToTxnRow(dto: AllotRdmptDTO): TxnRow {
   const isRedemption = dto.kind === "redemption";
   const amt = fmtMoney(dto.amount).slice(1); // fmtMoney prepends "$"; TxnRow cells don't (Ccy is its own column)
   const signedAmt = isRedemption ? `(${amt})` : amt;
@@ -107,7 +108,7 @@ export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null):
   return [
     isRedemption ? "Redemption" : "Allotment",
     fmtTimestamp(dto.created_at),
-    ibAccount ?? "—",
+    "",
     "USD",
     signedAmt,
     mult,
@@ -117,6 +118,7 @@ export function allotmentToTxnRow(dto: AllotRdmptDTO, ibAccount: string | null):
     dto.status,                      // NEW 10th element
     dto.id,                          // NEW 11th element — for settlement-detail filing
     dto.has_transaction_detail,      // NEW 12th element
+    dto.accounts ?? [],
   ];
 }
 
@@ -145,10 +147,9 @@ export function mapSubscriptionsToSubClients(
       mandate: "Discretionary",
       aum: fmtMoneyShort(totalAum),
       models: c.subscriptions.map((sub): SubModel => {
-        const ibAccount = sub.client_ib ?? null;
         const modelTxns = (ledger ?? [])
           .filter((a) => a.model_id === sub.model_id)
-          .map((a) => allotmentToTxnRow(a, ibAccount));
+          .map((a) => allotmentToTxnRow(a));
         return {
           name: sub.model_name,
           // A client_subscriptions row only exists once onboarding is
@@ -160,7 +161,7 @@ export function mapSubscriptionsToSubClients(
           tone: "active",
           mgmtFee: formatFeePercent(sub.mgmt_fee),
           incentiveFee: formatFeePercent(sub.incentive_fee),
-          account: ibAccount ?? "—",
+          accounts: sub.accounts ?? [],
           modelId: sub.model_id,
           units: Number(sub.units),
           // amount = units * model_size (ClientSubscriptionRowDTO's own contract) --

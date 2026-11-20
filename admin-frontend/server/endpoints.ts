@@ -9,6 +9,7 @@ const ADMIN = "/api/admin";
 export const ENDPOINTS = {
   PM: {
     MODELS:              `${PM}/models`,
+    IB_ACCOUNT_REGISTRY: `${PM}/ib-account-registry`,
     MODEL:               (id: string) => `${PM}/models/${id}`,
     MATERIALS:           (id: string) => `${PM}/models/${id}/materials`,
     SYMBOLS:             (id: string) => `${PM}/models/${id}/symbols`,
@@ -43,6 +44,7 @@ export const ENDPOINTS = {
       `${RM}/clients/${encodeURIComponent(clientId)}/contact-logs/${encodeURIComponent(logId)}/download`,
     SUBSCRIPTIONS:            `${RM}/subscriptions`,
     SUBSCRIPTION_ALLOTMENTS:  (clientId: string) => `${RM}/subscriptions/${encodeURIComponent(clientId)}/allotments`,
+    FREE_ACCOUNTS: (modelId: string) => `${RM}/models/${encodeURIComponent(modelId)}/free-accounts`,
     SUBMIT_ALLOTMENT:  `${RM}/allotment`,
     SUBMIT_REDEMPTION: `${RM}/redemption`,
     TRANSACTION_DETAIL: (allotmentId: string) => `${RM}/allotments/${allotmentId}/transaction-detail`,

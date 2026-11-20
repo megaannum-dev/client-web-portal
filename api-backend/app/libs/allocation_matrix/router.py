@@ -117,12 +117,20 @@ def get_allocation(
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"Period '{period}' not found")
 
         if matched.status == PeriodStatus.CONFIRMED:
-            # Confirmed: cache by period_id with long TTL.
+            # Units are frozen. Master account, books, and per-book client
+            # accounts are the current rows, so the cache key includes those
+            # watermarks. A reassign then misses and the past matrix updates.
             pid_str = str(matched.id)
-            cached = _cache.get_confirmed(pid_str)
+            _, models_wm, _, accounts_wm = service.compute_etag_components()
+            fresh = (
+                f"{accounts_wm.max_updated_at}:{accounts_wm.count}|"
+                f"{models_wm.max_updated_at}:{models_wm.count}"
+            )
+            cache_key = f"{pid_str}|{fresh}"
+            cached = _cache.get_confirmed(cache_key)
             if cached is None:
                 raw = service.derive_confirmed_matrix(matched.id)
-                _cache.put_confirmed(pid_str, raw)
+                _cache.put_confirmed(cache_key, raw)
                 cached = raw
             view = AllocationViewOut.from_dict(
                 cached,
@@ -131,13 +139,12 @@ def get_allocation(
                 open_period_id=open_period_id,
             )
             response.headers["ETag"] = pid_str
-            response.headers["Cache-Control"] = "immutable"
             return view
         # Open period by label — fall through to live derivation below.
 
     # --- Open matrix with ETag ---
-    subs_wm, models_wm, clients_wm = service.compute_etag_components()
-    etag = _cache.compute_open_etag(subs_wm, models_wm, clients_wm)
+    subs_wm, models_wm, clients_wm, accounts_wm = service.compute_etag_components()
+    etag = _cache.compute_open_etag(subs_wm, models_wm, clients_wm, accounts_wm)
 
     # 304 short-circuit.
     if if_none_match and if_none_match.strip('"') == etag:

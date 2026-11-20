@@ -63,6 +63,7 @@ class ModelRepository:
         mgmt_fee: Decimal | None = None,
         incentive_fee: Decimal | None = None,
         master_ib_account: str | None = None,
+        required_books: list[str] | None = None,
     ) -> Model:
         model = Model(
             id=uuid.uuid4(),
@@ -79,8 +80,10 @@ class ModelRepository:
             mgmt_fee=mgmt_fee,
             incentive_fee=incentive_fee,
             status=ModelStatus.DRAFT,
-            master_ib_account=master_ib_account
+            master_ib_account=master_ib_account,
         )
+        if required_books is not None:
+            model.required_books = required_books
         if symbols:
             model.symbols = [
                 ModelSymbol(symbol=s.symbol, weight=s.weight) for s in symbols
@@ -308,6 +311,7 @@ class SubscriptionRepository:
                 and_(
                     ClientIbAccount.user_id == ClientSubscription.user_id,
                     ClientIbAccount.model_id == ClientSubscription.model_id,
+                    ClientIbAccount.book == "dt",
                 ),
             )
             .filter(Model.status == ModelStatus.LIVE)

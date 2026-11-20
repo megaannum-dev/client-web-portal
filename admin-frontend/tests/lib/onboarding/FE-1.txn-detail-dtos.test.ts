@@ -58,7 +58,7 @@ describe("FE-1 widened AllotRdmptDTO", () => {
   const BASE = {
     id: "a1", reference: "REF-1", model_id: "m1", model_name: "Model A", units: 2, amount: 200_000,
     kind: "allotment" as const, status: "pending" as const, note: null, agg_before: 0, agg_after: 2,
-    expected_cash_in: "2026-08-01", rm: "Jane", created_at: "2026-07-22T00:00:00Z", acknowledged_at: null,
+    expected_cash_in: "2026-08-01", rm: "Jane", created_at: "2026-07-22T00:00:00Z", acknowledged_at: null, accounts: [],
     emergent: false, expected_cash_out: null, decided_by: null, decided_at: null, reject_reason: null,
   };
 

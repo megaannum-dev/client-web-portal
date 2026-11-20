@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { statusToChip, canFileTransactionDetail } from "@/lib/rm/subscriptions";
 import type { AllotRdmpStatus, TransactionDetailDTO } from "@/lib/onboarding/types";
 import type { SubClient, SubModel, TxnRow } from "@/lib/rm/subscriptions";
+import { BookAccountStack } from "@/components/rm/BookAccountStack";
 import type { SubscriptionModalContext } from "@/components/rm/SubscriptionFormModal";
 import { TransactionDetailModal } from "@/components/rm/TransactionDetailModal";
 import { fileTransactionDetail, getTransactionDetail } from "@/app/(roles)/rm/model-subscription/actions";
@@ -107,13 +108,14 @@ function TxnTable({
                   <td
                     key={ci}
                     className={clsx(
-                      "whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 tabular-nums text-on-surface",
+                      ci === 2 ? "whitespace-normal" : "whitespace-nowrap",
+                      "border-t border-outline-variant px-3.5 py-2.5 tabular-nums text-on-surface",
                       TXN_RIGHT.has(TXN_COLS[ci]) ? "text-right" : "text-left",
                       isNet ? "font-bold" : ci === 0 ? "font-semibold" : "font-normal",
                       r[9] === "rejected" && REJECTED_AMOUNT_COLS.has(TXN_COLS[ci]) && "text-secondary opacity-60 [text-decoration:overline]",
                     )}
                   >
-                    {v}
+                    {ci === 2 && Array.isArray(r[12]) ? <BookAccountStack accounts={r[12]} /> : v}
                   </td>
                 ))}
                 <td className="whitespace-nowrap border-t border-outline-variant px-3.5 py-2.5 text-left">
@@ -165,7 +167,7 @@ function ModelAccordionItem({
     modelName: model.name,
     modelId: model.modelId,
     modelSize: model.modelSize,
-    modelAccount: model.account,
+    accounts: model.accounts,
     mgmtFee: model.mgmtFee,
     incentiveFee: model.incentiveFee,
   };
@@ -185,7 +187,10 @@ function ModelAccordionItem({
         </span>
         <div className="min-w-0 flex-1 text-left">
           <div className="text-[14px] font-semibold text-on-surface">{model.name}</div>
-          <div className="mt-0.5 text-[12px] text-secondary">{model.account} · {model.status}</div>
+          <div className="mt-0.5 text-[12px] text-secondary">
+            <BookAccountStack accounts={model.accounts} />
+            <div className="mt-0.5">{model.status}</div>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <FeePill label={`Mgmt ${model.mgmtFee}`} />

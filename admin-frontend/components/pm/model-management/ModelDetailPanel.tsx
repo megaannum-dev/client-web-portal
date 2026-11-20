@@ -10,6 +10,7 @@ import { MaterialsTab } from "./MaterialsTab";
 import { ChangesTab } from "./ChangesTab";
 import { OverviewTab } from "./OverviewTab";
 import { SymbolsTab } from "./SymbolsTab";
+import { BookChips } from "./BookChips";
 
 type Tab = "overview" | "symbols" | "materials" | "changes";
 
@@ -53,6 +54,7 @@ export function ModelDetailPanel({
                 {m.category.length > 0 ? <Ticks symbols={m.category} /> : <span>—</span>}
                 <span>· {fmtMoney(m.size)}</span>
                 <span>· Master IB: {m.master_ib_account ?? "—"}</span>
+                <BookChips value={m.required_books} />
               </div>
             </div>
             <div className="flex flex-none items-center gap-2.5">

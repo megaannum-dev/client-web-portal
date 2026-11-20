@@ -11,7 +11,7 @@ import {
   getMaterials as getMaterialsAction,
 } from "@/app/(roles)/pm/model-management/actions";
 import { mapDtoToModels } from "@/lib/pm/models";
-import type { Model } from "@/lib/pm/types";
+import type { BookCode, Model } from "@/lib/pm/types";
 
 export interface UseModelsResult {
   data: Model[] | null;
@@ -35,6 +35,7 @@ export interface UseModelsResult {
     mgmt_fee?: number | null;
     incentive_fee?: number | null;
     master_ib_account?: string | null;
+    required_books: BookCode[];
   }) => Promise<{ success: boolean; error?: string; id?: string }>;
   updateModel: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   uploadMaterial: (id: string, file: File) => Promise<{ success: boolean; error?: string }>;
@@ -98,6 +99,7 @@ export function useModels(): UseModelsResult {
       mgmt_fee?: number | null;
       incentive_fee?: number | null;
       master_ib_account?: string | null;
+      required_books: BookCode[];
     }) => {
       const created = await createModelAction({
         name: params.name,
@@ -114,6 +116,7 @@ export function useModels(): UseModelsResult {
         mgmt_fee: params.mgmt_fee,
         incentive_fee: params.incentive_fee,
         master_ib_account: params.master_ib_account,
+        required_books: params.required_books,
       });
       if (!created.success) return { success: false, error: created.error };
       const newId = created.data.id;

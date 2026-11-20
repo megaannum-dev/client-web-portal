@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip, type ChipTone } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { useClient, useOnboardingByClient, useClientEvents, useContactLogs } from "@/hooks/api/useClient";
+import { BookAccountStack } from "@/components/rm/BookAccountStack";
 import type { SubscriptionDTO } from "@/lib/rm/clients";
 import type { DocumentDTO, OnboardingStatus } from "@/lib/onboarding/types";
 import { AUDIT_VISIBLE_STATUSES, DOC_STATUS_LABEL, DOC_STATUS_TONE } from "@/lib/onboarding/doc-status";
@@ -316,7 +317,9 @@ export default function ClientDetailPage() {
                     <td className="border-t border-outline-variant py-3 pr-3">
                       <Chip tone={SUB_STATUS_TONE[s.status] ?? "neutral"}>{SUB_STATUS_LABEL[s.status] ?? s.status}</Chip>
                     </td>
-                    <td className="border-t border-outline-variant py-3 pr-3 tabular-nums text-on-surface">{s.account ?? "—"}</td>
+                    <td className="border-t border-outline-variant py-3 pr-3 text-on-surface">
+                      <BookAccountStack accounts={s.accounts ?? []} />
+                    </td>
                     <td className="border-t border-outline-variant py-3 text-secondary">—</td>
                   </tr>
                 ))}

@@ -65,7 +65,7 @@ function SettlementPanel({ rows }: { rows: SettlementRow[] }) {
       </div>
       <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2">
         <span className="text-[15px] font-bold text-on-surface">Settlement detail</span>
-        <span className="text-[12.5px] text-secondary">master IB account (one per model) ↔ client sub-accounts</span>
+        <span className="text-[12.5px] text-secondary">master IB account ↔ client accounts (one per purpose)</span>
       </div>
       <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-lowest shadow-card">
         <div className="overflow-x-auto">

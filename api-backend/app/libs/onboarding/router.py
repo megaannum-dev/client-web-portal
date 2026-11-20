@@ -345,6 +345,17 @@ def list_client_allotments(
     return svc.client_allotments(client_id)
 
 
+@router.get("/rm/models/{model_id}/free-accounts", response_model=list[str])
+def list_free_accounts(
+    model_id: uuid.UUID,
+    svc: Annotated[OnboardingService, Depends(_service)],
+    _: Annotated[User, Depends(require_action(Action.SUBSCRIPTION_WRITE))],
+) -> list[str]:
+    """U accounts under this model's master that are not already assigned.
+    RM-callable: the PM registry route is model-write and is not reused."""
+    return svc.free_accounts(model_id)
+
+
 @router.post("/rm/allotment", response_model=AllotRdmptDTO, status_code=201)
 def submit_allotment(
     req: SubmitAllotmentReq,

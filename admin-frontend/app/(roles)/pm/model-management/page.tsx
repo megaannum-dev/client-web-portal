@@ -67,6 +67,7 @@ export default function ModelManagementPage() {
       risk: src.risk ?? undefined, liquidity: src.liquidity ?? undefined,
       reporting: src.reporting ?? undefined, nav_perf: src.nav_perf ?? undefined,
       mgmt_fee: src.mgmt_fee, incentive_fee: src.incentive_fee,
+      required_books: [...src.required_books],
     });
     setOpenId(null); setCreating(true);
   };
