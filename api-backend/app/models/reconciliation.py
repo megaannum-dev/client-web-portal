@@ -36,7 +36,7 @@ class _TradeRow:
         Uuid(native_uuid=False), primary_key=True, default=uuid.uuid4
     )
 
-    # --- Numeric -> Numeric(28, 10), nullable (24 columns) -------------------
+    # --- Numeric -> Numeric(28, 10), nullable (27 columns) -------------------
     accruedInt: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     brokerClearingCommission: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
@@ -53,6 +53,9 @@ class _TradeRow:
     principalAdjustFactor: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     proceeds: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     quantity: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    regFINRATradingActivityFee: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    regOther: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
+    regSection31TransactionFee: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     salesTax: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     strike: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     tax: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
@@ -62,17 +65,14 @@ class _TradeRow:
     tradeCharge: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
     weight: Mapped[Decimal | None] = mapped_column(Numeric(28, 10), nullable=True)
 
-    # --- Date YYYYMMDD -> String(8), nullable (7 columns) --------------------
-    fromDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    toDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # --- Date YYYYMMDD -> String(8), nullable (5 columns) --------------------
     expiry: Mapped[str | None] = mapped_column(String(8), nullable=True)
     origTradeDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
     reportDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
     settleDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
     tradeDate: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
-    # --- Datetime YYYYMMDD;HHMMSS -> String(20), nullable (3 columns) --------
-    whenGenerated: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # --- Datetime YYYYMMDD;HHMMSS -> String(20), nullable (2 columns) --------
     dateTime: Mapped[str | None] = mapped_column(String(20), nullable=True)
     orderTime: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
@@ -110,9 +110,9 @@ class _TradeRow:
     orderReference: Mapped[str | None] = mapped_column(String(255), nullable=True)
     orderType: Mapped[str | None] = mapped_column(String(255), nullable=True)
     origTradeID: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    period: Mapped[str | None] = mapped_column(String(255), nullable=True)
     positionActionID: Mapped[str | None] = mapped_column(String(255), nullable=True)
     putCall: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    requestID: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rfqID: Mapped[str | None] = mapped_column(String(255), nullable=True)
     securityID: Mapped[str | None] = mapped_column(String(255), nullable=True)
     securityIDType: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -140,7 +140,7 @@ class Order(Base, _TradeRow):
     __tablename__ = "orders"
 
     __table_args__ = (
-        UniqueConstraint("orderID", name="uq_orders_orderID"),
+        UniqueConstraint("orderID", "accountId", name="uq_orders_orderID_accountId"),
     )
 
 
@@ -151,8 +151,8 @@ class Trade(Base, _TradeRow):
 
     __table_args__ = (
         Index("ix_trades_orderID", "orderID"),
-        UniqueConstraint("execID", name="uq_trades_execID"),
-        UniqueConstraint("tradeID", name="uq_trades_tradeID"),
+        UniqueConstraint("execID", "accountId", name="uq_trades_execID_accountId"),
+        UniqueConstraint("tradeID", "accountId", name="uq_trades_tradeID_accountId"),
     )
 
 
@@ -163,4 +163,11 @@ class SymbolSummary(Base, _TradeRow):
 
     __table_args__ = (
         Index("ix_symbol_summaries_symbol", "symbol"),
+        UniqueConstraint(
+            "symbol",
+            "tradeDate",
+            "buySell",
+            "accountId",
+            name="uq_symbol_summaries_symbol_tradeDate_buySell_accountId",
+        ),
     )

@@ -1,8 +1,8 @@
 """Importer: IB Flex XML/CSV -> MariaDB. Routes all rows to three tables simultaneously.
 
-  levelOfDetail=ORDER                     -> orders          (unique on orderID)
-  levelOfDetail=EXECUTION                 -> trades          (unique on execID)
-  levelOfDetail=SYMBOL_SUMMARY              -> symbol_summaries (dedup on symbol+tradeDate+buySell)
+  levelOfDetail=ORDER                     -> orders          (unique on orderID + accountId)
+  levelOfDetail=EXECUTION                 -> trades          (unique on tradeID + accountId, and execID + accountId)
+  levelOfDetail=SYMBOL_SUMMARY              -> symbol_summaries (dedup on symbol+tradeDate+buySell+accountId)
   levelOfDetail=ASSET_SUMMARY               (skipped)
 
 Two input formats are accepted (mutually exclusive):
