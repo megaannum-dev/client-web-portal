@@ -10,7 +10,7 @@
    Tailwind + TypeScript conventions.
    ============================================================ */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
@@ -23,9 +23,11 @@ import {
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BookAccountStack } from "@/components/rm/BookAccountStack";
 import type { RequestTicket } from "@/lib/rm/tickets";
 import { isTerminalStatus } from "@/lib/rm/tickets";
 import { useRmTickets } from "@/hooks/api/useRmTickets";
+import { useClient } from "@/hooks/api/useClient";
 import { useCanEdit } from "@/hooks/usePageAccess";
 // ponytail: lazy dynamic import — this "use server" action pulls in server-only
 // code; a static import would eagerly evaluate that chain for every consumer of
@@ -186,7 +188,7 @@ export function RequestTicketsInbox() {
 /* ============================================================
    2 · Ticket detail — request facts + RM action panel
    ============================================================ */
-function Fact({ k, v }: { k: string; v: string }) {
+function Fact({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div>
       <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">{k}</div>
@@ -212,6 +214,8 @@ export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTick
   const Icon = m.icon;
   const closed = isTerminalStatus(ticket.status);
   const actTarget = resolveActTarget(ticket);
+  const { data: client } = useClient(ticket.clientId);
+  const accounts = client?.subscriptions.find((s) => s.model === ticket.model)?.accounts ?? [];
 
   return (
     <div>
@@ -249,7 +253,9 @@ export function RequestTicketDetail({ ticket, onRefetch }: { ticket: RequestTick
           <div className="grid grid-cols-2 gap-x-7 gap-y-[18px]">
             <Fact k="Client" v={ticket.client} />
             <Fact k="Subscribed model" v={ticket.model ?? "—"} />
-            <Fact k="IB account" v={ticket.account} />
+            {accounts.length > 1
+              ? <Fact k="Accounts" v={<BookAccountStack accounts={accounts} />} />
+              : <Fact k="IB account" v={accounts[0]?.account ?? ticket.account} />}
             <Fact k="Request type" v={ticket.type} />
             <Fact k="Amount" v={`${ticket.ccy} ${ticket.cash}`} />
             <Fact k="Model multiple" v={ticket.mult} />
