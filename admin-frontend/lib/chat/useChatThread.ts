@@ -18,7 +18,7 @@ import { listFailed, putFailed, removeFailed } from "@/lib/chat/failedStore";
 import type { ChatDay, ChatMessage } from "@/components/rm/chat/types";
 
 /** History page size; a full page means the server may have more. */
-const PAGE = 200;
+const PAGE = 10;
 
 /** An optimistic message we have shown but the server has not confirmed. */
 interface Pending {

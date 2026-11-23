@@ -27,7 +27,7 @@ from app.models.users import AdminRole, ClientProfile, Portal, User
 
 # Feature-local tunables off bare os.getenv, not Settings fields -- same
 # convention as CLIENT_UPLOAD_WINDOW_DAYS (client_portal/service.py:76).
-CHAT_HISTORY_MAX_LIMIT = int(os.getenv("CHAT_HISTORY_MAX_LIMIT", "200"))
+CHAT_HISTORY_MAX_LIMIT = int(os.getenv("CHAT_HISTORY_MAX_LIMIT", "10"))
 # One budget for the WHOLE message, however many files it carries -- not a
 # per-file cap plus a count cap.
 CHAT_MAX_UPLOAD_BYTES = int(os.getenv("CHAT_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
