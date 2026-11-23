@@ -29,7 +29,7 @@ export function ConfirmModal({
     setBusy(true);
     const r = await onConfirm();
     setBusy(false);
-    if (!r.success) toast.error(r.error ?? "Failed to confirm the allocation. Please try again.");
+    if (!r.success) toast.error("Failed to confirm the allocation. Please try again.");
   };
 
   return (
