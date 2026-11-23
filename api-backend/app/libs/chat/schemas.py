@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import base64
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.chat import ChatAttachment, ChatMessage
 from app.models.users import ClientProfile
@@ -27,6 +27,15 @@ SenderRole = Literal["client", "rm", "assistant"]
 
 # (attachment, room profile, sender uid, sender name, sender is staff, rm name, arm name)
 DocumentRow = tuple[ChatAttachment, ClientProfile, str, str | None, bool, str | None, str | None]
+
+
+def _as_utc(v: datetime) -> datetime:
+    """Stamp UTC on a naive datetime. No conversion -- MariaDB DATETIME is
+    already UTC wall-clock (DateTime(timezone=True) + datetime.now(timezone.utc)).
+    Without the offset, JSON is `2026-11-23T10:40:00` and JS parses that as
+    *local* time, so HK (UTC+8) shows 10:40am for a 6:40pm send.
+    """
+    return v if v.tzinfo is not None else v.replace(tzinfo=timezone.utc)
 
 
 def sender_role(*, is_staff: bool, sender_uid: str, profile: ClientProfile) -> SenderRole:
@@ -77,7 +86,12 @@ class ChatMessageDTO(BaseModel):
     sender_role: SenderRole
     body: str | None  # chat_messages.body
     attachments: list[ChatAttachmentDTO]  # [] when none, never None
-    created_at: datetime  # chat_messages.created_at
+    created_at: datetime  # chat_messages.created_at -- always UTC on the wire
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def _created_at_utc(cls, v: object) -> object:
+        return _as_utc(v) if isinstance(v, datetime) else v
 
     @classmethod
     def from_row(
@@ -132,7 +146,7 @@ class ChatDocumentDTO(BaseModel):
     filename: str
     content_type: str | None
     size_bytes: int | None
-    created_at: datetime  # chat_attachments.created_at
+    created_at: datetime  # chat_attachments.created_at -- always UTC on the wire
     message_id: uuid.UUID
     client_id: uuid.UUID  # the room key
     client_name: str
@@ -143,6 +157,11 @@ class ChatDocumentDTO(BaseModel):
     arm_name: str | None
     rm_uid: str | None = None  # room members -- FE enables the composer only for these
     arm_uid: str | None = None
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def _created_at_utc(cls, v: object) -> object:
+        return _as_utc(v) if isinstance(v, datetime) else v
 
     @classmethod
     def from_row(cls, row: "DocumentRow") -> "ChatDocumentDTO":

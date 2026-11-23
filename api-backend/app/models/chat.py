@@ -16,7 +16,7 @@ and no authorization path reads `sender_id` at all.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -62,7 +62,7 @@ class ChatMessage(Base):
     # append-only message is actively wrong. ClientEvent / ClientContactLog are
     # the created_at-only precedent.
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
     attachments: Mapped[list["ChatAttachment"]] = relationship(
@@ -98,7 +98,7 @@ class ChatAttachment(Base):
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)  # untrusted
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
     message: Mapped["ChatMessage"] = relationship("ChatMessage", back_populates="attachments")
