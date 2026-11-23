@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
 from app.models.pm import PeriodStatus
+
+BookCode = Literal["dt", "pt", "inb"]
 
 # ---------------------------------------------------------------------------
 # Allocation period schemas
@@ -52,12 +55,29 @@ class PeriodStatusUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AllocationBookAccountOut(BaseModel):
+    """One client IB account for a book the column requires.
+
+    Cells list these in order dt, pt, inb, one entry per required book.
+    `account` is null when that book has no row yet. IB is Interactive
+    Brokers. Book codes are dt, pt, and inb (Investment Book).
+    """
+
+    book: BookCode
+    account: str | None
+
+
 class AllocationCellOut(BaseModel):
-    """One (client, model) cell in the derived matrix."""
+    """One (client, model) cell in the derived matrix.
+
+    `units` and `fund` stay one pooled number. `accounts` is the current
+    client_ib_accounts assignment for the model's books, not the single
+    string stored on allocation_model_snapshots.ib_account.
+    """
 
     units: float
     fund: float  # precomputed units × model_size (BE-5)
-    client_ib: str | None  # client_ib_accounts.ib_account at (user_id, model_id) grain
+    accounts: list[AllocationBookAccountOut]
 
 
 class AllocationClientOut(BaseModel):
@@ -76,7 +96,8 @@ class AllocationModelOut(BaseModel):
     live: bool
     col_units: float
     col_fund: float
-    master_ib: str | None  # models.master_ib_account; always None on confirmed views
+    master_ib: str | None  # models.master_ib_account, on open and confirmed views
+    required_books: list[BookCode]  # models.required_books, ordered dt, pt, inb
 
 
 class AllocationViewOut(BaseModel):
@@ -106,7 +127,9 @@ class AllocationViewOut(BaseModel):
         clients_out = [AllocationClientOut(**c) for c in d["clients"]]
         cells_out = {
             key: AllocationCellOut(
-                units=cell["units"], fund=cell["fund"], client_ib=cell.get("client_ib")
+                units=cell["units"],
+                fund=cell["fund"],
+                accounts=cell.get("accounts") or [],
             )
             for key, cell in d["cells"].items()
         }

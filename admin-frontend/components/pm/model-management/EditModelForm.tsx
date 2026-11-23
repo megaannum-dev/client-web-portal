@@ -5,11 +5,13 @@ import { History, Check } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal, Ticks } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
-import type { Model } from "@/lib/pm/types";
+import type { BookCode, Model } from "@/lib/pm/types";
+import { RequiredBooksField, canonicalBooks } from "./BookChips";
 import { updateModel as updateModelAction } from "@/app/(roles)/pm/model-management/actions";
 import { CategorySelect, CreateField, CreateTextArea } from "./CreateModelForm";
 import { parseFeePercent, formatFeePercent } from "@/lib/fee";
-import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
+import { useIbAccountRegistry } from "@/hooks/api/useIbAccountRegistry";
+import { MasterAccountField } from "./MasterAccountField";
 
 /* ---- Edit-model form ---------------------------------------
    Sends a PATCH /api/pm/models/{id} with only the fields the user
@@ -46,6 +48,9 @@ export function EditModelForm({
   const [mgmtFee, setMgmtFee] = useState(model.mgmt_fee != null ? formatFeePercent(model.mgmt_fee).replace("%", "") : "");
   const [incentiveFee, setIncentiveFee] = useState(model.incentive_fee != null ? formatFeePercent(model.incentive_fee).replace("%", "") : "");
   const [masterIbAccount, setMasterIbAccount] = useState(model.master_ib_account ?? "");
+  const [requiredBooks, setRequiredBooks] = useState<BookCode[]>(canonicalBooks(model.required_books));
+  const booksLocked = model.status === "live";
+  const { options: masterOptions, loading: mastersLoading } = useIbAccountRegistry();
 
   const commitSym = () => {
     const s = draftSym.trim().toUpperCase();
@@ -96,14 +101,22 @@ export function EditModelForm({
     if (mgmtFeeNum !== (model.mgmt_fee ?? null)) patch.mgmt_fee = mgmtFeeNum;
     const incentiveFeeNum = incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee);
     if (incentiveFeeNum !== (model.incentive_fee ?? null)) patch.incentive_fee = incentiveFeeNum;
-    const masterIbAccountNext = masterIbAccount.trim() === "" ? null : normalizeIbAccount(masterIbAccount);
-    if (masterIbAccountNext !== (model.master_ib_account ?? null)) patch.master_ib_account = masterIbAccountNext;
+    if (model.status !== "live") {
+      const masterIbAccountNext = masterIbAccount === "" ? null : masterIbAccount;
+      if (masterIbAccountNext !== (model.master_ib_account ?? null)) patch.master_ib_account = masterIbAccountNext;
+    }
+    if (
+      !booksLocked
+      && JSON.stringify(canonicalBooks(requiredBooks)) !== JSON.stringify(canonicalBooks(model.required_books))
+    ) {
+      patch.required_books = canonicalBooks(requiredBooks);
+    }
 
     return patch;
   };
 
   const save = () => {
-    if (!name.trim() || saving) return;
+    if (!name.trim() || saving || requiredBooks.length === 0) return;
     const patch = buildPatch();
     if (Object.keys(patch).length === 0) {
       onClose();
@@ -133,7 +146,7 @@ export function EditModelForm({
             <History size={14} strokeWidth={2} />Changes are logged to the model&rsquo;s history
           </span>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button icon={Check} disabled={!name.trim() || saving} onClick={save}>
+          <Button icon={Check} disabled={!name.trim() || saving || requiredBooks.length === 0} onClick={save}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </>
@@ -143,17 +156,20 @@ export function EditModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} />
         </div>
-        <div>
-          <CreateField
-            label="Master IB Account"
-            value={masterIbAccount}
-            onChange={setMasterIbAccount}
-            placeholder="e.g. U1234567"
+        <div style={{ gridColumn: "1 / -1" }}>
+          <RequiredBooksField
+            value={requiredBooks}
+            onChange={setRequiredBooks}
+            locked={booksLocked}
           />
-          {masterIbAccount.trim() !== "" && !isValidIbAccount(masterIbAccount) && (
-            <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
-          )}
         </div>
+        <MasterAccountField
+          value={masterIbAccount}
+          onChange={setMasterIbAccount}
+          options={masterOptions}
+          loading={mastersLoading}
+          locked={model.status === "live"}
+        />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

@@ -26,7 +26,7 @@ function makeClient(rows: TxnRow[]): SubClient {
     models: [
       {
         name: "Balanced", status: "Active", tone: "active",
-        mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471",
+        mgmtFee: "1.0%", incentiveFee: "10%", accounts: [],
         modelId: "m-1", units: 5, rows,
       },
     ],
@@ -87,8 +87,8 @@ describe("A fully-redeemed (units: 0) model stays visible, only its redemption a
     const client: SubClient = {
       id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$2.0M",
       models: [
-        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-0001", modelId: "m-0", units: 0, rows: [netRow] },
-        { name: "Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-4471", modelId: "m-1", units: 5, rows: [netRow] },
+        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", accounts: [], modelId: "m-0", units: 0, rows: [netRow] },
+        { name: "Balanced", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", accounts: [], modelId: "m-1", units: 5, rows: [netRow] },
       ],
     };
     render(<SubscriptionAccordion clients={[client]} onOpenModal={() => {}} initialOpenClient="c-1" />);
@@ -102,7 +102,7 @@ describe("A fully-redeemed (units: 0) model stays visible, only its redemption a
     const client: SubClient = {
       id: "c-1", name: "Ardent Capital", initials: "AC", mandate: "Discretionary", aum: "$0",
       models: [
-        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", account: "IB-0001", modelId: "m-0", units: 0, rows: [netRow] },
+        { name: "Redeemed Model", status: "Active", tone: "active", mgmtFee: "1.0%", incentiveFee: "10%", accounts: [], modelId: "m-0", units: 0, rows: [netRow] },
       ],
     };
     render(<SubscriptionAccordion clients={[client]} onOpenModal={() => {}} initialOpenClient="c-1" initialOpenModelKey="c-1-0" />);

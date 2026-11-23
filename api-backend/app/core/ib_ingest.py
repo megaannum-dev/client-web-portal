@@ -82,8 +82,9 @@ def ingest_day(day: date, *, now: datetime | None = None) -> tuple[int, int, int
     (orders_inserted, orders_skipped, trades_inserted, trades_skipped,
     summaries_inserted, summaries_skipped).
 
-    Idempotent: flex_import.load's dedup (on orders.orderID / trades.execID,
-    or the 7-column fallback key) makes a re-run of the same day a no-op
+    Idempotent: flex_import.load's dedup (orders on orderID+accountId,
+    trades on tradeID+accountId, symbol summaries on
+    symbol+tradeDate+buySell+accountId) makes a re-run of the same day a no-op
     insert-wise; save_at re-writing the same bytes at the same key is a
     no-op too.
     """

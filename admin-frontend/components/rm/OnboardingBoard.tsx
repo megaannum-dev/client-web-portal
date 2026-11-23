@@ -16,6 +16,7 @@ import { fmtTimestamp } from "@/lib/pm/format";
 import { saveBase64File } from "@/lib/download";
 import { KYC_MAX_BYTES, fileTooLargeError } from "@/lib/upload-limits";
 import { useCanEdit } from "@/hooks/usePageAccess";
+import { BookChip } from "@/components/rm/BookAccountStack";
 
 const DOC_ICON: Record<string, LucideIcon> = {
   active: Check, pending: Clock, review: Clock, failed: X, overdue: TriangleAlert, neutral: Clock,
@@ -138,6 +139,22 @@ function KycPanel({
           <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">KYC &amp; Compliance Docs</span>
           <Chip tone={chipToneForCounts(item.verifiedCount, item.requiredCount)} dot={false}>{item.verifiedCount}/{item.requiredCount} verified</Chip>
         </div>
+      </div>
+
+      <div className="shrink-0 border-b border-outline-variant px-5 py-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-secondary">Accounts</div>
+        {(item.accounts ?? []).length === 0 ? (
+          <span className="text-[13px] text-secondary">—</span>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {(item.accounts ?? []).map((row) => (
+              <span key={row.book} className="inline-flex items-center gap-1.5">
+                <BookChip code={row.book} />
+                <span className="text-[13px] font-semibold tabular-nums text-on-surface">{row.account}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-1">

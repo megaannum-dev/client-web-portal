@@ -6,6 +6,7 @@ import { Fact, Ticks } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
 import { formatFeePercent } from "@/lib/fee";
 import type { Model } from "@/lib/pm/types";
+import { BookChips } from "./BookChips";
 
 /* ============================================================
    SLIDE-IN DETAIL — Overview tab
@@ -24,6 +25,7 @@ export function OverviewTab({
       <div className="grid grid-cols-2 gap-[11px]">
         <Fact label="Model size" value={fmtMoney(m.size)} />
         <Fact label="Master IB Account" value={m.master_ib_account ?? "—"} />
+        <Fact label="Books" value={<BookChips value={m.required_books} />} span />
         <Fact label="Mgmt Fee" value={m.mgmt_fee != null ? formatFeePercent(m.mgmt_fee) : formatFeePercent(0.02)} />
         <Fact label="Incentive Fee" value={m.incentive_fee != null ? formatFeePercent(m.incentive_fee) : formatFeePercent(0.2)} />
         <Fact label="Category" value={m.category.length > 0 ? <Ticks symbols={m.category} /> : "—"} />

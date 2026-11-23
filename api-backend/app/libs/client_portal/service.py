@@ -429,7 +429,7 @@ class ClientPortalService:
         model = self.db.get(Model, t.model_id) if t.model_id else None
         client_ib = (
             self.db.query(ClientIbAccount.ib_account)
-            .filter_by(user_id=t.user_id, model_id=t.model_id)
+            .filter_by(user_id=t.user_id, model_id=t.model_id, book="dt")
             .scalar()
             if t.model_id is not None
             else None

@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { getApiBase } from "@/lib/auth-api";
 import type {
   AllocationDTO,
+  IbAccountOption,
   MaterialDTO,
   ModelDTO,
   ModelsListDTO,
@@ -26,6 +27,10 @@ export type AllocationFetchResult = ConditionalResult<AllocationDTO>;
 
 export async function getModels(): Promise<APIResult<ModelsListDTO>> {
   return apiClient<ModelsListDTO>(ENDPOINTS.PM.MODELS);
+}
+
+export async function getIbAccountRegistry(): Promise<APIResult<IbAccountOption[]>> {
+  return apiClient<IbAccountOption[]>(ENDPOINTS.PM.IB_ACCOUNT_REGISTRY);
 }
 
 export async function getModel(id: string): Promise<APIResult<ModelDTO>> {

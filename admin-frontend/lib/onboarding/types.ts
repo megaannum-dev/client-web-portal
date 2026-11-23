@@ -22,7 +22,8 @@ export interface StartOnboardingReq {
   client_name: string; email: string; primary_phone: string;
   address: string; country_of_residence: string;
   id_type: string; id_number: string;
-  client_ib: string; sw_account: string;
+  accounts: Record<string, string>;
+  sw_account: string;
   model_id: string; units: number;
   initial_cash_deposit: number;              // Decimal-as-number, see BE-8
   mgmt_fee: number; incentive_fee: number;   // fractions, e.g. 0.015 — see FE-9
@@ -59,6 +60,7 @@ export interface OnboardingDTO {   // widened 2026-07-20 for full field parity w
   primary_phone: string; address: string; country_of_residence: string;   // joined from ClientProfile, not duplicated onto client_onboardings
   id_type: string; id_number: string;                          // genuinely new columns on client_onboardings (D-9)
   client_ib: string; sw_account: string;                       // already existed on client_onboardings; this widening only adds them to the DTO
+  accounts: BookAccount[];             // ordered dt, pt, inb; empty when none are stored
   status: OnboardingStatus; kind: OnboardingKind;
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;                     // the agreed fee as captured at onboarding; JSON numbers per §3.1's Decimal-as-number convention
@@ -83,6 +85,11 @@ export interface ReprovisionReq { doc_types: string[]; note?: string | null; }
 // No doc_types: the documents to resubmit are whichever the batch-verdict call marked `issue`.
 export interface ResubmitReq { note?: string | null; }
 
+export interface BookAccount {
+  book: "dt" | "pt" | "inb";
+  account: string;
+}
+
 export interface SubmitAllotmentReq {
   client_id: string;             // uuid.UUID as string
   model_id: string;              // uuid.UUID as string
@@ -91,9 +98,8 @@ export interface SubmitAllotmentReq {
   mgmt_fee?: number | null;      // only populated for new-subscription mode
   incentive_fee?: number | null; // only populated for new-subscription mode
   source_ticket_ref?: string;    // originating ticket ref, when submitted via Act-on-request deep-link
-  // The client's IB account for this model, captured when the allotment is a
-  // NEW subscription. Optional because add-allotment/redemption never send it.
-  client_ib?: string | null;
+  // New subscription only. One account per required book. Add allotment omits it.
+  accounts?: Record<string, string> | null;
 }
 
 export interface SubmitRedemptionReq {
@@ -123,6 +129,7 @@ export interface AllotRdmptDTO {
   decided_at: string | null;
   reject_reason: string | null;
   has_transaction_detail: boolean;      // widened 2026-07-24 (proposal 017, BE-4) — true when a transaction_details row exists
+  accounts: BookAccount[];              // ordered dt, pt, inb; empty when none are stored
 }
 
 /* ---- Transaction Detail (settlement filing) — proposal 017 §4.1 --------- */
@@ -171,7 +178,7 @@ export interface ContactLogEntryDTO {
 export interface ClientSubscriptionRowDTO {
   model_id: string; model_name: string; units: number;
   mgmt_fee: number; incentive_fee: number;   // effective = override ?? Model default (013 C-5's read-side coalesce)
-  client_ib: string | null;   // client_ib_accounts.ib_account for this (client, model) pair
+  accounts: BookAccount[];   // ordered dt, pt, inb; empty when none are stored
   amount: number;   // = units * model.model_size — mirrors AllotRdmptDTO.amount
 }
 export interface ClientSubscriptionsDTO {
@@ -188,6 +195,7 @@ export interface KycBoardClient {
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhkAccount: string; swAccount: string;
+  accounts: BookAccount[];
   status: OnboardingStatus;
   /** "renewal" once an approved client is reopened (renewal or reprovision). */
   kind?: OnboardingKind;
@@ -204,6 +212,7 @@ export interface AdminOnboardingRow {
   phone: string; address: string; country: string;
   idType: string; idNumber: string;
   ibhk: string; silverwate: string;
+  accounts: BookAccount[];
   rm: string; clientRef: string; submitted: string; status: ObStatus; type: string;
   documents: DocumentDTO[];
   complNote: string | null;

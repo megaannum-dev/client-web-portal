@@ -63,6 +63,7 @@ const ALLOTMENT: AllotRdmptDTO = {
   emergent: false, expected_cash_out: null,
   decided_by: null, decided_at: null, reject_reason: null,
   has_transaction_detail: false,
+  accounts: [],
 };
 
 function mockFetchOnce(body: unknown, status = 200, headers: Record<string, string> = {}) {

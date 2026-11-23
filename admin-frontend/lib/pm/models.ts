@@ -13,7 +13,15 @@
    there directly.
    ============================================================ */
 
-import type { ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO, SymbolDTO } from "./types";
+import type { BookCode, ChangeEntry, Material, MaterialDTO, Model, ModelDTO, ModelsListDTO, SymbolDTO } from "./types";
+
+const BOOK_CODES: BookCode[] = ["dt", "pt", "inb"];
+
+function mapBooks(value: unknown): BookCode[] {
+  if (!Array.isArray(value)) return ["dt"];
+  const books = BOOK_CODES.filter((code) => value.includes(code));
+  return books.length > 0 ? books : ["dt"];
+}
 
 /* Hardcoded fee rates per 006 (`pc-workspace-006-decisions`):
    fees are NOT stored on the model — they are 2% / 20% across the board
@@ -82,6 +90,7 @@ export function mapDtoToModel(dto: Partial<ModelDTO> & { id: string; name: strin
     mgmt_fee: dto.mgmt_fee ?? null,
     incentive_fee: dto.incentive_fee ?? null,
     master_ib_account: dto.master_ib_account ?? null,
+    required_books: mapBooks(dto.required_books),
   };
 }
 

@@ -108,7 +108,7 @@ class ClientService:
         dto = self._to_dto(row)
         subs = self.repo.list_subscriptions(client_id)
         dto.subscriptions = [
-            SubscriptionOut(model=s.model, status=s.status, client_ib=s.client_ib) for s in subs
+            SubscriptionOut(model=s.model, status=s.status, accounts=s.accounts) for s in subs
         ]
         portfolio = self.repo.get_portfolio(client_id)
         if portfolio is not None:
@@ -157,7 +157,11 @@ class ClientService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
 
         row = client_ib_accounts.reassign(
-            self.repo.db, user_id=client_id, model_id=model_id, account=account_id
+            self.repo.db,
+            user_id=client_id,
+            model_id=model_id,
+            book="dt",
+            account=account_id,
         )
         stored = row.ib_account  # read before commit expires the instance
         self.repo.db.commit()

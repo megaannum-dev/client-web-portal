@@ -33,6 +33,7 @@ from app.libs.onboarding.schemas import (
     RedemptionDecisionReq,
     ReprovisionReq,
     ResubmitReq,
+    BookAccount,
     RmOptionDTO,
     StartOnboardingReq,
     SubmitAllotmentReq,
@@ -192,8 +193,11 @@ class OnboardingService:
             )
         # Same reason: create_cycle -> client_ib_accounts.ensure would raise on
         # a duplicate/malformed account only AFTER the client exists. This is
-        # the pre-flight; ensure() re-checks at the real write.
-        client_ib_accounts.check(self.db, req.client_ib)
+        # the pre-flight; ensure() re-checks at the real write. user_id is
+        # still unknown, so a stored account cannot be treated as this client's.
+        chosen = self._validate_subscription_accounts(
+            user_id=None, model=model, accounts=req.accounts
+        )
 
         client_service = ClientService(self.db)
         staged_user, _invite_link = client_service.onboard(
@@ -224,7 +228,7 @@ class OnboardingService:
                 units=req.units,
                 mgmt_fee=req.mgmt_fee,
                 incentive_fee=req.incentive_fee,
-                client_ib=req.client_ib,
+                accounts=dict(chosen),
                 sw_account=req.sw_account,
                 id_type=req.id_type,
                 id_number=req.id_number,
@@ -672,6 +676,124 @@ class OnboardingService:
         buf.seek(0)
         return buf, f"{display.client_name or 'client'}_kyc_docs.zip"
 
+
+    def free_accounts(self, model_id: uuid.UUID) -> list[str]:
+        """U accounts configured under this model's master and not already
+        stored on any client_ib_accounts row. Empty when the model has no
+        master, so the pool the form would draw from is empty."""
+        from app.libs.trade_models.service import _configured_masters
+
+        model = self.db.get(Model, model_id)
+        if model is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+        master = model.master_ib_account
+        if not master:
+            return []
+        assigned = {
+            account.strip().upper()
+            for (account,) in self.db.query(ClientIbAccount.ib_account)
+            .filter(ClientIbAccount.ib_account.isnot(None))
+            .all()
+            if account
+        }
+        free: list[str] = []
+        seen: set[str] = set()
+        for account in _configured_masters().get(master, []):
+            normalized = account.strip().upper()
+            if not normalized or normalized in seen or normalized in assigned:
+                continue
+            seen.add(normalized)
+            free.append(normalized)
+        return free
+
+    def _validate_subscription_accounts(
+        self,
+        *,
+        user_id: uuid.UUID | None,
+        model: Model,
+        accounts: dict[str, str] | None,
+    ) -> list[tuple[str, str]]:
+        """Check one account per required book without writing. The set must
+        match the model exactly. Pass user_id when the client already exists
+        so a resubscribe can re-assert its own account; a new onboarding has
+        no user yet, so any stored account is a conflict."""
+        from app.libs.trade_models.service import _configured_masters
+
+        stored = list(model.required_books or [])
+        required = [book for book in client_ib_accounts.BOOKS if book in set(stored)]
+        if not stored or not required or any(book not in client_ib_accounts.BOOKS for book in stored):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Model required books are not configured",
+            )
+        if not model.master_ib_account:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "This model has no master account",
+            )
+        if accounts is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "A new subscription needs an account for every required book",
+            )
+        if set(accounts) != set(required):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Accounts must match the model's required books ("
+                + ", ".join(required)
+                + ")",
+            )
+        pool = {
+            item.strip().upper()
+            for item in _configured_masters().get(model.master_ib_account, [])
+            if item
+        }
+        chosen: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for book in required:
+            account = client_ib_accounts.check(
+                self.db,
+                accounts[book],
+                book=book,
+                user_id=user_id,
+                model_id=model.id,
+            )
+            if account in seen:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"Account {account} is used for more than one book",
+                )
+            if account not in pool:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"Account {account} is not configured under {model.master_ib_account}",
+                )
+            seen.add(account)
+            chosen.append((book, account))
+        return chosen
+
+    def _bind_new_subscription_accounts(
+        self,
+        *,
+        user_id: uuid.UUID,
+        model: Model,
+        accounts: dict[str, str] | None,
+    ) -> None:
+        """Write one permanent account per required book. The set must match
+        the model exactly. A resubscribe that finds the same account already
+        stored inherits it; a different account for that book is a 409."""
+        chosen = self._validate_subscription_accounts(
+            user_id=user_id, model=model, accounts=accounts
+        )
+        for book, account in chosen:
+            client_ib_accounts.ensure(
+                self.db,
+                user_id=user_id,
+                model_id=model.id,
+                book=book,
+                account=account,
+            )
+
     # ---- RM/PM: allotment submission (BE-2) --------------------------------
     def submit_allotment(self, req: SubmitAllotmentReq) -> AllotRdmptDTO:
         """Mirrors _approve_initial (service.py:242) without the onboarding
@@ -696,7 +818,6 @@ class OnboardingService:
         # identity-mapped row in place (get-then-set on the composite PK), so
         # `existing.multiplier` would read back as the NEW value, not the
         # pre-upsert one, if checked after line 559 below.
-        is_revived = existing is None or existing.multiplier == 0
         # ORDERING: read agg_before BEFORE the upsert -- same constraint as
         # _approve_initial (double-counts this client's own row otherwise).
         agg_before = self.repo.sum_subscription_multiplier(req.model_id)
@@ -722,17 +843,14 @@ class OnboardingService:
                 mgmt_fee_override=mgmt_override,
                 incentive_fee_override=incentive_override,
             )
-            if is_revived and req.client_ib:
-                # New subscription to this model -- but NOT necessarily a first
-                # one: a client who fully redeemed keeps their client_subscriptions
-                # row at multiplier=0 (never deleted) and their permanent
-                # client_ib_accounts row, so ensure() finds it and leaves it
-                # untouched rather than colliding on the composite PK.
-                client_ib_accounts.ensure(
-                    self.db,
-                    user_id=req.client_id,
-                    model_id=req.model_id,
-                    account=req.client_ib,
+            if existing is None:
+                self._bind_new_subscription_accounts(
+                    user_id=req.client_id, model=model, accounts=req.accounts
+                )
+            elif req.accounts is not None:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    "Add allotment does not accept accounts",
                 )
             allotment = self.repo.create_allotment(
                 user_id=req.client_id,
@@ -1153,8 +1271,9 @@ class OnboardingService:
         from app.libs.clients.repository import ClientRepository
 
         visible_ids = {row.id for row in ClientRepository(self.db).list_visible(role, rm_uid)}
+        accounts_by_pair = client_ib_accounts.assigned_by_pair(self.db)
         by_client: dict[uuid.UUID, ClientSubscriptionsDTO] = {}
-        for profile, sub, model, client_ib in self.repo.list_all_subscriptions():
+        for profile, sub, model in self.repo.list_all_subscriptions():
             if str(profile.user_id) not in visible_ids:
                 continue
             amount = sub.multiplier * (model.model_size or Decimal("0"))
@@ -1172,7 +1291,7 @@ class OnboardingService:
                     if sub.incentive_fee_override is not None
                     else (model.incentive_fee or Decimal("0"))
                 ),
-                client_ib=client_ib,
+                accounts=accounts_by_pair.get((profile.user_id, model.id), []),
                 amount=amount,
             )
             bucket = by_client.setdefault(
@@ -1264,6 +1383,12 @@ class OnboardingService:
             id_type=onboarding.id_type,
             id_number=onboarding.id_number,
             client_ib=display.client_ib or "",
+            accounts=[
+                BookAccount(book=row["book"], account=row["account"])
+                for row in client_ib_accounts.assigned_for(
+                    self.db, user_id=onboarding.user_id, model_id=onboarding.model_id
+                )
+            ],
             sw_account=onboarding.sw_account or "",
             status=onboarding.status.value,
             kind=onboarding.kind.value,
@@ -1292,12 +1417,8 @@ class OnboardingService:
         assigned_rm = (
             self.repo.display_fields(source_onboarding).assigned_rm if source_onboarding else ""
         )
-        # Read-time join, no column of its own: client_allotment_redemptions
-        # already stores (user_id, model_id), which IS client_ib_accounts' PK.
-        client_ib = (
-            self.db.query(ClientIbAccount.ib_account)
-            .filter_by(user_id=allotment.user_id, model_id=allotment.model_id)
-            .scalar()
+        accounts = client_ib_accounts.assigned_for(
+            self.db, user_id=allotment.user_id, model_id=allotment.model_id
         )
         return AllotRdmptDTO(
             id=allotment.id,
@@ -1321,7 +1442,7 @@ class OnboardingService:
             decided_at=allotment.decided_at,
             reject_reason=allotment.reject_reason,
             has_transaction_detail=self.repo.get_transaction_detail(allotment.id) is not None,
-            client_ib=client_ib,
+            accounts=accounts,
         )
 
     def _transaction_detail_to_dto(self, detail: TransactionDetail) -> TransactionDetailDTO:

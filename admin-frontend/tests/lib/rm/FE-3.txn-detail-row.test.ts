@@ -19,20 +19,20 @@ const BASE: AllotRdmptDTO = {
 
 describe("FE-3 allotmentToTxnRow appends has_transaction_detail as the 12th element", () => {
   it("has_transaction_detail: true -> 12th element is true", () => {
-    const row = allotmentToTxnRow({ ...BASE, has_transaction_detail: true }, "IB-4471");
-    expect(row).toHaveLength(12);
+    const row = allotmentToTxnRow({ ...BASE, has_transaction_detail: true });
+    expect(row).toHaveLength(13);
     expect(row[11]).toBe(true);
   });
 
   it("has_transaction_detail: false -> 12th element is false", () => {
-    const row = allotmentToTxnRow({ ...BASE, has_transaction_detail: false }, "IB-4471");
-    expect(row).toHaveLength(12);
+    const row = allotmentToTxnRow({ ...BASE, has_transaction_detail: false });
+    expect(row).toHaveLength(13);
     expect(row[11]).toBe(false);
   });
 
   it("the first 11 elements are unaffected by has_transaction_detail — only appends, never reorders", () => {
-    const rowFiled = allotmentToTxnRow({ ...BASE, has_transaction_detail: true }, "IB-4471");
-    const rowUnfiled = allotmentToTxnRow({ ...BASE, has_transaction_detail: false }, "IB-4471");
+    const rowFiled = allotmentToTxnRow({ ...BASE, has_transaction_detail: true });
+    const rowUnfiled = allotmentToTxnRow({ ...BASE, has_transaction_detail: false });
     expect(rowFiled.slice(0, 11)).toEqual(rowUnfiled.slice(0, 11));
     expect(rowFiled[0]).toBe("Allotment");
     expect(rowFiled[9]).toBe("pending");

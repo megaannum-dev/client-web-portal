@@ -1,7 +1,9 @@
+import type { BookAccount } from "@/lib/onboarding/types";
+
 export interface SubscriptionDTO {
   model: string;
   status: string; // raw ModelStatus value from the backend: "live" | "draft"
-  account: string | null;
+  accounts: BookAccount[];
 }
 
 export interface ClientListItemDTO {

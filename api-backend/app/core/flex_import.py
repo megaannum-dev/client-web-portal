@@ -32,9 +32,9 @@ from app.models.reconciliation import Order, SymbolSummary, Trade
 #   TCF (Trade Confirm Flex)  -- column names match the ORM directly.
 #
 # levelOfDetail routing:
-#   ORDER          -> orders          (unique on orderID)
-#   EXECUTION      -> trades          (unique on execID)
-#   SYMBOL_SUMMARY -> symbol_summaries (dedup on symbol+tradeDate+buySell)
+#   ORDER          -> orders          (unique on orderID + accountId)
+#   EXECUTION      -> trades          (unique on tradeID + accountId, and execID + accountId)
+#   SYMBOL_SUMMARY -> symbol_summaries (dedup on symbol+tradeDate+buySell+accountId)
 #   ASSET_SUMMARY  (skipped)
 #
 # Pure parsing only — no DB access. Used by both the CLI importer
@@ -46,7 +46,8 @@ EXECUTION_LEVELS = frozenset({"EXECUTION"})
 SUMMARY_LEVELS = frozenset({"SYMBOL_SUMMARY"})
 KEEP_LEVELS = ORDER_LEVELS | EXECUTION_LEVELS | SUMMARY_LEVELS
 
-# Header attributes on <FlexStatement> that are also row columns.
+# FlexStatement fields. Not columns on the three tables. Still excluded from
+# the unknown-column report; _build_row drops any name that is not on the model.
 _STATEMENT_HEADER_KEYS = ("period", "fromDate", "toDate", "whenGenerated")
 
 # AF column name -> TCF column name (8 renames; everything else is unchanged).
@@ -228,8 +229,9 @@ def parse_csv(csv_path: str, file_type: str) -> ParseResult:
     """Parse a single per-section Activity Statement CSV into three row buckets.
 
     Each CSV row already carries fromDate/toDate/period/whenGenerated directly
-    (unlike XML, where those live on the parent <FlexStatement> element), so no
-    separate header dict is needed — routing happens purely off levelOfDetail.
+    (unlike XML, where those live on the parent <FlexStatement> element). Those
+    four names are not row columns, so _build_row drops them. Routing happens
+    purely off levelOfDetail.
     """
     aliases = AF_TO_TCF if file_type == "AF" else {}
     order_rows: list[dict[str, object]] = []
@@ -260,21 +262,15 @@ def parse_csv(csv_path: str, file_type: str) -> ParseResult:
 # Dedup + load logic for IB Flex activity rows into orders/trades/symbol_summaries.
 
 
-def _existing_single(conn, table: Table, col: str) -> set:
-    return {row[0] for row in conn.execute(select(table.c[col]))}
+def _existing_keys(conn, table: Table, cols: tuple[str, ...]) -> set:
+    selected = conn.execute(select(*(table.c[col] for col in cols)))
+    return {tuple(row) for row in selected}
 
 
-def _existing_triple(conn, table: Table, col1: str, col2: str, col3: str) -> set:
-    return {
-        (row[0], row[1], row[2])
-        for row in conn.execute(select(table.c[col1], table.c[col2], table.c[col3]))
-    }
-
-
-# ponytail: no fallback key here anymore. tradeID is populated on every
-# EXECUTION row -- including the BookTrade expiry/assignment rows where
-# execID is empty -- and is unique DB-wide (verified 982/982 distinct, 0
-# NULL), so trades dedup on tradeID alone, same shape as orders on orderID.
+# A master ALLOC row and the client BUY/SELL row share tradeID and execID.
+# accountId is what separates them, so trades dedup on (tradeID, accountId),
+# same shape as orders on (orderID, accountId). execID can be empty on
+# BookTrade expiry/assignment rows; the DB unique is (execID, accountId).
 # The 7-column heuristic key + Decimal-normalization helpers that used to
 # live here are gone; don't reintroduce them.
 
@@ -283,9 +279,7 @@ def _dedupe_fresh(rows, key_fn, existing_keys: set) -> list:
     """Keep rows whose key isn't in `existing_keys`, updating it in place.
 
     Handles both "already in the DB" and "duplicated within this same
-    import call" in one pass — the latter matters for summary_rows, which
-    have no DB unique constraint to fall back on if the in-memory filter
-    misses a dup.
+    import call" in one pass.
     """
     fresh = []
     for r in rows:
@@ -313,11 +307,11 @@ def load(
     orders (reverse dependency).
 
     If no_dedup is True, all dedup lookups/filtering are skipped and every
-    parsed row is inserted as-is. DB unique constraints (orders.orderID,
-    trades.tradeID, trades.execID) still apply and will raise IntegrityError
-    if the parsed data itself contains a real duplicate — symbol_summaries
-    rows have no such backstop, so a raw re-import in this mode against a
-    non-empty table WILL create literal duplicates.
+    parsed row is inserted as-is. DB unique constraints still apply and will
+    raise IntegrityError if the parsed data itself contains a real duplicate:
+    orders (orderID, accountId), trades (tradeID, accountId) and
+    (execID, accountId), symbol_summaries
+    (symbol, tradeDate, buySell, accountId).
 
     Returns (orders_inserted, orders_skipped, trades_inserted, trades_skipped,
              summaries_inserted, summaries_skipped).
@@ -326,12 +320,13 @@ def load(
     # Fail loud rather than silently collapsing: every row missing a tradeID
     # keys to the same None, so _dedupe_fresh would keep the first and DISCARD
     # the rest -- and MySQL permits many NULLs in a unique index, so
-    # uq_trades_tradeID would not catch it either. The old composite fallback
-    # key degraded gracefully here; keying on tradeID alone does not.
+    # uq_trades_tradeID_accountId would not catch it either. The old composite
+    # fallback key degraded gracefully here; keying on (tradeID, accountId)
+    # does not when tradeID is missing.
     if not no_dedup and any(not r.get("tradeID") for r in trade_rows):
         raise ValueError(
             "trade rows without a tradeID cannot be deduped "
-            "(tradeID is the unique key); refusing to load"
+            "((tradeID, accountId) is the dedupe key); refusing to load"
         )
 
     with engine.begin() as conn:
@@ -346,23 +341,40 @@ def load(
             fresh_summaries = summary_rows
         else:
             if mode == "replace":
-                existing_order_ids: set = set()
-                existing_trade_ids: set = set()
+                existing_order_keys: set = set()
+                existing_trade_keys: set = set()
                 existing_summary_keys: set = set()
             else:
-                existing_order_ids = _existing_single(conn, _ORDERS_TABLE, "orderID")
-                existing_trade_ids = _existing_single(conn, _TRADES_TABLE, "tradeID")
-                existing_summary_keys = _existing_triple(
-                    conn, _SUMMARIES_TABLE, "symbol", "tradeDate", "buySell"
+                existing_order_keys = _existing_keys(
+                    conn, _ORDERS_TABLE, ("orderID", "accountId")
+                )
+                existing_trade_keys = _existing_keys(
+                    conn, _TRADES_TABLE, ("tradeID", "accountId")
+                )
+                existing_summary_keys = _existing_keys(
+                    conn,
+                    _SUMMARIES_TABLE,
+                    ("symbol", "tradeDate", "buySell", "accountId"),
                 )
 
-            fresh_orders = _dedupe_fresh(order_rows, lambda r: r.get("orderID"), existing_order_ids)
+            fresh_orders = _dedupe_fresh(
+                order_rows,
+                lambda r: (r.get("orderID"), r.get("accountId")),
+                existing_order_keys,
+            )
             fresh_trades = _dedupe_fresh(
-                trade_rows, lambda r: r.get("tradeID"), existing_trade_ids
+                trade_rows,
+                lambda r: (r.get("tradeID"), r.get("accountId")),
+                existing_trade_keys,
             )
             fresh_summaries = _dedupe_fresh(
                 summary_rows,
-                lambda r: (r.get("symbol"), r.get("tradeDate"), r.get("buySell")),
+                lambda r: (
+                    r.get("symbol"),
+                    r.get("tradeDate"),
+                    r.get("buySell"),
+                    r.get("accountId"),
+                ),
                 existing_summary_keys,
             )
 

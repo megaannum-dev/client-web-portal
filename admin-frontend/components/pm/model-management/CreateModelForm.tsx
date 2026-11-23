@@ -5,9 +5,11 @@ import { ChevronDown, FileText, Clock, Check, Upload, X } from "@/lib/icons";
 import { Button } from "@/components/ui/Button";
 import { Modal, Ticks } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
-import type { ModelStatus } from "@/lib/pm/types";
+import type { BookCode, ModelStatus } from "@/lib/pm/types";
+import { RequiredBooksField, canonicalBooks } from "./BookChips";
 import { parseFeePercent, formatFeePercent } from "@/lib/fee";
-import { IB_ACCOUNT_HINT, isValidIbAccount, normalizeIbAccount } from "@/lib/rm/ib-account";
+import { useIbAccountRegistry } from "@/hooks/api/useIbAccountRegistry";
+import { MasterAccountField } from "./MasterAccountField";
 
 /* ============================================================
    MODALS — create / edit model
@@ -228,6 +230,7 @@ export interface NewModelDraft {
   mgmt_fee?: number | null;
   incentive_fee?: number | null;
   master_ib_account?: string | null;
+  required_books: BookCode[];
 }
 
 /* ---- New-model form (create live or draft) -----------------
@@ -255,6 +258,7 @@ export function CreateModelForm({
     mgmt_fee?: number | null;
     incentive_fee?: number | null;
     master_ib_account?: string | null;
+    required_books?: BookCode[];
   };
 }) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -274,6 +278,10 @@ export function CreateModelForm({
   const [mgmtFee, setMgmtFee] = useState(initial?.mgmt_fee != null ? formatFeePercent(initial.mgmt_fee).replace("%", "") : "");
   const [incentiveFee, setIncentiveFee] = useState(initial?.incentive_fee != null ? formatFeePercent(initial.incentive_fee).replace("%", "") : "");
   const [masterIbAccount, setMasterIbAccount] = useState(initial?.master_ib_account ?? "");
+  const { options: masterOptions, loading: mastersLoading } = useIbAccountRegistry();
+  const [requiredBooks, setRequiredBooks] = useState<BookCode[]>(
+    initial?.required_books?.length ? canonicalBooks(initial.required_books) : ["dt"],
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const commitSym = () => {
@@ -283,12 +291,13 @@ export function CreateModelForm({
     setAddingSym(false);
   };
 
-  const valid = name.trim().length > 0;
+  const booksSelected = requiredBooks.length > 0;
+  const valid = name.trim().length > 0 && booksSelected;
   // Publish prerequisite: a live model requires at least one material (v1).
   const canPublish = valid && !!file;
 
   const submit = (status: ModelStatus) => {
-    if (!valid) return;
+    if (!valid || !booksSelected) return;
     if (status === "live" && !file) return;
     onCreate({
       name: name.trim(),
@@ -306,7 +315,8 @@ export function CreateModelForm({
       nav_perf: navPerf.trim() || undefined,
       mgmt_fee: mgmtFee.trim() === "" ? null : parseFeePercent(mgmtFee),
       incentive_fee: incentiveFee.trim() === "" ? null : parseFeePercent(incentiveFee),
-      master_ib_account: masterIbAccount.trim() === "" ? null : normalizeIbAccount(masterIbAccount),
+      master_ib_account: masterIbAccount === "" ? null : masterIbAccount,
+      required_books: canonicalBooks(requiredBooks),
     });
   };
 
@@ -343,17 +353,15 @@ export function CreateModelForm({
         <div style={{ gridColumn: "1 / -1" }}>
           <CreateField label="Model name" value={name} onChange={setName} placeholder="e.g. Model E — Global Macro" />
         </div>
-        <div>
-          <CreateField
-            label="Master IB Account"
-            value={masterIbAccount}
-            onChange={setMasterIbAccount}
-            placeholder="e.g. U1234567"
-          />
-          {masterIbAccount.trim() !== "" && !isValidIbAccount(masterIbAccount) && (
-            <div className="mt-1.5 text-[11.5px] font-semibold text-primary">{IB_ACCOUNT_HINT}</div>
-          )}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <RequiredBooksField value={requiredBooks} onChange={setRequiredBooks} />
         </div>
+        <MasterAccountField
+          value={masterIbAccount}
+          onChange={setMasterIbAccount}
+          options={masterOptions}
+          loading={mastersLoading}
+        />
         <CreateField
           label="Model size"
           value={size ? fmtMoney(Number(size)) : ""}

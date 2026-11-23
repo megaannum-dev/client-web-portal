@@ -13,6 +13,7 @@ vi.mock("@/app/(roles)/rm/model-subscription/actions", async (importOriginal) =>
     ...(await importOriginal<typeof import("@/app/(roles)/rm/model-subscription/actions")>()),
   submitAllotment: vi.fn().mockResolvedValue({ success: true, data: {} }),
   submitRedemption: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  fetchFreeAccounts: vi.fn().mockResolvedValue({ success: true, data: ["U1234567"] }),
 }));
 
 import { SubscriptionFormModal } from "@/components/rm/SubscriptionFormModal";
@@ -25,7 +26,7 @@ beforeEach(() => {
 });
 
 const CLIENTS = [{ id: "c1", name: "Acme" }];
-const MODELS = [{ id: "m1", name: "Model A", mgmtFee: "1.0%", incentiveFee: "10%", size: 120000 }];
+const MODELS = [{ id: "m1", name: "Model A", mgmtFee: "1.0%", incentiveFee: "10%", size: 120000, requiredBooks: ["dt" as const], master: "F1111111" }];
 
 describe("FE-5 new-subscription dropdowns render from props, not the mock fixture", () => {
   it("client select lists exactly availableClients, model select lists exactly availableModels", () => {
@@ -58,11 +59,15 @@ describe("FE-5 new-subscription dropdowns render from props, not the mock fixtur
     );
     fireEvent.change(screen.getByText("Select a client…").closest("select") as HTMLSelectElement, { target: { value: "c1" } });
     fireEvent.change(screen.getByText("Select a model…").closest("select") as HTMLSelectElement, { target: { value: "m1" } });
-    // IBHK Account ID only renders once a model is selected (new-subscription mode) and is required for submit.
-    fireEvent.change(screen.getByPlaceholderText("e.g. U1234567"), { target: { value: "U1234567" } });
+    const search = await screen.findByPlaceholderText("Search free accounts");
+    fireEvent.focus(search);
+    const account = await screen.findByRole("button", { name: "U1234567" });
+    fireEvent.mouseDown(account);
     fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: "2026-08-01" } });
     fireEvent.click(screen.getByRole("button", { name: /submit allotment/i }));
-    expect(actions.submitAllotment).toHaveBeenCalledWith(expect.objectContaining({ client_id: "c1", model_id: "m1", client_ib: "U1234567" }));
+    expect(actions.submitAllotment).toHaveBeenCalledWith(expect.objectContaining({
+      client_id: "c1", model_id: "m1", accounts: { dt: "U1234567" },
+    }));
   });
 });
 
