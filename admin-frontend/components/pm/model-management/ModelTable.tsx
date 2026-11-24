@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Eye, Upload, Download } from "@/lib/icons";
 import { StatusChip, Ticks } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
+import { formatFeePercent } from "@/lib/fee";
 import type { Model } from "@/lib/pm/types";
 
 type Tab = "overview" | "materials" | "changes";
@@ -38,8 +39,8 @@ function ModelTr({
       <td className={`${td} text-right font-bold tabular-nums`}>{fmtMoney(m.size)}</td>
       <td className={td}>{m.category.length > 0 ? <Ticks symbols={m.category} /> : <span className="text-secondary">—</span>}</td>
       <td className={td}><Ticks symbols={m.symbols} onSymbol={(s) => onOpenSymbols(m.id, s)} /></td>
-      <td className={`${td} text-right font-bold tabular-nums`}>{m.mgmt}%</td>
-      <td className={`${td} text-right font-bold tabular-nums`}>{m.incentive}%</td>
+      <td className={`${td} text-right font-bold tabular-nums`}>{formatFeePercent(m.mgmt)}%</td>
+      <td className={`${td} text-right font-bold tabular-nums`}>{formatFeePercent(m.incentive)}%</td>
       <td className={td}>
         <span
           onClick={(e) => { e.stopPropagation(); onOpen(m.id, "materials"); }}

@@ -3,6 +3,7 @@
 import { Chip } from "@/components/ui/Chip";
 import { StatusChip, Ticks, VerBadge } from "@/components/pm/Shared";
 import { fmtMoney } from "@/lib/pm/format";
+import { formatFeePercent } from "@/lib/fee";
 import type { Model } from "@/lib/pm/types";
 
 type Tab = "overview" | "materials" | "changes";
@@ -35,8 +36,8 @@ function ModelCard({
         {m.category.length > 0
           ? m.category.map((c) => <Chip key={c} tone="active" dot={false}>{c}</Chip>)
           : <Chip tone="active" dot={false}>—</Chip>}
-        <Chip tone="warm" dot={false}>Mgmt {m.mgmt}%</Chip>
-        <Chip tone="neutral" dot={false}>Incentive {m.incentive}%</Chip>
+        <Chip tone="warm" dot={false}>Mgmt {formatFeePercent(m.mgmt)}%</Chip>
+        <Chip tone="neutral" dot={false}>Incentive {formatFeePercent(m.incentive)}%</Chip>
       </div>
       <Ticks symbols={m.symbols} onSymbol={(s) => onOpenSymbols(m.id, s)} />
       <div className="flex items-center justify-end gap-2.5 border-t border-outline-variant pt-[13px]">
