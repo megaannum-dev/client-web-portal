@@ -444,6 +444,7 @@
       "valid_amount": "請輸入有效的金額。",
       "minimum_allotment": "最低申購額為 {{amount}}。",
       "valid_multiplier": "請輸入有效的倍數。",
+      "multiplier_exceeds_holding": "不可超過目前持有的 {{units}} 個單位。",
       "confirm_rm": "請確認您已諮詢您的客戶經理。",
       "valid_redemption_amount": "請輸入有效的贖回金額。",
       "enter_subject": "請輸入主旨。",

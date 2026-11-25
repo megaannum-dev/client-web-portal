@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import {
@@ -17,11 +17,17 @@ import { useRecommendedModels } from "@/lib/hooks/useRecommendedModels";
 import { submitTicket, type ClientRequestDTO, type RaiseTicketReq } from "@/lib/api/tickets";
 import type { RecommendedModelDTO } from "@/lib/api/models";
 import type { PositionDTO } from "@/lib/api/portfolio";
+import { multiplierIssue, nextMultiplier } from "@/lib/multiplierInput";
 
 const currencyFmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
 // ── Shared form utilities ─────────────────────────────────────────────────────
+
+
+function blockNonIntegerKeys(e: KeyboardEvent<HTMLInputElement>) {
+  if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
+}
 
 function fieldCls(err?: string) {
   return clsx(
@@ -42,7 +48,7 @@ function AllotmentForm({ onClose, onConfirm }: {
   const { data: models } = useRecommendedModels(true);
   const { data: portfolio } = usePortfolio();
   const [selectedModel, setSelectedModel] = useState<RecommendedModelDTO | null>(null);
-  const [multiplier,    setMultiplier]    = useState("1.0");
+  const [multiplier,    setMultiplier]    = useState("1");
   const cashOption = t("ticket.cash_balance", {
     amount: portfolio ? currencyFmt(portfolio.cash_deposit) : "—",
   });
@@ -54,16 +60,16 @@ function AllotmentForm({ onClose, onConfirm }: {
   const [submitting,    setSubmitting]    = useState(false);
 
   const notional = (selectedModel?.model_size ?? 0) * (parseFloat(multiplier) || 0);
+  const multiplierMsg =
+    multiplierIssue(multiplier) === "invalid" ? t("ticket.errors.valid_multiplier") : "";
 
   function validate() {
     const e: Record<string, string> = {};
     if (!selectedModel)                          e.model      = t("ticket.errors.select_model");
-    const mul = parseFloat(multiplier);
-    if (!multiplier || isNaN(mul) || mul <= 0)   e.multiplier = t("ticket.errors.valid_multiplier");
     if (!subject.trim())                         e.subject    = t("ticket.errors.enter_subject");
     if (!description.trim())                     e.description = t("ticket.errors.describe_request");
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return Object.keys(e).length === 0 && !multiplierMsg;
   }
 
   async function handleSubmit() {
@@ -120,12 +126,13 @@ function AllotmentForm({ onClose, onConfirm }: {
       {/* Multiplier */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="allotment-multiplier" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
-        <input id="allotment-multiplier" type="number" min={0} step={0.1} placeholder="1.0" value={multiplier}
-          onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
-          className={fieldCls(errors.multiplier)}
-          aria-invalid={!!errors.multiplier}
-          aria-describedby={errors.multiplier ? "allotment-multiplier-error" : undefined} />
-        {errors.multiplier && <p id="allotment-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+        <input id="allotment-multiplier" type="number" min={1} step={1} placeholder="1" value={multiplier}
+          onKeyDown={blockNonIntegerKeys}
+          onChange={(e) => { const next = nextMultiplier(e.target.value); if (next !== null) setMultiplier(next); }}
+          className={fieldCls(multiplierMsg)}
+          aria-invalid={!!multiplierMsg}
+          aria-describedby={multiplierMsg ? "allotment-multiplier-error" : undefined} />
+        {multiplierMsg && <p id="allotment-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{multiplierMsg}</p>}
       </div>
 
       {/* Computed notional summary */}
@@ -184,7 +191,7 @@ function AllotmentForm({ onClose, onConfirm }: {
             className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
-          <button type="button" onClick={handleSubmit} disabled={submitting}
+          <button type="button" onClick={handleSubmit} disabled={submitting || !!multiplierMsg}
             className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_allotment")}
           </button>
@@ -206,7 +213,7 @@ function RedemptionForm({ onClose, onConfirm }: {
   const positions = portfolio?.positions ?? [];
   const [selectedModel, setSelectedModel] = useState<PositionDTO | null>(null);
   const [redeemAll,   setRedeemAll]   = useState(false);
-  const [multiplier,  setMultiplier]  = useState("1.0");
+  const [multiplier,  setMultiplier]  = useState("1");
   const [returnTo,    setReturnTo]    = useState("Cash Balance");
   const [subject,     setSubject]     = useState("");
   const [description, setDescription] = useState("");
@@ -217,18 +224,22 @@ function RedemptionForm({ onClose, onConfirm }: {
   const notional = redeemAll
     ? (selectedModel?.amount ?? 0)
     : (selectedModel?.model_size ?? 0) * (parseFloat(multiplier) || 0);
+  const heldUnits = selectedModel?.units;
+  const redemptionIssue = redeemAll ? null : multiplierIssue(multiplier, heldUnits);
+  const multiplierMsg =
+    redemptionIssue === "exceeds"
+      ? t("ticket.errors.multiplier_exceeds_holding", { units: heldUnits })
+      : redemptionIssue === "invalid"
+        ? t("ticket.errors.valid_multiplier")
+        : "";
 
   function validate() {
     const e: Record<string, string> = {};
     if (!selectedModel) e.model = t("ticket.errors.select_model");
-    if (!redeemAll) {
-      const mul = parseFloat(multiplier);
-      if (!multiplier || isNaN(mul) || mul <= 0) e.multiplier = t("ticket.errors.valid_multiplier");
-    }
     if (!subject.trim())     e.subject     = t("ticket.errors.enter_subject");
     if (!description.trim()) e.description = t("ticket.errors.describe_request");
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return Object.keys(e).length === 0 && !multiplierMsg;
   }
 
   async function handleSubmit() {
@@ -306,7 +317,7 @@ function RedemptionForm({ onClose, onConfirm }: {
                   active ? "border-primary bg-primary/5 text-on-surface" : "border-outline-variant text-secondary hover:border-primary/50",
                 )}>
                 <input type="radio" name="redemptionType" checked={active}
-                  onChange={() => { setRedeemAll(opt.id === "Redeem All"); setErrors((p) => ({ ...p, multiplier: "" })); }}
+                  onChange={() => setRedeemAll(opt.id === "Redeem All")}
                   className="accent-primary w-4 h-4 shrink-0" />
                 {opt.label}
               </label>
@@ -318,12 +329,13 @@ function RedemptionForm({ onClose, onConfirm }: {
       {/* Multiplier */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="redemption-multiplier" className="text-label-md font-semibold uppercase tracking-[0.05em] text-secondary">{t("ticket.multiplier")}</label>
-        <input id="redemption-multiplier" type="number" min={0} step={0.1} placeholder="1.0" value={redeemAll ? "" : multiplier} disabled={redeemAll}
-          onChange={(e) => { setMultiplier(e.target.value); setErrors((p) => ({ ...p, multiplier: "" })); }}
-          className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(errors.multiplier))}
-          aria-invalid={!!errors.multiplier}
-          aria-describedby={errors.multiplier ? "redemption-multiplier-error" : undefined} />
-        {errors.multiplier && <p id="redemption-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{errors.multiplier}</p>}
+        <input id="redemption-multiplier" type="number" min={1} step={1} max={heldUnits} placeholder="1" value={redeemAll ? "" : multiplier} disabled={redeemAll}
+          onKeyDown={blockNonIntegerKeys}
+          onChange={(e) => { const next = nextMultiplier(e.target.value); if (next !== null) setMultiplier(next); }}
+          className={clsx("disabled:bg-surface-container disabled:text-secondary disabled:cursor-not-allowed", fieldCls(multiplierMsg))}
+          aria-invalid={!!multiplierMsg}
+          aria-describedby={multiplierMsg ? "redemption-multiplier-error" : undefined} />
+        {multiplierMsg && <p id="redemption-multiplier-error" role="alert" className="flex items-center gap-1 text-[11px] font-semibold text-error"><AlertCircle size={11} strokeWidth={2} />{multiplierMsg}</p>}
       </div>
 
       {/* Computed notional summary */}
@@ -387,7 +399,7 @@ function RedemptionForm({ onClose, onConfirm }: {
             className="px-5 py-2.5 text-body-sm font-semibold text-on-surface rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("common.cancel")}
           </button>
-          <button type="button" onClick={handleSubmit} disabled={submitting}
+          <button type="button" onClick={handleSubmit} disabled={submitting || !!multiplierMsg}
             className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-body-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/40">
             {t("ticket.submit_redemption")}
           </button>

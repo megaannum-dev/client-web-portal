@@ -443,6 +443,7 @@
       "valid_amount": "Please enter a valid amount.",
       "minimum_allotment": "Minimum allotment is {{amount}}.",
       "valid_multiplier": "Please enter a valid multiplier.",
+      "multiplier_exceeds_holding": "Cannot redeem more than {{units}} unit(s) currently held.",
       "confirm_rm": "Please confirm you have consulted your RM.",
       "valid_redemption_amount": "Please enter a valid redemption amount.",
       "enter_subject": "Please enter a subject.",
