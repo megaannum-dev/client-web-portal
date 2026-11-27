@@ -92,7 +92,7 @@ export function DeactivateModal({ user: u, onClose }: { user: StaffOut; onClose:
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <span className="ml-auto">
-            <Button icon={Ban} disabled={needsHandover && !to} onClick={async () => {
+            <Button icon={Ban} disabled={!why.trim() || (needsHandover && !to)} onClick={async () => {
               const ok = await updateStaff(u.firebase_uid, {
                 status: "DEACTIVATED",
                 deactivate_reason: why.trim() || null,
